@@ -738,6 +738,8 @@ UICommon_QT_MOCHDRS = \
 	src/md3/UIMd3Language.h \
 	src/md3/UIMd3Theme.h \
 	src/md3/UIMd3Style.h \
+	src/md3/UIMd3RegexBuilder.h \
+	src/md3/UIMd3SearchField.h \
 	src/VBoxAboutDlg.h \
 	src/VBoxLicenseViewer.h \
 	src/UITakeSnapshotDialog.h \
@@ -1327,6 +1329,8 @@ UICommon_SOURCES = \
 	src/md3/UIMd3Language.cpp \
 	src/md3/UIMd3Theme.cpp \
 	src/md3/UIMd3Style.cpp \
+	src/md3/UIMd3RegexBuilder.cpp \
+	src/md3/UIMd3SearchField.cpp \
 	src/extensions/QIAdvancedSlider.cpp \
 	src/extensions/QIArrowButtonPress.cpp \
 	src/extensions/QIArrowButtonSwitch.cpp \

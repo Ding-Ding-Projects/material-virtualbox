@@ -6,9 +6,9 @@ machine models, action pools, and kBuild targets intact while moving the
 application-owned presentation toward one coherent Qt 6 design system.
 
 > **Implementation status:** the shared theme, style, language, persisted brand,
-> native manager title bar, and manager navigation rail are wired into the
-> existing VirtualBox frontend. Settings, wizard, tool, notification, and
-> runtime shells remain in progress. Build and release claims below are
+> native manager title bar, manager navigation rail, and the shared settings
+> search/regex field are wired into the existing VirtualBox frontend. Wizard,
+> tool, notification, and runtime shells remain in progress. Build and release claims below are
 > deliberately bounded.
 
 ## Contents

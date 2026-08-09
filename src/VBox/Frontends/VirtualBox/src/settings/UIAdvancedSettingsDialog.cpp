@@ -72,6 +72,7 @@
 #include "UISettingsWarningPane.h"
 #include "UIShortcutPool.h"
 #include "UITranslationEventListener.h"
+#include "UIMd3SearchField.h"
 
 
 /** QCheckBox subclass used as mode checkbox. */
@@ -1440,7 +1441,8 @@ void UIAdvancedSettingsDialog::sltApplyFilteringRules()
     foreach (UISettingsPageFrame *pFrame, m_frames.values())
         pFrame->filterOut(m_pCheckBoxMode->isChecked(),
                           m_pEditorFilter->text(),
-                          m_flags);
+                          m_flags,
+                          m_pEditorFilter->regex());
 
     /* Make sure current page chosen again: */
     /// @todo fix this WORKAROUND properly!
@@ -1573,10 +1575,10 @@ void UIAdvancedSettingsDialog::prepareSelector()
         m_pLayoutMain->addWidget(m_pSelector->widget(), 1, 0);
 
     /* Prepare filter editor: */
-    m_pEditorFilter = new UIFilterEditor(centralWidget());
+    m_pEditorFilter = new UIMd3SearchField(QStringLiteral("settings"), tr("Search settings"), centralWidget());
     if (m_pEditorFilter)
     {
-        connect(m_pEditorFilter, &UIFilterEditor::sigTextChanged,
+        connect(m_pEditorFilter, &UIMd3SearchField::sigFilterChanged,
                 this, &UIAdvancedSettingsDialog::sltApplyFilteringRules);
         m_pLayoutMain->addWidget(m_pEditorFilter, 0, 2);
     }

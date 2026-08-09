@@ -46,6 +46,7 @@ class QStackedWidget;
 class QTimer;
 class QIDialogButtonBox;
 class UIFilterEditor;
+class UIMd3SearchField;
 class UIModeCheckBox;
 class UINotificationCenter;
 class UIPopupCenter;
@@ -307,7 +308,7 @@ private:
         UIModeCheckBox *m_pCheckBoxMode;
 
         /** Holds the filter editor instance. */
-        UIFilterEditor *m_pEditorFilter;
+        UIMd3SearchField *m_pEditorFilter;
 
         /** Holds the scroll-area instance. */
         UIVerticalScrollArea *m_pScrollArea;

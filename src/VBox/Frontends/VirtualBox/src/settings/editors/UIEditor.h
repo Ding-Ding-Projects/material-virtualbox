@@ -34,6 +34,7 @@
 /* Qt includes: */
 #include <QWidget>
 #include <QMap>
+#include <QRegularExpression>
 #include <QVariant>
 
 /* GUI includes: */
@@ -73,6 +74,11 @@ public:
     virtual void filterOut(bool fExpertMode,
                            const QString &strFilter,
                            const QMap<QString, QVariant> &flags);
+    /** Filters contents using a validated regex when it is valid. */
+    virtual void filterOut(bool fExpertMode,
+                           const QString &strFilter,
+                           const QMap<QString, QVariant> &flags,
+                           const QRegularExpression &regex);
 
 protected slots:
 

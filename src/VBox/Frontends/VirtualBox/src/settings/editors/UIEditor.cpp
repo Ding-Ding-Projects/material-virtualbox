@@ -65,6 +65,13 @@ void UIEditor::addEditor(UIEditor *pEditor)
 
 void UIEditor::filterOut(bool fExpertMode, const QString &strFilter, const QMap<QString, QVariant> &flags)
 {
+    filterOut(fExpertMode, strFilter, flags, QRegularExpression());
+}
+
+void UIEditor::filterOut(bool fExpertMode, const QString &strFilter,
+                         const QMap<QString, QVariant> &flags,
+                         const QRegularExpression &regex)
+{
     /* Save if editor is in expert mode: */
     m_fInExpertMode = fExpertMode;
     /* Save editor's optional flags: */
@@ -72,10 +79,11 @@ void UIEditor::filterOut(bool fExpertMode, const QString &strFilter, const QMap<
 
     /* Propagate filter towards all the children: */
     foreach (UIEditor *pEditor, m_editors)
-        pEditor->filterOut(m_fInExpertMode, strFilter, m_flags);
+        pEditor->filterOut(m_fInExpertMode, strFilter, m_flags, regex);
 
     /* Make sure the editor is visible if mode and filter are suitable: */
-    bool fVisible = (m_fInExpertMode || m_fShowInBasicMode) && strFilter.isEmpty();
+    const bool fFilterMatches = !regex.isValid() && strFilter.isEmpty();
+    bool fVisible = (m_fInExpertMode || m_fShowInBasicMode) && fFilterMatches;
 
     /* If editor still hidden we'll need to make it
      * visible if at least one of children is. */
@@ -94,7 +102,9 @@ void UIEditor::filterOut(bool fExpertMode, const QString &strFilter, const QMap<
     if (!fVisible && (m_fInExpertMode || m_fShowInBasicMode))
     {
         foreach (const QString &strDescription, description())
-            if (strDescription.contains(strFilter, Qt::CaseInsensitive))
+            if (regex.isValid()
+                    ? regex.match(strDescription).hasMatch()
+                    : strDescription.contains(strFilter, Qt::CaseInsensitive))
             {
                 fVisible = true;
                 break;
