@@ -37,6 +37,7 @@
 #include <QMenuBar>
 #include <QProcess>
 #include <QPushButton>
+#include <QShortcut>
 #include <QStandardPaths>
 #include <QStatusBar>
 #include <QStyle>
@@ -85,6 +86,7 @@
 #include "UITranslationEventListener.h"
 #include "UIVirtualBoxManager.h"
 #include "UIMd3ManagerHeader.h"
+#include "UIMd3CommandPalette.h"
 #include "UIMd3Theme.h"
 #include "UIVirtualBoxWidget.h"
 #include "UIVirtualMachineItemCloud.h"
@@ -618,6 +620,7 @@ UIVirtualBoxManager::UIVirtualBoxManager()
 
 UIVirtualBoxManager::~UIVirtualBoxManager()
 {
+    UIMd3CommandPalette::unregisterSource(QStringLiteral("manager"));
     s_pInstance = 0;
 }
 
@@ -2625,6 +2628,25 @@ void UIVirtualBoxManager::prepareWidgets()
 
 void UIVirtualBoxManager::prepareConnections()
 {
+    QShortcut *pCommandPaletteShortcut = new QShortcut(QKeySequence(Qt::CTRL | Qt::SHIFT | Qt::Key_F), this);
+    pCommandPaletteShortcut->setContext(Qt::ApplicationShortcut);
+    connect(pCommandPaletteShortcut, &QShortcut::activated, this, [this]()
+    {
+        UIMd3CommandPalette::showPalette(this);
+    });
+    UIMd3CommandPalette::registerCommand(UIMd3Command(tr("Open global preferences"),
+                                                       tr("Manager"),
+                                                       [this]() { sltOpenPreferencesDialog(); }));
+    UIMd3CommandPalette::registerCommand(UIMd3Command(tr("Create a new virtual machine"),
+                                                       tr("Manager"),
+                                                       [this]() { sltOpenNewMachineWizard(); }));
+    UIMd3CommandPalette::registerCommand(UIMd3Command(tr("Open virtual media manager"),
+                                                       tr("Manager"),
+                                                       [this]() { sltOpenManagerWindow(UIToolType_Media); }));
+    UIMd3CommandPalette::registerCommand(UIMd3Command(tr("Import an appliance"),
+                                                       tr("Manager"),
+                                                       [this]() { sltOpenImportApplianceWizard(); }));
+
 #ifdef VBOX_WS_NIX
     /* Desktop event handlers: */
     connect(gpDesktop, &UIDesktopWidgetWatchdog::sigHostScreenWorkAreaResized,
