@@ -46,6 +46,7 @@ class UIChooser;
 class UIGlobalToolsWidget;
 class UIMachineToolsWidget;
 class UIToolPane;
+class UIMd3TabStrip;
 class UIVirtualBoxManager;
 class UIVirtualMachineItem;
 
@@ -294,6 +295,9 @@ private:
 
     /** Holds the main toolbar instance. */
     QIToolBar *m_pToolBar;
+
+    /** Holds the Material 3 workspace tab strip. */
+    UIMd3TabStrip *m_pTabStrip;
 
     /** Holds the Global Tools Widget instance. */
     UIGlobalToolsWidget *m_pGlobalToolsWidget;

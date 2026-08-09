@@ -86,6 +86,18 @@ void UIGlobalToolsWidget::setMenuToolType(UIToolType enmType)
     toolMenu()->setToolsType(enmType);
 }
 
+bool UIGlobalToolsWidget::isMenuToolEnabled(UIToolType enmType) const
+{
+    if (!chooser() || !gEDataManager)
+        return enmType == UIToolType_Home;
+    if (enmType == UIToolType_Machines && chooser()->isNavigationListEmpty())
+        return false;
+    if (!gEDataManager->isSettingsInExpertMode()
+        && (enmType == UIToolType_Media || enmType == UIToolType_Network))
+        return false;
+    return true;
+}
+
 UIToolType UIGlobalToolsWidget::toolType() const
 {
     AssertPtrReturn(toolPane(), UIToolType_Invalid);

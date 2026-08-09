@@ -27,6 +27,7 @@
 
 /* Qt includes: */
 #include <QApplication>
+#include <QHash>
 #include <QStyle>
 #include <QToolButton>
 #include <QVBoxLayout>
@@ -47,6 +48,8 @@
 #include "UIVirtualBoxManager.h"
 #include "UIVirtualBoxWidget.h"
 #include "UIVirtualMachineItem.h"
+#include "UIMd3Language.h"
+#include "UIMd3TabStrip.h"
 
 /* COM includes: */
 #include "CSystemProperties.h"
@@ -55,6 +58,7 @@
 UIVirtualBoxWidget::UIVirtualBoxWidget(UIVirtualBoxManager *pParent)
     : m_pActionPool(pParent->actionPool())
     , m_pToolBar(0)
+    , m_pTabStrip(0)
     , m_pGlobalToolsWidget(0)
 {
     prepare();
@@ -353,6 +357,39 @@ void UIVirtualBoxWidget::prepareWidgets()
         m_pGlobalToolsWidget = new UIGlobalToolsWidget(this, actionPool());
         if (globalToolsWidget())
         {
+            UIMd3Language *pLanguage = UIMd3Language::instance();
+            if (pLanguage)
+            {
+                pLanguage->registerText(QStringLiteral("md3.tab.home"), QStringLiteral("Home"), QStringLiteral("主頁"));
+                pLanguage->registerText(QStringLiteral("md3.tab.machines"), QStringLiteral("Machines"), QStringLiteral("虛擬機"));
+                pLanguage->registerText(QStringLiteral("md3.tab.media"), QStringLiteral("Media"), QStringLiteral("媒體"));
+                pLanguage->registerText(QStringLiteral("md3.tab.network"), QStringLiteral("Network"), QStringLiteral("網絡"));
+                pLanguage->registerText(QStringLiteral("md3.tab.cloud"), QStringLiteral("Cloud"), QStringLiteral("雲端"));
+                pLanguage->registerText(QStringLiteral("md3.tab.resources"), QStringLiteral("Resources"), QStringLiteral("資源"));
+                pLanguage->registerText(QStringLiteral("md3.tab.extensions"), QStringLiteral("Extensions"), QStringLiteral("擴充功能"));
+            }
+            const auto tabText = [pLanguage](const QString &strKey, const QString &strFallback)
+            {
+                return pLanguage ? pLanguage->text(strKey) : strFallback;
+            };
+            m_pTabStrip = new UIMd3TabStrip(this);
+            if (m_pTabStrip)
+            {
+                const QString strRestoredTab = m_pTabStrip->currentTabId();
+                m_pTabStrip->openTab(QStringLiteral("global/home"), tabText(QStringLiteral("md3.tab.home"), QStringLiteral("Home")));
+                m_pTabStrip->openTab(QStringLiteral("global/machines"), tabText(QStringLiteral("md3.tab.machines"), QStringLiteral("Machines")));
+                m_pTabStrip->openTab(QStringLiteral("global/media"), tabText(QStringLiteral("md3.tab.media"), QStringLiteral("Media")));
+                m_pTabStrip->openTab(QStringLiteral("global/network"), tabText(QStringLiteral("md3.tab.network"), QStringLiteral("Network")));
+                m_pTabStrip->openTab(QStringLiteral("global/cloud"), tabText(QStringLiteral("md3.tab.cloud"), QStringLiteral("Cloud")));
+                m_pTabStrip->openTab(QStringLiteral("global/resources"), tabText(QStringLiteral("md3.tab.resources"), QStringLiteral("Resources")));
+                m_pTabStrip->openTab(QStringLiteral("global/extensions"), tabText(QStringLiteral("md3.tab.extensions"), QStringLiteral("Extensions")));
+                /* Restore the persisted active tab after the static manager tabs are populated. */
+                if (!strRestoredTab.isEmpty())
+                    m_pTabStrip->setCurrentTabId(strRestoredTab);
+                if (strRestoredTab.isEmpty() || m_pTabStrip->currentTabId() != strRestoredTab)
+                    m_pTabStrip->setCurrentTabId(QStringLiteral("global/home"));
+                pLayout->addWidget(m_pTabStrip);
+            }
             /* Add into layout: */
             pLayout->addWidget(globalToolsWidget());
         }
@@ -427,6 +464,95 @@ void UIVirtualBoxWidget::prepareConnections()
             this, &UIVirtualBoxWidget::sltUpdateToolbar);
     connect(globalToolsWidget(), &UIGlobalToolsWidget::sigToolTypeChange,
             this, &UIVirtualBoxWidget::sigToolTypeChangeGlobal);
+    if (m_pTabStrip)
+    {
+        if (UIMd3Language::instance())
+            connect(UIMd3Language::instance(), &UIMd3Language::sigLanguageChanged,
+                    this, [this]()
+            {
+                UIMd3Language *pLanguage = UIMd3Language::instance();
+                if (!pLanguage)
+                    return;
+                m_pTabStrip->setTabLabel(QStringLiteral("global/home"), pLanguage->text(QStringLiteral("md3.tab.home")));
+                m_pTabStrip->setTabLabel(QStringLiteral("global/machines"), pLanguage->text(QStringLiteral("md3.tab.machines")));
+                m_pTabStrip->setTabLabel(QStringLiteral("global/media"), pLanguage->text(QStringLiteral("md3.tab.media")));
+                m_pTabStrip->setTabLabel(QStringLiteral("global/network"), pLanguage->text(QStringLiteral("md3.tab.network")));
+                m_pTabStrip->setTabLabel(QStringLiteral("global/cloud"), pLanguage->text(QStringLiteral("md3.tab.cloud")));
+                m_pTabStrip->setTabLabel(QStringLiteral("global/resources"), pLanguage->text(QStringLiteral("md3.tab.resources")));
+                m_pTabStrip->setTabLabel(QStringLiteral("global/extensions"), pLanguage->text(QStringLiteral("md3.tab.extensions")));
+            });
+        connect(m_pTabStrip, &UIMd3TabStrip::sigCurrentChanged,
+                this, [this](const QString &strId)
+        {
+            const QHash<QString, UIToolType> map =
+            {
+                { QStringLiteral("global/home"), UIToolType_Home },
+                { QStringLiteral("global/machines"), UIToolType_Machines },
+                { QStringLiteral("global/media"), UIToolType_Media },
+                { QStringLiteral("global/network"), UIToolType_Network },
+                { QStringLiteral("global/cloud"), UIToolType_Cloud },
+                { QStringLiteral("global/resources"), UIToolType_Resources },
+                { QStringLiteral("global/extensions"), UIToolType_Extensions }
+            };
+            if (strId.isEmpty())
+            {
+                const UIMd3Language *pLanguage = UIMd3Language::instance();
+                m_pTabStrip->openTab(QStringLiteral("global/home"),
+                                     pLanguage ? pLanguage->text(QStringLiteral("md3.tab.home"))
+                                               : QStringLiteral("Home"));
+                m_pTabStrip->setCurrentTabId(QStringLiteral("global/home"));
+            }
+            else if (map.contains(strId))
+                globalToolsWidget()->setMenuToolType(map.value(strId));
+        });
+        connect(globalToolsWidget(), &UIGlobalToolsWidget::sigToolTypeChange,
+                this, [this]()
+        {
+            const QHash<UIToolType, QString> map =
+            {
+                { UIToolType_Home, QStringLiteral("global/home") },
+                { UIToolType_Machines, QStringLiteral("global/machines") },
+                { UIToolType_Media, QStringLiteral("global/media") },
+                { UIToolType_Network, QStringLiteral("global/network") },
+                { UIToolType_Cloud, QStringLiteral("global/cloud") },
+                { UIToolType_Resources, QStringLiteral("global/resources") },
+                { UIToolType_Extensions, QStringLiteral("global/extensions") }
+            };
+            if (map.contains(globalToolsWidget()->menuToolType()))
+                m_pTabStrip->setCurrentTabId(map.value(globalToolsWidget()->menuToolType()));
+        });
+        const QHash<QString, UIToolType> tabTypes =
+        {
+            { QStringLiteral("global/home"), UIToolType_Home },
+            { QStringLiteral("global/machines"), UIToolType_Machines },
+            { QStringLiteral("global/media"), UIToolType_Media },
+            { QStringLiteral("global/network"), UIToolType_Network },
+            { QStringLiteral("global/cloud"), UIToolType_Cloud },
+            { QStringLiteral("global/resources"), UIToolType_Resources },
+            { QStringLiteral("global/extensions"), UIToolType_Extensions }
+        };
+        const auto refreshTabAvailability = [this, tabTypes]()
+        {
+            for (QHash<QString, UIToolType>::const_iterator it = tabTypes.constBegin();
+                 it != tabTypes.constEnd(); ++it)
+                m_pTabStrip->setTabEnabled(it.key(), globalToolsWidget()->isMenuToolEnabled(it.value()));
+        };
+        connect(globalToolsWidget(), &UIGlobalToolsWidget::sigToolMenuUpdate,
+                this, refreshTabAvailability);
+        refreshTabAvailability();
+        const QHash<QString, UIToolType> map =
+        {
+            { QStringLiteral("global/home"), UIToolType_Home },
+            { QStringLiteral("global/machines"), UIToolType_Machines },
+            { QStringLiteral("global/media"), UIToolType_Media },
+            { QStringLiteral("global/network"), UIToolType_Network },
+            { QStringLiteral("global/cloud"), UIToolType_Cloud },
+            { QStringLiteral("global/resources"), UIToolType_Resources },
+            { QStringLiteral("global/extensions"), UIToolType_Extensions }
+        };
+        if (map.contains(m_pTabStrip->currentTabId()))
+            globalToolsWidget()->setMenuToolType(map.value(m_pTabStrip->currentTabId()));
+    }
     /* Global Tool Pane connections: */
     connect(globalToolPane(), &UIToolPane::sigHomeTask,
             this, &UIVirtualBoxWidget::sigHomeTask);
@@ -716,6 +842,11 @@ void UIVirtualBoxWidget::cleanupConnections()
                this, &UIVirtualBoxWidget::sltUpdateToolbar);
     disconnect(globalToolsWidget(), &UIGlobalToolsWidget::sigToolTypeChange,
                this, &UIVirtualBoxWidget::sigToolTypeChangeGlobal);
+    disconnect(globalToolsWidget(), nullptr, this, nullptr);
+    if (m_pTabStrip)
+        disconnect(m_pTabStrip, nullptr, this, nullptr);
+    if (UIMd3Language::instance())
+        disconnect(UIMd3Language::instance(), nullptr, this, nullptr);
     /* Global Tool Pane connections: */
     disconnect(globalToolPane(), &UIToolPane::sigHomeTask,
                this, &UIVirtualBoxWidget::sigHomeTask);

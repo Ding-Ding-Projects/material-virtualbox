@@ -86,6 +86,8 @@ public:
         UIToolType menuToolType() const;
         /** Defines menu tool @a enmType. */
         void setMenuToolType(UIToolType enmType);
+        /** Returns whether @a enmType is available under the current restrictions. */
+        bool isMenuToolEnabled(UIToolType enmType) const;
 
         /** Returns pane tool type. */
         UIToolType toolType() const;

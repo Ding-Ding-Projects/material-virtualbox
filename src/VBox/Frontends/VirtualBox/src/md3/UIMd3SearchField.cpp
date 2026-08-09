@@ -17,6 +17,7 @@
 UIMd3SearchField::UIMd3SearchField(const QString &strFieldId, const QString &strPlaceholder, QWidget *pParent)
     : QWidget(pParent)
     , m_strFieldId(strFieldId)
+    , m_strPlaceholder(strPlaceholder)
     , m_pEditor(0)
     , m_pBuilderButton(0)
     , m_fRegexActive(false)
@@ -39,6 +40,7 @@ void UIMd3SearchField::setText(const QString &strText)
 
 void UIMd3SearchField::setPlaceholderText(const QString &strText)
 {
+    m_strPlaceholder = strText;
     if (m_pEditor)
     {
         m_pEditor->setPlaceholderText(strText);
@@ -119,7 +121,7 @@ void UIMd3SearchField::prepare()
     m_pEditor = new QLineEdit(this);
     m_pEditor->setClearButtonEnabled(true);
     m_pEditor->setMaxLength(4096);
-    m_pEditor->setPlaceholderText(tr("Search settings"));
+    m_pEditor->setPlaceholderText(m_strPlaceholder);
     pLayout->addWidget(m_pEditor, 1);
     m_pBuilderButton = new QToolButton(this);
     m_pBuilderButton->setText(QStringLiteral(".*"));

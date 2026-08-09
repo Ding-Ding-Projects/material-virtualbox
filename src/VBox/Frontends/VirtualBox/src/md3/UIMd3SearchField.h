@@ -64,6 +64,7 @@ private:
     static QRegularExpression::PatternOptions patternOptions(const QString &strFlags);
 
     QString m_strFieldId;
+    QString m_strPlaceholder;
     QLineEdit *m_pEditor;
     QToolButton *m_pBuilderButton;
     bool m_fRegexActive;

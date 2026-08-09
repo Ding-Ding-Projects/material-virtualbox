@@ -6,9 +6,10 @@ machine models, action pools, and kBuild targets intact while moving the
 application-owned presentation toward one coherent Qt 6 design system.
 
 > **Implementation status:** the shared theme, style, language, persisted brand,
-> native manager title bar, manager navigation rail, and the shared settings
-> search/regex field are wired into the existing VirtualBox frontend. Wizard,
-> tool, notification, and runtime shells remain in progress. Build and release claims below are
+> native manager title bar, manager navigation rail, manager tab strip, command
+> palette, appearance editor, and the shared settings search/regex field are
+> wired into the existing VirtualBox frontend. Wizard, tool, notification, and
+> runtime shells remain in progress. Build and release claims below are
 > deliberately bounded.
 
 ## Contents
@@ -73,6 +74,14 @@ must select the existing `UIToolType` models, preserve expert-mode restrictions,
 show keyboard focus, and reflect the active theme. A capture that cannot show
 those live behaviors is not accepted as GUI proof.
 
+The manager tab strip is documented in
+[`doc/md3/TabNavigation.md`](doc/md3/TabNavigation.md). It delegates tab
+selection to the existing global-tools model, persists groups/pins/current
+selection through VirtualBox extra data for the manager surface, and keeps
+empty bulk-close queries safe. The four tab-discovery searches, surface-scoped
+persistence, full overflow/reordering UI, and runtime tab adoption remain open
+design-coverage lanes.
+
 The handoff requires accounting for all 69 archive entries. The maintained
 ledger is [`doc/md3/DesignCoverage.md`](doc/md3/DesignCoverage.md), with its
 reproducible hash list in [`doc/md3/ArchiveManifest.sha256`](doc/md3/ArchiveManifest.sha256).
@@ -100,6 +109,9 @@ This is one VirtualBox frontend, not a parallel demo application.
 - **Bundled assets:** the manager rail consumes the checked-in MD3 icon set
   through `src/md3/UIMd3Icons.qrc`, with a deterministic Qt standard-icon
   fallback if an individual resource cannot be loaded.
+- **Tabbed manager navigation:** `UIMd3TabStrip` presents the global tools as
+  browser-style tabs while preserving the existing `UIToolType` authority and
+  using the shared UICommon extra-data persistence path.
 - **Persistence:** use VirtualBox extra data and existing settings APIs. Do
   not introduce a second preferences database.
 
