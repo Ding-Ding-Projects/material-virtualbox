@@ -139,12 +139,11 @@ this README.
 ## CI and Pages
 
 This mirror contains MD3 validation and GitHub Pages workflows under
-`.github/workflows/`. Validation run `31300200516` passed for commit
-`47590697262`, and Pages run `31300200492` (build job `93211644938`, deploy job
-`93211741695`) passed for the same commit; the published site at
-<https://ding-ding-projects.github.io/material-virtualbox/> returned HTTP 200.
-These are source-contract and static-site results, not proof that the native
-manager launched; the COM runtime boundary and real GUI capture remain open.
+`.github/workflows/`. Validation run `31301921195` and Pages run
+`31301921203` passed for commit `cd13222a1b5`; the published landing page and
+`SettingsSearch.md` article both returned HTTP 200. These are source-contract
+and static-site results, not proof that the native manager launched; the COM
+runtime boundary and real GUI capture remain open.
 
 When publication work is added, it must build from the intended commit, keep
 artifact and test evidence separate, publish only verified outputs, and expose
