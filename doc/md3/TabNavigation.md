@@ -96,8 +96,15 @@ VirtualBox models.
 The Material 3 validation workflow checks source/MOC/UICommon ownership, the
 four hand-written search-scope identifiers, independent per-group fields,
 regex flags, review/re-resolution behavior, scoped persistence, accessibility
-actions, width/target bounds, and overflow reveal. Local Windows builds compile
-and link `UICommon`, `VirtualBox`, and `VirtualBoxVM` against the same tree.
+actions, width/target bounds, and overflow reveal. Local Windows builds from
+exact source commit
+[`f29c7eb994d69c0e4ce69c5220110674ed9e846f`](https://github.com/Ding-Ding-Projects/material-virtualbox/commit/f29c7eb994d69c0e4ce69c5220110674ed9e846f)
+compiled and linked `UICommon`; `VirtualBox` and `VirtualBoxVM` were dependency
+current, and all three targets exited 0. Material 3 validation
+[run 31328160092](https://github.com/Ding-Ding-Projects/material-virtualbox/actions/runs/31328160092)
+and Pages [run 31328160088](https://github.com/Ding-Ding-Projects/material-virtualbox/actions/runs/31328160088)
+completed successfully; the deployed article returned HTTP 200 with the
+four-scope manager content.
 
 Remaining work includes drag reordering; group delete, reorder, and direct color
 surfaces; dockable left/right/top/bottom strip orientations; settings and

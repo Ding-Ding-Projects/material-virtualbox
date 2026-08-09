@@ -66,8 +66,14 @@ Material language keys; regular-expression syntax itself remains literal.
 
 ## Verification
 
-The native Windows `UICommon` build compiles and links the search field,
-builder, menu proxy, tab manager, and their Qt MOC output. The Material 3
+The native Windows `UICommon` build from exact source commit
+[`f29c7eb994d69c0e4ce69c5220110674ed9e846f`](https://github.com/Ding-Ding-Projects/material-virtualbox/commit/f29c7eb994d69c0e4ce69c5220110674ed9e846f)
+compiled and linked the search field, builder, menu proxy, tab manager, and
+their Qt MOC output with exit 0. Material 3 validation
+[run 31328160092](https://github.com/Ding-Ding-Projects/material-virtualbox/actions/runs/31328160092)
+and Pages [run 31328160088](https://github.com/Ding-Ding-Projects/material-virtualbox/actions/runs/31328160088)
+completed successfully; the deployed article returned HTTP 200 with the
+process-wide worker ceiling. The Material 3
 validation workflow maintains an explicit contract for every guided construct,
 input/result bound, worker-generation and timeout control, capture tree,
 copy/export path, focus boundary, and menu proxy. Native keyboard,
