@@ -10,6 +10,7 @@ This section records the native Qt implementation of the supplied Material Desig
 - The implementation starts with the shared theme lifecycle and persistence bridge, then composes manager, settings, wizard, tool, and runtime surfaces around their existing models and action pools.
 - [`NavigationRail.md`](NavigationRail.md) documents the first visible manager shell integration and its runtime capture gate.
 - [`SettingsSearch.md`](SettingsSearch.md) documents the shared settings search field and its anchored regex builder.
+- [`AppearanceSettings.md`](AppearanceSettings.md) documents the live Material scheme, seed, density, font-scale, and display-brand controls.
 - [`RuntimeCapture.md`](RuntimeCapture.md) records the genuine native screenshot contract and the current COM/service blocker.
 
 Build and runtime evidence must name the exact target, commit, host, Qt version, and whether the result is source-only, built, headless, or release-verified. Missing `svn`, `kmk`, or `scm` tools are reported as environment blockers rather than inferred passes.

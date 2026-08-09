@@ -21,9 +21,9 @@
 #include <QMainWindow>
 #include <QMenuBar>
 #include <QMouseEvent>
-#include <QPushButton>
 
 #include "UIMd3ManagerHeader.h"
+#include "UIMd3Button.h"
 #include "UIMd3Language.h"
 #include "UIMd3Theme.h"
 
@@ -69,32 +69,32 @@ UIMd3ManagerHeader::UIMd3ManagerHeader(QMainWindow *pWindow, QWidget *pParent /*
             m_pTitle->setText(md3Theme().brandName());
         });
 
-    QPushButton *pMenu = new QPushButton(md3Text(QStringLiteral("md3.menu")), this);
+    UIMd3Button *pMenu = new UIMd3Button(md3Text(QStringLiteral("md3.menu")), UIMd3ButtonVariant_Text, this);
     pMenu->setToolTip(tr("Show or hide the application menu"));
     pMenu->setAccessibleName(tr("Show or hide the application menu"));
     pMenu->setMinimumHeight(md3Theme().controlHeight());
-    connect(pMenu, &QPushButton::clicked, pWindow, [pWindow]()
+    connect(pMenu, &UIMd3Button::sigClicked, pWindow, [pWindow]()
     {
         if (pWindow->menuBar())
             pWindow->menuBar()->setVisible(!pWindow->menuBar()->isVisible());
     });
     pLayout->addWidget(pMenu);
 
-    QPushButton *pMinimize = new QPushButton(md3Text(QStringLiteral("md3.minimize")), this);
+    UIMd3Button *pMinimize = new UIMd3Button(md3Text(QStringLiteral("md3.minimize")), UIMd3ButtonVariant_Text, this);
     pMinimize->setAccessibleName(tr("Minimize window"));
-    connect(pMinimize, &QPushButton::clicked, pWindow, &QWidget::showMinimized);
+    connect(pMinimize, &UIMd3Button::sigClicked, pWindow, &QWidget::showMinimized);
     pLayout->addWidget(pMinimize);
 
     UIMd3Language::instance()->registerText(QStringLiteral("md3.maximize"), QStringLiteral("Maximize"), QStringLiteral("放大"));
-    m_pMaximize = new QPushButton(this);
+    m_pMaximize = new UIMd3Button(QString(), UIMd3ButtonVariant_Text, this);
     m_pMaximize->setAccessibleName(tr("Maximize or restore window"));
-    connect(m_pMaximize, &QPushButton::clicked, this, &UIMd3ManagerHeader::toggleMaximize);
+    connect(m_pMaximize, &UIMd3Button::sigClicked, this, &UIMd3ManagerHeader::toggleMaximize);
     pLayout->addWidget(m_pMaximize);
     updateMaximizeLabel();
 
-    QPushButton *pClose = new QPushButton(md3Text(QStringLiteral("md3.close")), this);
+    UIMd3Button *pClose = new UIMd3Button(md3Text(QStringLiteral("md3.close")), UIMd3ButtonVariant_Danger, this);
     pClose->setAccessibleName(tr("Close window"));
-    connect(pClose, &QPushButton::clicked, pWindow, &QWidget::close);
+    connect(pClose, &UIMd3Button::sigClicked, pWindow, &QWidget::close);
     pLayout->addWidget(pClose);
 }
 

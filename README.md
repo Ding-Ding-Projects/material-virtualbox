@@ -48,8 +48,13 @@ Material 3 manager screenshot. The design thumbnail and static HTML previews do
 not count. The gallery will grow only with real manager, settings, wizard, tool,
 notification, and runtime captures from the rewritten build.
 
-The capture contract, required HuiShot matrix, and current COM/service evidence
+The capture contract, required screenshot matrix, and current COM/service evidence
 are maintained in [`doc/md3/RuntimeCapture.md`](doc/md3/RuntimeCapture.md).
+
+The shared Global Preferences appearance controls are documented in
+[`doc/md3/AppearanceSettings.md`](doc/md3/AppearanceSettings.md). They are
+implemented against the existing `UIMd3Theme` persistence and remain subject
+to the native screenshot gate above.
 
 The first implemented manager capture gate is the navigation rail: its buttons
 must select the existing `UIToolType` models, preserve expert-mode restrictions,

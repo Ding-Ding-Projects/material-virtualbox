@@ -41,6 +41,8 @@
 /* Forward declarations: */
 class QGridLayout;
 class QComboBox;
+class QCheckBox;
+class QLineEdit;
 class QProgressBar;
 class QShowEvent;
 class QStackedWidget;
@@ -226,6 +228,9 @@ private slots:
     /** Handles request to update disabled widgets look&feel: */
     void sltUpdateDisabledWidgetsLookAndFeel();
 
+    /** Refreshes the live Material appearance controls from the shared theme. */
+    void sltUpdateMd3AppearanceControls();
+
 private:
 
     /** @name Prepare/cleanup cascade.
@@ -318,6 +323,17 @@ private:
         QSlider *m_pEnglishFunny;
         /** Holds the independent Cantonese playfulness control. */
         QSlider *m_pCantoneseFunny;
+
+        /** Holds the Material scheme selector. */
+        QComboBox *m_pMd3Scheme;
+        /** Holds the Material seed color editor. */
+        QLineEdit *m_pMd3Seed;
+        /** Holds the Material font-scale control (75..200 percent). */
+        QSlider *m_pMd3FontScale;
+        /** Holds the Material compact-density control. */
+        QCheckBox *m_pMd3Compact;
+        /** Holds the user-facing Material brand editor. */
+        QLineEdit *m_pMd3Brand;
 
         /** Holds the scroll-area instance. */
         UIVerticalScrollArea *m_pScrollArea;

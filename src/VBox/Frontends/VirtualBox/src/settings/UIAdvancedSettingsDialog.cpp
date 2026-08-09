@@ -36,6 +36,7 @@
 #include <QCoreApplication>
 #include <QGridLayout>
 #include <QLabel>
+#include <QLineEdit>
 #include <QPainter>
 #include <QPainterPath>
 #include <QProgressBar>
@@ -49,6 +50,7 @@
 #include <QStackedWidget>
 #include <QTimer>
 #include <QToolButton>
+#include <QtMath>
 #include <QVariant>
 #include <QVBoxLayout>
 
@@ -75,6 +77,7 @@
 #include "UITranslationEventListener.h"
 #include "UIMd3SearchField.h"
 #include "UIMd3Language.h"
+#include "UIMd3Theme.h"
 
 
 /** QCheckBox subclass used as mode checkbox. */
@@ -831,6 +834,11 @@ UIAdvancedSettingsDialog::UIAdvancedSettingsDialog(QWidget *pParent,
     , m_pLanguageMode(0)
     , m_pEnglishFunny(0)
     , m_pCantoneseFunny(0)
+    , m_pMd3Scheme(0)
+    , m_pMd3Seed(0)
+    , m_pMd3FontScale(0)
+    , m_pMd3Compact(0)
+    , m_pMd3Brand(0)
     , m_pScrollArea(0)
     , m_pScrollViewport(0)
     , m_pButtonBox(0)
@@ -1071,6 +1079,41 @@ void UIAdvancedSettingsDialog::sltRetranslateUI()
     foreach (UISettingsPageValidator *pValidator, findChildren<UISettingsPageValidator*>())
         pValidator->setTitlePrefix(m_pSelector->itemTextByPage(pValidator->page()));
     revalidate();
+}
+
+void UIAdvancedSettingsDialog::sltUpdateMd3AppearanceControls()
+{
+    if (!UIMd3Theme::instance())
+        return;
+
+    if (m_pMd3Scheme)
+    {
+        const int iScheme = (int)md3Theme().scheme();
+        const QSignalBlocker blocker(m_pMd3Scheme);
+        const int iIndex = m_pMd3Scheme->findData(iScheme);
+        if (iIndex >= 0)
+            m_pMd3Scheme->setCurrentIndex(iIndex);
+    }
+    if (m_pMd3Seed)
+    {
+        const QSignalBlocker blocker(m_pMd3Seed);
+        m_pMd3Seed->setText(md3Theme().seed().name(QColor::HexRgb).toUpper());
+    }
+    if (m_pMd3FontScale)
+    {
+        const QSignalBlocker blocker(m_pMd3FontScale);
+        m_pMd3FontScale->setValue(qRound(md3Theme().fontScale() * 100.0));
+    }
+    if (m_pMd3Compact)
+    {
+        const QSignalBlocker blocker(m_pMd3Compact);
+        m_pMd3Compact->setChecked(md3Theme().isCompact());
+    }
+    if (m_pMd3Brand)
+    {
+        const QSignalBlocker blocker(m_pMd3Brand);
+        m_pMd3Brand->setText(md3Theme().brandName());
+    }
 }
 
 void UIAdvancedSettingsDialog::showEvent(QShowEvent *pEvent)
@@ -1603,26 +1646,88 @@ void UIAdvancedSettingsDialog::prepareSelector()
         m_pLayoutMain->addWidget(m_pEditorFilter, 0, 2);
     }
 
-    /* Prepare persisted language and independent funny-level controls. */
+    /* Prepare persisted language, funny-level, and Material appearance controls. */
     QWidget *pLanguagePanel = new QWidget(centralWidget());
     if (pLanguagePanel)
     {
-        QHBoxLayout *pLanguageLayout = new QHBoxLayout(pLanguagePanel);
+        QVBoxLayout *pLanguageLayout = new QVBoxLayout(pLanguagePanel);
         pLanguageLayout->setContentsMargins(0, 0, 0, 0);
         pLanguageLayout->setSpacing(6);
+        QHBoxLayout *pLanguageControls = new QHBoxLayout;
+        pLanguageControls->setContentsMargins(0, 0, 0, 0);
+        pLanguageControls->setSpacing(6);
         m_pLanguageMode = new QComboBox(pLanguagePanel);
         m_pLanguageMode->setAccessibleName(tr("Language mode"));
-        pLanguageLayout->addWidget(m_pLanguageMode);
+        pLanguageControls->addWidget(m_pLanguageMode);
         m_pEnglishFunny = new QSlider(Qt::Horizontal, pLanguagePanel);
         m_pEnglishFunny->setRange(1, 5);
         m_pEnglishFunny->setValue(md3Language().playfulness());
         m_pEnglishFunny->setAccessibleName(tr("English funny level"));
-        pLanguageLayout->addWidget(m_pEnglishFunny);
+        m_pEnglishFunny->setToolTip(tr("English funny level (1 serious, 5 playful)"));
+        pLanguageControls->addWidget(m_pEnglishFunny);
         m_pCantoneseFunny = new QSlider(Qt::Horizontal, pLanguagePanel);
         m_pCantoneseFunny->setRange(1, 5);
         m_pCantoneseFunny->setValue(md3Language().cantonesePlayfulness());
         m_pCantoneseFunny->setAccessibleName(tr("Cantonese funny level"));
-        pLanguageLayout->addWidget(m_pCantoneseFunny);
+        m_pCantoneseFunny->setToolTip(tr("Cantonese funny level (1 serious, 5 playful)"));
+        pLanguageControls->addWidget(m_pCantoneseFunny);
+        pLanguageLayout->addLayout(pLanguageControls);
+
+        QGridLayout *pAppearanceLayout = new QGridLayout;
+        pAppearanceLayout->setContentsMargins(0, 0, 0, 0);
+        pAppearanceLayout->setHorizontalSpacing(6);
+        pAppearanceLayout->setVerticalSpacing(2);
+
+        QLabel *pSchemeLabel = new QLabel(tr("Theme"), pLanguagePanel);
+        m_pMd3Scheme = new QComboBox(pLanguagePanel);
+        m_pMd3Scheme->setAccessibleName(tr("Material theme scheme"));
+        m_pMd3Scheme->addItem(tr("Dark"), UIMd3Scheme_Dark);
+        m_pMd3Scheme->addItem(tr("Light"), UIMd3Scheme_Light);
+        m_pMd3Scheme->addItem(tr("System"), UIMd3Scheme_System);
+        m_pMd3Scheme->addItem(tr("High-contrast dark"), UIMd3Scheme_HighContrastDark);
+        m_pMd3Scheme->addItem(tr("High-contrast light"), UIMd3Scheme_HighContrastLight);
+        pSchemeLabel->setBuddy(m_pMd3Scheme);
+        pAppearanceLayout->addWidget(pSchemeLabel, 0, 0);
+        pAppearanceLayout->addWidget(m_pMd3Scheme, 0, 1);
+
+        QLabel *pSeedLabel = new QLabel(tr("Seed color"), pLanguagePanel);
+        m_pMd3Seed = new QLineEdit(pLanguagePanel);
+        m_pMd3Seed->setAccessibleName(tr("Material seed color in hexadecimal"));
+        m_pMd3Seed->setMaxLength(9);
+        m_pMd3Seed->setPlaceholderText(QStringLiteral("#6750A4"));
+        pSeedLabel->setBuddy(m_pMd3Seed);
+        pAppearanceLayout->addWidget(pSeedLabel, 0, 2);
+        pAppearanceLayout->addWidget(m_pMd3Seed, 0, 3);
+
+        QLabel *pScaleLabel = new QLabel(tr("Font scale"), pLanguagePanel);
+        m_pMd3FontScale = new QSlider(Qt::Horizontal, pLanguagePanel);
+        m_pMd3FontScale->setRange(75, 200);
+        m_pMd3FontScale->setSingleStep(5);
+        m_pMd3FontScale->setPageStep(10);
+        m_pMd3FontScale->setAccessibleName(tr("Material font scale percent"));
+        m_pMd3FontScale->setToolTip(tr("Material font scale, from 75% to 200%"));
+        pScaleLabel->setBuddy(m_pMd3FontScale);
+        pAppearanceLayout->addWidget(pScaleLabel, 1, 0);
+        pAppearanceLayout->addWidget(m_pMd3FontScale, 1, 1);
+
+        m_pMd3Compact = new QCheckBox(tr("Compact density"), pLanguagePanel);
+        m_pMd3Compact->setAccessibleName(tr("Use compact Material density"));
+        m_pMd3Compact->setToolTip(tr("Use smaller Material control spacing and heights"));
+        pAppearanceLayout->addWidget(m_pMd3Compact, 1, 2, 1, 2);
+
+        QLabel *pBrandLabel = new QLabel(tr("Display brand"), pLanguagePanel);
+        m_pMd3Brand = new QLineEdit(pLanguagePanel);
+        m_pMd3Brand->setAccessibleName(tr("Display brand name"));
+        m_pMd3Brand->setMaxLength(80);
+        pBrandLabel->setBuddy(m_pMd3Brand);
+        pAppearanceLayout->addWidget(pBrandLabel, 2, 0);
+        pAppearanceLayout->addWidget(m_pMd3Brand, 2, 1);
+        QPushButton *pResetBrand = new QPushButton(tr("Reset brand"), pLanguagePanel);
+        pResetBrand->setAccessibleName(tr("Reset display brand to Material Virtual Machine"));
+        pResetBrand->setToolTip(tr("Restore the shipped display brand without changing technical identity"));
+        pAppearanceLayout->addWidget(pResetBrand, 2, 2, 1, 2);
+        pLanguageLayout->addLayout(pAppearanceLayout);
+
         m_pLayoutMain->addWidget(pLanguagePanel, 0, 1);
         connect(m_pLanguageMode, qOverload<int>(&QComboBox::currentIndexChanged), this,
                 [](int iIndex) { md3Language().setMode((UIMd3LanguageMode)iIndex); });
@@ -1648,6 +1753,42 @@ void UIAdvancedSettingsDialog::prepareSelector()
                 m_pCantoneseFunny->setValue(md3Language().cantonesePlayfulness());
             }
         });
+
+        connect(m_pMd3Scheme, qOverload<int>(&QComboBox::currentIndexChanged), this, [this](int iIndex)
+        {
+            if (m_pMd3Scheme)
+                md3Theme().setScheme((UIMd3Scheme)m_pMd3Scheme->itemData(iIndex).toInt());
+        });
+        connect(m_pMd3Seed, &QLineEdit::editingFinished, this, [this]()
+        {
+            const QColor color(m_pMd3Seed->text().trimmed());
+            if (color.isValid())
+            {
+                md3Theme().setSeed(color);
+                m_pMd3Seed->setToolTip(tr("Material seed color"));
+            }
+            else
+                m_pMd3Seed->setToolTip(tr("Enter a valid hexadecimal color such as #6750A4"));
+        });
+        connect(m_pMd3FontScale, &QSlider::valueChanged, this, [](int iValue)
+        {
+            md3Theme().setFontScale(iValue / 100.0);
+        });
+        connect(m_pMd3Compact, &QCheckBox::toggled, this, [](bool fCompact)
+        {
+            md3Theme().setCompact(fCompact);
+        });
+        connect(m_pMd3Brand, &QLineEdit::editingFinished, this, [this]()
+        {
+            md3Theme().setBrandName(m_pMd3Brand->text());
+        });
+        connect(pResetBrand, &QPushButton::clicked, this, []()
+        {
+            md3Theme().setBrandName(QString());
+        });
+        connect(&md3Theme(), &UIMd3Theme::sigThemeChanged,
+                this, &UIAdvancedSettingsDialog::sltUpdateMd3AppearanceControls);
+        sltUpdateMd3AppearanceControls();
     }
 
     /* Configure selector created above: */

@@ -14,7 +14,7 @@
 
 class QMainWindow;
 class QLabel;
-class QPushButton;
+class UIMd3Button;
 class QMouseEvent;
 
 /** Native manager header that keeps existing actions authoritative. */
@@ -35,7 +35,7 @@ private:
 
     QMainWindow  *m_pWindow;
     QLabel       *m_pTitle;
-    QPushButton  *m_pMaximize;
+    UIMd3Button  *m_pMaximize;
     bool          m_fDragging;
     QPoint        m_dragOffset;
 };
