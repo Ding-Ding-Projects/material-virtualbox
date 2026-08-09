@@ -1767,8 +1767,15 @@ class LibraryCheck(CheckBase):
         # Check if we have our own pre-compiled Qt in tools first.
         sPathBase = self.getToolPath();
         if sPathBase:
-            self.asLibFiles = [ 'libQt6CoreVBox' ];
-            g_oEnv.set('VBOX_WITH_ORACLE_QT', '1');
+            # A user-supplied --with-qt path is a stock Qt installation, not
+            # the private Oracle Qt bundle shipped in the developer tools.
+            # Keep the bundle's special library name only for the in-tree
+            # tools path; stock Qt exports the ordinary Qt6Core import lib.
+            if self.sRootPath:
+                self.asLibFiles = [ 'Qt6Core' ];
+            else:
+                self.asLibFiles = [ 'libQt6CoreVBox' ];
+                g_oEnv.set('VBOX_WITH_ORACLE_QT', '1');
 
         else:
 
@@ -1869,6 +1876,16 @@ class LibraryCheck(CheckBase):
         if isDir(sPathLib):
             self.asLibPaths.insert(0, sPathLib);
             g_oEnv.set(f'PATH_SDK_{self.sSdkName}_LIB', sPathLib);
+            # Keep the stock Windows import library explicit for custom Qt
+            # roots.  This avoids the generic search losing the file when
+            # the compiler's inherited LIB list contains another Qt or no Qt
+            # entry at all.
+            if self.enmBuildTarget == BuildTarget.WINDOWS \
+            and self.sRootPath \
+            and self.asLibFiles == [ 'Qt6Core' ]:
+                sQtCoreLib = os.path.join(sPathLib, 'Qt6Core.lib');
+                if isFile(sQtCoreLib):
+                    self.asLibFiles = [ sQtCoreLib ];
         if isDir(sPathLibExec):
             g_oEnv.set(f'PATH_SDK_{self.sSdkName}_LIBEXEC', sPathLibExec);
 
