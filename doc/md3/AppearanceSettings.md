@@ -17,6 +17,12 @@ state; these controls only call the process-wide `UIMd3Theme` service.
   `Material Virtual Machine`; technical identifiers, paths, COM names, and
   file formats are unchanged.
 
+- **Funny levels:** English and Hong Kong Cantonese each have an independent
+  1–5 slider. Level 1 keeps the registered copy serious; higher levels style
+  the surrounding voice without changing the action or its factual meaning.
+  Mode and both levels are written immediately to the existing extra-data
+  store and emit `UIMd3Language::sigLanguageChanged` for live surfaces.
+
 Every control has an accessible name, a keyboard path, and a progressive
 tooltip explaining its effect. A theme change emits `UIMd3Theme::sigThemeChanged`
 so the manager header, navigation rail, palette, and other subscribed widgets

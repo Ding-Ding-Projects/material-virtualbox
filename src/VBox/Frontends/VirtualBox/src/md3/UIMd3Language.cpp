@@ -23,6 +23,25 @@ static const char *g_pszMode = "GUI/Md3/LanguageMode";
 static const char *g_pszEnglishFunny = "GUI/Md3/FunnyLevelEnglish";
 static const char *g_pszCantoneseFunny = "GUI/Md3/FunnyLevelCantonese";
 
+static QString md3EnglishStyle(const QString &strText, int iLevel)
+{
+    static const char * const s_aSuffixes[] =
+    {
+        "", " · please", " · nice and tidy", " · tiny victory", " · let’s go"
+    };
+    return strText + QString::fromUtf8(s_aSuffixes[qBound(1, iLevel, 5) - 1]);
+}
+
+static QString md3CantoneseStyle(const QString &strText, int iLevel)
+{
+    static const QStringList s_aSuffixes =
+    {
+        QString(), QStringLiteral(" · 輕輕鬆鬆"), QStringLiteral(" · 幾醒喎"),
+        QStringLiteral(" · 好掂呀"), QStringLiteral(" · 勁到飛起")
+    };
+    return strText + s_aSuffixes.value(qBound(1, iLevel, 5) - 1);
+}
+
 UIMd3Language *UIMd3Language::s_pInstance = 0;
 
 UIMd3Language *UIMd3Language::instance() { return s_pInstance; }
@@ -68,6 +87,8 @@ void UIMd3Language::setMode(UIMd3LanguageMode enmMode)
     if (enmMode < UIMd3LanguageMode_English || enmMode > UIMd3LanguageMode_Bilingual || enmMode == m_enmMode)
         return;
     m_enmMode = enmMode;
+    if (gEDataManager)
+        gEDataManager->setExtraDataString(g_pszMode, QString::number((int)m_enmMode));
     emit sigLanguageChanged();
 }
 
@@ -77,6 +98,8 @@ void UIMd3Language::setPlayfulness(int iLevel)
     if (iClamped == m_iPlayfulness)
         return;
     m_iPlayfulness = iClamped;
+    if (gEDataManager)
+        gEDataManager->setExtraDataString(g_pszEnglishFunny, QString::number(m_iPlayfulness));
     emit sigLanguageChanged();
 }
 
@@ -86,6 +109,8 @@ void UIMd3Language::setCantonesePlayfulness(int iLevel)
     if (iClamped == m_iCantonesePlayfulness)
         return;
     m_iCantonesePlayfulness = iClamped;
+    if (gEDataManager)
+        gEDataManager->setExtraDataString(g_pszCantoneseFunny, QString::number(m_iCantonesePlayfulness));
     emit sigLanguageChanged();
 }
 
@@ -94,11 +119,13 @@ QString UIMd3Language::text(const QString &strKey) const
     const QPair<QString, QString> pair = m_strings.value(strKey);
     const QString strEnglish = pair.first.isEmpty() ? strKey : pair.first;
     const QString strCantonese = pair.second.isEmpty() ? strEnglish : pair.second;
+    const QString strStyledEnglish = md3EnglishStyle(strEnglish, m_iPlayfulness);
+    const QString strStyledCantonese = md3CantoneseStyle(strCantonese, m_iCantonesePlayfulness);
     if (m_enmMode == UIMd3LanguageMode_Cantonese)
-        return strCantonese;
+        return strStyledCantonese;
     if (m_enmMode == UIMd3LanguageMode_Bilingual)
-        return QStringLiteral("%1 · %2").arg(strEnglish, strCantonese);
-    return strEnglish;
+        return QStringLiteral("%1 · %2").arg(strStyledEnglish, strStyledCantonese);
+    return strStyledEnglish;
 }
 
 void UIMd3Language::registerText(const QString &strKey, const QString &strEnglish, const QString &strCantonese)
