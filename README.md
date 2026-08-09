@@ -48,6 +48,9 @@ Material 3 manager screenshot. The design thumbnail and static HTML previews do
 not count. The gallery will grow only with real manager, settings, wizard, tool,
 notification, and runtime captures from the rewritten build.
 
+The capture contract, required HuiShot matrix, and current COM/service evidence
+are maintained in [`doc/md3/RuntimeCapture.md`](doc/md3/RuntimeCapture.md).
+
 The first implemented manager capture gate is the navigation rail: its buttons
 must select the existing `UIToolType` models, preserve expert-mode restrictions,
 show keyboard focus, and reflect the active theme. A capture that cannot show
