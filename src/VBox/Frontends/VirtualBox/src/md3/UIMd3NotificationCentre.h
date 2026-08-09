@@ -35,7 +35,9 @@
 #include <QDateTime>
 #include <QList>
 #include <QObject>
+#include <QSet>
 #include <QString>
+#include <QStringList>
 
 /* GUI includes: */
 #include "UILibraryDefs.h"
@@ -124,6 +126,14 @@ private slots:
     void sltRetranslateUI();
     /** Handles the review action. */
     void sltMarkAllRead();
+    /** Selects every row currently visible under the active filter. */
+    void sltSelectAllVisible();
+    /** Inverts selection for rows currently visible under the active filter. */
+    void sltInvertVisibleSelection();
+    /** Marks selected history records as read. */
+    void sltMarkSelectedRead();
+    /** Exports the selected records, or the visible filtered records. */
+    void sltExportVisible();
 
 private:
 
@@ -135,6 +145,10 @@ private:
     static QString storagePath();
     /** Trims and bounds an untrusted persisted/user string. */
     static QString boundedString(const QString &strValue, int iMaximum);
+    /** Returns IDs matching the active query, newest-first. */
+    QStringList visibleNoticeIds() const;
+    /** Refreshes selection summary and bulk-action enabled states. */
+    void updateBulkActions();
 
     static UIMd3NotificationCentre *s_pInstance;
     QList<UIMd3Notice> m_notices;
@@ -143,6 +157,12 @@ private:
     UIMd3SearchField *m_pSearchField;
     QVBoxLayout *m_pRowsLayout;
     QPushButton *m_pMarkAllReadButton;
+    QPushButton *m_pSelectAllButton;
+    QPushButton *m_pInvertSelectionButton;
+    QPushButton *m_pMarkSelectedReadButton;
+    QPushButton *m_pExportButton;
+    QLabel *m_pSelectionSummary;
+    QSet<QString> m_selectedIds;
 };
 
 #endif /* !FEQT_INCLUDED_SRC_md3_UIMd3NotificationCentre_h */

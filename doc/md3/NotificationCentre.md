@@ -57,11 +57,17 @@ The manager header's **Notifications** button opens `showCentre()`, a modeless,
 bounded review surface with its own `UIMd3SearchField`; plain text remains the
 default and the adjacent regex builder searches title, detail, and category
 locally. Rows use plain-text labels, preserve unread/error state, and expose an
-explicit **Mark all as read** action. The destructive **Clear history** action
-is intentionally not exposed yet: it needs the app-wide super-confirmation,
-local history record, and undo path before it can be a safe control. Transient
-toast presentation, bulk selection/export, provider-authored markdown
-rendering, and full per-row accessibility roles remain later lanes.
+explicit **Mark all as read** action. Each row also has a keyboard-reachable
+selection checkbox. **Select visible** and **Invert selection** are scoped to
+the active query; **Mark selected as read** persists the selected state. **Export
+view** writes the selected rows when a selection exists, otherwise the visible
+filtered rows, as bounded versioned JSON through an atomic `QSaveFile`.
+
+The destructive **Clear history** action is intentionally not exposed yet: it
+needs the app-wide super-confirmation, local history record, and undo path
+before it can be a safe control. Transient toast presentation, bulk dismiss or
+delete, provider-authored markdown rendering, and full per-row accessibility
+roles remain later lanes.
 
 ## Configuration and localization
 
@@ -85,8 +91,9 @@ Patterns are evaluated by `UIMd3SearchField`, which bounds pattern length and
 uses Qt's regular-expression engine. The query stays in-process and is not
 persisted. The history file is written atomically beneath the app-data
 directory; persistence failure is non-blocking and is not reported as a false
-success. Provider-authored detail rendering, bulk selection/export/dismiss,
-and destructive clear-history confirmation remain separate open lanes.
+success. Export opens the native save picker, bounds the JSON payload, and
+fails closed if the destination cannot be written. Bulk dismiss/delete and
+destructive clear-history confirmation remain separate open lanes.
 
 ## Verification
 
@@ -95,8 +102,9 @@ The implementation is in
 and
 `src/VBox/Frontends/VirtualBox/src/md3/UIMd3NotificationCentre.{h,cpp}`. The
 focused source contract checks the field wiring, the critical-item predicate,
-the bounded JSON model, lifecycle creation/destruction, and UICommon target
-ownership. UICommon and the root `VirtualBox` target are built through kBuild
+the bounded JSON model, selectable-row and export actions, lifecycle
+creation/destruction, and UICommon target ownership. UICommon and the root
+`VirtualBox` target are built through kBuild
 when the Deen No toolchain is available; native captures are intentionally
 deferred for this lane.
 

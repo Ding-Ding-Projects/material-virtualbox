@@ -27,9 +27,11 @@
 
 /* Qt includes: */
 #include <QDateTime>
+#include <QCheckBox>
 #include <QDialog>
 #include <QDir>
 #include <QFile>
+#include <QFileDialog>
 #include <QFileInfo>
 #include <QFrame>
 #include <QHBoxLayout>
@@ -98,6 +100,21 @@ void UIMd3NotificationCentre::create()
             UIMd3Language::instance()->registerText(QStringLiteral("md3.notifications.markRead"),
                                                      QStringLiteral("Mark all as read"),
                                                      QStringLiteral("全部標記為已讀"));
+            UIMd3Language::instance()->registerText(QStringLiteral("md3.notifications.selectAll"),
+                                                     QStringLiteral("Select visible"),
+                                                     QStringLiteral("揀晒目前顯示"));
+            UIMd3Language::instance()->registerText(QStringLiteral("md3.notifications.invertSelection"),
+                                                     QStringLiteral("Invert selection"),
+                                                     QStringLiteral("反轉選取"));
+            UIMd3Language::instance()->registerText(QStringLiteral("md3.notifications.markSelectedRead"),
+                                                     QStringLiteral("Mark selected as read"),
+                                                     QStringLiteral("將選取標記為已讀"));
+            UIMd3Language::instance()->registerText(QStringLiteral("md3.notifications.export"),
+                                                     QStringLiteral("Export view"),
+                                                     QStringLiteral("匯出目前檢視"));
+            UIMd3Language::instance()->registerText(QStringLiteral("md3.notifications.selectedSummary"),
+                                                     QStringLiteral("%1 selected"),
+                                                     QStringLiteral("已選取 %1 項"));
             UIMd3Language::instance()->registerText(QStringLiteral("md3.notifications.empty"),
                                                      QStringLiteral("No local notifications"),
                                                      QStringLiteral("暫時冇通知"));
@@ -136,6 +153,11 @@ UIMd3NotificationCentre::UIMd3NotificationCentre()
     , m_pSearchField(0)
     , m_pRowsLayout(0)
     , m_pMarkAllReadButton(0)
+    , m_pSelectAllButton(0)
+    , m_pInvertSelectionButton(0)
+    , m_pMarkSelectedReadButton(0)
+    , m_pExportButton(0)
+    , m_pSelectionSummary(0)
 {
     load();
 }
@@ -320,6 +342,137 @@ void UIMd3NotificationCentre::markAllRead()
         sltRefreshDialog();
 }
 
+QStringList UIMd3NotificationCentre::visibleNoticeIds() const
+{
+    QStringList result;
+    for (const UIMd3Notice &notice : m_notices)
+    {
+        const QString strSearchText = notice.strTitle + QLatin1Char('\n')
+                                     + notice.strDetail + QLatin1Char('\n')
+                                     + notice.strCategory;
+        if (!m_pSearchField || m_pSearchField->matches(strSearchText))
+            result << notice.strId;
+    }
+    return result;
+}
+
+void UIMd3NotificationCentre::updateBulkActions()
+{
+    const QStringList visibleIds = visibleNoticeIds();
+    int cSelectedVisible = 0;
+    for (const QString &strId : visibleIds)
+        if (m_selectedIds.contains(strId))
+            ++cSelectedVisible;
+
+    if (m_pSelectionSummary)
+    {
+        const QString strSummary = md3NotificationText("md3.notifications.selectedSummary",
+                                                        tr("%1 selected"));
+        m_pSelectionSummary->setText(strSummary.arg(cSelectedVisible));
+        m_pSelectionSummary->setAccessibleName(m_pSelectionSummary->text());
+    }
+    if (m_pSelectAllButton)
+        m_pSelectAllButton->setEnabled(!visibleIds.isEmpty());
+    if (m_pInvertSelectionButton)
+        m_pInvertSelectionButton->setEnabled(!visibleIds.isEmpty());
+    if (m_pMarkSelectedReadButton)
+        m_pMarkSelectedReadButton->setEnabled(cSelectedVisible > 0);
+    if (m_pExportButton)
+        m_pExportButton->setEnabled(!visibleIds.isEmpty());
+}
+
+void UIMd3NotificationCentre::sltSelectAllVisible()
+{
+    const QStringList visibleIds = visibleNoticeIds();
+    for (const QString &strId : visibleIds)
+        m_selectedIds.insert(strId);
+    sltRefreshDialog();
+}
+
+void UIMd3NotificationCentre::sltInvertVisibleSelection()
+{
+    const QStringList visibleIds = visibleNoticeIds();
+    for (const QString &strId : visibleIds)
+    {
+        if (m_selectedIds.contains(strId))
+            m_selectedIds.remove(strId);
+        else
+            m_selectedIds.insert(strId);
+    }
+    sltRefreshDialog();
+}
+
+void UIMd3NotificationCentre::sltMarkSelectedRead()
+{
+    bool fChanged = false;
+    for (UIMd3Notice &notice : m_notices)
+    {
+        if (m_selectedIds.contains(notice.strId) && notice.fUnread)
+        {
+            notice.fUnread = false;
+            fChanged = true;
+        }
+    }
+    if (!fChanged)
+        return;
+    save();
+    emit sigChanged();
+    sltRefreshDialog();
+}
+
+void UIMd3NotificationCentre::sltExportVisible()
+{
+    if (!m_pDialog)
+        return;
+
+    const QStringList visibleIds = visibleNoticeIds();
+    if (visibleIds.isEmpty())
+        return;
+
+    QStringList exportIds;
+    for (const QString &strId : visibleIds)
+        if (m_selectedIds.contains(strId))
+            exportIds << strId;
+    if (exportIds.isEmpty())
+        exportIds = visibleIds;
+
+    const QString strDefaultPath = QDir(QStandardPaths::writableLocation(QStandardPaths::DocumentsLocation))
+                                 .filePath(QStringLiteral("virtualbox-notification-history.json"));
+    const QString strPath = QFileDialog::getSaveFileName(m_pDialog,
+                                                          tr("Export notification history"),
+                                                          strDefaultPath,
+                                                          tr("JSON files (*.json)"));
+    if (strPath.isEmpty())
+        return;
+
+    QJsonArray records;
+    for (const UIMd3Notice &notice : m_notices)
+    {
+        if (!exportIds.contains(notice.strId))
+            continue;
+        QJsonObject record;
+        record.insert(QStringLiteral("id"), notice.strId);
+        record.insert(QStringLiteral("title"), notice.strTitle);
+        record.insert(QStringLiteral("detail"), notice.strDetail);
+        record.insert(QStringLiteral("category"), notice.strCategory);
+        record.insert(QStringLiteral("when"), notice.when.toUTC().toString(Qt::ISODateWithMs));
+        record.insert(QStringLiteral("error"), notice.fError);
+        record.insert(QStringLiteral("unread"), notice.fUnread);
+        records.append(record);
+    }
+
+    QJsonObject root;
+    root.insert(QStringLiteral("version"), g_iSchemaVersion);
+    root.insert(QStringLiteral("notices"), records);
+    QSaveFile file(strPath);
+    if (!file.open(QIODevice::WriteOnly))
+        return;
+    const QByteArray data = QJsonDocument(root).toJson(QJsonDocument::Indented);
+    if (data.size() > g_iMaxPayload || file.write(data) != data.size())
+        return;
+    file.commit();
+}
+
 void UIMd3NotificationCentre::clear()
 {
     if (m_notices.isEmpty())
@@ -377,6 +530,24 @@ void UIMd3NotificationCentre::showCentre(QWidget *pParent)
     pActionLayout->addWidget(m_pMarkAllReadButton);
     pRootLayout->addLayout(pActionLayout);
 
+    QHBoxLayout *pBulkLayout = new QHBoxLayout;
+    pBulkLayout->setContentsMargins(0, 0, 0, 0);
+    pBulkLayout->setSpacing(g_iRowSpacing);
+    m_pSelectAllButton = new QPushButton(m_pDialog);
+    m_pInvertSelectionButton = new QPushButton(m_pDialog);
+    m_pMarkSelectedReadButton = new QPushButton(m_pDialog);
+    m_pExportButton = new QPushButton(m_pDialog);
+    for (QPushButton *pButton : { m_pSelectAllButton, m_pInvertSelectionButton,
+                                  m_pMarkSelectedReadButton, m_pExportButton })
+    {
+        pButton->setMinimumSize(QSize(48, md3Theme().controlHeight()));
+        pBulkLayout->addWidget(pButton);
+    }
+    m_pSelectionSummary = new QLabel(m_pDialog);
+    m_pSelectionSummary->setAlignment(Qt::AlignRight | Qt::AlignVCenter);
+    pBulkLayout->addWidget(m_pSelectionSummary, 1);
+    pRootLayout->addLayout(pBulkLayout);
+
     QScrollArea *pScrollArea = new QScrollArea(m_pDialog);
     pScrollArea->setWidgetResizable(true);
     pScrollArea->setFrameShape(QFrame::NoFrame);
@@ -391,6 +562,14 @@ void UIMd3NotificationCentre::showCentre(QWidget *pParent)
             this, &UIMd3NotificationCentre::sltRefreshDialog);
     connect(m_pMarkAllReadButton, &QPushButton::clicked,
             this, &UIMd3NotificationCentre::sltMarkAllRead);
+    connect(m_pSelectAllButton, &QPushButton::clicked,
+            this, &UIMd3NotificationCentre::sltSelectAllVisible);
+    connect(m_pInvertSelectionButton, &QPushButton::clicked,
+            this, &UIMd3NotificationCentre::sltInvertVisibleSelection);
+    connect(m_pMarkSelectedReadButton, &QPushButton::clicked,
+            this, &UIMd3NotificationCentre::sltMarkSelectedRead);
+    connect(m_pExportButton, &QPushButton::clicked,
+            this, &UIMd3NotificationCentre::sltExportVisible);
     connect(this, &UIMd3NotificationCentre::sigChanged,
             this, &UIMd3NotificationCentre::sltRefreshDialog);
     if (UIMd3Language::instance())
@@ -404,6 +583,11 @@ void UIMd3NotificationCentre::showCentre(QWidget *pParent)
         m_pSearchField = 0;
         m_pRowsLayout = 0;
         m_pMarkAllReadButton = 0;
+        m_pSelectAllButton = 0;
+        m_pInvertSelectionButton = 0;
+        m_pMarkSelectedReadButton = 0;
+        m_pExportButton = 0;
+        m_pSelectionSummary = 0;
     });
 
     m_pDialog->resize(600, 560);
@@ -440,6 +624,31 @@ void UIMd3NotificationCentre::sltRetranslateUI()
         m_pMarkAllReadButton->setText(strMarkRead);
         m_pMarkAllReadButton->setAccessibleName(strMarkRead);
     }
+    if (m_pSelectAllButton)
+    {
+        const QString strSelectAll = md3NotificationText("md3.notifications.selectAll", tr("Select visible"));
+        m_pSelectAllButton->setText(strSelectAll);
+        m_pSelectAllButton->setAccessibleName(strSelectAll);
+    }
+    if (m_pInvertSelectionButton)
+    {
+        const QString strInvert = md3NotificationText("md3.notifications.invertSelection", tr("Invert selection"));
+        m_pInvertSelectionButton->setText(strInvert);
+        m_pInvertSelectionButton->setAccessibleName(strInvert);
+    }
+    if (m_pMarkSelectedReadButton)
+    {
+        const QString strMarkSelected = md3NotificationText("md3.notifications.markSelectedRead",
+                                                             tr("Mark selected as read"));
+        m_pMarkSelectedReadButton->setText(strMarkSelected);
+        m_pMarkSelectedReadButton->setAccessibleName(strMarkSelected);
+    }
+    if (m_pExportButton)
+    {
+        const QString strExport = md3NotificationText("md3.notifications.export", tr("Export view"));
+        m_pExportButton->setText(strExport);
+        m_pExportButton->setAccessibleName(strExport);
+    }
     sltRefreshDialog();
 }
 
@@ -454,6 +663,11 @@ void UIMd3NotificationCentre::sltRefreshDialog()
             delete pWidget;
         delete pItem;
     }
+
+    QSet<QString> validIds;
+    for (const UIMd3Notice &notice : m_notices)
+        validIds.insert(notice.strId);
+    m_selectedIds.intersect(validIds);
 
     const QString strQuery = m_pSearchField ? m_pSearchField->text() : QString();
     int iVisibleCount = 0;
@@ -479,6 +693,14 @@ void UIMd3NotificationCentre::sltRefreshDialog()
                                        md3Theme().gutter(), md3Theme().gutter());
         pRowLayout->setSpacing(4);
 
+        QHBoxLayout *pTitleLayout = new QHBoxLayout;
+        pTitleLayout->setContentsMargins(0, 0, 0, 0);
+        QCheckBox *pCheckBox = new QCheckBox(pRow);
+        pCheckBox->setChecked(m_selectedIds.contains(notice.strId));
+        pCheckBox->setAccessibleName(notice.strTitle);
+        pCheckBox->setToolTip(tr("Select this notification"));
+        pTitleLayout->addWidget(pCheckBox);
+
         QLabel *pTitle = new QLabel(notice.strTitle, pRow);
         QFont titleFont = md3Theme().font(UIMd3TypeRole_TitleMedium);
         titleFont.setBold(notice.fUnread);
@@ -489,7 +711,17 @@ void UIMd3NotificationCentre::sltRefreshDialog()
             titlePalette.setColor(QPalette::WindowText, md3(UIMd3ColorRole_Error));
             pTitle->setPalette(titlePalette);
         }
-        pRowLayout->addWidget(pTitle);
+        pTitleLayout->addWidget(pTitle, 1);
+        pRowLayout->addLayout(pTitleLayout);
+        const QString strNoticeId = notice.strId;
+        connect(pCheckBox, &QCheckBox::toggled, this, [this, strNoticeId](bool fChecked)
+        {
+            if (fChecked)
+                m_selectedIds.insert(strNoticeId);
+            else
+                m_selectedIds.remove(strNoticeId);
+            updateBulkActions();
+        });
 
         QLabel *pMetadata = new QLabel(QStringLiteral("%1 | %2")
                                        .arg(notice.strCategory,
@@ -528,4 +760,5 @@ void UIMd3NotificationCentre::sltRefreshDialog()
     m_pRowsLayout->addStretch(1);
     if (m_pMarkAllReadButton)
         m_pMarkAllReadButton->setEnabled(hasUnread());
+    updateBulkActions();
 }
