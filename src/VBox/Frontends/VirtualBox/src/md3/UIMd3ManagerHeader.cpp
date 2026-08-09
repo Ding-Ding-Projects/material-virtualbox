@@ -21,17 +21,22 @@
 #include <QMainWindow>
 #include <QMenuBar>
 #include <QMouseEvent>
+#include <QPalette>
+#include <QSize>
 
 #include "UIMd3ManagerHeader.h"
 #include "UIMd3Button.h"
 #include "UIMd3Language.h"
+#include "UIMd3NotificationCentre.h"
 #include "UIMd3Theme.h"
 
 UIMd3ManagerHeader::UIMd3ManagerHeader(QMainWindow *pWindow, QWidget *pParent /* = 0 */)
     : QWidget(pParent)
     , m_pWindow(pWindow)
     , m_pTitle(0)
+    , m_pUnread(0)
     , m_pMaximize(0)
+    , m_pNotifications(0)
     , m_fDragging(false)
 {
     if (UIMd3Language::instance())
@@ -40,6 +45,7 @@ UIMd3ManagerHeader::UIMd3ManagerHeader(QMainWindow *pWindow, QWidget *pParent /*
         UIMd3Language::instance()->registerText(QStringLiteral("md3.menu"), QStringLiteral("Menu"), QStringLiteral("餐牌"));
         UIMd3Language::instance()->registerText(QStringLiteral("md3.minimize"), QStringLiteral("Minimize"), QStringLiteral("收埋"));
         UIMd3Language::instance()->registerText(QStringLiteral("md3.close"), QStringLiteral("Close"), QStringLiteral("閂埋"));
+        UIMd3Language::instance()->registerText(QStringLiteral("md3.notifications.bell"), QStringLiteral("Notifications"), QStringLiteral("通知"));
     }
 
     setObjectName(QStringLiteral("md3ManagerHeader"));
@@ -68,6 +74,43 @@ UIMd3ManagerHeader::UIMd3ManagerHeader(QMainWindow *pWindow, QWidget *pParent /*
         {
             m_pTitle->setText(md3Theme().brandName());
         });
+
+    m_pNotifications = new UIMd3Button(md3Text(QStringLiteral("md3.notifications.bell")), UIMd3ButtonVariant_Text, this);
+    m_pNotifications->setToolTip(tr("Open notification history"));
+    m_pNotifications->setAccessibleName(tr("Open notification history"));
+    m_pNotifications->setMinimumHeight(md3Theme().controlHeight());
+    connect(m_pNotifications, &UIMd3Button::sigClicked, this, [pWindow]()
+    {
+        if (UIMd3NotificationCentre::instance())
+            UIMd3NotificationCentre::instance()->showCentre(pWindow);
+    });
+    pLayout->addWidget(m_pNotifications);
+
+    m_pUnread = new QLabel(QStringLiteral("●"), this);
+    m_pUnread->setMinimumSize(QSize(16, 16));
+    m_pUnread->setAlignment(Qt::AlignCenter);
+    m_pUnread->setAccessibleName(tr("Unread notifications"));
+    m_pUnread->setAttribute(Qt::WA_TransparentForMouseEvents);
+    pLayout->addWidget(m_pUnread);
+    if (UIMd3NotificationCentre::instance())
+        connect(UIMd3NotificationCentre::instance(), &UIMd3NotificationCentre::sigChanged,
+                this, &UIMd3ManagerHeader::updateNotificationState);
+    connect(UIMd3Theme::instance(), &UIMd3Theme::sigThemeChanged,
+            this, &UIMd3ManagerHeader::updateNotificationState);
+    if (UIMd3Language::instance())
+        connect(UIMd3Language::instance(), &UIMd3Language::sigLanguageChanged, this, [this]()
+        {
+            if (m_pNotifications)
+            {
+                const QString strNotifications = md3Text(QStringLiteral("md3.notifications.bell"));
+                m_pNotifications->setText(strNotifications);
+                m_pNotifications->setAccessibleName(strNotifications);
+                m_pNotifications->setToolTip(strNotifications);
+            }
+            if (m_pUnread)
+                m_pUnread->setAccessibleName(tr("Unread notifications"));
+        });
+    updateNotificationState();
 
     UIMd3Button *pMenu = new UIMd3Button(md3Text(QStringLiteral("md3.menu")), UIMd3ButtonVariant_Text, this);
     pMenu->setToolTip(tr("Show or hide the application menu"));
@@ -116,6 +159,21 @@ void UIMd3ManagerHeader::updateMaximizeLabel()
     const bool fMaximized = m_pWindow->isMaximized();
     m_pMaximize->setText(fMaximized ? tr("Restore") : tr("Maximize"));
     m_pMaximize->setToolTip(fMaximized ? tr("Restore window") : tr("Maximize window"));
+}
+
+void UIMd3ManagerHeader::updateNotificationState()
+{
+    if (!m_pUnread)
+        return;
+    const bool fUnread = UIMd3NotificationCentre::instance()
+                      && UIMd3NotificationCentre::instance()->hasUnread();
+    m_pUnread->setVisible(fUnread);
+    QPalette palette = m_pUnread->palette();
+    palette.setColor(QPalette::WindowText,
+                     fUnread ? md3(UIMd3ColorRole_Error) : md3(UIMd3ColorRole_Primary));
+    m_pUnread->setPalette(palette);
+    m_pUnread->setAccessibleDescription(fUnread ? tr("Unread notifications are available")
+                                                : tr("No unread notifications"));
 }
 
 void UIMd3ManagerHeader::mousePressEvent(QMouseEvent *pEvent)

@@ -87,8 +87,9 @@ extended view. [`doc/md3/NotificationCentre.md`](doc/md3/NotificationCentre.md)
 documents plain-text and bounded regex filtering across real notification
 metadata while preserving critical-item and blocking-operation behavior, and
 retains non-blocking snapshots in a bounded searchable history model.
-Bulk actions, provider-authored rendering, and the native capture remain open
-lanes; this is not a claim that the legacy notification
+The manager header's Notifications button opens that review surface and shows
+an unread marker. Bulk actions, provider-authored rendering, and the native
+capture remain open lanes; this is not a claim that the legacy notification
 surface has been fully replaced.
 
 The existing New VM, New virtual disk, clone, import, and export flows now

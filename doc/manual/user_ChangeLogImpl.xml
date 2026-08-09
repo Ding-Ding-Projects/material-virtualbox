@@ -128,6 +128,12 @@ Rules for adding a changelog entry to make them look more uniform:
       </listitem>
 
       <listitem>
+        <para>GUI: Added a manager-header Notifications action that opens the
+          modeless history surface and exposes an unread-state marker without
+          changing blocking notification behavior</para>
+      </listitem>
+
+      <listitem>
         <para>Building the OSE Edition: Implemented a new configure.py script which
           unifies the ./configure (non-Windows) and configure.vbs (Windows) scripts
           Please adjust your building process accordingly, as the compatibility wrapper

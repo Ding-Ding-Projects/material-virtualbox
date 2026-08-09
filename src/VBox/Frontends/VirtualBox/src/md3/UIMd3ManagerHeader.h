@@ -15,6 +15,7 @@
 class QMainWindow;
 class QLabel;
 class UIMd3Button;
+class UIMd3NotificationCentre;
 class QMouseEvent;
 
 /** Native manager header that keeps existing actions authoritative. */
@@ -32,10 +33,13 @@ protected:
 private:
     void toggleMaximize();
     void updateMaximizeLabel();
+    void updateNotificationState();
 
     QMainWindow  *m_pWindow;
     QLabel       *m_pTitle;
+    QLabel       *m_pUnread;
     UIMd3Button  *m_pMaximize;
+    UIMd3Button  *m_pNotifications;
     bool          m_fDragging;
     QPoint        m_dragOffset;
 };

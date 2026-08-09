@@ -53,13 +53,13 @@ keeps the newest records first. A failed read or atomic write leaves the
 existing in-memory state usable and never blocks the operation that produced
 the notification.
 
-`showCentre()` opens a modeless, bounded review surface with its own
-`UIMd3SearchField`; plain text remains the default and the adjacent regex
-builder searches title, detail, and category locally. Rows use plain-text
-labels, preserve unread/error state, and expose an explicit **Mark all as
-read** action. The destructive **Clear history** action is intentionally not
-exposed yet: it needs the app-wide super-confirmation, local history record,
-and undo path before it can be a safe control. The title-bar bell, transient
+The manager header's **Notifications** button opens `showCentre()`, a modeless,
+bounded review surface with its own `UIMd3SearchField`; plain text remains the
+default and the adjacent regex builder searches title, detail, and category
+locally. Rows use plain-text labels, preserve unread/error state, and expose an
+explicit **Mark all as read** action. The destructive **Clear history** action
+is intentionally not exposed yet: it needs the app-wide super-confirmation,
+local history record, and undo path before it can be a safe control. Transient
 toast presentation, bulk selection/export, provider-authored markdown
 rendering, and full per-row accessibility roles remain later lanes.
 
