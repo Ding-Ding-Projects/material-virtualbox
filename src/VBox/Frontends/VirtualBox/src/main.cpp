@@ -36,6 +36,9 @@
 
 /* GUI includes: */
 #include "UICommon.h"
+#include "UIMd3Theme.h"
+#include "UIMd3Style.h"
+#include "UIMd3Language.h"
 #include "UILoggingDefs.h"
 #include "UIModalWindowManager.h"
 #include "UIStarter.h"
@@ -586,6 +589,12 @@ extern "C" DECLEXPORT(int) TrustedMain(int argc, char **argv, char ** /*envp*/)
         UICommon::create(UIType_RuntimeUI);
 #endif
 
+        /* Material 3 theme is process-wide and must be created after the
+         * extra-data manager (owned by UICommon) but before any window. */
+        UIMd3Theme::create();
+        UIMd3Style::install();
+        UIMd3Language::create();
+
         /* Simulate try-catch block: */
         do
         {
@@ -613,6 +622,11 @@ extern "C" DECLEXPORT(int) TrustedMain(int argc, char **argv, char ** /*envp*/)
             iResultCode = a.exec();
         }
         while (0);
+
+        /* Persist and destroy the process-wide Material 3 theme before the
+         * extra-data manager and UICommon are torn down. */
+        UIMd3Theme::destroy();
+        UIMd3Language::destroy();
 
         /* Destroy global app instance: */
         UICommon::destroy();

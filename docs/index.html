@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Material Virtual Machine · VirtualBox GUI rewrite</title>
+  <style>
+    :root{color-scheme:dark;--bg:#141218;--surface:#211f26;--surface2:#2b2930;--text:#e6e0e9;--muted:#cac4d0;--primary:#d0bcff;--outline:#938f99;--ok:#8ed49d}*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font:16px/1.55 system-ui,sans-serif}main{max-width:1100px;margin:auto;padding:28px}nav{display:flex;gap:8px;flex-wrap:wrap;margin:18px 0}button,a{border:1px solid var(--outline);border-radius:999px;padding:10px 16px;color:var(--text);background:transparent;text-decoration:none;cursor:pointer}button[aria-selected=true],a.primary{background:var(--primary);color:#332b41;border-color:var(--primary)}button:focus-visible,a:focus-visible{outline:3px solid var(--primary);outline-offset:2px}.panel{background:var(--surface);border:1px solid #49454f;border-radius:24px;padding:24px;margin-top:18px}.tab{display:none}.tab.active{display:block}.status{color:var(--ok);font-weight:700}.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:14px}.card{background:var(--surface2);padding:18px;border-radius:18px}.muted{color:var(--muted)}code{color:var(--primary)}
+  </style>
+</head>
+<body>
+<main>
+  <p class="status">🏃 Native Qt rewrite in progress · evidence is labelled honestly</p>
+  <h1>Material Virtual Machine</h1>
+  <p class="muted">A Material Design 3 presentation layer for the existing VirtualBox Manager, runtime, settings, wizards, and tools.</p>
+  <nav role="tablist" aria-label="Documentation sections">
+    <button role="tab" aria-selected="true" aria-controls="overview" data-tab="overview">Overview</button>
+    <button role="tab" aria-selected="false" aria-controls="coverage" data-tab="coverage">Coverage</button>
+    <button role="tab" aria-selected="false" aria-controls="verification" data-tab="verification">Verification</button>
+  </nav>
+  <section id="overview" class="panel tab active" role="tabpanel"><h2>One frontend, existing VirtualBox authority</h2><div class="grid"><article class="card"><h3>Shared theme</h3><p>Seed <code>#6750A4</code>, dark-first palette, density, font scale, and persisted appearance values are owned by <code>UICommon</code>.</p></article><article class="card"><h3>Native surfaces</h3><p>Manager, runtime, settings, tools, and wizards stay on their existing Qt models, action pools, COM/XPCOM contracts, and lifecycle.</p></article><article class="card"><h3>No fake evidence</h3><p>Runtime screenshots and installer links appear only after a built artifact is captured and independently verified.</p></article></div></section>
+  <section id="coverage" class="panel tab" role="tabpanel"><h2>Design coverage</h2><p>The checked-in archive has 69 entries. The ledger and reproducible hashes are maintained in <a href="../doc/md3/DesignCoverage.md">DesignCoverage.md</a> and <a href="../doc/md3/ArchiveManifest.sha256">ArchiveManifest.sha256</a>.</p></section>
+  <section id="verification" class="panel tab" role="tabpanel"><h2>Verification state</h2><p>Static source wiring is present. Windows compilation, native runtime capture, accessibility flows, release artifacts, and Pages publication remain pending until their exact gates run.</p></section>
+  <p class="muted">Repository: <a href="https://github.com/Ding-Ding-Projects/material-virtualbox">material-virtualbox</a></p>
+</main>
+<script>for(const b of document.querySelectorAll('[role=tab]'))b.addEventListener('click',()=>{for(const x of document.querySelectorAll('[role=tab]'))x.setAttribute('aria-selected',x===b);for(const p of document.querySelectorAll('[role=tabpanel]'))p.classList.toggle('active',p.id===b.dataset.tab)})</script>
+</body></html>

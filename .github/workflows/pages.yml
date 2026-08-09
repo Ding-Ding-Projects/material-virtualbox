@@ -1,0 +1,39 @@
+name: Material 3 documentation Pages
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: windows-2022
+    steps:
+      - uses: actions/checkout@v4
+      - name: Assemble static documentation
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force _site | Out-Null
+          Copy-Item docs\* _site -Recurse -Force
+          Copy-Item doc\md3\*.md _site -Force
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+  deploy:
+    needs: build
+    runs-on: windows-2022
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

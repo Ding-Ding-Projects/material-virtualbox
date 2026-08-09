@@ -1,0 +1,52 @@
+name: Material 3 validation
+
+on:
+  push:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: md3-validation-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  archive-and-source-contract:
+    runs-on: windows-2022
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate design ledger and manifest
+        shell: pwsh
+        run: |
+          ./tools/md3/generate-design-coverage.ps1
+          $rows = (Select-String -Path doc/md3/DesignCoverage.md -Pattern '^\| ARCH-' | Measure-Object).Count
+          if ($rows -ne 69) { throw "Expected 69 design rows, found $rows" }
+          if ((Get-Content doc/md3/ArchiveManifest.sha256 | Measure-Object -Line).Lines -ne 69) { throw 'Archive manifest must contain 69 entries' }
+          git diff --exit-code -- doc/md3/DesignCoverage.md doc/md3/ArchiveManifest.sha256
+      - name: Validate MD3 source wiring
+        shell: pwsh
+        run: |
+          $make = Get-Content src/VBox/Frontends/VirtualBox/Makefile.kmk -Raw
+          foreach ($path in @('src/md3/UIMd3Theme.cpp','src/md3/UIMd3Style.cpp','src/md3/UIMd3Language.cpp')) {
+            if ($make -notmatch [regex]::Escape($path)) { throw "Missing kBuild source: $path" }
+          }
+          foreach ($path in @('src/md3/UIMd3Theme.h','src/md3/UIMd3Style.h','src/md3/UIMd3Language.h')) {
+            if ($make -notmatch [regex]::Escape($path)) { throw "Missing Qt MOC header: $path" }
+          }
+      - name: Collect safe validation evidence
+        if: ${{ always() }}
+        continue-on-error: true
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force artifacts | Out-Null
+          git status --short | Set-Content artifacts/git-status.txt
+          git rev-parse HEAD | Set-Content artifacts/revision.txt
+      - uses: actions/upload-artifact@v4
+        if: ${{ always() }}
+        continue-on-error: true
+        with:
+          name: md3-validation-evidence
+          path: artifacts
+          if-no-files-found: warn
+          retention-days: 7

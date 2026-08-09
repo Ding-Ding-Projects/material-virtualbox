@@ -731,6 +731,9 @@ endif
 # Headers containing definitions of classes that use the Q_OBJECT macro.
 #
 UICommon_QT_MOCHDRS = \
+	src/md3/UIMd3Language.h \
+	src/md3/UIMd3Theme.h \
+	src/md3/UIMd3Style.h \
 	src/VBoxAboutDlg.h \
 	src/VBoxLicenseViewer.h \
 	src/UITakeSnapshotDialog.h \
@@ -1312,6 +1315,9 @@ endif
 # Sources.
 #
 UICommon_SOURCES = \
+	src/md3/UIMd3Language.cpp \
+	src/md3/UIMd3Theme.cpp \
+	src/md3/UIMd3Style.cpp \
 	src/VBoxAboutDlg.cpp \
 	src/VBoxLicenseViewer.cpp \
 	src/UITakeSnapshotDialog.cpp \

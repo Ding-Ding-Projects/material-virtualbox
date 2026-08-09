@@ -1,91 +1,161 @@
-# Oracle VirtualBox
+# Material Virtual Machine
 
-VirtualBox is a general-purpose full virtualization software for x86_64
-hardware (with version 7.1 additionally for macOS/Arm), targeted at laptop,
-desktop, server and embedded use.
+Material Virtual Machine is a Material Design 3 rewrite of the Qt desktop
+front end for VirtualBox. It keeps the VirtualBox engine, COM/XPCOM contracts,
+machine models, action pools, and kBuild targets intact while moving the
+application-owned presentation toward one coherent Qt 6 design system.
 
-It features a very user friendly graphical user interface and is available for
-many popular operating systems (Linux, Windows, macOS and Solaris). Flexible
-networking setup and interactive performance are the strong points.
+> **Implementation status:** the first production integration lane is landed in
+> the working tree: shared `UIMd3Theme` persistence and `UIMd3Style` palette
+> propagation are wired through the existing `UICommon` target and application
+> lifecycle. The manager, settings, wizard, tool, and runtime shells remain
+> in progress. Build and release claims below are deliberately bounded.
 
-Anyone with the need to run multiple operating systems simultaneously with some
-basic knowledge about PCs and operating system installation can use it to
-reduce effort with a large number of tasks including software testing.
+## Contents
 
-## Getting started
+- [Design package](#design-package)
+- [Architecture](#architecture)
+- [Build and prerequisites](#build-and-prerequisites)
+- [Verification boundaries](#verification-boundaries)
+- [CI and Pages](#ci-and-pages)
+- [Contributing](#contributing)
+- [Security and license](#security-and-license)
 
-VirtualBox is a complex product with multiple dependencies, some of them
-specific to the operating system on which you want to run it.
+## Design package
 
-The basics for building VirtualBox are described on the [build
-instructions](https://www.virtualbox.org/wiki/Build_instructions) page.
+The checked-in [`design/`](design/) directory is the authoritative review
+package for the rewrite. It contains five native-Qt reference prototypes,
+shared interaction data, C++/kBuild starter references, icons, and the
+implementation handoff.
 
-## Documentation
+| Surface | Prototype |
+| --- | --- |
+| Virtual machine manager | [`Manager.dc.html`](design/Manager.dc.html) |
+| Machine settings | [`VM Settings.dc.html`](design/VM%20Settings.dc.html) |
+| Runtime window | [`Runtime Window.dc.html`](design/Runtime%20Window.dc.html) |
+| Wizards | [`Wizards.dc.html`](design/Wizards.dc.html) |
+| Manager tools and preferences | [`Managers.dc.html`](design/Managers.dc.html) |
 
-The [VirtualBox User
-Guide](https://docs.oracle.com/en/virtualization/virtualbox/index.html)
-contains all information relevant for users, including the product features and
-their configuration.
+No application screenshots are published yet. The archive contains a design
+thumbnail, but it is intentionally not presented as runtime evidence. README
+Screenshots will be added only after the native Qt app is built, launched, and
+captured from the rewritten surfaces; mockups and static HTML previews do not
+count.
 
-For developers it is recommended to start with the [technical
-documentation](https://www.virtualbox.org/wiki/Technical_documentation) which
-contains links to a broad collection of pages related to development, covering
-many aspects of the project and its features.
+The handoff requires accounting for all 69 archive entries. The maintained
+ledger is [`doc/md3/DesignCoverage.md`](doc/md3/DesignCoverage.md), with its
+reproducible hash list in [`doc/md3/ArchiveManifest.sha256`](doc/md3/ArchiveManifest.sha256).
+Regenerate both with `pwsh -NoProfile -ExecutionPolicy Bypass -File
+tools/md3/generate-design-coverage.ps1` after changing the design package.
 
-## Examples
+## Architecture
 
-Tutorials on how to install and use Oracle VirtualBox are available at
-[Learn to Install Oracle VirtualBox and Run Virtual Machines](https://blogs.oracle.com/linux/post/learn-to-install-oracle-virtualbox-and-run-virtual-machines)
-and [Use Oracle VirtualBox on Oracle Linux](https://docs.oracle.com/en/learn/ol-vbox/index.html).
+This is one VirtualBox frontend, not a parallel demo application.
 
-## Help
+- **Manager:** refactor `UIVirtualBoxManager` and `UIVirtualBoxWidget` visually
+  while retaining `UIActionPoolManager`, `UIChooser`, `UIToolPane`, and their
+  existing models and signals.
+- **Runtime:** add Material chrome around `UIMachineWindow` and
+  `UIMachineView`; do not replace guest display, capture, session, or
+  multi-monitor ownership.
+- **Settings and wizards:** host the existing `UISettingsPage` and
+  `UINativeWizardPage` implementations in Material shells without bypassing
+  validation, serializers, progress, or cleanup.
+- **Shared UI:** place genuinely shared tokens, theme, style, search, language,
+  notification, history, accessibility, and safe utility code in the
+  `UICommon` boundary. Manager-only code belongs to `VirtualBox`; runtime-only
+  chrome belongs to `VirtualBoxVM`.
+- **Persistence:** use VirtualBox extra data and existing settings APIs. Do
+  not introduce a second preferences database.
 
-Oracle customers with a support contract covering Oracle VirtualBox should
-reach out to [Oracle Support](https://www.oracle.com/support/).
+The target visual system is Qt 6 Material Design 3 with seed `#6750A4`, dark
+first-run presentation, comfortable density, a frameless platform-aware title
+bar, keyboard and screen-reader support, and preserved translations. The
+visual rewrite must not weaken hardening, authentication, destructive-action
+confirmation, or VM/session safety.
 
-Everyone can use the [VirtualBox Forums](https://forums.virtualbox.org/)
-for questions about the product or discussing its functionality. Open an [issue](https://github.com/VirtualBox/virtualbox/issues)
-for bug reports or request for enhancements. Report a security vulnerability
-according to the [Reporting Vulnerabilities Guide](https://www.oracle.com/corporate/security-practices/assurance/vulnerability/reporting.html).
+## Build and prerequisites
+
+VirtualBox is a large native project. Follow the canonical
+[build instructions](https://www.virtualbox.org/wiki/Build_instructions) and
+the local coding guidance before attempting a full build.
+
+For an external checkout, the supported shape is:
+
+```text
+py -3 configure.py
+kmk
+```
+
+For a narrower target after the environment is configured:
+
+```text
+kmk -C src/VBox/Frontends/VirtualBox
+```
+
+The build requires a compatible compiler, Qt 6 development files, kBuild
+(`kmk`), platform SDKs, and the other dependencies selected by
+`configure.py`. Do not copy generated output or machine-local settings into
+the source tree; use `LocalConfig.kmk` for local overrides.
+
+**Current checkout boundary:** on the audit host, `svn`, `kmk`, `scm`, and
+`qmake` were not installed or discoverable. `py -3 configure.py --help` did
+run successfully, but no compile, test, packaging, or GUI runtime result was
+claimed. Install or expose the required toolchain in the execution
+environment before treating a build as verified.
+
+## Verification boundaries
+
+Static inspection currently proves the design package, the 69-entry ledger,
+the shared MD3 theme/style integration, and the existing VirtualBox target
+structure. The following remain open until the remaining native shells land:
+
+- compilation of `VirtualBox`, `VirtualBoxVM`, and `UICommon`;
+- Qt widget, accessibility, keyboard, localization, and persistence tests;
+- Windows frameless title-bar, DPI, snap-layout, and focus validation;
+- manager, settings, wizard, manager-tool, notification, and runtime screenshot
+  capture from a built artifact;
+- installer, release, update, and signed/unsigned artifact verification.
+
+When the toolchain is available, run the narrowest relevant gates first, then
+the full GUI target. Validation Kit and runtime testcase commands are
+documented in [`AGENTS.md`](AGENTS.md); they are not represented as passed by
+this README.
+
+## CI and Pages
+
+This mirror currently contains only the stale-question workflow at
+`.github/workflows/question-stale.yml`. There is no checked-in build, release,
+or GitHub Pages publication workflow, and no `.openai/hosting.json` project.
+Consequently, CI and Pages publication are **not verified** for this rewrite.
+
+When publication work is added, it must build from the intended commit, keep
+artifact and test evidence separate, publish only verified outputs, and expose
+the documentation site from the repository homepage. A green static check
+must not be described as a successful GUI build or release.
 
 ## Contributing
 
-This project welcomes contributions from the community. Before submitting a
-pull request, please [review our contribution guide](./CONTRIBUTING.md)
+Read [`AGENTS.md`](AGENTS.md), [`CONTRIBUTING.md`](CONTRIBUTING.md), the Qt
+coding section in [`doc/VBox-CodingGuidelines.cpp`](doc/VBox-CodingGuidelines.cpp),
+the makefile guidance, and [`SECURITY.md`](SECURITY.md) before editing.
 
-## Security
+Keep changes narrow and tied to the real VirtualBox models and action pools.
+Do not add HTML, React, browser-engine, CDN, or network dependencies to the
+production frontend. Add new source files with the repository's standard
+headers and properties, update the relevant manual and changelog entries, run
+`scm` checks when available, and report every unrun gate and external blocker.
 
-Please consult the [security guide](./SECURITY.md) for our responsible security vulnerability disclosure process.
+The canonical repository is SVN; this checkout is also mirrored on GitHub.
+Do not assume the GitHub mirror contains newer internal fixes. Commits,
+branches, tags, and publication should follow the repository owner's explicit
+workflow.
 
-## License
+## Security and license
 
-The correct copyright notice format for both documentation and software is
+Report vulnerabilities using the process in [`SECURITY.md`](SECURITY.md), not
+through public issue details. VirtualBox is distributed under GPLv3 as shown
+in [`COPYING`](COPYING), with additional third-party license notices in
+[`THIRD_PARTY_LICENSES.txt`](THIRD_PARTY_LICENSES.txt).
 
-    Copyright (C) [year-]year Oracle and/or its affiliates.
-
-    This file is part of VirtualBox base platform packages, as
-    available from https://www.virtualbox.org.
-
-    This program is free software; you can redistribute it and/or
-    modify it under the terms of the GNU General Public License
-    as published by the Free Software Foundation, in version 3 of the
-    License.
-
-    This program is distributed in the hope that it will be useful, but
-    WITHOUT ANY WARRANTY; without even the implied warranty of
-    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-    General Public License for more details.
-
-    You should have received a copy of the GNU General Public License
-    along with this program; if not, see <https://www.gnu.org/licenses>.
-
-You must include the year the content was first released (on any platform) and
-the most recent year in which it was revised:
-
-    Copyright (C) 2025 Oracle and/or its affiliates.
-
-Released under the GNU General Public License v3.0 as shown at
-[COPYING](./COPYING) which contains clarifications regarding allowed licenses
-for other code using parts of the project which are covered by multiple
-licenses.
-
+Copyright (C) 2025 Oracle and/or its affiliates.
