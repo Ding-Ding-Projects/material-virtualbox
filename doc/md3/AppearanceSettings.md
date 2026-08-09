@@ -38,11 +38,21 @@ refresh without restarting the application.
 MD3 widgets with a stable appearance key now expose **Edit appearance…** from
 their context menu and from <kbd>Shift</kbd>+right-click. The bounded editor
 persists an element seed, typeface, corner radius, scale, and weight through
-`UIMd3Theme`, supports reset, and returns focus to the edited widget. This
-slice is intentionally marked in progress: the editor now has a live preview
-and its own anchored regex builder, while named-theme actions and the complete
-typography surface remain open. Those capabilities must land before this
-article can claim complete per-element customization.
+`UIMd3Theme`, supports reset, and returns focus to the edited widget. Its
+anchored search remains plain-text-first with the full regex builder available,
+and the live preview reflects the pending values without persisting them.
+
+The same editor now offers a saved-theme picker, a bounded name field, and
+truthful **Save named theme** / **Apply named theme** actions. Saving captures
+the current persisted palette, typography, density, display brand, and every
+element override; pending edits in the open editor are not silently included
+until **Apply** succeeds. Applying validates the complete saved record before
+touching the live theme, refreshes the editor preview, and reports success or
+failure in an accessible inline status. Invalid names, malformed records, and
+out-of-range element values are rejected transactionally, leaving the prior
+live and saved state unchanged. Six- or eight-digit HEX colors retain their
+alpha channel through persistence, export, import, and history. Full Word-depth typography and genuine native
+capture remain open design-coverage work.
 
 ## Persistence and safety
 
@@ -52,12 +62,16 @@ request, or guest/runtime operation is involved. The existing settings selector
 and `UISettingsPageFrame::filterOut` remain authoritative for page visibility
 and search; changing appearance does not discard pending settings edits.
 
-Each validated theme or appearance mutation also records a bounded state
-revision in `UIMd3History`. The history browser can restore those revisions
+Each validated theme or appearance mutation preflights the bounded state
+payload before it is persisted, then records a state revision in
+`UIMd3History` when the local history store accepts it. A history-store refusal
+does not undo the already validated appearance change; it is reported as a
+non-blocking persistence limitation rather than a false success. The history browser can restore those revisions
 through `UIMd3Theme::restoreState`; version, palette, density, typography,
-named-theme, and per-element fields are checked before the live theme changes,
-and the restore itself appends a new revision. Malformed or oversized state is
-rejected without changing the current appearance.
+display brand, named-theme, and per-element fields are checked as one
+transaction before the live theme changes, and the restore itself appends a
+new revision. Malformed, non-finite, out-of-range, or oversized state is
+rejected without changing the current appearance or saved-theme set.
 
 ## Verification
 
@@ -68,8 +82,9 @@ Preferences showing each scheme, valid and invalid seed input, font scale,
 compact density, installed font-family preview, inherited and explicit font
 weights, brand reset, keyboard focus, and persistence after restart.
 The element editor additionally requires a real capture showing its context
-menu search, regex builder, live preview, apply/reset behavior, and focus
-return; no design thumbnail or static HTML preview is accepted as a substitute.
+menu search, regex builder, live preview, named-theme save/apply status,
+transactional rejection, apply/reset behavior, and focus return; no design
+thumbnail or static HTML preview is accepted as a substitute.
 
 Suggested articles: [`SettingsSearch.md`](SettingsSearch.md),
 [`NavigationRail.md`](NavigationRail.md), and the repository

@@ -11,11 +11,13 @@
 
 /* Qt includes: */
 #include <QRegularExpression>
+#include <QPointer>
 #include <QString>
 #include <QWidget>
 
 class QLineEdit;
 class QToolButton;
+class UIMd3RegexBuilder;
 
 /** Plain-text-first search field with independent regex state. */
 class UIMd3SearchField : public QWidget
@@ -67,6 +69,7 @@ private:
     QString m_strPlaceholder;
     QLineEdit *m_pEditor;
     QToolButton *m_pBuilderButton;
+    QPointer<UIMd3RegexBuilder> m_pBuilder;
     bool m_fRegexActive;
     QString m_strFlags;
     QRegularExpression m_regex;

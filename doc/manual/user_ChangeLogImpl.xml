@@ -121,6 +121,12 @@ Rules for adding a changelog entry to make them look more uniform:
       </listitem>
 
       <listitem>
+        <para>GUI: Added truthful named-theme save and apply controls to the
+          Material 3 appearance editor, including persisted element overrides
+          and transactional rejection of malformed or out-of-range values</para>
+      </listitem>
+
+      <listitem>
         <para>GUI: Added an embedded Material 3 wizard shell with translated page
           titles, step progress, completion state, and the existing validation,
           notification, and button contracts preserved</para>

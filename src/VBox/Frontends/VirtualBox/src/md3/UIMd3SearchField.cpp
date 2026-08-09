@@ -4,14 +4,17 @@
  */
 
 /* Qt includes: */
+#include <QApplication>
 #include <QHBoxLayout>
 #include <QLineEdit>
 #include <QPoint>
+#include <QScreen>
 #include <QToolButton>
 
 /* GUI includes: */
 #include "UIMd3RegexBuilder.h"
 #include "UIMd3SearchField.h"
+#include "UIMd3Language.h"
 #include "UIMd3Theme.h"
 
 UIMd3SearchField::UIMd3SearchField(const QString &strFieldId, const QString &strPlaceholder, QWidget *pParent)
@@ -20,6 +23,7 @@ UIMd3SearchField::UIMd3SearchField(const QString &strFieldId, const QString &str
     , m_strPlaceholder(strPlaceholder)
     , m_pEditor(0)
     , m_pBuilderButton(0)
+    , m_pBuilder(0)
     , m_fRegexActive(false)
 {
     setObjectName(QStringLiteral("md3SearchField_%1").arg(strFieldId));
@@ -45,6 +49,11 @@ void UIMd3SearchField::setPlaceholderText(const QString &strText)
     {
         m_pEditor->setPlaceholderText(strText);
         setAccessibleName(strText);
+    }
+    if (m_pBuilderButton)
+    {
+        m_pBuilderButton->setToolTip(tr("Open the regex builder for this search"));
+        m_pBuilderButton->setAccessibleName(tr("Open regex builder"));
     }
 }
 
@@ -88,9 +97,16 @@ bool UIMd3SearchField::matches(const QString &strCandidate) const
 
 void UIMd3SearchField::sltOpenBuilder()
 {
+    if (m_pBuilder)
+    {
+        m_pBuilder->raise();
+        m_pBuilder->activateWindow();
+        return;
+    }
     UIMd3RegexBuilder *pBuilder = new UIMd3RegexBuilder(this);
     if (!pBuilder)
         return;
+    m_pBuilder = pBuilder;
     pBuilder->setPattern(m_fRegexActive ? m_regex.pattern() : text(), m_strFlags);
     connect(pBuilder, &UIMd3RegexBuilder::sigPatternAccepted,
             this, [this](const QString &strPattern, const QString &strFlags)
@@ -99,9 +115,43 @@ void UIMd3SearchField::sltOpenBuilder()
     });
     connect(pBuilder, &UIMd3RegexBuilder::sigPlainTextRequested,
             this, &UIMd3SearchField::clearRegex);
+    connect(pBuilder, &QObject::destroyed, this, [this]()
+    {
+        if (m_pEditor)
+            m_pEditor->setFocus(Qt::OtherFocusReason);
+    });
+    if (UIMd3Language::instance())
+        connect(UIMd3Language::instance(), &UIMd3Language::sigLanguageChanged,
+                pBuilder, [this]()
+    {
+        if (m_pBuilder)
+            m_pBuilder->close();
+        if (m_pEditor)
+            m_pEditor->setFocus(Qt::OtherFocusReason);
+    });
+    pBuilder->adjustSize();
     const QPoint point = m_pBuilderButton ? m_pBuilderButton->mapToGlobal(QPoint(0, m_pBuilderButton->height()))
                                            : mapToGlobal(QPoint(0, height()));
-    pBuilder->move(point);
+    QScreen *pScreen = window() ? window()->screen() : 0;
+    if (!pScreen)
+        pScreen = QApplication::screenAt(point);
+    const QRect available = pScreen ? pScreen->availableGeometry()
+                                    : (QApplication::primaryScreen()
+                                     ? QApplication::primaryScreen()->availableGeometry()
+                                     : QRect(0, 0, 1280, 720));
+    QSize size = pBuilder->size();
+    size.setWidth(qMin(size.width(), available.width()));
+    size.setHeight(qMin(size.height(), available.height()));
+    pBuilder->resize(size);
+    int iX = point.x();
+    int iY = point.y();
+    if (iX + size.width() > available.right() + 1)
+        iX = point.x() - size.width();
+    if (iY + size.height() > available.bottom() + 1)
+        iY = point.y() - size.height() - (m_pBuilderButton ? m_pBuilderButton->height() : height());
+    iX = qBound(available.left(), iX, available.right() - size.width() + 1);
+    iY = qBound(available.top(), iY, available.bottom() - size.height() + 1);
+    pBuilder->move(iX, iY);
     pBuilder->show();
 }
 
@@ -119,6 +169,8 @@ void UIMd3SearchField::prepare()
     pLayout->setContentsMargins(12, 4, 4, 4);
     pLayout->setSpacing(6);
     m_pEditor = new QLineEdit(this);
+    setFocusPolicy(Qt::StrongFocus);
+    setFocusProxy(m_pEditor);
     m_pEditor->setClearButtonEnabled(true);
     m_pEditor->setMaxLength(4096);
     m_pEditor->setPlaceholderText(m_strPlaceholder);

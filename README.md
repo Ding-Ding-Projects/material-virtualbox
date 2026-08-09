@@ -65,8 +65,10 @@ to the native screenshot gate above.
 MD3 widgets with stable keys also expose a bounded per-element appearance
 editor from their context menu and <kbd>Shift</kbd>+right-click. The editor
 persists seed, typeface, corner radius, scale, and weight overrides and has a
-reset path. Its live preview and editor-local regex search are live; named-theme
-actions and the complete Word-depth typography picker remain tracked as open
+reset path. Its live preview and editor-local regex search are live. The editor
+also saves and applies complete named themes (including element overrides),
+rejects malformed or out-of-range values transactionally, and returns focus
+after close; the complete Word-depth typography picker remains tracked as open
 design-coverage work.
 
 The manager command palette is documented in

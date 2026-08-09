@@ -111,8 +111,10 @@ public:
       * @{ */
         /** Returns the override stored for @a strKey, invalid when none exists. */
         UIMd3Appearance appearance(const QString &strKey) const;
-        /** Stores @a appearance for @a strKey and persists it. */
-        void setAppearance(const QString &strKey, const UIMd3Appearance &appearance);
+        /** Stores @a appearance for @a strKey after strict validation and persists it.
+          * Returns false without changing the live state when a value is malformed or
+          * outside the bounded Material 3 element contract. */
+        bool setAppearance(const QString &strKey, const UIMd3Appearance &appearance);
         /** Removes the override stored for @a strKey. */
         void clearAppearance(const QString &strKey);
         /** Returns every stored override key. */
@@ -121,15 +123,18 @@ public:
 
     /** @name Named themes
       * @{ */
-        /** Saves the current palette, typography, density, and brand state as @a strName. */
-        void saveNamedTheme(const QString &strName);
+        /** Saves the current palette, typography, density, brand, and element overrides
+          * as @a strName. Returns false without changing the saved set when the name is
+          * empty, oversized, or would exceed the bounded preset count. */
+        bool saveNamedTheme(const QString &strName);
         /** Applies the named theme @a strName. Returns false when it does not exist. */
         bool applyNamedTheme(const QString &strName);
         /** Returns every saved theme name. */
         QStringList namedThemes() const { return m_namedThemes.keys(); }
         /** Serialises every named theme to JSON for export. */
         QByteArray exportNamedThemes() const;
-        /** Merges named themes from the JSON blob @a data. Returns false on a parse error. */
+        /** Merges named themes from the JSON blob @a data transactionally. Returns false
+          * on a parse error or malformed/out-of-range entry without changing saved themes. */
         bool importNamedThemes(const QByteArray &data);
     /** @} */
 

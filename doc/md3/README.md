@@ -10,7 +10,7 @@ This section records the native Qt implementation of the supplied Material Desig
 - The implementation starts with the shared theme lifecycle and persistence bridge, then composes manager, settings, wizard, tool, and runtime surfaces around their existing models and action pools.
 - [`NavigationRail.md`](NavigationRail.md) documents the first visible manager shell integration and its runtime capture gate.
 - [`SettingsSearch.md`](SettingsSearch.md) documents the shared settings search field and its anchored regex builder.
-- [`AppearanceSettings.md`](AppearanceSettings.md) documents the live Material scheme, seed, density, font-scale, and display-brand controls.
+- [`AppearanceSettings.md`](AppearanceSettings.md) documents the live Material scheme, seed, density, font-scale, display-brand controls, named-theme save/apply flow, and transactional per-element validation.
 - [`CommandPalette.md`](CommandPalette.md) documents the `Ctrl+Shift+F` registry-backed command palette and focus-return behavior.
 - [`NotificationCentre.md`](NotificationCentre.md) documents the existing center's plain-text/bounded-regex filtering, persistent bounded history, selectable rows, filtered JSON export, the two-acknowledgement/full-slider Clear history gate, and one-step Undo last clear recovery backed by the shared local history journal.
 - [`History.md`](History.md) documents the isolated append-only local journal, SHA-256 state validation, Git best-effort backing, notification and appearance/theme revisions, and the modeless <kbd>Ctrl+H</kbd>/command-palette browser with action/date filters, regex search, JSONL export, integrity verification, and validated owner-routed restore adapters.
