@@ -40,7 +40,7 @@ implementation handoff.
 ## Runtime screenshots
 
 Screenshots in this section are reserved for captures from the built native
-application. The current Deen No runtime launch reaches the real executable but
+application. The current Windows runtime launch reaches the real executable but
 stops before the manager shell at `REGDB_E_CLASSNOTREG` because the checkout's
 `VirtualBoxClient` COM registration is incomplete. That genuine failure capture
 is retained in the session evidence, but it is not presented as a successful
