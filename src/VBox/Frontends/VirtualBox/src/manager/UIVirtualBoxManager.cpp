@@ -2555,7 +2555,7 @@ void UIVirtualBoxManager::prepareWidgets()
     pCentralLayout->addWidget(new UIMd3ManagerHeader(this, pCentral));
 
     /* Prepare central-widget: */
-    m_pWidget = new UIVirtualBoxWidget(pCentral);
+    m_pWidget = new UIVirtualBoxWidget(this);
     QWidget *pLastFocusedWidget = m_pWidget->focusWidget();
     if (m_pWidget)
     {

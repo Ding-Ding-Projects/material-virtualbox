@@ -83,7 +83,7 @@ public:
 private:
 
     UIMd3Language();
-    virtual ~UIMd3Language() RT_OVERRIDE;
+    virtual ~UIMd3Language() override;
 
     static UIMd3Language *s_pInstance;
     UIMd3LanguageMode     m_enmMode;

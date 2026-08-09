@@ -79,7 +79,8 @@ UIMd3Theme::~UIMd3Theme()
 
 QColor UIMd3Theme::color(UIMd3ColorRole enmRole) const
 {
-    AssertReturn(enmRole >= 0 && enmRole < UIMd3ColorRole_Max, QColor());
+    if (enmRole < 0 || enmRole >= UIMd3ColorRole_Max)
+        return QColor();
     return m_colors[enmRole];
 }
 
@@ -309,13 +310,13 @@ QColor UIMd3Theme::tone(const QColor &base, int iTone)
      * driving lightness to the requested tone. This keeps the palette
      * perceptually close to the reference implementation without pulling
      * an extra dependency into the frontend. */
-    qreal h = 0, s = 0, l = 0, a = 0;
+    float h = 0, s = 0, l = 0, a = 0;
     base.getHslF(&h, &s, &l, &a);
-    const qreal dTarget = qBound(0.0, iTone / 100.0, 1.0);
+    const float dTarget = qBound(0.0f, iTone / 100.0f, 1.0f);
     /* Chroma decays towards the extremes, exactly as the M3 palettes do: */
-    const qreal dChroma = s * (1.0 - qAbs(dTarget - 0.5) * 0.7);
+    const float dChroma = s * (1.0f - qAbs(dTarget - 0.5f) * 0.7f);
     QColor result;
-    result.setHslF(h, qBound(0.0, dChroma, 1.0), dTarget, a);
+    result.setHslF(h, qBound(0.0f, dChroma, 1.0f), dTarget, a);
     return result.toRgb();
 }
 

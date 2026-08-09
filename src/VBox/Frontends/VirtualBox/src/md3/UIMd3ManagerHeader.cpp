@@ -19,6 +19,7 @@
 #include <QHBoxLayout>
 #include <QLabel>
 #include <QMainWindow>
+#include <QMenuBar>
 #include <QPushButton>
 
 #include "UIMd3ManagerHeader.h"

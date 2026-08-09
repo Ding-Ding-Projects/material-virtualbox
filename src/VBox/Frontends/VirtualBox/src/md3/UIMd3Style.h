@@ -27,6 +27,9 @@
 /* Qt includes: */
 #include <QProxyStyle>
 
+/* IPRT compatibility macros: */
+#include <iprt/cdefs.h>
+
 /** QProxyStyle extension that paints stock Qt controls in Material 3.
   *
   * Every screen in this rewrite is built from UIMd3* widgets, but third-party
@@ -47,16 +50,16 @@ public:
 
     /** Draws the primitive @a element. */
     virtual void drawPrimitive(PrimitiveElement element, const QStyleOption *pOption,
-                               QPainter *pPainter, const QWidget *pWidget = 0) const RT_OVERRIDE;
+                               QPainter *pPainter, const QWidget *pWidget = 0) const override;
     /** Draws the control @a element. */
     virtual void drawControl(ControlElement element, const QStyleOption *pOption,
-                             QPainter *pPainter, const QWidget *pWidget = 0) const RT_OVERRIDE;
+                             QPainter *pPainter, const QWidget *pWidget = 0) const override;
     /** Returns the pixel metric for @a metric. */
     virtual int pixelMetric(PixelMetric metric, const QStyleOption *pOption = 0,
-                            const QWidget *pWidget = 0) const RT_OVERRIDE;
+                            const QWidget *pWidget = 0) const override;
     /** Returns the style hint for @a hint. */
     virtual int styleHint(StyleHint hint, const QStyleOption *pOption = 0, const QWidget *pWidget = 0,
-                          QStyleHintReturn *pReturnData = 0) const RT_OVERRIDE;
+                          QStyleHintReturn *pReturnData = 0) const override;
 };
 
 #endif /* !FEQT_INCLUDED_SRC_md3_UIMd3Style_h */

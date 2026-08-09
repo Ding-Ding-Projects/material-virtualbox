@@ -29,6 +29,10 @@
 #include <QFont>
 #include <QHash>
 #include <QObject>
+#include <QVariantMap>
+
+/* IPRT compatibility macros: */
+#include <iprt/cdefs.h>
 
 /* GUI includes: */
 #include "UIMd3Tokens.h"
@@ -129,7 +133,7 @@ private:
     /** Constructs the theme. */
     UIMd3Theme();
     /** Destructs the theme. */
-    virtual ~UIMd3Theme() RT_OVERRIDE;
+    virtual ~UIMd3Theme() override;
 
     /** Rebuilds every tonal palette from the current seed and scheme. */
     void regenerate();
