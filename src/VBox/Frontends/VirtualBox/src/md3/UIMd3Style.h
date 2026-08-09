@@ -30,13 +30,16 @@
 /* IPRT compatibility macros: */
 #include <iprt/cdefs.h>
 
+/* GUI includes: */
+#include "UILibraryDefs.h"
+
 /** QProxyStyle extension that paints stock Qt controls in Material 3.
   *
   * Every screen in this rewrite is built from UIMd3* widgets, but third-party
   * and platform dialogs (file chooser, message boxes, printer dialogs) still
   * come from Qt. This style keeps those consistent instead of leaving a
   * platform-styled hole in the middle of a Material 3 window. */
-class UIMd3Style : public QProxyStyle
+class SHARED_LIBRARY_STUFF UIMd3Style : public QProxyStyle
 {
     Q_OBJECT;
 

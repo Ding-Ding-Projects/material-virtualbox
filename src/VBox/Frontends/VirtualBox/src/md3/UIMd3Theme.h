@@ -35,13 +35,14 @@
 #include <iprt/cdefs.h>
 
 /* GUI includes: */
+#include "UILibraryDefs.h"
 #include "UIMd3Tokens.h"
 
 /** QObject extension owning the Material 3 palette for the whole process.
   * The theme derives every colour role from a single seed colour using the
   * HCT tonal-palette rules, applies the active scheme, and republishes itself
   * whenever the seed, scheme, density or per-element overrides change. */
-class UIMd3Theme : public QObject
+class SHARED_LIBRARY_STUFF UIMd3Theme : public QObject
 {
     Q_OBJECT;
 

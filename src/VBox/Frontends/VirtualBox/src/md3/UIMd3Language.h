@@ -29,6 +29,9 @@
 #include <QHash>
 #include <QString>
 
+/* GUI includes: */
+#include "UILibraryDefs.h"
+
 /** The three app language modes required of every user-facing surface. */
 enum UIMd3LanguageMode
 {
@@ -43,7 +46,7 @@ enum UIMd3LanguageMode
   * handles locale translation, while this class handles the product's own
   * register — plain English, playful Hong Kong Cantonese, or a compact bilingual
   * pairing — and the playfulness level that goes with it. */
-class UIMd3Language : public QObject
+class SHARED_LIBRARY_STUFF UIMd3Language : public QObject
 {
     Q_OBJECT;
 
