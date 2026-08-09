@@ -78,10 +78,13 @@ After an authorized clear, the model keeps one bounded recovery snapshot in
 surface. The snapshot is validated with the same schema, field, count, and
 payload limits as live history; a failed snapshot never blocks the clear, and a
 successful restore consumes the snapshot and rewrites the live file atomically.
-This is a one-step recovery affordance, not yet the required append-only
-local-Git history revision. Transient toast presentation, bulk dismiss or
-delete, provider-authored markdown rendering, and full per-row accessibility
-roles remain later lanes.
+The shared `UIMd3History` journal also records the pre-clear state as an
+append-only `notification history cleared` revision and records a successful
+restore as `notification history restored`. A later non-blocking notification
+records `notification history changed`, which invalidates the one-step Undo
+action; the bounded JSON snapshot remains as a fallback when Git is unavailable.
+Transient toast presentation, bulk dismiss or delete, provider-authored
+markdown rendering, and full per-row accessibility roles remain later lanes.
 
 ## Configuration and localization
 
@@ -111,8 +114,10 @@ app-data directory and is consumed after a successful restore. Export opens
 the native save picker, bounds the JSON payload, and fails closed if the
 destination cannot be written. Clear authorization is modal only because it is
 a destructive decision; the history model itself remains non-blocking. The
-missing append-only local-Git revision is an explicit verification gap rather
-than a silently implied guarantee.
+shared local journal uses a fixed local Git identity, never configures a
+remote, and falls back to the atomic files when Git cannot initialize or
+commit. A complete history browser and all-record diff/restore UI remain
+explicit verification gaps.
 
 ## Verification
 
@@ -121,15 +126,17 @@ The implementation is in
 and
 `src/VBox/Frontends/VirtualBox/src/md3/UIMd3NotificationCentre.{h,cpp}`. The
 focused source contract checks the field wiring, the critical-item predicate,
-the bounded JSON model, selectable-row/export/restore actions, lifecycle
-creation/destruction, the two-acknowledgement/full-slider clear gate, focus
-return, and UICommon target ownership. UICommon and the root `VirtualBox`
-target are built through kBuild when the Windows toolchain is available; native
-captures are intentionally deferred for this lane.
+the bounded JSON model, selectable-row/export/restore actions, the shared
+`UIMd3History` lifecycle and SHA-256 journal, the two-acknowledgement/full-
+slider clear gate, focus return, and UICommon target ownership. UICommon and
+the root `VirtualBox`/`VirtualBoxVM` targets are built through kBuild when the
+Windows toolchain is available; native captures are intentionally deferred for
+this lane.
 
 ## Suggested articles
 
 - [Settings search](SettingsSearch.md) — the shared plain/regex field contract.
 - [Command palette](CommandPalette.md) — searchable actions and focus return.
 - [Tab navigation](TabNavigation.md) — local menu and overflow filtering.
+- [Local history journal](History.md) — append-only clear/restore records and bounded state validation.
 - [Design coverage ledger](DesignCoverage.md) — archive rows and remaining lanes.

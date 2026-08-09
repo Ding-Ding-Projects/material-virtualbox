@@ -149,6 +149,8 @@ private:
     static QString storagePath();
     /** Returns the one-step recovery snapshot path. */
     static QString undoStoragePath();
+    /** Loads and validates a bounded record payload. */
+    static bool loadRecordsFromData(const QByteArray &data, QList<UIMd3Notice> &records);
     /** Loads and validates a bounded record file. */
     static bool loadRecordsAtPath(const QString &strPath, QList<UIMd3Notice> &records);
     /** Atomically writes a bounded record file. */
@@ -179,6 +181,8 @@ private:
     QPushButton *m_pUndoClearButton;
     QLabel *m_pSelectionSummary;
     bool m_fUndoAvailable;
+    /** Git-history revision containing the current undo snapshot, if any. */
+    QString m_strLastClearRevisionId;
     QSet<QString> m_selectedIds;
 };
 

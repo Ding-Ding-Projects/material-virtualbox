@@ -28,10 +28,10 @@ jobs:
         shell: pwsh
         run: |
           $make = Get-Content src/VBox/Frontends/VirtualBox/Makefile.kmk -Raw
-          foreach ($path in @('src/md3/UIMd3AppearanceEditor.cpp','src/md3/UIMd3Theme.cpp','src/md3/UIMd3Style.cpp','src/md3/UIMd3Language.cpp','src/md3/UIMd3NavigationRail.cpp','src/md3/UIMd3RegexBuilder.cpp','src/md3/UIMd3SearchField.cpp','src/md3/UIMd3CommandPalette.cpp','src/md3/UIMd3NotificationCentre.cpp','src/md3/UIMd3Wizard.cpp','src/md3/UIMd3TabStrip.cpp','src/md3/UIMd3Icons.qrc')) {
+          foreach ($path in @('src/md3/UIMd3AppearanceEditor.cpp','src/md3/UIMd3Theme.cpp','src/md3/UIMd3Style.cpp','src/md3/UIMd3Language.cpp','src/md3/UIMd3NavigationRail.cpp','src/md3/UIMd3RegexBuilder.cpp','src/md3/UIMd3SearchField.cpp','src/md3/UIMd3CommandPalette.cpp','src/md3/UIMd3History.cpp','src/md3/UIMd3NotificationCentre.cpp','src/md3/UIMd3Wizard.cpp','src/md3/UIMd3TabStrip.cpp','src/md3/UIMd3Icons.qrc')) {
             if ($make -notmatch [regex]::Escape($path)) { throw "Missing kBuild source: $path" }
           }
-          foreach ($path in @('src/md3/UIMd3AppearanceEditor.h','src/md3/UIMd3Tokens.h','src/md3/UIMd3Theme.h','src/md3/UIMd3Style.h','src/md3/UIMd3Language.h','src/md3/UIMd3NavigationRail.h','src/md3/UIMd3RegexBuilder.h','src/md3/UIMd3SearchField.h','src/md3/UIMd3CommandPalette.h','src/md3/UIMd3NotificationCentre.h','src/md3/UIMd3Wizard.h','src/md3/UIMd3TabStrip.h')) {
+          foreach ($path in @('src/md3/UIMd3AppearanceEditor.h','src/md3/UIMd3Tokens.h','src/md3/UIMd3Theme.h','src/md3/UIMd3Style.h','src/md3/UIMd3Language.h','src/md3/UIMd3NavigationRail.h','src/md3/UIMd3RegexBuilder.h','src/md3/UIMd3SearchField.h','src/md3/UIMd3CommandPalette.h','src/md3/UIMd3History.h','src/md3/UIMd3NotificationCentre.h','src/md3/UIMd3Wizard.h','src/md3/UIMd3TabStrip.h')) {
             if ($make -notmatch [regex]::Escape($path)) { throw "Missing Qt MOC header: $path" }
             if (-not (Test-Path "src/VBox/Frontends/VirtualBox/$path")) { throw "Missing production MD3 header: $path" }
           }
@@ -45,7 +45,7 @@ jobs:
           $uiCommonSourcesAt = ($makeLines | Select-String '^UICommon_SOURCES =').LineNumber
           $virtualBoxSources = ($makeLines[($virtualBoxSourcesAt - 1)..($virtualBoxVMSourcesAt - 2)] -join "`n")
           $uiCommonSources = ($makeLines[($uiCommonSourcesAt - 1)..($makeLines.Count - 1)] -join "`n")
-          foreach ($path in @('src/md3/UIMd3AppearanceEditor.cpp','src/md3/UIMd3Language.cpp','src/md3/UIMd3Theme.cpp','src/md3/UIMd3Style.cpp','src/md3/UIMd3CommandPalette.cpp','src/md3/UIMd3NotificationCentre.cpp','src/md3/UIMd3Wizard.cpp','src/md3/UIMd3TabStrip.cpp')) {
+          foreach ($path in @('src/md3/UIMd3AppearanceEditor.cpp','src/md3/UIMd3Language.cpp','src/md3/UIMd3Theme.cpp','src/md3/UIMd3Style.cpp','src/md3/UIMd3CommandPalette.cpp','src/md3/UIMd3History.cpp','src/md3/UIMd3NotificationCentre.cpp','src/md3/UIMd3Wizard.cpp','src/md3/UIMd3TabStrip.cpp')) {
             if ($virtualBoxSources -match [regex]::Escape($path)) { throw "Shared MD3 source must not be linked only by VirtualBox: $path" }
             if ($uiCommonSources -notmatch [regex]::Escape($path)) { throw "Shared MD3 source missing from UICommon: $path" }
           }
@@ -61,12 +61,18 @@ jobs:
           if (-not (Test-Path doc/md3/WizardShell.md)) { throw 'Missing wizard shell article' }
           $notificationHeader = Get-Content src/VBox/Frontends/VirtualBox/src/md3/UIMd3NotificationCentre.h -Raw
           $notificationSource = Get-Content src/VBox/Frontends/VirtualBox/src/md3/UIMd3NotificationCentre.cpp -Raw
-          foreach ($pattern in @('class SHARED_LIBRARY_STUFF UIMd3NotificationCentre', 'post(', 'markAllRead', 'showCentre', 'g_iMaxPayload', 'QSaveFile', 'UIMd3SearchField', 'QCheckBox', 'sltSelectAllVisible', 'sltInvertVisibleSelection', 'sltExportVisible', 'visibleNoticeIds', 'm_selectedIds', 'sltRequestClear', 'sltUndoClear', 'undoStoragePath', 'saveRecordsAtPath', 'restoreUndoSnapshot', 'Undo last clear', 'QDialogButtonBox', 'QSlider', 'QProgressBar', 'Emergency exit', 'QAbstractAnimation::DeleteWhenStopped', 'clear()')) {
+          foreach ($pattern in @('class SHARED_LIBRARY_STUFF UIMd3NotificationCentre', 'UIMd3History', 'notification history cleared', 'notification history restored', 'post(', 'markAllRead', 'showCentre', 'g_iMaxPayload', 'QSaveFile', 'UIMd3SearchField', 'QCheckBox', 'sltSelectAllVisible', 'sltInvertVisibleSelection', 'sltExportVisible', 'visibleNoticeIds', 'm_selectedIds', 'sltRequestClear', 'sltUndoClear', 'undoStoragePath', 'saveRecordsAtPath', 'restoreUndoSnapshot', 'Undo last clear', 'QDialogButtonBox', 'QSlider', 'QProgressBar', 'Emergency exit', 'QAbstractAnimation::DeleteWhenStopped', 'clear()')) {
             if (($notificationHeader + $notificationSource) -notmatch [regex]::Escape($pattern)) { throw "Notification history contract missing: $pattern" }
           }
           if (-not (Test-Path doc/md3/NotificationCentre.md)) { throw 'Missing notification-center article' }
+          $historyHeader = Get-Content src/VBox/Frontends/VirtualBox/src/md3/UIMd3History.h -Raw
+          $historySource = Get-Content src/VBox/Frontends/VirtualBox/src/md3/UIMd3History.cpp -Raw
+          foreach ($pattern in @('class SHARED_LIBRARY_STUFF UIMd3History', 'record(', 'latestRevision', 'stateFor', 'QProcess', 'QSaveFile', 'QCryptographicHash', 'g_iMaxRevisions')) {
+            if (($historyHeader + $historySource) -notmatch [regex]::Escape($pattern)) { throw "History journal contract missing: $pattern" }
+          }
+          if (-not (Test-Path doc/md3/History.md)) { throw 'Missing local-history article' }
           $mainSource = Get-Content src/VBox/Frontends/VirtualBox/src/main.cpp -Raw
-          foreach ($pattern in @('UIMd3NotificationCentre::create()', 'UIMd3NotificationCentre::destroy()')) {
+          foreach ($pattern in @('UIMd3History.h', 'UIMd3History::create()', 'UIMd3History::destroy()', 'UIMd3NotificationCentre::create()', 'UIMd3NotificationCentre::destroy()')) {
             if ($mainSource -notmatch [regex]::Escape($pattern)) { throw "Notification lifecycle missing: $pattern" }
           }
           $managerHeader = Get-Content src/VBox/Frontends/VirtualBox/src/md3/UIMd3ManagerHeader.h -Raw

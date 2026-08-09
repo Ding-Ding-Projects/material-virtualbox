@@ -60,6 +60,7 @@
 
 /* GUI includes: */
 #include "UIMd3NotificationCentre.h"
+#include "UIMd3History.h"
 #include "UIMd3Language.h"
 #include "UIMd3SearchField.h"
 #include "UIMd3Theme.h"
@@ -201,6 +202,20 @@ UIMd3NotificationCentre::UIMd3NotificationCentre()
     load();
     QList<UIMd3Notice> recovery;
     m_fUndoAvailable = loadRecordsAtPath(undoStoragePath(), recovery);
+    if (UIMd3History::instance())
+    {
+        const UIMd3HistoryRevision latest = UIMd3History::instance()->latestRevision();
+        if (latest.strAction == QStringLiteral("notification history cleared")
+            && !latest.state.isEmpty())
+        {
+            QList<UIMd3Notice> historyRecovery;
+            if (loadRecordsFromData(latest.state, historyRecovery))
+            {
+                m_strLastClearRevisionId = latest.strId;
+                m_fUndoAvailable = true;
+            }
+        }
+    }
 }
 
 UIMd3NotificationCentre::~UIMd3NotificationCentre()
@@ -260,6 +275,16 @@ bool UIMd3NotificationCentre::loadRecordsAtPath(const QString &strPath,
         return false;
 
     const QByteArray data = file.read(g_iMaxPayload + 1);
+    if (data.isEmpty() || data.size() > g_iMaxPayload)
+        return false;
+
+    return loadRecordsFromData(data, records);
+}
+
+bool UIMd3NotificationCentre::loadRecordsFromData(const QByteArray &data,
+                                                  QList<UIMd3Notice> &records)
+{
+    records.clear();
     if (data.isEmpty() || data.size() > g_iMaxPayload)
         return false;
 
@@ -345,18 +370,62 @@ bool UIMd3NotificationCentre::saveRecordsAtPath(const QString &strPath,
 
 void UIMd3NotificationCentre::saveUndoSnapshot()
 {
-    m_fUndoAvailable = saveRecordsAtPath(undoStoragePath(), m_notices);
+    const bool fSnapshotSaved = saveRecordsAtPath(undoStoragePath(), m_notices);
+    QString strRevisionId;
+    if (fSnapshotSaved && UIMd3History::instance())
+    {
+        QFile file(undoStoragePath());
+        if (file.open(QIODevice::ReadOnly))
+        {
+            const QByteArray state = file.read(g_iMaxPayload + 1);
+            if (!state.isEmpty() && state.size() <= g_iMaxPayload)
+                strRevisionId = UIMd3History::instance()->record(
+                    QStringLiteral("notification history cleared"),
+                    QStringLiteral("%1 notification records").arg(m_notices.size()),
+                    state);
+        }
+    }
+    m_strLastClearRevisionId = strRevisionId;
+    m_fUndoAvailable = fSnapshotSaved || !strRevisionId.isEmpty();
 }
 
 bool UIMd3NotificationCentre::restoreUndoSnapshot()
 {
     QList<UIMd3Notice> restored;
-    if (!m_fUndoAvailable || !loadRecordsAtPath(undoStoragePath(), restored))
+    if (!m_fUndoAvailable)
         return false;
+
+    bool fRestored = false;
+    if (UIMd3History::instance() && !m_strLastClearRevisionId.isEmpty())
+    {
+        const QByteArray state = UIMd3History::instance()->stateFor(m_strLastClearRevisionId);
+        fRestored = loadRecordsFromData(state, restored);
+    }
+    if (!fRestored)
+        fRestored = loadRecordsAtPath(undoStoragePath(), restored);
+    if (!fRestored)
+        return false;
+
     m_notices = restored;
     m_fUndoAvailable = false;
+    const QString strRevisionId = m_strLastClearRevisionId;
+    m_strLastClearRevisionId.clear();
     QFile::remove(undoStoragePath());
     save();
+    if (UIMd3History::instance())
+    {
+        QFile file(storagePath());
+        if (file.open(QIODevice::ReadOnly))
+        {
+            const QByteArray state = file.read(g_iMaxPayload + 1);
+            if (!state.isEmpty() && state.size() <= g_iMaxPayload)
+                UIMd3History::instance()->record(
+                    QStringLiteral("notification history restored"),
+                    QStringLiteral("%1 notification records; restored %2")
+                        .arg(m_notices.size()).arg(strRevisionId),
+                    state);
+        }
+    }
     emit sigChanged();
     if (m_pDialog)
         sltRefreshDialog();
@@ -388,11 +457,16 @@ QString UIMd3NotificationCentre::post(QWidget *pParent,
     {
         QFile::remove(undoStoragePath());
         m_fUndoAvailable = false;
+        m_strLastClearRevisionId.clear();
     }
     m_notices.prepend(notice);
     while (m_notices.size() > g_iMaxNotices)
         m_notices.removeLast();
     save();
+    if (UIMd3History::instance())
+        UIMd3History::instance()->record(
+            QStringLiteral("notification history changed"),
+            QStringLiteral("New notification %1").arg(notice.strId));
     emit sigNoticePosted(notice.strId);
     emit sigChanged();
     if (m_pDialog)

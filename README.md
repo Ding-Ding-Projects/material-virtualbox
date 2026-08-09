@@ -95,9 +95,12 @@ selected-read updates, and bounded JSON export. **Clear history** uses an
 app-owned destructive gate with the exact record count, two acknowledgements,
 a full-range slider, animated progress, Emergency exit/Escape, and focus return;
 the review surface also offers one bounded **Undo last clear** recovery
-snapshot. Append-only local-Git history, provider-authored rendering, bulk
-dismiss/delete, and native capture remain open lanes. This is not a claim that
-the legacy notification surface has been fully replaced.
+snapshot. The shared [`doc/md3/History.md`](doc/md3/History.md) journal records
+clear, restore, and later notification-change revisions in an isolated local
+Git repository when Git is available, with an atomic-file fallback. The full
+history browser, provider-authored rendering, bulk dismiss/delete, and native
+capture remain open lanes. This is not a claim that the legacy notification
+surface has been fully replaced.
 
 The existing New VM, New virtual disk, clone, import, and export flows now
 compose an embedded Material 3 wizard shell around their real
