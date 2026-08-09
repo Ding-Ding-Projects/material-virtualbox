@@ -96,6 +96,9 @@ void UIMd3NotificationCentre::create()
     if (!s_pInstance)
     {
         s_pInstance = new UIMd3NotificationCentre;
+        if (UIMd3History::instance())
+            connect(UIMd3History::instance(), &UIMd3History::sigRevisionRestoreRequested,
+                    s_pInstance, &UIMd3NotificationCentre::sltRestoreHistoryRevision);
         if (UIMd3Language::instance())
         {
             UIMd3Language::instance()->registerText(QStringLiteral("md3.notifications.history"),
@@ -368,6 +371,15 @@ bool UIMd3NotificationCentre::saveRecordsAtPath(const QString &strPath,
     return file.commit();
 }
 
+QByteArray UIMd3NotificationCentre::currentState() const
+{
+    QFile file(storagePath());
+    if (!file.open(QIODevice::ReadOnly))
+        return QByteArray();
+    const QByteArray state = file.read(g_iMaxPayload + 1);
+    return state.size() <= g_iMaxPayload ? state : QByteArray();
+}
+
 void UIMd3NotificationCentre::saveUndoSnapshot()
 {
     const bool fSnapshotSaved = saveRecordsAtPath(undoStoragePath(), m_notices);
@@ -466,7 +478,8 @@ QString UIMd3NotificationCentre::post(QWidget *pParent,
     if (UIMd3History::instance())
         UIMd3History::instance()->record(
             QStringLiteral("notification history changed"),
-            QStringLiteral("New notification %1").arg(notice.strId));
+            QStringLiteral("New notification %1").arg(notice.strId),
+            currentState());
     emit sigNoticePosted(notice.strId);
     emit sigChanged();
     if (m_pDialog)
@@ -496,6 +509,11 @@ void UIMd3NotificationCentre::markAllRead()
     if (!fChanged)
         return;
     save();
+    if (UIMd3History::instance())
+        UIMd3History::instance()->record(
+            QStringLiteral("notification history changed"),
+            QStringLiteral("Marked all notification records as read"),
+            currentState());
     emit sigChanged();
     if (m_pDialog)
         sltRefreshDialog();
@@ -579,6 +597,11 @@ void UIMd3NotificationCentre::sltMarkSelectedRead()
     if (!fChanged)
         return;
     save();
+    if (UIMd3History::instance())
+        UIMd3History::instance()->record(
+            QStringLiteral("notification history changed"),
+            QStringLiteral("Marked selected notification records as read"),
+            currentState());
     emit sigChanged();
     sltRefreshDialog();
 }
@@ -851,6 +874,51 @@ void UIMd3NotificationCentre::sltUndoClear()
         return;
     if (m_pUndoClearButton)
         m_pUndoClearButton->setFocus(Qt::OtherFocusReason);
+}
+
+void UIMd3NotificationCentre::sltRestoreHistoryRevision(const QString &strRevisionId)
+{
+    bool fRestored = false;
+    UIMd3History *pHistory = UIMd3History::instance();
+    if (pHistory)
+    {
+        const QList<UIMd3HistoryRevision> revisions = pHistory->revisions();
+        for (const UIMd3HistoryRevision &revision : revisions)
+            if (revision.strId == strRevisionId
+                && (revision.strAction == QStringLiteral("notification history cleared")
+                    || revision.strAction == QStringLiteral("notification history changed")
+                    || revision.strAction == QStringLiteral("notification history restored")))
+            {
+                QList<UIMd3Notice> restored;
+                if (loadRecordsFromData(revision.state, restored)
+                    && saveRecordsAtPath(storagePath(), restored))
+                {
+                    m_notices = restored;
+                    m_selectedIds.clear();
+                    m_fUndoAvailable = false;
+                    m_strLastClearRevisionId.clear();
+                    QFile::remove(undoStoragePath());
+                    fRestored = true;
+                    QFile file(storagePath());
+                    if (file.open(QIODevice::ReadOnly))
+                    {
+                        const QByteArray state = file.read(g_iMaxPayload + 1);
+                        if (!state.isEmpty() && state.size() <= g_iMaxPayload)
+                            pHistory->record(
+                                QStringLiteral("notification history restored"),
+                                QStringLiteral("%1 notification records; restored %2")
+                                    .arg(m_notices.size()).arg(strRevisionId),
+                                state);
+                    }
+                    emit sigChanged();
+                    if (m_pDialog)
+                        sltRefreshDialog();
+                }
+                break;
+            }
+    }
+    if (pHistory)
+        emit pHistory->sigRevisionRestoreCompleted(strRevisionId, fRestored);
 }
 
 void UIMd3NotificationCentre::clear()

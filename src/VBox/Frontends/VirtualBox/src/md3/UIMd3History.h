@@ -78,6 +78,10 @@ signals:
 
     /** Announces an appended revision identifier. */
     void sigRevisionAppended(const QString &strId);
+    /** Requests a surface-owned restore for a selected revision. */
+    void sigRevisionRestoreRequested(const QString &strId);
+    /** Announces whether the owning surface applied a requested restore. */
+    void sigRevisionRestoreCompleted(const QString &strId, bool fRestored);
 
 public:
 
@@ -120,6 +124,12 @@ private slots:
     void sltVerifyIntegrity();
     /** Exports the current filtered revision list as bounded JSONL. */
     void sltExportCentre();
+    /** Requests a restore through the owning surface adapter. */
+    void sltRestoreCentre();
+    /** Updates the browser after the owning surface reports restore status. */
+    void sltRestoreResult(const QString &strId, bool fRestored);
+    /** Updates Restore availability for the current row selection. */
+    void sltUpdateRestoreState();
 
 private:
 
@@ -159,6 +169,7 @@ private:
     QLabel *m_pHistoryStatus;
     QPushButton *m_pHistoryVerify;
     QPushButton *m_pHistoryExport;
+    QPushButton *m_pHistoryRestore;
 };
 
 #endif /* !FEQT_INCLUDED_SRC_md3_UIMd3History_h */

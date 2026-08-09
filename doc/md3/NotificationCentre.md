@@ -83,8 +83,15 @@ append-only `notification history cleared` revision and records a successful
 restore as `notification history restored`. A later non-blocking notification
 records `notification history changed`, which invalidates the one-step Undo
 action; the bounded JSON snapshot remains as a fallback when Git is unavailable.
-Transient toast presentation, bulk dismiss or delete, provider-authored
-markdown rendering, and full per-row accessibility roles remain later lanes.
+The local-history browser also exposes a **Restore notification state** action
+when the selected revision carries a validated notification-state payload. The
+request is routed back to this owner, parsed through the same bounded schema,
+written atomically, and recorded as a new `notification history restored`
+revision. Settings and other opaque revisions remain export-only until their
+owning surface supplies an adapter; the browser never guesses how to apply
+unknown bytes. Transient toast presentation, bulk dismiss or delete,
+provider-authored markdown rendering, and full per-row accessibility roles
+remain later lanes.
 
 ## Configuration and localization
 
@@ -116,7 +123,8 @@ destination cannot be written. Clear authorization is modal only because it is
 a destructive decision; the history model itself remains non-blocking. The
 shared local journal uses a fixed local Git identity, never configures a
 remote, and falls back to the atomic files when Git cannot initialize or
-commit. A complete history browser and all-record diff/restore UI remain
+commit. Surface-specific adapters for settings/runtime state, all-record diff
+views, retention controls, and full per-row restore accessibility remain
 explicit verification gaps.
 
 ## Verification
@@ -126,7 +134,8 @@ The implementation is in
 and
 `src/VBox/Frontends/VirtualBox/src/md3/UIMd3NotificationCentre.{h,cpp}`. The
 focused source contract checks the field wiring, the critical-item predicate,
-the bounded JSON model, selectable-row/export/restore actions, the shared
+the bounded JSON model, selectable-row/export/restore actions, the notification
+history restore adapter, the shared
 `UIMd3History` lifecycle and SHA-256 journal, the two-acknowledgement/full-
 slider clear gate, focus return, and UICommon target ownership. UICommon and
 the root `VirtualBox`/`VirtualBoxVM` targets are built through kBuild when the

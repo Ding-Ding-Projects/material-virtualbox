@@ -32,6 +32,7 @@
 #endif
 
 /* Qt includes: */
+#include <QByteArray>
 #include <QDateTime>
 #include <QList>
 #include <QObject>
@@ -138,6 +139,8 @@ private slots:
     void sltRequestClear();
     /** Restores the most recent bounded pre-clear recovery snapshot. */
     void sltUndoClear();
+    /** Applies a validated notification state requested by the history browser. */
+    void sltRestoreHistoryRevision(const QString &strRevisionId);
 
 private:
 
@@ -155,6 +158,8 @@ private:
     static bool loadRecordsAtPath(const QString &strPath, QList<UIMd3Notice> &records);
     /** Atomically writes a bounded record file. */
     static bool saveRecordsAtPath(const QString &strPath, const QList<UIMd3Notice> &records);
+    /** Reads the just-committed current state for local-history snapshots. */
+    QByteArray currentState() const;
     /** Persists the current records before an authorized clear. */
     void saveUndoSnapshot();
     /** Restores and consumes the most recent pre-clear snapshot. */

@@ -82,6 +82,14 @@ namespace
         UIMd3Language *pLanguage = UIMd3Language::instance();
         return pLanguage ? pLanguage->text(QString::fromLatin1(pszKey)) : strFallback;
     }
+
+    bool md3HistoryRevisionCanRestore(const UIMd3HistoryRevision &revision)
+    {
+        return !revision.state.isEmpty()
+            && (revision.strAction == QStringLiteral("notification history cleared")
+                || revision.strAction == QStringLiteral("notification history changed")
+                || revision.strAction == QStringLiteral("notification history restored"));
+    }
 }
 
 UIMd3History *UIMd3History::s_pInstance = 0;
@@ -140,6 +148,21 @@ void UIMd3History::create()
             UIMd3Language::instance()->registerText(QStringLiteral("md3.history.exported"),
                                                      QStringLiteral("Exported %1 revisions."),
                                                      QStringLiteral("已匯出 %1 項紀錄。"));
+            UIMd3Language::instance()->registerText(QStringLiteral("md3.history.restore"),
+                                                     QStringLiteral("Restore notification state"),
+                                                     QStringLiteral("復原通知狀態"));
+            UIMd3Language::instance()->registerText(QStringLiteral("md3.history.restoreHint"),
+                                                     QStringLiteral("Select a notification-state revision to enable restore."),
+                                                     QStringLiteral("揀選通知狀態紀錄先可以復原。"));
+            UIMd3Language::instance()->registerText(QStringLiteral("md3.history.restoreRequested"),
+                                                     QStringLiteral("Restore requested for revision %1."),
+                                                     QStringLiteral("已要求復原紀錄 %1。"));
+            UIMd3Language::instance()->registerText(QStringLiteral("md3.history.restoreDone"),
+                                                     QStringLiteral("Notification state restored from revision %1."),
+                                                     QStringLiteral("已由紀錄 %1 復原通知狀態。"));
+            UIMd3Language::instance()->registerText(QStringLiteral("md3.history.restoreFailed"),
+                                                     QStringLiteral("This revision could not be restored by its owning surface."),
+                                                     QStringLiteral("呢項紀錄嘅擁有介面未能復原。"));
         }
     }
 }
@@ -164,6 +187,7 @@ UIMd3History::UIMd3History()
     , m_pHistoryStatus(0)
     , m_pHistoryVerify(0)
     , m_pHistoryExport(0)
+    , m_pHistoryRestore(0)
 {
     m_strRepositoryPath = repositoryPath();
     if (m_strRepositoryPath.isEmpty() || !QDir().mkpath(m_strRepositoryPath))
@@ -544,7 +568,7 @@ void UIMd3History::showCentre(QWidget *pParent)
 
     m_pHistoryRows = new QListWidget(m_pHistoryDialog);
     m_pHistoryRows->setAccessibleName(md3HistoryText("md3.history.title", tr("Local history")));
-    m_pHistoryRows->setSelectionMode(QAbstractItemView::NoSelection);
+    m_pHistoryRows->setSelectionMode(QAbstractItemView::SingleSelection);
     pRootLayout->addWidget(m_pHistoryRows, 1);
 
     m_pHistoryStatus = new QLabel(m_pHistoryDialog);
@@ -557,8 +581,12 @@ void UIMd3History::showCentre(QWidget *pParent)
     m_pHistoryVerify->setMinimumSize(QSize(48, md3Theme().controlHeight()));
     m_pHistoryExport = new QPushButton(m_pHistoryDialog);
     m_pHistoryExport->setMinimumSize(QSize(48, md3Theme().controlHeight()));
+    m_pHistoryRestore = new QPushButton(m_pHistoryDialog);
+    m_pHistoryRestore->setMinimumSize(QSize(48, md3Theme().controlHeight()));
+    m_pHistoryRestore->setEnabled(false);
     pButtonLayout->addWidget(m_pHistoryVerify);
     pButtonLayout->addWidget(m_pHistoryExport);
+    pButtonLayout->addWidget(m_pHistoryRestore);
     pButtonLayout->addStretch(1);
     pRootLayout->addLayout(pButtonLayout);
 
@@ -574,8 +602,14 @@ void UIMd3History::showCentre(QWidget *pParent)
             this, &UIMd3History::sltVerifyIntegrity);
     connect(m_pHistoryExport, &QPushButton::clicked,
             this, &UIMd3History::sltExportCentre);
+    connect(m_pHistoryRestore, &QPushButton::clicked,
+            this, &UIMd3History::sltRestoreCentre);
     connect(this, &UIMd3History::sigRevisionAppended,
             this, &UIMd3History::sltRefreshCentre);
+    connect(this, &UIMd3History::sigRevisionRestoreCompleted,
+            this, &UIMd3History::sltRestoreResult);
+    connect(m_pHistoryRows, &QListWidget::itemSelectionChanged,
+            this, &UIMd3History::sltUpdateRestoreState);
     if (UIMd3Language::instance())
         connect(UIMd3Language::instance(), &UIMd3Language::sigLanguageChanged,
                 this, &UIMd3History::retranslateCentre);
@@ -593,6 +627,7 @@ void UIMd3History::showCentre(QWidget *pParent)
         m_pHistoryStatus = 0;
         m_pHistoryVerify = 0;
         m_pHistoryExport = 0;
+        m_pHistoryRestore = 0;
     });
 
     retranslateCentre();
@@ -638,6 +673,57 @@ void UIMd3History::sltRefreshCentre()
                                   .arg(rows.size()).arg(m_revisions.size()));
         m_pHistoryStatus->setAccessibleName(m_pHistoryStatus->text());
     }
+    sltUpdateRestoreState();
+}
+
+void UIMd3History::sltUpdateRestoreState()
+{
+    if (!m_pHistoryRestore || !m_pHistoryRows)
+        return;
+
+    bool fCanRestore = false;
+    const QListWidgetItem *pItem = m_pHistoryRows->currentItem();
+    if (pItem)
+    {
+        const QString strId = pItem->data(Qt::UserRole).toString();
+        for (const UIMd3HistoryRevision &revision : m_revisions)
+            if (revision.strId == strId)
+            {
+                fCanRestore = md3HistoryRevisionCanRestore(revision);
+                break;
+            }
+    }
+    m_pHistoryRestore->setEnabled(fCanRestore);
+}
+
+void UIMd3History::sltRestoreCentre()
+{
+    if (!m_pHistoryRows)
+        return;
+    const QListWidgetItem *pItem = m_pHistoryRows->currentItem();
+    if (!pItem)
+        return;
+
+    const QString strId = pItem->data(Qt::UserRole).toString();
+    for (const UIMd3HistoryRevision &revision : m_revisions)
+        if (revision.strId == strId && md3HistoryRevisionCanRestore(revision))
+        {
+            emit sigRevisionRestoreRequested(strId);
+            return;
+        }
+}
+
+void UIMd3History::sltRestoreResult(const QString &strId, bool fRestored)
+{
+    if (!m_pHistoryStatus)
+        return;
+    m_pHistoryStatus->setText(fRestored
+                              ? md3HistoryText("md3.history.restoreDone",
+                                               tr("Notification state restored from revision %1.")).arg(strId)
+                              : md3HistoryText("md3.history.restoreFailed",
+                                               tr("This revision could not be restored by its owning surface.")));
+    m_pHistoryStatus->setAccessibleName(m_pHistoryStatus->text());
+    sltUpdateRestoreState();
 }
 
 void UIMd3History::sltVerifyIntegrity()
@@ -730,5 +816,14 @@ void UIMd3History::retranslateCentre()
         m_pHistoryVerify->setText(md3HistoryText("md3.history.verify", tr("Verify integrity")));
     if (m_pHistoryExport)
         m_pHistoryExport->setText(md3HistoryText("md3.history.export", tr("Export JSONL")));
+    if (m_pHistoryRestore)
+    {
+        const QString strRestore = md3HistoryText("md3.history.restore",
+                                                  tr("Restore notification state"));
+        m_pHistoryRestore->setText(strRestore);
+        m_pHistoryRestore->setAccessibleName(strRestore);
+        m_pHistoryRestore->setToolTip(md3HistoryText("md3.history.restoreHint",
+                                                     tr("Select a notification-state revision to enable restore.")));
+    }
     sltRefreshCentre();
 }

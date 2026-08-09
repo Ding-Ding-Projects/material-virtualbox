@@ -100,8 +100,9 @@ clear, restore, and later notification-change revisions in an isolated local
 Git repository when Git is available, with an atomic-file fallback. The full
 history browser is now reachable with `Ctrl+H` and from the command palette;
 it provides plain-text-first search with the anchored regex builder,
-action/date filters, bounded JSONL export, and integrity verification.
-Surface-specific restore adapters, provider-authored
+action/date filters, bounded JSONL export, integrity verification, and a
+validated Restore notification state action for notification revisions.
+Surface-specific settings/runtime restore adapters, provider-authored
 rendering, bulk dismiss/delete, and native capture remain open lanes. This is
 not a claim that the legacy notification surface has been fully replaced.
 

@@ -61,13 +61,13 @@ jobs:
           if (-not (Test-Path doc/md3/WizardShell.md)) { throw 'Missing wizard shell article' }
           $notificationHeader = Get-Content src/VBox/Frontends/VirtualBox/src/md3/UIMd3NotificationCentre.h -Raw
           $notificationSource = Get-Content src/VBox/Frontends/VirtualBox/src/md3/UIMd3NotificationCentre.cpp -Raw
-          foreach ($pattern in @('class SHARED_LIBRARY_STUFF UIMd3NotificationCentre', 'UIMd3History', 'notification history cleared', 'notification history restored', 'post(', 'markAllRead', 'showCentre', 'g_iMaxPayload', 'QSaveFile', 'UIMd3SearchField', 'QCheckBox', 'sltSelectAllVisible', 'sltInvertVisibleSelection', 'sltExportVisible', 'visibleNoticeIds', 'm_selectedIds', 'sltRequestClear', 'sltUndoClear', 'undoStoragePath', 'saveRecordsAtPath', 'restoreUndoSnapshot', 'Undo last clear', 'QDialogButtonBox', 'QSlider', 'QProgressBar', 'Emergency exit', 'QAbstractAnimation::DeleteWhenStopped', 'clear()')) {
+          foreach ($pattern in @('class SHARED_LIBRARY_STUFF UIMd3NotificationCentre', 'UIMd3History', 'notification history cleared', 'notification history restored', 'sltRestoreHistoryRevision', 'currentState', 'post(', 'markAllRead', 'showCentre', 'g_iMaxPayload', 'QSaveFile', 'UIMd3SearchField', 'QCheckBox', 'sltSelectAllVisible', 'sltInvertVisibleSelection', 'sltExportVisible', 'visibleNoticeIds', 'm_selectedIds', 'sltRequestClear', 'sltUndoClear', 'undoStoragePath', 'saveRecordsAtPath', 'restoreUndoSnapshot', 'Undo last clear', 'QDialogButtonBox', 'QSlider', 'QProgressBar', 'Emergency exit', 'QAbstractAnimation::DeleteWhenStopped', 'clear()')) {
             if (($notificationHeader + $notificationSource) -notmatch [regex]::Escape($pattern)) { throw "Notification history contract missing: $pattern" }
           }
           if (-not (Test-Path doc/md3/NotificationCentre.md)) { throw 'Missing notification-center article' }
           $historyHeader = Get-Content src/VBox/Frontends/VirtualBox/src/md3/UIMd3History.h -Raw
           $historySource = Get-Content src/VBox/Frontends/VirtualBox/src/md3/UIMd3History.cpp -Raw
-          foreach ($pattern in @('class SHARED_LIBRARY_STUFF UIMd3History', 'record(', 'latestRevision', 'stateFor', 'filtered(', 'knownActions', 'verifyIntegrity', 'visibleCentreRows', 'matches(', 'QProcess', 'QSaveFile', 'QCryptographicHash', 'g_iMaxRevisions', 'md3.history.summary', 'md3.history.exported')) {
+          foreach ($pattern in @('class SHARED_LIBRARY_STUFF UIMd3History', 'record(', 'latestRevision', 'stateFor', 'filtered(', 'knownActions', 'verifyIntegrity', 'visibleCentreRows', 'matches(', 'sigRevisionRestoreRequested', 'sigRevisionRestoreCompleted', 'sltRestoreCentre', 'sltRestoreResult', 'QProcess', 'QSaveFile', 'QCryptographicHash', 'g_iMaxRevisions', 'md3.history.summary', 'md3.history.exported', 'md3.history.restore')) {
             if (($historyHeader + $historySource) -notmatch [regex]::Escape($pattern)) { throw "History journal contract missing: $pattern" }
           }
           if (-not (Test-Path doc/md3/History.md)) { throw 'Missing local-history article' }

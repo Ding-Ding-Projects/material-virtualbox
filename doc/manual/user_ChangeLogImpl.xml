@@ -168,6 +168,13 @@ Rules for adding a changelog entry to make them look more uniform:
       </listitem>
 
       <listitem>
+        <para>GUI: Added a validated Restore notification state action to the
+          local-history browser; notification revisions are applied only by
+          the owning bounded schema and every restore is appended as a new
+          history revision</para>
+      </listitem>
+
+      <listitem>
         <para>GUI: Added the tab strip's Move into group picker with bounded
           search, member counts, a top-level target, and inline group creation</para>
       </listitem>
