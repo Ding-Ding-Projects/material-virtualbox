@@ -686,7 +686,12 @@ bool UIVirtualBoxManager::nativeEvent(const QByteArray &strEventType, void *pMes
                 QWidget *pHeader = findChild<QWidget *>(QStringLiteral("md3ManagerHeader"));
                 const QRect header = pHeader ? QRect(pHeader->mapToGlobal(QPoint(0, 0)), pHeader->size()) : QRect();
                 if (header.contains(pos))
+                {
+                    QWidget *pTarget = QApplication::widgetAt(pos);
+                    if (pTarget && pTarget != pHeader && pTarget->window() == this)
+                        return QIMainWindow::nativeEvent(strEventType, pMessage, pResult);
                     *pResult = HTCAPTION;
+                }
                 else
                     return QIMainWindow::nativeEvent(strEventType, pMessage, pResult);
             }
