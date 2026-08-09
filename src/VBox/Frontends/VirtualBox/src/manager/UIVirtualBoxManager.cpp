@@ -80,6 +80,7 @@
 #include "UIQObjectStuff.h"
 #include "UITranslationEventListener.h"
 #include "UIVirtualBoxManager.h"
+#include "UIMd3ManagerHeader.h"
 #include "UIMd3Theme.h"
 #include "UIVirtualBoxWidget.h"
 #include "UIVirtualMachineItemCloud.h"
@@ -2546,13 +2547,21 @@ void UIVirtualBoxManager::prepareStatusBar()
 
 void UIVirtualBoxManager::prepareWidgets()
 {
+    /* Prepare the native Material 3 header around the existing manager widget. */
+    QWidget *pCentral = new QWidget(this);
+    QVBoxLayout *pCentralLayout = new QVBoxLayout(pCentral);
+    pCentralLayout->setContentsMargins(0, 0, 0, 0);
+    pCentralLayout->setSpacing(0);
+    pCentralLayout->addWidget(new UIMd3ManagerHeader(this, pCentral));
+
     /* Prepare central-widget: */
-    m_pWidget = new UIVirtualBoxWidget(this);
+    m_pWidget = new UIVirtualBoxWidget(pCentral);
     QWidget *pLastFocusedWidget = m_pWidget->focusWidget();
     if (m_pWidget)
     {
         /* Insert widget into QMainWindow: */
-        setCentralWidget(m_pWidget);
+        pCentralLayout->addWidget(m_pWidget, 1);
+        setCentralWidget(pCentral);
 
         /* Restore last focused widget lost during
          * hierarchy change done by setCentralWidget: */

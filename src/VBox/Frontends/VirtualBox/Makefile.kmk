@@ -558,6 +558,7 @@ endif
 # Headers containing definitions of classes that use the Q_OBJECT macro.
 #
 VirtualBox_QT_MOCHDRS = \
+	src/md3/UIMd3ManagerHeader.h \
 	src/cloud/UICloudMachineManager.h \
 	src/cloud/consolemanager/UICloudConsoleDetailsWidget.h \
 	src/cloud/consolemanager/UICloudConsoleManager.h \
@@ -1101,6 +1102,7 @@ VBOX_GH_SOURCES := \
 #
 VirtualBox_SOURCES = \
 	src/main.cpp \
+	src/md3/UIMd3ManagerHeader.cpp \
 	src/cloud/UICloudMachineManager.cpp \
 	src/cloud/consolemanager/UICloudConsoleDetailsWidget.cpp \
 	src/cloud/consolemanager/UICloudConsoleManager.cpp \
