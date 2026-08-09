@@ -5,15 +5,16 @@ front end for VirtualBox. It keeps the VirtualBox engine, COM/XPCOM contracts,
 machine models, action pools, and kBuild targets intact while moving the
 application-owned presentation toward one coherent Qt 6 design system.
 
-> **Implementation status:** the first production integration lane is landed in
-> the working tree: shared `UIMd3Theme` persistence and `UIMd3Style` palette
-> propagation are wired through the existing `UICommon` target and application
-> lifecycle. The manager, settings, wizard, tool, and runtime shells remain
-> in progress. Build and release claims below are deliberately bounded.
+> **Implementation status:** the shared theme, style, language, persisted brand,
+> native manager title bar, and manager navigation rail are wired into the
+> existing VirtualBox frontend. Settings, wizard, tool, notification, and
+> runtime shells remain in progress. Build and release claims below are
+> deliberately bounded.
 
 ## Contents
 
 - [Design package](#design-package)
+- [Runtime screenshots](#runtime-screenshots)
 - [Architecture](#architecture)
 - [Build and prerequisites](#build-and-prerequisites)
 - [Verification boundaries](#verification-boundaries)
@@ -36,11 +37,21 @@ implementation handoff.
 | Wizards | [`Wizards.dc.html`](design/Wizards.dc.html) |
 | Manager tools and preferences | [`Managers.dc.html`](design/Managers.dc.html) |
 
-No application screenshots are published yet. The archive contains a design
-thumbnail, but it is intentionally not presented as runtime evidence. README
-Screenshots will be added only after the native Qt app is built, launched, and
-captured from the rewritten surfaces; mockups and static HTML previews do not
-count.
+## Runtime screenshots
+
+Screenshots in this section are reserved for captures from the built native
+application. The current Deen No runtime launch reaches the real executable but
+stops before the manager shell at `REGDB_E_CLASSNOTREG` because the checkout's
+`VirtualBoxClient` COM registration is incomplete. That genuine failure capture
+is retained in the session evidence, but it is not presented as a successful
+Material 3 manager screenshot. The design thumbnail and static HTML previews do
+not count. The gallery will grow only with real manager, settings, wizard, tool,
+notification, and runtime captures from the rewritten build.
+
+The first implemented manager capture gate is the navigation rail: its buttons
+must select the existing `UIToolType` models, preserve expert-mode restrictions,
+show keyboard focus, and reflect the active theme. A capture that cannot show
+those live behaviors is not accepted as GUI proof.
 
 The handoff requires accounting for all 69 archive entries. The maintained
 ledger is [`doc/md3/DesignCoverage.md`](doc/md3/DesignCoverage.md), with its
@@ -54,7 +65,8 @@ This is one VirtualBox frontend, not a parallel demo application.
 
 - **Manager:** refactor `UIVirtualBoxManager` and `UIVirtualBoxWidget` visually
   while retaining `UIActionPoolManager`, `UIChooser`, `UIToolPane`, and their
-  existing models and signals.
+  existing models and signals. `UIMd3NavigationRail` now presents the global
+  tool selection while the original model remains the source of truth.
 - **Runtime:** add Material chrome around `UIMachineWindow` and
   `UIMachineView`; do not replace guest display, capture, session, or
   multi-monitor ownership.
@@ -127,11 +139,12 @@ this README.
 ## CI and Pages
 
 This mirror contains MD3 validation and GitHub Pages workflows under
-`.github/workflows/`. Validation run `31299627844` passed for commit
-`f1efef9ac03`, and Pages run `31299627815` passed for the same commit; the
-published site at <https://ding-ding-projects.github.io/material-virtualbox/>
-returned HTTP 200. The next runs verify the title-bar commit
-`97249e1bfe6`.
+`.github/workflows/`. Validation run `31300200516` passed for commit
+`47590697262`, and Pages run `31300200492` (build job `93211644938`, deploy job
+`93211741695`) passed for the same commit; the published site at
+<https://ding-ding-projects.github.io/material-virtualbox/> returned HTTP 200.
+These are source-contract and static-site results, not proof that the native
+manager launched; the COM runtime boundary and real GUI capture remain open.
 
 When publication work is added, it must build from the intended commit, keep
 artifact and test evidence separate, publish only verified outputs, and expose

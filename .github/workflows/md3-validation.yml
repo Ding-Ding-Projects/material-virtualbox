@@ -28,10 +28,10 @@ jobs:
         shell: pwsh
         run: |
           $make = Get-Content src/VBox/Frontends/VirtualBox/Makefile.kmk -Raw
-          foreach ($path in @('src/md3/UIMd3Theme.cpp','src/md3/UIMd3Style.cpp','src/md3/UIMd3Language.cpp')) {
+          foreach ($path in @('src/md3/UIMd3Theme.cpp','src/md3/UIMd3Style.cpp','src/md3/UIMd3Language.cpp','src/md3/UIMd3NavigationRail.cpp')) {
             if ($make -notmatch [regex]::Escape($path)) { throw "Missing kBuild source: $path" }
           }
-          foreach ($path in @('src/md3/UIMd3Tokens.h','src/md3/UIMd3Theme.h','src/md3/UIMd3Style.h','src/md3/UIMd3Language.h')) {
+          foreach ($path in @('src/md3/UIMd3Tokens.h','src/md3/UIMd3Theme.h','src/md3/UIMd3Style.h','src/md3/UIMd3Language.h','src/md3/UIMd3NavigationRail.h')) {
             if ($make -notmatch [regex]::Escape($path)) { throw "Missing Qt MOC header: $path" }
             if (-not (Test-Path "src/VBox/Frontends/VirtualBox/$path")) { throw "Missing production MD3 header: $path" }
           }

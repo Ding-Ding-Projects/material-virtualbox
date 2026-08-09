@@ -43,6 +43,7 @@ class QIToolBar;
 class UIActionPool;
 class UIChooser;
 class UIMachineToolsWidget;
+class UIMd3NavigationRail;
 class UIToolPane;
 class UITools;
 
@@ -187,6 +188,8 @@ private:
 
     /** Holds the tools-menu instance. */
     UITools    *m_pMenu;
+    /** Holds the Material 3 navigation rail. */
+    UIMd3NavigationRail *m_pNavigationRail;
     /** Holds the tool-pane instance. */
     UIToolPane *m_pPane;
 };

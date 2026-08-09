@@ -564,6 +564,7 @@ VirtualBox_QT_MOCHDRS = \
 	src/md3/UIMd3Theme.h \
 	src/md3/UIMd3Style.h \
 	src/md3/UIMd3ManagerHeader.h \
+	src/md3/UIMd3NavigationRail.h \
 	src/cloud/UICloudMachineManager.h \
 	src/cloud/consolemanager/UICloudConsoleDetailsWidget.h \
 	src/cloud/consolemanager/UICloudConsoleManager.h \
@@ -1108,6 +1109,7 @@ VirtualBox_SOURCES = \
 	src/md3/UIMd3Theme.cpp \
 	src/md3/UIMd3Style.cpp \
 	src/md3/UIMd3ManagerHeader.cpp \
+	src/md3/UIMd3NavigationRail.cpp \
 	src/cloud/UICloudMachineManager.cpp \
 	src/cloud/consolemanager/UICloudConsoleDetailsWidget.cpp \
 	src/cloud/consolemanager/UICloudConsoleManager.cpp \

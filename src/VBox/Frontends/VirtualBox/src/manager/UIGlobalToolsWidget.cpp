@@ -34,6 +34,7 @@
 #include "UICommon.h"
 #include "UIExtraDataManager.h"
 #include "UIGlobalToolsWidget.h"
+#include "UIMd3NavigationRail.h"
 #include "UIMachineToolsWidget.h"
 #include "UIToolPane.h"
 #include "UITools.h"
@@ -48,6 +49,7 @@ UIGlobalToolsWidget::UIGlobalToolsWidget(QWidget *pParent, UIActionPool *pAction
     , m_pActionPool(pActionPool)
     , m_pLayout(0)
     , m_pMenu(0)
+    , m_pNavigationRail(0)
     , m_pPane(0)
 {
     prepare();
@@ -198,6 +200,18 @@ void UIGlobalToolsWidget::sltHandleToolMenuUpdate()
     if (restrictedTypes.contains(toolMenu()->toolsType()))
         setMenuToolType(UIToolType_Home);
 
+    if (m_pNavigationRail)
+    {
+        m_pNavigationRail->setToolEnabled(UIToolType_Home, true);
+        m_pNavigationRail->setToolEnabled(UIToolType_Machines, !restrictedTypes.contains(UIToolType_Machines));
+        m_pNavigationRail->setToolEnabled(UIToolType_Extensions, !restrictedTypes.contains(UIToolType_Extensions));
+        m_pNavigationRail->setToolEnabled(UIToolType_Media, !restrictedTypes.contains(UIToolType_Media));
+        m_pNavigationRail->setToolEnabled(UIToolType_Network, !restrictedTypes.contains(UIToolType_Network));
+        m_pNavigationRail->setToolEnabled(UIToolType_Cloud, !restrictedTypes.contains(UIToolType_Cloud));
+        m_pNavigationRail->setToolEnabled(UIToolType_Resources, !restrictedTypes.contains(UIToolType_Resources));
+        m_pNavigationRail->setCurrentToolType(toolMenu()->toolsType());
+    }
+
     /* Hide restricted tools in the menu: */
     const QList restrictions(restrictedTypes.begin(), restrictedTypes.end());
     toolMenu()->setRestrictedToolTypes(restrictions);
@@ -270,8 +284,12 @@ void UIGlobalToolsWidget::prepareWidgets()
         m_pMenu = new UITools(this, UIToolClass_Global);
         if (toolMenu())
         {
-            /* Add into layout: */
-            m_pLayout->addWidget(toolMenu(), 0, 0, 2, 1);
+            /* Keep the existing model-backed menu alive for selection and
+             * restriction logic, while presenting the Material 3 rail. */
+            toolMenu()->hide();
+            m_pNavigationRail = new UIMd3NavigationRail(this);
+            if (m_pNavigationRail)
+                m_pLayout->addWidget(m_pNavigationRail, 0, 0, 2, 1);
         }
 
         /* Create tool-pane: */
@@ -305,6 +323,10 @@ void UIGlobalToolsWidget::prepareConnections()
     /* Tools-menu connections: */
     connect(toolMenu(), &UITools::sigSelectionChanged,
             this, &UIGlobalToolsWidget::sltHandleToolsMenuIndexChange);
+    connect(toolMenu(), &UITools::sigSelectionChanged,
+            m_pNavigationRail, &UIMd3NavigationRail::setCurrentToolType);
+    connect(m_pNavigationRail, &UIMd3NavigationRail::sigToolTypeSelected,
+            this, &UIGlobalToolsWidget::setMenuToolType);
 
     /* Tools-pane connections: */
     connect(this, &UIGlobalToolsWidget::sigToolMenuUpdate,
