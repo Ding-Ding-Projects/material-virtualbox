@@ -35,9 +35,20 @@ The notification centre uses the journal for the destructive-history path:
    `md3-notifications-undo.json` remains for installations where Git is not
    available.
 
-This is the first shared journal slice. A complete history browser with date
-range filtering, action facets, diff/restore controls for every settings
-surface, retention management, and full export formats remains a later lane.
+The journal browser is intentionally bounded. Diff/restore controls for every
+settings surface, retention management, and additional export formats remain
+later lanes because only the owning surface can safely apply an opaque state.
+
+The browser is now available from the manager with <kbd>Ctrl+H</kbd> and from
+the command palette. It keeps plain-text search as the default, lets the same
+field opt into its anchored regular-expression builder, adds an action filter,
+native calendar-popup From/To fields (with an explicit **Any date** state), a
+scrollable newest-first revision list, bounded JSONL export, and an inline
+**Verify integrity** result. The existing Network Manager shortcut is preserved
+as <kbd>Ctrl+Shift+H</kbd> so the history shortcut has one owner.
+Generic state restore remains surface-specific: notification clear/restore is
+implemented, while opaque settings revisions are displayed and exported until
+their owning surface supplies a safe restore adapter.
 
 ## Configuration and limits
 
@@ -66,14 +77,18 @@ security boundary.
 ## Verification
 
 Production sources are
-`src/VBox/Frontends/VirtualBox/src/md3/UIMd3History.{h,cpp}`. The UICommon
-target compiles the service and its MOC output; `main.cpp` creates it after
-UICommon/theme/language initialization and destroys it before UICommon. The
-notification integration is covered by the source contract for lifecycle,
-bounded JSON, SHA-256 validation, atomic writes, clear/restore revision names,
-and the Git fallback. Focused Windows builds of `UICommon`, `VirtualBox`, and
-`VirtualBoxVM` are the build gate for this lane. Native capture is intentionally
-deferred in the current task.
+`src/VBox/Frontends/VirtualBox/src/md3/UIMd3History.{h,cpp}` and the manager
+shortcut/command wiring is in
+`src/VBox/Frontends/VirtualBox/src/manager/UIVirtualBoxManager.cpp`. The
+UICommon target compiles the service and its MOC output; `main.cpp` creates it
+after UICommon/theme/language initialization and destroys it before UICommon.
+The source contract covers lifecycle, bounded JSON, SHA-256 validation, atomic
+writes, clear/restore revision names, the Git fallback, browser plain-text and
+regular-expression filters, action/date filtering, export, integrity
+verification, and the <kbd>Ctrl+H</kbd> route. Focused
+Windows builds of `UICommon`, `VirtualBox`, and `VirtualBoxVM` are the build
+gate for this lane. Native capture is intentionally deferred in the current
+task.
 
 ## Suggested articles
 

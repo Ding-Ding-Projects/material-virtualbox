@@ -160,6 +160,14 @@ Rules for adding a changelog entry to make them look more uniform:
       </listitem>
 
       <listitem>
+        <para>GUI: Added the modeless local-history browser on Ctrl+H and in the
+          command palette, with plain-text-first search and anchored regular
+          expression support, action and date filters, bounded JSONL export,
+          and inline integrity verification; the Network Manager shortcut is
+          now Ctrl+Shift+H</para>
+      </listitem>
+
+      <listitem>
         <para>GUI: Added the tab strip's Move into group picker with bounded
           search, member counts, a top-level target, and inline group creation</para>
       </listitem>

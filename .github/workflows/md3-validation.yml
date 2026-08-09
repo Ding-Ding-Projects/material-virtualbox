@@ -67,7 +67,7 @@ jobs:
           if (-not (Test-Path doc/md3/NotificationCentre.md)) { throw 'Missing notification-center article' }
           $historyHeader = Get-Content src/VBox/Frontends/VirtualBox/src/md3/UIMd3History.h -Raw
           $historySource = Get-Content src/VBox/Frontends/VirtualBox/src/md3/UIMd3History.cpp -Raw
-          foreach ($pattern in @('class SHARED_LIBRARY_STUFF UIMd3History', 'record(', 'latestRevision', 'stateFor', 'QProcess', 'QSaveFile', 'QCryptographicHash', 'g_iMaxRevisions')) {
+          foreach ($pattern in @('class SHARED_LIBRARY_STUFF UIMd3History', 'record(', 'latestRevision', 'stateFor', 'filtered(', 'knownActions', 'verifyIntegrity', 'visibleCentreRows', 'matches(', 'QProcess', 'QSaveFile', 'QCryptographicHash', 'g_iMaxRevisions', 'md3.history.summary', 'md3.history.exported')) {
             if (($historyHeader + $historySource) -notmatch [regex]::Escape($pattern)) { throw "History journal contract missing: $pattern" }
           }
           if (-not (Test-Path doc/md3/History.md)) { throw 'Missing local-history article' }
@@ -80,6 +80,12 @@ jobs:
           foreach ($pattern in @('UIMd3NotificationCentre.h', 'showCentre', 'hasUnread', 'updateNotificationState')) {
             if (($managerHeader + $managerSource) -notmatch [regex]::Escape($pattern)) { throw "Manager notification action contract missing: $pattern" }
           }
+          $managerSource = Get-Content src/VBox/Frontends/VirtualBox/src/manager/UIVirtualBoxManager.cpp -Raw
+          foreach ($pattern in @('UIMd3History.h', 'Qt::CTRL | Qt::Key_H', 'Open local history', 'UIMd3History::instance()->showCentre')) {
+            if ($managerSource -notmatch [regex]::Escape($pattern)) { throw "Manager history action contract missing: $pattern" }
+          }
+          $actionPoolManager = Get-Content src/VBox/Frontends/VirtualBox/src/globals/UIActionPoolManager.cpp -Raw
+          if ($actionPoolManager -notmatch [regex]::Escape('QKeySequence("Ctrl+Shift+H")')) { throw 'Network-manager shortcut was not moved off Ctrl+H' }
       - name: Validate notification search integration
         shell: pwsh
         run: |

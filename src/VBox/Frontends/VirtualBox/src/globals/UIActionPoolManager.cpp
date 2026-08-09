@@ -350,7 +350,7 @@ protected:
     /** Returns default shortcut. */
     virtual QKeySequence defaultShortcut(UIType) const RT_OVERRIDE
     {
-        return QKeySequence("Ctrl+H");
+        return QKeySequence("Ctrl+Shift+H");
     }
 
     /** Handles translation event. */

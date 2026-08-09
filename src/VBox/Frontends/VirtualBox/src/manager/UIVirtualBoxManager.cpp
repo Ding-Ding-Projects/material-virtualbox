@@ -87,6 +87,7 @@
 #include "UIVirtualBoxManager.h"
 #include "UIMd3ManagerHeader.h"
 #include "UIMd3CommandPalette.h"
+#include "UIMd3History.h"
 #include "UIMd3Theme.h"
 #include "UIVirtualBoxWidget.h"
 #include "UIVirtualMachineItemCloud.h"
@@ -2634,6 +2635,13 @@ void UIVirtualBoxManager::prepareConnections()
     {
         UIMd3CommandPalette::showPalette(this);
     });
+    QShortcut *pHistoryShortcut = new QShortcut(QKeySequence(Qt::CTRL | Qt::Key_H), this);
+    pHistoryShortcut->setContext(Qt::ApplicationShortcut);
+    connect(pHistoryShortcut, &QShortcut::activated, this, [this]()
+    {
+        if (UIMd3History::instance())
+            UIMd3History::instance()->showCentre(this);
+    });
     UIMd3CommandPalette::registerCommand(UIMd3Command(tr("Open global preferences"),
                                                        tr("Manager"),
                                                        [this]() { sltOpenPreferencesDialog(); }));
@@ -2646,6 +2654,13 @@ void UIVirtualBoxManager::prepareConnections()
     UIMd3CommandPalette::registerCommand(UIMd3Command(tr("Import an appliance"),
                                                        tr("Manager"),
                                                        [this]() { sltOpenImportApplianceWizard(); }));
+    UIMd3CommandPalette::registerCommand(UIMd3Command(tr("Open local history"),
+                                                       tr("Manager"),
+                                                       [this]()
+                                                       {
+                                                           if (UIMd3History::instance())
+                                                               UIMd3History::instance()->showCentre(this);
+                                                       }));
 
 #ifdef VBOX_WS_NIX
     /* Desktop event handlers: */
