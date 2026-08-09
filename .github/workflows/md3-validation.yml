@@ -31,9 +31,11 @@ jobs:
           foreach ($path in @('src/md3/UIMd3Theme.cpp','src/md3/UIMd3Style.cpp','src/md3/UIMd3Language.cpp')) {
             if ($make -notmatch [regex]::Escape($path)) { throw "Missing kBuild source: $path" }
           }
-          foreach ($path in @('src/md3/UIMd3Theme.h','src/md3/UIMd3Style.h','src/md3/UIMd3Language.h')) {
+          foreach ($path in @('src/md3/UIMd3Tokens.h','src/md3/UIMd3Theme.h','src/md3/UIMd3Style.h','src/md3/UIMd3Language.h')) {
             if ($make -notmatch [regex]::Escape($path)) { throw "Missing Qt MOC header: $path" }
+            if (-not (Test-Path "src/VBox/Frontends/VirtualBox/$path")) { throw "Missing production MD3 header: $path" }
           }
+          if ($make -notmatch [regex]::Escape('./src/md3')) { throw 'Missing MD3 include directory' }
       - name: Collect safe validation evidence
         if: ${{ always() }}
         continue-on-error: true

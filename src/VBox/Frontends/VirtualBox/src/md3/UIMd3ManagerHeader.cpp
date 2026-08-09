@@ -22,11 +22,20 @@
 #include <QPushButton>
 
 #include "UIMd3ManagerHeader.h"
+#include "UIMd3Language.h"
 #include "UIMd3Theme.h"
 
 UIMd3ManagerHeader::UIMd3ManagerHeader(QMainWindow *pWindow, QWidget *pParent /* = 0 */)
     : QWidget(pParent)
 {
+    if (UIMd3Language::instance())
+    {
+        UIMd3Language::instance()->registerText(QStringLiteral("md3.application"), QStringLiteral("Material Virtual Machine"), QStringLiteral("Material Virtual Machine"));
+        UIMd3Language::instance()->registerText(QStringLiteral("md3.menu"), QStringLiteral("Menu"), QStringLiteral("餐牌"));
+        UIMd3Language::instance()->registerText(QStringLiteral("md3.minimize"), QStringLiteral("Minimize"), QStringLiteral("收埋"));
+        UIMd3Language::instance()->registerText(QStringLiteral("md3.close"), QStringLiteral("Close"), QStringLiteral("閂埋"));
+    }
+
     setObjectName(QStringLiteral("md3ManagerHeader"));
     setFixedHeight(56);
     setAutoFillBackground(true);
@@ -42,8 +51,17 @@ UIMd3ManagerHeader::UIMd3ManagerHeader(QMainWindow *pWindow, QWidget *pParent /*
     pTitle->setFont(md3Theme().font(UIMd3TypeRole_TitleLarge));
     pTitle->setAccessibleName(tr("Application name"));
     pLayout->addWidget(pTitle, 1);
+    connect(UIMd3Theme::instance(), &UIMd3Theme::sigThemeChanged, pTitle, [pTitle]()
+    {
+        pTitle->setText(md3Theme().brandName());
+    });
+    if (UIMd3Language::instance())
+        connect(UIMd3Language::instance(), &UIMd3Language::sigLanguageChanged, pTitle, [pTitle]()
+        {
+            pTitle->setText(md3Theme().brandName());
+        });
 
-    QPushButton *pMenu = new QPushButton(tr("Menu"), this);
+    QPushButton *pMenu = new QPushButton(md3Text(QStringLiteral("md3.menu")), this);
     pMenu->setToolTip(tr("Show or hide the application menu"));
     pMenu->setAccessibleName(tr("Show or hide the application menu"));
     pMenu->setMinimumHeight(md3Theme().controlHeight());
@@ -54,12 +72,12 @@ UIMd3ManagerHeader::UIMd3ManagerHeader(QMainWindow *pWindow, QWidget *pParent /*
     });
     pLayout->addWidget(pMenu);
 
-    QPushButton *pMinimize = new QPushButton(tr("Minimize"), this);
+    QPushButton *pMinimize = new QPushButton(md3Text(QStringLiteral("md3.minimize")), this);
     pMinimize->setAccessibleName(tr("Minimize window"));
     connect(pMinimize, &QPushButton::clicked, pWindow, &QWidget::showMinimized);
     pLayout->addWidget(pMinimize);
 
-    QPushButton *pClose = new QPushButton(tr("Close"), this);
+    QPushButton *pClose = new QPushButton(md3Text(QStringLiteral("md3.close")), this);
     pClose->setAccessibleName(tr("Close window"));
     connect(pClose, &QPushButton::clicked, pWindow, &QWidget::close);
     pLayout->addWidget(pClose);

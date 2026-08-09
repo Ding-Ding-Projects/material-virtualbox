@@ -331,6 +331,7 @@ VBOX_GUI_INC_DIRS = \
 	./src/wizards/editors
 
 VBOX_GUI_INC_DIRS += \
+	./src/md3 \
 	./src/manager \
 	./src/manager/chooser \
 	./src/manager/details \
@@ -558,6 +559,7 @@ endif
 # Headers containing definitions of classes that use the Q_OBJECT macro.
 #
 VirtualBox_QT_MOCHDRS = \
+	src/md3/UIMd3Tokens.h \
 	src/md3/UIMd3ManagerHeader.h \
 	src/cloud/UICloudMachineManager.h \
 	src/cloud/consolemanager/UICloudConsoleDetailsWidget.h \
@@ -732,6 +734,7 @@ endif
 # Headers containing definitions of classes that use the Q_OBJECT macro.
 #
 UICommon_QT_MOCHDRS = \
+	src/md3/UIMd3Tokens.h \
 	src/md3/UIMd3Language.h \
 	src/md3/UIMd3Theme.h \
 	src/md3/UIMd3Style.h \
