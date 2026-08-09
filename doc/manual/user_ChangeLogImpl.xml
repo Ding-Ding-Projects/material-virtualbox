@@ -182,6 +182,12 @@ Rules for adding a changelog entry to make them look more uniform:
       </listitem>
 
       <listitem>
+        <para>GUI: Added live persisted Material font-family previews and a
+          global font-weight selector with an Inherited role-weight option in
+          Global Preferences</para>
+      </listitem>
+
+      <listitem>
         <para>GUI: Added the tab strip's Move into group picker with bounded
           search, member counts, a top-level target, and inline group creation</para>
       </listitem>

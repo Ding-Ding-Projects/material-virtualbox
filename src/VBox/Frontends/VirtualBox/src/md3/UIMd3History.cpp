@@ -610,14 +610,14 @@ void UIMd3History::showCentre(QWidget *pParent)
     connect(m_pHistoryRestore, &QPushButton::clicked,
             this, &UIMd3History::sltRestoreCentre);
     connect(this, &UIMd3History::sigRevisionAppended,
-            this, &UIMd3History::sltRefreshCentre);
+            this, &UIMd3History::sltRefreshCentre, Qt::UniqueConnection);
     connect(this, &UIMd3History::sigRevisionRestoreCompleted,
-            this, &UIMd3History::sltRestoreResult);
+            this, &UIMd3History::sltRestoreResult, Qt::UniqueConnection);
     connect(m_pHistoryRows, &QListWidget::itemSelectionChanged,
             this, &UIMd3History::sltUpdateRestoreState);
     if (UIMd3Language::instance())
         connect(UIMd3Language::instance(), &UIMd3Language::sigLanguageChanged,
-                this, &UIMd3History::retranslateCentre);
+                this, &UIMd3History::retranslateCentre, Qt::UniqueConnection);
     connect(m_pHistoryDialog, &QObject::destroyed, this, [this]()
     {
         m_pHistoryDialog = 0;
@@ -724,7 +724,7 @@ void UIMd3History::sltRestoreResult(const QString &strId, bool fRestored)
         return;
     m_pHistoryStatus->setText(fRestored
                               ? md3HistoryText("md3.history.restoreDone",
-                                               tr("Notification state restored from revision %1.")).arg(strId)
+                                               tr("State restored from revision %1.")).arg(strId)
                               : md3HistoryText("md3.history.restoreFailed",
                                                tr("This revision could not be restored by its owning surface.")));
     m_pHistoryStatus->setAccessibleName(m_pHistoryStatus->text());
@@ -824,11 +824,11 @@ void UIMd3History::retranslateCentre()
     if (m_pHistoryRestore)
     {
         const QString strRestore = md3HistoryText("md3.history.restore",
-                                                  tr("Restore notification state"));
+                                                  tr("Restore selected state"));
         m_pHistoryRestore->setText(strRestore);
         m_pHistoryRestore->setAccessibleName(strRestore);
         m_pHistoryRestore->setToolTip(md3HistoryText("md3.history.restoreHint",
-                                                     tr("Select a notification-state revision to enable restore.")));
+                                                     tr("Select a supported notification or appearance revision to enable restore.")));
     }
     sltRefreshCentre();
 }

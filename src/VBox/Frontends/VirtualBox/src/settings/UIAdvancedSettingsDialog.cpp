@@ -37,6 +37,7 @@
 #include <QGridLayout>
 #include <QLabel>
 #include <QLineEdit>
+#include <QFontDatabase>
 #include <QPainter>
 #include <QPainterPath>
 #include <QProgressBar>
@@ -837,6 +838,8 @@ UIAdvancedSettingsDialog::UIAdvancedSettingsDialog(QWidget *pParent,
     , m_pMd3Scheme(0)
     , m_pMd3Seed(0)
     , m_pMd3FontScale(0)
+    , m_pMd3FontFamily(0)
+    , m_pMd3FontWeight(0)
     , m_pMd3Compact(0)
     , m_pMd3Brand(0)
     , m_pScrollArea(0)
@@ -1103,6 +1106,20 @@ void UIAdvancedSettingsDialog::sltUpdateMd3AppearanceControls()
     {
         const QSignalBlocker blocker(m_pMd3FontScale);
         m_pMd3FontScale->setValue(qRound(md3Theme().fontScale() * 100.0));
+    }
+    if (m_pMd3FontFamily)
+    {
+        const QSignalBlocker blocker(m_pMd3FontFamily);
+        const int iIndex = m_pMd3FontFamily->findText(md3Theme().fontFamily(), Qt::MatchExactly);
+        if (iIndex >= 0)
+            m_pMd3FontFamily->setCurrentIndex(iIndex);
+    }
+    if (m_pMd3FontWeight)
+    {
+        const QSignalBlocker blocker(m_pMd3FontWeight);
+        const int iIndex = m_pMd3FontWeight->findData(md3Theme().fontWeight());
+        if (iIndex >= 0)
+            m_pMd3FontWeight->setCurrentIndex(iIndex);
     }
     if (m_pMd3Compact)
     {
@@ -1710,22 +1727,56 @@ void UIAdvancedSettingsDialog::prepareSelector()
         pAppearanceLayout->addWidget(pScaleLabel, 1, 0);
         pAppearanceLayout->addWidget(m_pMd3FontScale, 1, 1);
 
+        QLabel *pFamilyLabel = new QLabel(tr("Font family"), pLanguagePanel);
+        m_pMd3FontFamily = new QComboBox(pLanguagePanel);
+        m_pMd3FontFamily->setAccessibleName(tr("Material font family"));
+        m_pMd3FontFamily->setToolTip(tr("Choose an installed font family; each option is previewed in its own typeface"));
+        QStringList fontFamilies = QFontDatabase::families();
+        fontFamilies.sort(Qt::CaseInsensitive);
+        for (const QString &strFamily : fontFamilies)
+        {
+            const int iIndex = m_pMd3FontFamily->count();
+            m_pMd3FontFamily->addItem(strFamily);
+            m_pMd3FontFamily->setItemData(iIndex, QFont(strFamily), Qt::FontRole);
+        }
+        pFamilyLabel->setBuddy(m_pMd3FontFamily);
+        pAppearanceLayout->addWidget(pFamilyLabel, 1, 2);
+        pAppearanceLayout->addWidget(m_pMd3FontFamily, 1, 3);
+
+        QLabel *pWeightLabel = new QLabel(tr("Font weight"), pLanguagePanel);
+        m_pMd3FontWeight = new QComboBox(pLanguagePanel);
+        m_pMd3FontWeight->setAccessibleName(tr("Material font weight"));
+        m_pMd3FontWeight->setToolTip(tr("Choose a global weight, or inherit each Material text role's weight"));
+        m_pMd3FontWeight->addItem(tr("Inherited"), -1);
+        m_pMd3FontWeight->addItem(tr("Thin"), static_cast<int>(QFont::Thin));
+        m_pMd3FontWeight->addItem(tr("Extra light"), static_cast<int>(QFont::ExtraLight));
+        m_pMd3FontWeight->addItem(tr("Light"), static_cast<int>(QFont::Light));
+        m_pMd3FontWeight->addItem(tr("Normal"), static_cast<int>(QFont::Normal));
+        m_pMd3FontWeight->addItem(tr("Medium"), static_cast<int>(QFont::Medium));
+        m_pMd3FontWeight->addItem(tr("Demi bold"), static_cast<int>(QFont::DemiBold));
+        m_pMd3FontWeight->addItem(tr("Bold"), static_cast<int>(QFont::Bold));
+        m_pMd3FontWeight->addItem(tr("Extra bold"), static_cast<int>(QFont::ExtraBold));
+        m_pMd3FontWeight->addItem(tr("Black"), static_cast<int>(QFont::Black));
+        pWeightLabel->setBuddy(m_pMd3FontWeight);
+        pAppearanceLayout->addWidget(pWeightLabel, 2, 0);
+        pAppearanceLayout->addWidget(m_pMd3FontWeight, 2, 1);
+
         m_pMd3Compact = new QCheckBox(tr("Compact density"), pLanguagePanel);
         m_pMd3Compact->setAccessibleName(tr("Use compact Material density"));
         m_pMd3Compact->setToolTip(tr("Use smaller Material control spacing and heights"));
-        pAppearanceLayout->addWidget(m_pMd3Compact, 1, 2, 1, 2);
+        pAppearanceLayout->addWidget(m_pMd3Compact, 2, 2, 1, 2);
 
         QLabel *pBrandLabel = new QLabel(tr("Display brand"), pLanguagePanel);
         m_pMd3Brand = new QLineEdit(pLanguagePanel);
         m_pMd3Brand->setAccessibleName(tr("Display brand name"));
         m_pMd3Brand->setMaxLength(80);
         pBrandLabel->setBuddy(m_pMd3Brand);
-        pAppearanceLayout->addWidget(pBrandLabel, 2, 0);
-        pAppearanceLayout->addWidget(m_pMd3Brand, 2, 1);
+        pAppearanceLayout->addWidget(pBrandLabel, 3, 0);
+        pAppearanceLayout->addWidget(m_pMd3Brand, 3, 1);
         QPushButton *pResetBrand = new QPushButton(tr("Reset brand"), pLanguagePanel);
         pResetBrand->setAccessibleName(tr("Reset display brand to Material Virtual Machine"));
         pResetBrand->setToolTip(tr("Restore the shipped display brand without changing technical identity"));
-        pAppearanceLayout->addWidget(pResetBrand, 2, 2, 1, 2);
+        pAppearanceLayout->addWidget(pResetBrand, 3, 2, 1, 2);
         pLanguageLayout->addLayout(pAppearanceLayout);
 
         m_pLayoutMain->addWidget(pLanguagePanel, 0, 1);
@@ -1773,6 +1824,15 @@ void UIAdvancedSettingsDialog::prepareSelector()
         connect(m_pMd3FontScale, &QSlider::valueChanged, this, [](int iValue)
         {
             md3Theme().setFontScale(iValue / 100.0);
+        });
+        connect(m_pMd3FontFamily, &QComboBox::currentTextChanged, this, [](const QString &strFamily)
+        {
+            md3Theme().setFontFamily(strFamily);
+        });
+        connect(m_pMd3FontWeight, qOverload<int>(&QComboBox::currentIndexChanged), this, [this](int iIndex)
+        {
+            if (m_pMd3FontWeight && iIndex >= 0)
+                md3Theme().setFontWeight(m_pMd3FontWeight->itemData(iIndex).toInt());
         });
         connect(m_pMd3Compact, &QCheckBox::toggled, this, [](bool fCompact)
         {

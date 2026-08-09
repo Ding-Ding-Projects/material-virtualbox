@@ -67,13 +67,16 @@ jobs:
           if (-not (Test-Path doc/md3/NotificationCentre.md)) { throw 'Missing notification-center article' }
           $historyHeader = Get-Content src/VBox/Frontends/VirtualBox/src/md3/UIMd3History.h -Raw
           $historySource = Get-Content src/VBox/Frontends/VirtualBox/src/md3/UIMd3History.cpp -Raw
-          foreach ($pattern in @('class SHARED_LIBRARY_STUFF UIMd3History', 'record(', 'latestRevision', 'stateFor', 'filtered(', 'knownActions', 'verifyIntegrity', 'visibleCentreRows', 'matches(', 'sigRevisionRestoreRequested', 'sigRevisionRestoreCompleted', 'sltRestoreCentre', 'sltRestoreResult', 'QProcess', 'QSaveFile', 'QCryptographicHash', 'g_iMaxRevisions', 'md3.history.summary', 'md3.history.exported', 'md3.history.restore')) {
+          foreach ($pattern in @('class SHARED_LIBRARY_STUFF UIMd3History', 'record(', 'latestRevision', 'stateFor', 'filtered(', 'knownActions', 'verifyIntegrity', 'visibleCentreRows', 'matches(', 'sigRevisionRestoreRequested', 'sigRevisionRestoreCompleted', 'sltRestoreCentre', 'sltRestoreResult', 'Qt::UniqueConnection', 'QProcess', 'QSaveFile', 'QCryptographicHash', 'g_iMaxRevisions', 'md3.history.summary', 'md3.history.exported', 'md3.history.restore')) {
             if (($historyHeader + $historySource) -notmatch [regex]::Escape($pattern)) { throw "History journal contract missing: $pattern" }
+          }
+          if ($historySource -match 'Restore notification state|Notification state restored from revision|notification-state revision') {
+            throw 'History restore copy must remain truthful for notification and appearance/theme revisions.'
           }
           if (-not (Test-Path doc/md3/History.md)) { throw 'Missing local-history article' }
           $themeHeader = Get-Content src/VBox/Frontends/VirtualBox/src/md3/UIMd3Theme.h -Raw
           $themeSource = Get-Content src/VBox/Frontends/VirtualBox/src/md3/UIMd3Theme.cpp -Raw
-          foreach ($pattern in @('serializeState', 'restoreState', 'sltRestoreHistoryRevision', 'recordHistory', 'g_iThemeHistorySchema', 'g_iMaxHistoryAppearanceEntries', 'namedThemes', 'UIMd3History::instance()->record', 'sigThemeChanged')) {
+          foreach ($pattern in @('serializeState', 'restoreState', 'sltRestoreHistoryRevision', 'recordHistory', 'g_iThemeHistorySchema', 'g_iMaxHistoryAppearanceEntries', 'namedThemes', 'fontFamily', 'setFontFamily', 'fontWeight', 'setFontWeight', 'g_pszKeyWeight', 'UIMd3History::instance()->record', 'sigThemeChanged')) {
             if (($themeHeader + $themeSource) -notmatch [regex]::Escape($pattern)) { throw "Theme history contract missing: $pattern" }
           }
           $mainSource = Get-Content src/VBox/Frontends/VirtualBox/src/main.cpp -Raw

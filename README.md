@@ -54,7 +54,9 @@ notification, and runtime captures from the rewritten build.
 The capture contract, required screenshot matrix, and current COM/service evidence
 are maintained in [`doc/md3/RuntimeCapture.md`](doc/md3/RuntimeCapture.md).
 
-The shared Global Preferences appearance controls are documented in
+The shared Global Preferences appearance controls (scheme, seed, density,
+font scale, installed font family, global/inherited font weight, and display
+brand) are documented in
 [`doc/md3/AppearanceSettings.md`](doc/md3/AppearanceSettings.md). They are
 implemented against the existing `UIMd3Theme` persistence and remain subject
 to the native screenshot gate above.

@@ -330,6 +330,10 @@ private:
         QLineEdit *m_pMd3Seed;
         /** Holds the Material font-scale control (75..200 percent). */
         QSlider *m_pMd3FontScale;
+        /** Holds the installed Material font-family selector. */
+        QComboBox *m_pMd3FontFamily;
+        /** Holds the global Material font-weight selector. */
+        QComboBox *m_pMd3FontWeight;
         /** Holds the Material compact-density control. */
         QCheckBox *m_pMd3Compact;
         /** Holds the user-facing Material brand editor. */

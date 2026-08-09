@@ -12,6 +12,11 @@ state; these controls only call the process-wide `UIMd3Theme` service.
   with an inline tooltip and never reaches the palette generator.
 - **Font scale:** 75% through 200%, applied live to the shared Material type
   scale.
+- **Font family:** The installed-family picker previews each face in its own
+  typeface and applies the chosen family to the shared Material type scale.
+- **Font weight:** A global Thin-through-Black override, or **Inherited** to
+  retain each Material text role's shipped weight. The value is applied live
+  and is bounded before persistence.
 - **Compact density:** Changes the shared control-height and gutter tokens.
 - **Display brand:** Changes visible product chrome only. Resetting restores
   `Material Virtual Machine`; technical identifiers, paths, COM names, and
@@ -60,7 +65,8 @@ The static contract is covered by the UICommon source/MOC ownership in
 `src/VBox/Frontends/VirtualBox/Makefile.kmk`. Native verification still
 requires a built Windows application and a headless capture of Global
 Preferences showing each scheme, valid and invalid seed input, font scale,
-compact density, brand reset, keyboard focus, and persistence after restart.
+compact density, installed font-family preview, inherited and explicit font
+weights, brand reset, keyboard focus, and persistence after restart.
 The element editor additionally requires a real capture showing its context
 menu search, regex builder, live preview, apply/reset behavior, and focus
 return; no design thumbnail or static HTML preview is accepted as a substitute.

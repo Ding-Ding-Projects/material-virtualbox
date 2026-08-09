@@ -38,12 +38,41 @@ static const char *g_pszKeyScheme     = "GUI/Md3/Scheme";
 static const char *g_pszKeyScale      = "GUI/Md3/FontScale";
 static const char *g_pszKeyCompact    = "GUI/Md3/Compact";
 static const char *g_pszKeyFont       = "GUI/Md3/FontFamily";
+static const char *g_pszKeyWeight     = "GUI/Md3/FontWeight";
 static const char *g_pszKeyBrand      = "GUI/Md3/BrandName";
 static const char *g_pszKeyAppearance = "GUI/Md3/Appearance";
 static const char *g_pszKeyThemes     = "GUI/Md3/NamedThemes";
 static const int g_iThemeHistorySchema = 1;
 static const int g_iMaxHistoryAppearanceEntries = 256;
 static const int g_iMaxHistoryKeyLength = 80;
+
+static QString md3DefaultFontFamily()
+{
+    const QString strPreferred = QStringLiteral("Roboto Flex");
+    return QFontDatabase::families().contains(strPreferred)
+         ? strPreferred
+         : QFontDatabase::systemFont(QFontDatabase::GeneralFont).family();
+}
+
+static bool md3IsValidFontWeight(int iWeight)
+{
+    switch (iWeight)
+    {
+        case -1:
+        case QFont::Thin:
+        case QFont::ExtraLight:
+        case QFont::Light:
+        case QFont::Normal:
+        case QFont::Medium:
+        case QFont::DemiBold:
+        case QFont::Bold:
+        case QFont::ExtraBold:
+        case QFont::Black:
+            return true;
+        default:
+            return false;
+    }
+}
 
 UIMd3Theme *UIMd3Theme::s_pInstance = 0;
 
@@ -71,7 +100,8 @@ UIMd3Theme::UIMd3Theme()
     , m_enmScheme(UIMd3Scheme_Dark)
     , m_dFontScale(1.0)
     , m_fCompact(false)
-    , m_strFontFamily("Roboto Flex")
+    , m_strFontFamily(md3DefaultFontFamily())
+    , m_iFontWeight(-1)
     , m_strBrandName("Material Virtual Machine")
     , m_fRestoring(false)
 {
@@ -129,6 +159,30 @@ void UIMd3Theme::setFontScale(double dScale)
     recordHistory(QStringLiteral("theme font scale changed"), QString::number(m_dFontScale, 'f', 2));
 }
 
+void UIMd3Theme::setFontFamily(const QString &strFamily)
+{
+    const QString strTrimmed = strFamily.trimmed();
+    if (strTrimmed.size() > g_iMaxHistoryKeyLength)
+        return;
+    const QString strEffective = strTrimmed.isEmpty() ? md3DefaultFontFamily() : strTrimmed;
+    if (!QFontDatabase::families().contains(strEffective) || strEffective == m_strFontFamily)
+        return;
+    m_strFontFamily = strEffective;
+    saveToExtraData();
+    emit sigThemeChanged();
+    recordHistory(QStringLiteral("theme font family changed"), m_strFontFamily);
+}
+
+void UIMd3Theme::setFontWeight(int iWeight)
+{
+    if (!md3IsValidFontWeight(iWeight) || iWeight == m_iFontWeight)
+        return;
+    m_iFontWeight = iWeight;
+    saveToExtraData();
+    emit sigThemeChanged();
+    recordHistory(QStringLiteral("theme font weight changed"), QString::number(m_iFontWeight));
+}
+
 void UIMd3Theme::setCompact(bool fCompact)
 {
     if (fCompact == m_fCompact)
@@ -167,7 +221,7 @@ QFont UIMd3Theme::font(UIMd3TypeRole enmRole) const
         result = QFont("Segoe UI");
     const int iIndex = qBound(0, (int)enmRole, (int)UIMd3TypeRole_Max - 1);
     result.setPixelSize(qMax(9, (int)(aScale[iIndex].iSize * m_dFontScale * (m_fCompact ? 0.92 : 1.0))));
-    result.setWeight((QFont::Weight)aScale[iIndex].iWeight);
+    result.setWeight((QFont::Weight)(m_iFontWeight >= 0 ? m_iFontWeight : aScale[iIndex].iWeight));
     return result;
 }
 
@@ -179,7 +233,9 @@ UIMd3Appearance UIMd3Theme::appearance(const QString &strKey) const
 void UIMd3Theme::setAppearance(const QString &strKey, const UIMd3Appearance &appearance)
 {
     const QString strTrimmedKey = strKey.trimmed();
-    if (strTrimmedKey.isEmpty())
+    if (strTrimmedKey.isEmpty() || strTrimmedKey.size() > g_iMaxHistoryKeyLength
+        || (!m_appearances.contains(strTrimmedKey)
+            && m_appearances.size() >= g_iMaxHistoryAppearanceEntries))
         return;
     if (!appearance.fValid)
     {
@@ -206,7 +262,7 @@ void UIMd3Theme::setAppearance(const QString &strKey, const UIMd3Appearance &app
 
 void UIMd3Theme::clearAppearance(const QString &strKey)
 {
-    if (m_appearances.remove(strKey))
+    if (m_appearances.remove(strKey.trimmed()))
     {
         saveToExtraData();
         emit sigThemeChanged();
@@ -216,8 +272,10 @@ void UIMd3Theme::clearAppearance(const QString &strKey)
 
 void UIMd3Theme::saveNamedTheme(const QString &strName)
 {
-    const QString strTrimmedName = strName.trimmed().left(80);
-    if (strTrimmedName.isEmpty())
+    const QString strTrimmedName = strName.trimmed();
+    if (strTrimmedName.isEmpty() || strTrimmedName.size() > g_iMaxHistoryKeyLength
+        || (!m_namedThemes.contains(strTrimmedName)
+            && m_namedThemes.size() >= g_iMaxHistoryAppearanceEntries))
         return;
     QVariantMap map;
     map["seed"]    = m_seed.name();
@@ -225,6 +283,7 @@ void UIMd3Theme::saveNamedTheme(const QString &strName)
     map["scale"]   = m_dFontScale;
     map["compact"] = m_fCompact;
     map["font"]    = m_strFontFamily;
+    map["weight"]  = m_iFontWeight;
     m_namedThemes[strTrimmedName] = map;
     saveToExtraData();
     recordHistory(QStringLiteral("theme named preset saved"), strTrimmedName);
@@ -235,11 +294,23 @@ bool UIMd3Theme::applyNamedTheme(const QString &strName)
     if (!m_namedThemes.contains(strName))
         return false;
     const QVariantMap map = m_namedThemes.value(strName);
-    m_seed        = QColor(map.value("seed", "#6750A4").toString());
-    m_enmScheme   = (UIMd3Scheme)map.value("scheme", (int)UIMd3Scheme_Dark).toInt();
-    m_dFontScale  = map.value("scale", 1.0).toDouble();
+    const QColor seed = QColor(map.value("seed", "#6750A4").toString());
+    const int iScheme = map.value("scheme", (int)UIMd3Scheme_Dark).toInt();
+    const double dScale = map.value("scale", 1.0).toDouble();
+    const QString strFont = map.value("font", md3DefaultFontFamily()).toString();
+    const int iWeight = map.value("weight", -1).toInt();
+    if (!seed.isValid() || iScheme < static_cast<int>(UIMd3Scheme_Dark)
+        || iScheme > static_cast<int>(UIMd3Scheme_HighContrastLight)
+        || dScale < 0.75 || dScale > 2.0 || !map.value("compact", false).canConvert<bool>()
+        || !md3IsValidFontWeight(iWeight)
+        || !QFontDatabase::families().contains(strFont))
+        return false;
+    m_seed        = seed;
+    m_enmScheme   = (UIMd3Scheme)iScheme;
+    m_dFontScale  = dScale;
     m_fCompact    = map.value("compact", false).toBool();
-    m_strFontFamily = map.value("font", "Roboto Flex").toString();
+    m_strFontFamily = strFont;
+    m_iFontWeight = iWeight;
     regenerate();
     saveToExtraData();
     emit sigThemeChanged();
@@ -270,26 +341,41 @@ bool UIMd3Theme::importNamedThemes(const QByteArray &data)
     {
         if (cImported >= g_iMaxHistoryAppearanceEntries)
             break;
-        const QString strName = it.key().trimmed().left(g_iMaxHistoryKeyLength);
+        const QString strName = it.key().trimmed();
         const QJsonObject entry = it.value().toObject();
-        const QColor themeSeed(entry.value(QStringLiteral("seed")).toString());
-        const int iThemeScheme = entry.value(QStringLiteral("scheme")).toInt(-1);
-        const double dThemeScale = entry.value(QStringLiteral("scale")).toDouble(-1.0);
+        const QJsonValue seedValue = entry.value(QStringLiteral("seed"));
+        const QJsonValue schemeValue = entry.value(QStringLiteral("scheme"));
+        const QJsonValue scaleValue = entry.value(QStringLiteral("scale"));
+        const QJsonValue compactValue = entry.value(QStringLiteral("compact"));
+        const QJsonValue fontValue = entry.value(QStringLiteral("font"));
+        const QJsonValue weightValue = entry.value(QStringLiteral("weight"));
+        const QColor themeSeed(seedValue.toString());
+        const int iThemeScheme = schemeValue.toInt(-1);
+        const double dThemeScale = scaleValue.toDouble(-1.0);
         const QString strThemeFont = entry.value(QStringLiteral("font")).toString()
-                                           .trimmed().left(g_iMaxHistoryKeyLength);
-        if (strName.isEmpty() || !themeSeed.isValid()
+                                           .trimmed();
+        const int iThemeWeight = weightValue.isUndefined() ? -1 : weightValue.toInt(-2);
+        if (strName.isEmpty() || strName.size() > g_iMaxHistoryKeyLength
+            || (!m_namedThemes.contains(strName)
+                && m_namedThemes.size() >= g_iMaxHistoryAppearanceEntries)
+            || !seedValue.isString() || !schemeValue.isDouble() || !scaleValue.isDouble()
+            || !compactValue.isBool() || (!fontValue.isUndefined() && !fontValue.isString())
+            || (!weightValue.isUndefined() && !weightValue.isDouble())
+            || !themeSeed.isValid()
             || iThemeScheme < static_cast<int>(UIMd3Scheme_Dark)
             || iThemeScheme > static_cast<int>(UIMd3Scheme_HighContrastLight)
             || dThemeScale < 0.75 || dThemeScale > 2.0
-            || !entry.value(QStringLiteral("compact")).isBool()
+            || strThemeFont.size() > g_iMaxHistoryKeyLength
+            || !md3IsValidFontWeight(iThemeWeight)
             || (!strThemeFont.isEmpty() && !fontFamilies.contains(strThemeFont)))
             continue;
         QVariantMap map;
         map.insert(QStringLiteral("seed"), themeSeed.name());
         map.insert(QStringLiteral("scheme"), iThemeScheme);
         map.insert(QStringLiteral("scale"), dThemeScale);
-        map.insert(QStringLiteral("compact"), entry.value(QStringLiteral("compact")).toBool());
-        map.insert(QStringLiteral("font"), strThemeFont);
+        map.insert(QStringLiteral("compact"), compactValue.toBool());
+        map.insert(QStringLiteral("font"), strThemeFont.isEmpty() ? md3DefaultFontFamily() : strThemeFont);
+        map.insert(QStringLiteral("weight"), iThemeWeight);
         m_namedThemes[strName] = map;
         ++cImported;
     }
@@ -308,6 +394,7 @@ QByteArray UIMd3Theme::serializeState() const
     root.insert(QStringLiteral("scale"), m_dFontScale);
     root.insert(QStringLiteral("compact"), m_fCompact);
     root.insert(QStringLiteral("font"), m_strFontFamily);
+    root.insert(QStringLiteral("weight"), m_iFontWeight);
     root.insert(QStringLiteral("brand"), m_strBrandName);
 
     QJsonObject appearances;
@@ -350,90 +437,136 @@ bool UIMd3Theme::restoreState(const QByteArray &data)
     if (parseError.error != QJsonParseError::NoError || !document.isObject())
         return false;
     const QJsonObject root = document.object();
-    if (root.value(QStringLiteral("version")).toInt(-1) != g_iThemeHistorySchema)
+    const QJsonValue versionValue = root.value(QStringLiteral("version"));
+    if (!versionValue.isDouble() || versionValue.toInt(-1) != g_iThemeHistorySchema)
+        return false;
+    const QJsonValue seedValue = root.value(QStringLiteral("seed"));
+    const QJsonValue schemeValue = root.value(QStringLiteral("scheme"));
+    const QJsonValue scaleValue = root.value(QStringLiteral("scale"));
+    const QJsonValue compactValue = root.value(QStringLiteral("compact"));
+    const QJsonValue appearancesValue = root.value(QStringLiteral("appearances"));
+    const QJsonValue namedThemesValue = root.value(QStringLiteral("namedThemes"));
+    if (!seedValue.isString() || !schemeValue.isDouble() || !scaleValue.isDouble()
+        || !compactValue.isBool() || !appearancesValue.isObject() || !namedThemesValue.isObject())
         return false;
 
-    const QColor seed(root.value(QStringLiteral("seed")).toString());
-    const int iScheme = root.value(QStringLiteral("scheme")).toInt(-1);
-    const double dScale = root.value(QStringLiteral("scale")).toDouble(-1.0);
+    const QColor seed(seedValue.toString());
+    const int iScheme = schemeValue.toInt(-1);
+    const double dScale = scaleValue.toDouble(-1.0);
+    const QJsonValue weightValue = root.value(QStringLiteral("weight"));
+    const int iWeight = weightValue.isUndefined() ? -1 : weightValue.toInt(-2);
+    const QStringList fontFamilies = QFontDatabase::families();
+    const QJsonValue fontValue = root.value(QStringLiteral("font"));
+    const QString strFont = fontValue.isUndefined() ? md3DefaultFontFamily() : fontValue.toString();
+    const QJsonValue brandValue = root.value(QStringLiteral("brand"));
+    const QString strBrand = brandValue.isUndefined() ? QStringLiteral("Material Virtual Machine")
+                                                        : brandValue.toString().trimmed();
     if (!seed.isValid() || iScheme < static_cast<int>(UIMd3Scheme_Dark)
         || iScheme > static_cast<int>(UIMd3Scheme_HighContrastLight)
         || dScale < 0.75 || dScale > 2.0
-        || !root.value(QStringLiteral("compact")).isBool())
+        || (!weightValue.isUndefined() && !weightValue.isDouble())
+        || !md3IsValidFontWeight(iWeight)
+        || (!fontValue.isUndefined() && !fontValue.isString())
+        || strFont.isEmpty() || strFont.size() > g_iMaxHistoryKeyLength
+        || !fontFamilies.contains(strFont)
+        || (!brandValue.isUndefined() && !brandValue.isString())
+        || strBrand.isEmpty() || strBrand.size() > g_iMaxHistoryKeyLength)
         return false;
 
+    const QJsonObject appearanceObject = appearancesValue.toObject();
+    if (appearanceObject.size() > g_iMaxHistoryAppearanceEntries)
+        return false;
     QHash<QString, UIMd3Appearance> appearances;
-    const QJsonObject appearanceObject = root.value(QStringLiteral("appearances")).toObject();
-    int cEntries = 0;
-    for (QJsonObject::const_iterator it = appearanceObject.begin();
-         it != appearanceObject.end() && cEntries < g_iMaxHistoryAppearanceEntries; ++it)
+    for (QJsonObject::const_iterator it = appearanceObject.begin(); it != appearanceObject.end(); ++it)
     {
-        const QString strKey = it.key().trimmed().left(g_iMaxHistoryKeyLength);
+        const QString strKey = it.key().trimmed();
         const QJsonObject entry = it.value().toObject();
-        if (strKey.isEmpty() || entry.isEmpty())
-            continue;
+        const QJsonValue seedEntry = entry.value(QStringLiteral("seed"));
+        const QJsonValue fontEntry = entry.value(QStringLiteral("font"));
+        const QJsonValue radiusEntry = entry.value(QStringLiteral("radius"));
+        const QJsonValue scaleEntry = entry.value(QStringLiteral("scale"));
+        const QJsonValue weightEntry = entry.value(QStringLiteral("weight"));
+        if (strKey.isEmpty() || strKey.size() > g_iMaxHistoryKeyLength || appearances.contains(strKey)
+            || !entry.isEmpty() && (!seedEntry.isString() || !fontEntry.isString()
+                                    || !radiusEntry.isDouble() || !scaleEntry.isDouble()
+                                    || !weightEntry.isDouble()))
+            return false;
+        const QString strAppearanceSeed = seedEntry.toString();
+        const QString strAppearanceFont = fontEntry.toString().trimmed();
+        const double dRadius = radiusEntry.toDouble(-1.0);
+        const double dAppearanceScale = scaleEntry.toDouble(-1.0);
+        const int iAppearanceWeight = weightEntry.toInt(-2);
+        const QColor appearanceSeed(strAppearanceSeed);
+        if ((!strAppearanceSeed.isEmpty() && !appearanceSeed.isValid())
+            || strAppearanceFont.size() > g_iMaxHistoryKeyLength
+            || (!strAppearanceFont.isEmpty() && !fontFamilies.contains(strAppearanceFont))
+            || dRadius < 0.0 || dRadius > static_cast<int>(UIMd3Shape::Full)
+            || !qFuzzyCompare(dRadius + 1.0, qRound(dRadius) + 1.0)
+            || dAppearanceScale < 0.50 || dAppearanceScale > 2.0
+            || !md3IsValidFontWeight(iAppearanceWeight))
+            return false;
         UIMd3Appearance value;
         value.fValid = true;
-        const QString strAppearanceSeed = entry.value(QStringLiteral("seed")).toString();
-        value.seed = QColor(strAppearanceSeed);
-        if (!strAppearanceSeed.isEmpty() && !value.seed.isValid())
-            continue;
-        value.strFont = entry.value(QStringLiteral("font")).toString().left(g_iMaxHistoryKeyLength);
-        value.iRadius = qBound(0, entry.value(QStringLiteral("radius")).toInt(UIMd3Shape::Large),
-                                static_cast<int>(UIMd3Shape::Full));
-        value.dScale = qBound(0.50, entry.value(QStringLiteral("scale")).toDouble(1.0), 2.0);
-        value.iWeight = entry.value(QStringLiteral("weight")).toInt(-1);
-        if (value.iWeight >= 0)
-            value.iWeight = qBound(static_cast<int>(QFont::Thin), value.iWeight,
-                                   static_cast<int>(QFont::Black));
-        if (!value.strFont.isEmpty() && !QFontDatabase::families().contains(value.strFont))
-            value.strFont.clear();
+        value.seed = appearanceSeed;
+        value.strFont = strAppearanceFont;
+        value.iRadius = qRound(dRadius);
+        value.dScale = dAppearanceScale;
+        value.iWeight = iAppearanceWeight;
         appearances.insert(strKey, value);
-        ++cEntries;
     }
 
+    const QJsonObject namedThemeObject = namedThemesValue.toObject();
+    if (namedThemeObject.size() > g_iMaxHistoryAppearanceEntries)
+        return false;
     QHash<QString, QVariantMap> namedThemes;
-    const QJsonObject namedThemeObject = root.value(QStringLiteral("namedThemes")).toObject();
-    int cNamedThemes = 0;
-    const QStringList fontFamilies = QFontDatabase::families();
-    for (QJsonObject::const_iterator it = namedThemeObject.begin();
-         it != namedThemeObject.end() && cNamedThemes < g_iMaxHistoryAppearanceEntries; ++it)
+    for (QJsonObject::const_iterator it = namedThemeObject.begin(); it != namedThemeObject.end(); ++it)
     {
-        const QString strName = it.key().trimmed().left(g_iMaxHistoryKeyLength);
+        const QString strName = it.key().trimmed();
         const QJsonObject entry = it.value().toObject();
-        const QColor themeSeed(entry.value(QStringLiteral("seed")).toString());
-        const int iThemeScheme = entry.value(QStringLiteral("scheme")).toInt(-1);
-        const double dThemeScale = entry.value(QStringLiteral("scale")).toDouble(-1.0);
-        const QString strThemeFont = entry.value(QStringLiteral("font")).toString()
-                                           .trimmed().left(g_iMaxHistoryKeyLength);
-        if (strName.isEmpty() || !themeSeed.isValid()
+        const QJsonValue themeSeedValue = entry.value(QStringLiteral("seed"));
+        const QJsonValue themeSchemeValue = entry.value(QStringLiteral("scheme"));
+        const QJsonValue themeScaleValue = entry.value(QStringLiteral("scale"));
+        const QJsonValue themeCompactValue = entry.value(QStringLiteral("compact"));
+        const QJsonValue themeFontValue = entry.value(QStringLiteral("font"));
+        const QJsonValue themeWeightValue = entry.value(QStringLiteral("weight"));
+        if (strName.isEmpty() || strName.size() > g_iMaxHistoryKeyLength || namedThemes.contains(strName)
+            || !themeSeedValue.isString() || !themeSchemeValue.isDouble() || !themeScaleValue.isDouble()
+            || !themeCompactValue.isBool()
+            || (!themeFontValue.isUndefined() && !themeFontValue.isString())
+            || (!themeWeightValue.isUndefined() && !themeWeightValue.isDouble()))
+            return false;
+        const QColor themeSeed(themeSeedValue.toString());
+        const int iThemeScheme = themeSchemeValue.toInt(-1);
+        const double dThemeScale = themeScaleValue.toDouble(-1.0);
+        const QString strThemeFont = themeFontValue.isUndefined() ? md3DefaultFontFamily()
+                                                                    : themeFontValue.toString().trimmed();
+        const int iThemeWeight = themeWeightValue.isUndefined() ? -1 : themeWeightValue.toInt(-2);
+        if (!themeSeed.isValid()
             || iThemeScheme < static_cast<int>(UIMd3Scheme_Dark)
             || iThemeScheme > static_cast<int>(UIMd3Scheme_HighContrastLight)
             || dThemeScale < 0.75 || dThemeScale > 2.0
-            || !entry.value(QStringLiteral("compact")).isBool()
-            || (!strThemeFont.isEmpty() && !fontFamilies.contains(strThemeFont)))
-            continue;
+            || strThemeFont.isEmpty() || strThemeFont.size() > g_iMaxHistoryKeyLength
+            || !fontFamilies.contains(strThemeFont)
+            || !md3IsValidFontWeight(iThemeWeight))
+            return false;
         QVariantMap map;
         map.insert(QStringLiteral("seed"), themeSeed.name());
         map.insert(QStringLiteral("scheme"), iThemeScheme);
         map.insert(QStringLiteral("scale"), dThemeScale);
-        map.insert(QStringLiteral("compact"), entry.value(QStringLiteral("compact")).toBool());
+        map.insert(QStringLiteral("compact"), themeCompactValue.toBool());
         map.insert(QStringLiteral("font"), strThemeFont);
+        map.insert(QStringLiteral("weight"), iThemeWeight);
         namedThemes.insert(strName, map);
-        ++cNamedThemes;
     }
 
     m_fRestoring = true;
     m_seed = seed;
     m_enmScheme = static_cast<UIMd3Scheme>(iScheme);
     m_dFontScale = dScale;
-    m_fCompact = root.value(QStringLiteral("compact")).toBool();
-    const QString strFont = root.value(QStringLiteral("font")).toString().left(g_iMaxHistoryKeyLength);
-    if (!strFont.isEmpty() && fontFamilies.contains(strFont))
-        m_strFontFamily = strFont;
-    const QString strBrand = root.value(QStringLiteral("brand")).toString().trimmed();
-    if (!strBrand.isEmpty())
-        m_strBrandName = strBrand.left(80);
+    m_fCompact = compactValue.toBool();
+    m_strFontFamily = strFont;
+    m_iFontWeight = iWeight;
+    m_strBrandName = strBrand;
     m_appearances = appearances;
     m_namedThemes = namedThemes;
     regenerate();
@@ -477,9 +610,14 @@ void UIMd3Theme::loadFromExtraData()
     const double dStoredScale = gEDataManager->extraDataString(g_pszKeyScale).toDouble(&fScaleOk);
     m_dFontScale    = qBound(0.75, fScaleOk ? dStoredScale : 1.0, 2.0);
     m_fCompact      = gEDataManager->extraDataString(g_pszKeyCompact) == "true";
-    const QString strFont = gEDataManager->extraDataString(g_pszKeyFont);
-    if (!strFont.isEmpty())
+    const QString strFont = gEDataManager->extraDataString(g_pszKeyFont).trimmed();
+    if (!strFont.isEmpty() && strFont.size() <= g_iMaxHistoryKeyLength
+        && QFontDatabase::families().contains(strFont))
         m_strFontFamily = strFont;
+    bool fWeightOk = false;
+    const int iStoredWeight = gEDataManager->extraDataString(g_pszKeyWeight).toInt(&fWeightOk);
+    if (fWeightOk && md3IsValidFontWeight(iStoredWeight))
+        m_iFontWeight = iStoredWeight;
     const QString strBrand = gEDataManager->extraDataString(g_pszKeyBrand);
     if (!strBrand.trimmed().isEmpty())
         m_strBrandName = strBrand.left(80);
@@ -488,8 +626,13 @@ void UIMd3Theme::loadFromExtraData()
     m_appearances.clear();
     const QJsonDocument docAppearance = QJsonDocument::fromJson(gEDataManager->extraDataString(g_pszKeyAppearance).toUtf8());
     const QJsonObject objAppearance = docAppearance.object();
-    for (QJsonObject::const_iterator it = objAppearance.begin(); it != objAppearance.end(); ++it)
+    int cAppearanceEntries = 0;
+    for (QJsonObject::const_iterator it = objAppearance.begin();
+         it != objAppearance.end() && cAppearanceEntries < g_iMaxHistoryAppearanceEntries; ++it)
     {
+        const QString strKey = it.key().trimmed();
+        if (strKey.isEmpty() || strKey.size() > g_iMaxHistoryKeyLength)
+            continue;
         const QJsonObject entry = it.value().toObject();
         UIMd3Appearance appearance;
         appearance.fValid   = true;
@@ -505,8 +648,11 @@ void UIMd3Theme::loadFromExtraData()
                                         static_cast<int>(QFont::Black));
         if (!appearance.strFont.isEmpty() && !QFontDatabase::families().contains(appearance.strFont))
             appearance.strFont.clear();
-        if (!it.key().trimmed().isEmpty())
-            m_appearances.insert(it.key().trimmed(), appearance);
+        if (!m_appearances.contains(strKey))
+        {
+            m_appearances.insert(strKey, appearance);
+            ++cAppearanceEntries;
+        }
     }
 
     /* Named themes: */
@@ -524,6 +670,7 @@ void UIMd3Theme::saveToExtraData() const
     gEDataManager->setExtraDataString(g_pszKeyScale, QString::number(m_dFontScale));
     gEDataManager->setExtraDataString(g_pszKeyCompact, m_fCompact ? "true" : "false");
     gEDataManager->setExtraDataString(g_pszKeyFont, m_strFontFamily);
+    gEDataManager->setExtraDataString(g_pszKeyWeight, QString::number(m_iFontWeight));
     gEDataManager->setExtraDataString(g_pszKeyBrand, m_strBrandName);
 
     QJsonObject objAppearance;

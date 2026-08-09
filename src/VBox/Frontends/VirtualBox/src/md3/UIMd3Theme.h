@@ -85,6 +85,14 @@ public:
         double fontScale() const { return m_dFontScale; }
         /** Defines the global font scale factor. */
         void setFontScale(double dScale);
+        /** Returns the selected global font family, or the shipped fallback. */
+        QString fontFamily() const { return m_strFontFamily; }
+        /** Defines the global font family; unavailable families are rejected. */
+        void setFontFamily(const QString &strFamily);
+        /** Returns the global font weight override, or -1 for role weights. */
+        int fontWeight() const { return m_iFontWeight; }
+        /** Defines the global font weight override; -1 restores role weights. */
+        void setFontWeight(int iWeight);
         /** Returns whether the compact density is active. */
         bool isCompact() const { return m_fCompact; }
         /** Defines the compact density. */
@@ -113,7 +121,7 @@ public:
 
     /** @name Named themes
       * @{ */
-        /** Saves the current seed, scheme and density as @a strName. */
+        /** Saves the current palette, typography, density, and brand state as @a strName. */
         void saveNamedTheme(const QString &strName);
         /** Applies the named theme @a strName. Returns false when it does not exist. */
         bool applyNamedTheme(const QString &strName);
@@ -162,6 +170,7 @@ private:
     double                        m_dFontScale;
     bool                          m_fCompact;
     QString                       m_strFontFamily;
+    int                           m_iFontWeight;
     QString                       m_strBrandName;
     QColor                        m_colors[UIMd3ColorRole_Max];
     QHash<QString, UIMd3Appearance> m_appearances;
