@@ -44,15 +44,16 @@ the command palette. It keeps plain-text search as the default, lets the same
 field opt into its anchored regular-expression builder, adds an action filter,
 native calendar-popup From/To fields (with an explicit **Any date** state), a
 scrollable newest-first revision list, bounded JSONL export, and an inline
-**Verify integrity** result. Selecting a notification-state revision enables a
-validated **Restore notification state** action; the owning notification
-centre applies the bounded payload and appends the restore. The existing
+**Verify integrity** result. Selecting a supported notification or
+appearance/theme revision enables a validated **Restore selected state** action;
+the owning notification centre or theme service applies its bounded payload and
+appends the restore. The existing
 Network Manager shortcut is preserved as <kbd>Ctrl+Shift+H</kbd> so the history
 shortcut has one owner.
 Generic state restore remains surface-specific: notification clear/restore is
-implemented both from the notification centre and from this browser, while
-opaque settings revisions are displayed and exported until their owning
-surface supplies a safe restore adapter.
+implemented both from their owning surfaces and from this browser, while
+settings/runtime revisions are displayed and exported until their owning
+surfaces supply safe restore adapters.
 
 ## Configuration and limits
 

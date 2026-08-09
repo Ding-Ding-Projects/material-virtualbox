@@ -47,6 +47,13 @@ request, or guest/runtime operation is involved. The existing settings selector
 and `UISettingsPageFrame::filterOut` remain authoritative for page visibility
 and search; changing appearance does not discard pending settings edits.
 
+Each validated theme or appearance mutation also records a bounded state
+revision in `UIMd3History`. The history browser can restore those revisions
+through `UIMd3Theme::restoreState`; version, palette, density, typography,
+named-theme, and per-element fields are checked before the live theme changes,
+and the restore itself appends a new revision. Malformed or oversized state is
+rejected without changing the current appearance.
+
 ## Verification
 
 The static contract is covered by the UICommon source/MOC ownership in

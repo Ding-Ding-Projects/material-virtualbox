@@ -879,6 +879,7 @@ void UIMd3NotificationCentre::sltUndoClear()
 void UIMd3NotificationCentre::sltRestoreHistoryRevision(const QString &strRevisionId)
 {
     bool fRestored = false;
+    bool fApplicable = false;
     UIMd3History *pHistory = UIMd3History::instance();
     if (pHistory)
     {
@@ -889,6 +890,7 @@ void UIMd3NotificationCentre::sltRestoreHistoryRevision(const QString &strRevisi
                     || revision.strAction == QStringLiteral("notification history changed")
                     || revision.strAction == QStringLiteral("notification history restored")))
             {
+                fApplicable = true;
                 QList<UIMd3Notice> restored;
                 if (loadRecordsFromData(revision.state, restored)
                     && saveRecordsAtPath(storagePath(), restored))
@@ -917,7 +919,7 @@ void UIMd3NotificationCentre::sltRestoreHistoryRevision(const QString &strRevisi
                 break;
             }
     }
-    if (pHistory)
+    if (pHistory && fApplicable)
         emit pHistory->sigRevisionRestoreCompleted(strRevisionId, fRestored);
 }
 

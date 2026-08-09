@@ -71,6 +71,11 @@ jobs:
             if (($historyHeader + $historySource) -notmatch [regex]::Escape($pattern)) { throw "History journal contract missing: $pattern" }
           }
           if (-not (Test-Path doc/md3/History.md)) { throw 'Missing local-history article' }
+          $themeHeader = Get-Content src/VBox/Frontends/VirtualBox/src/md3/UIMd3Theme.h -Raw
+          $themeSource = Get-Content src/VBox/Frontends/VirtualBox/src/md3/UIMd3Theme.cpp -Raw
+          foreach ($pattern in @('serializeState', 'restoreState', 'sltRestoreHistoryRevision', 'recordHistory', 'g_iThemeHistorySchema', 'g_iMaxHistoryAppearanceEntries', 'namedThemes', 'UIMd3History::instance()->record', 'sigThemeChanged')) {
+            if (($themeHeader + $themeSource) -notmatch [regex]::Escape($pattern)) { throw "Theme history contract missing: $pattern" }
+          }
           $mainSource = Get-Content src/VBox/Frontends/VirtualBox/src/main.cpp -Raw
           foreach ($pattern in @('UIMd3History.h', 'UIMd3History::create()', 'UIMd3History::destroy()', 'UIMd3NotificationCentre::create()', 'UIMd3NotificationCentre::destroy()')) {
             if ($mainSource -notmatch [regex]::Escape($pattern)) { throw "Notification lifecycle missing: $pattern" }

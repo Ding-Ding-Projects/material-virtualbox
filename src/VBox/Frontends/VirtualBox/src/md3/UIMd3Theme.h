@@ -25,6 +25,7 @@
 
 
 /* Qt includes: */
+#include <QByteArray>
 #include <QColor>
 #include <QFont>
 #include <QHash>
@@ -124,10 +125,20 @@ public:
         bool importNamedThemes(const QByteArray &data);
     /** @} */
 
+    /** Serialises the validated appearance state for local history. */
+    QByteArray serializeState() const;
+    /** Applies a validated local-history appearance state without recording a duplicate change. */
+    bool restoreState(const QByteArray &data);
+
     /** Reloads seed, scheme, density and overrides from extradata. */
     void loadFromExtraData();
     /** Writes seed, scheme, density and overrides to extradata. */
     void saveToExtraData() const;
+
+public slots:
+
+    /** Applies a selected theme revision requested by the history browser. */
+    void sltRestoreHistoryRevision(const QString &strRevisionId);
 
 private:
 
@@ -142,6 +153,8 @@ private:
     static QColor tone(const QColor &base, int iTone);
     /** Returns the effective scheme, resolving UIMd3Scheme_System against the host. */
     UIMd3Scheme effectiveScheme() const;
+    /** Records a validated theme change without making history persistence fatal. */
+    void recordHistory(const QString &strAction, const QString &strDetail);
 
     static UIMd3Theme            *s_pInstance;
     QColor                        m_seed;
@@ -153,6 +166,7 @@ private:
     QColor                        m_colors[UIMd3ColorRole_Max];
     QHash<QString, UIMd3Appearance> m_appearances;
     QHash<QString, QVariantMap>   m_namedThemes;
+    bool                          m_fRestoring;
 };
 
 /** Convenience accessor mirroring uiCommon(). */

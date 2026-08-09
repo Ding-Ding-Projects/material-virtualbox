@@ -83,13 +83,15 @@ append-only `notification history cleared` revision and records a successful
 restore as `notification history restored`. A later non-blocking notification
 records `notification history changed`, which invalidates the one-step Undo
 action; the bounded JSON snapshot remains as a fallback when Git is unavailable.
-The local-history browser also exposes a **Restore notification state** action
-when the selected revision carries a validated notification-state payload. The
-request is routed back to this owner, parsed through the same bounded schema,
-written atomically, and recorded as a new `notification history restored`
-revision. Settings and other opaque revisions remain export-only until their
-owning surface supplies an adapter; the browser never guesses how to apply
-unknown bytes. Transient toast presentation, bulk dismiss or delete,
+The local-history browser exposes a **Restore selected state** action when the
+selected revision carries a validated notification-state payload. The request
+is routed back to this owner, parsed through the same bounded schema, written
+atomically, and recorded as a new `notification history restored` revision.
+Appearance/theme revisions are routed to `UIMd3Theme`, which validates the
+versioned palette, typography, density, named-theme, and per-element payload
+before applying it and recording the restore. Settings/runtime revisions remain
+export-only until their owning surfaces supply adapters; the browser never
+guesses how to apply unknown bytes. Transient toast presentation, bulk dismiss or delete,
 provider-authored markdown rendering, and full per-row accessibility roles
 remain later lanes.
 

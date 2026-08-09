@@ -9,7 +9,9 @@ application-owned presentation toward one coherent Qt 6 design system.
 > native manager title bar, manager navigation rail, manager tab strip, command
 > palette, appearance editor, shared settings search/regex field, and the
 > notification-center search are wired into the existing VirtualBox frontend.
-> Wizard, tool, notification-history, and runtime shells remain in progress.
+> Wizard, tool, and runtime shells remain in progress; the local history
+> browser now restores validated notification and appearance/theme revisions
+> through their owning services.
 > Build and release claims below are deliberately bounded.
 
 ## Contents
@@ -101,8 +103,8 @@ Git repository when Git is available, with an atomic-file fallback. The full
 history browser is now reachable with `Ctrl+H` and from the command palette;
 it provides plain-text-first search with the anchored regex builder,
 action/date filters, bounded JSONL export, integrity verification, and a
-validated Restore notification state action for notification revisions.
-Surface-specific settings/runtime restore adapters, provider-authored
+validated Restore notification and appearance/theme state actions for supported
+revisions. Surface-specific settings/runtime restore adapters, provider-authored
 rendering, bulk dismiss/delete, and native capture remain open lanes. This is
 not a claim that the legacy notification surface has been fully replaced.
 

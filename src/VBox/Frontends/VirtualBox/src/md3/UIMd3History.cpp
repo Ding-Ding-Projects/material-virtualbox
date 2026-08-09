@@ -85,10 +85,12 @@ namespace
 
     bool md3HistoryRevisionCanRestore(const UIMd3HistoryRevision &revision)
     {
+        const bool fNotificationState =
+            revision.strAction == QStringLiteral("notification history cleared")
+            || revision.strAction == QStringLiteral("notification history changed")
+            || revision.strAction == QStringLiteral("notification history restored");
         return !revision.state.isEmpty()
-            && (revision.strAction == QStringLiteral("notification history cleared")
-                || revision.strAction == QStringLiteral("notification history changed")
-                || revision.strAction == QStringLiteral("notification history restored"));
+            && (fNotificationState || revision.strAction.startsWith(QStringLiteral("theme ")));
     }
 }
 
@@ -104,6 +106,9 @@ void UIMd3History::create()
     if (!s_pInstance)
     {
         s_pInstance = new UIMd3History;
+        if (UIMd3Theme::instance())
+            connect(s_pInstance, &UIMd3History::sigRevisionRestoreRequested,
+                    UIMd3Theme::instance(), &UIMd3Theme::sltRestoreHistoryRevision);
         if (UIMd3Language::instance())
         {
             UIMd3Language::instance()->registerText(QStringLiteral("md3.history.title"),
@@ -149,17 +154,17 @@ void UIMd3History::create()
                                                      QStringLiteral("Exported %1 revisions."),
                                                      QStringLiteral("已匯出 %1 項紀錄。"));
             UIMd3Language::instance()->registerText(QStringLiteral("md3.history.restore"),
-                                                     QStringLiteral("Restore notification state"),
-                                                     QStringLiteral("復原通知狀態"));
+                                                     QStringLiteral("Restore selected state"),
+                                                     QStringLiteral("復原選取狀態"));
             UIMd3Language::instance()->registerText(QStringLiteral("md3.history.restoreHint"),
-                                                     QStringLiteral("Select a notification-state revision to enable restore."),
-                                                     QStringLiteral("揀選通知狀態紀錄先可以復原。"));
+                                                     QStringLiteral("Select a supported notification or appearance revision to enable restore."),
+                                                     QStringLiteral("揀選支援嘅通知或外觀紀錄先可以復原。"));
             UIMd3Language::instance()->registerText(QStringLiteral("md3.history.restoreRequested"),
                                                      QStringLiteral("Restore requested for revision %1."),
                                                      QStringLiteral("已要求復原紀錄 %1。"));
             UIMd3Language::instance()->registerText(QStringLiteral("md3.history.restoreDone"),
-                                                     QStringLiteral("Notification state restored from revision %1."),
-                                                     QStringLiteral("已由紀錄 %1 復原通知狀態。"));
+                                                     QStringLiteral("State restored from revision %1."),
+                                                     QStringLiteral("已由紀錄 %1 復原狀態。"));
             UIMd3Language::instance()->registerText(QStringLiteral("md3.history.restoreFailed"),
                                                      QStringLiteral("This revision could not be restored by its owning surface."),
                                                      QStringLiteral("呢項紀錄嘅擁有介面未能復原。"));
