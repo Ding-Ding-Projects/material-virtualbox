@@ -83,6 +83,10 @@ public:
         bool isCompact() const { return m_fCompact; }
         /** Defines the compact density. */
         void setCompact(bool fCompact);
+        /** Returns the user-facing display brand without changing technical identity. */
+        QString brandName() const { return m_strBrandName; }
+        /** Defines the user-facing display brand; empty values reset to the shipped name. */
+        void setBrandName(const QString &strName);
         /** Returns the vertical size of a standard control for the active density. */
         int controlHeight() const { return m_fCompact ? 36 : 40; }
         /** Returns the standard content gutter for the active density. */
@@ -140,6 +144,7 @@ private:
     double                        m_dFontScale;
     bool                          m_fCompact;
     QString                       m_strFontFamily;
+    QString                       m_strBrandName;
     QColor                        m_colors[UIMd3ColorRole_Max];
     QHash<QString, UIMd3Appearance> m_appearances;
     QHash<QString, QVariantMap>   m_namedThemes;

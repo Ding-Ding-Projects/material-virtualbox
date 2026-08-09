@@ -80,6 +80,7 @@
 #include "UIQObjectStuff.h"
 #include "UITranslationEventListener.h"
 #include "UIVirtualBoxManager.h"
+#include "UIMd3Theme.h"
 #include "UIVirtualBoxWidget.h"
 #include "UIVirtualMachineItemCloud.h"
 #include "UIVirtualMachineItemLocal.h"
@@ -650,7 +651,7 @@ bool UIVirtualBoxManager::eventFilter(QObject *pObject, QEvent *pEvent)
 void UIVirtualBoxManager::sltRetranslateUI()
 {
     /* Set window title: */
-    QString strTitle(VBOX_PRODUCT);
+    QString strTitle(md3Theme().brandName());
     strTitle += " " + tr("Manager", "Note: main window title which is prepended by the product name.");
 #ifdef VBOX_BLEEDING_EDGE
     strTitle += QString(" EXPERIMENTAL build ")

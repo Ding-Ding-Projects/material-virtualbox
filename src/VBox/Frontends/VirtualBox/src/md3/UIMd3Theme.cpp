@@ -37,6 +37,7 @@ static const char *g_pszKeyScheme     = "GUI/Md3/Scheme";
 static const char *g_pszKeyScale      = "GUI/Md3/FontScale";
 static const char *g_pszKeyCompact    = "GUI/Md3/Compact";
 static const char *g_pszKeyFont       = "GUI/Md3/FontFamily";
+static const char *g_pszKeyBrand      = "GUI/Md3/BrandName";
 static const char *g_pszKeyAppearance = "GUI/Md3/Appearance";
 static const char *g_pszKeyThemes     = "GUI/Md3/NamedThemes";
 
@@ -67,6 +68,7 @@ UIMd3Theme::UIMd3Theme()
     , m_dFontScale(1.0)
     , m_fCompact(false)
     , m_strFontFamily("Roboto Flex")
+    , m_strBrandName("Material Virtual Machine")
 {
     regenerate();
 }
@@ -123,6 +125,17 @@ void UIMd3Theme::setCompact(bool fCompact)
     if (fCompact == m_fCompact)
         return;
     m_fCompact = fCompact;
+    saveToExtraData();
+    emit sigThemeChanged();
+}
+
+void UIMd3Theme::setBrandName(const QString &strName)
+{
+    const QString strTrimmed = strName.trimmed();
+    const QString strEffective = strTrimmed.isEmpty() ? QStringLiteral("Material Virtual Machine") : strTrimmed.left(80);
+    if (strEffective == m_strBrandName)
+        return;
+    m_strBrandName = strEffective;
     saveToExtraData();
     emit sigThemeChanged();
 }
@@ -228,6 +241,9 @@ void UIMd3Theme::loadFromExtraData()
     const QString strFont = gEDataManager->extraDataString(g_pszKeyFont);
     if (!strFont.isEmpty())
         m_strFontFamily = strFont;
+    const QString strBrand = gEDataManager->extraDataString(g_pszKeyBrand);
+    if (!strBrand.trimmed().isEmpty())
+        m_strBrandName = strBrand.left(80);
 
     /* Per-element overrides: */
     m_appearances.clear();
@@ -261,6 +277,7 @@ void UIMd3Theme::saveToExtraData() const
     gEDataManager->setExtraDataString(g_pszKeyScale, QString::number(m_dFontScale));
     gEDataManager->setExtraDataString(g_pszKeyCompact, m_fCompact ? "true" : "false");
     gEDataManager->setExtraDataString(g_pszKeyFont, m_strFontFamily);
+    gEDataManager->setExtraDataString(g_pszKeyBrand, m_strBrandName);
 
     QJsonObject objAppearance;
     for (QHash<QString, UIMd3Appearance>::const_iterator it = m_appearances.begin(); it != m_appearances.end(); ++it)
