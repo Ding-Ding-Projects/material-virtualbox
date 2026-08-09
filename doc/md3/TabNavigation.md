@@ -24,8 +24,10 @@ global-tools surface. It is implemented by
   labels, a no-group target, and an inline create-group path. Shift+right-click
   opens the appearance editor for the selected tab.
 - Right-clicking strip chrome opens the strip appearance editor and a searchable
-  group expand/collapse menu; every one of those local menus uses the shared
-  anchored regex builder.
+  group-management menu. The menu keeps its local search field while exposing
+  `Create group…`, bounded `Rename group…` editors, and
+  `Edit group appearance…` actions keyed to each group's stable identifier;
+  every one of those local menus uses the shared anchored regex builder.
 - When tabs overflow, the ellipsis is a real 48 px `QToolButton` with an
   accessible name and keyboard focus; it opens the same searchable overflow
   menu as the Down key path instead of silently clipping the remaining tabs.
@@ -55,7 +57,7 @@ The MD3 validation workflow checks the tab-strip source and MOC header are
 wired into `UICommon`, and the native `VirtualBox` target has compiled the
 new translation unit and its Qt MOC output. Full tab management remains in
 progress: the four independent tab-discovery searches, drag reordering, group
-rename/delete/reorder surfaces, bulk-close preview/confirmation, vertical
+move/delete/reorder surfaces, bulk-close preview/confirmation, vertical
 docking, per-tab `QAccessible::PageTab` children, surface-scoped persistence,
 and runtime-window adoption still need
 their own production lanes. The current strip does provide an interactive

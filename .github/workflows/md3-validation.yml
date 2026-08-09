@@ -116,7 +116,7 @@ jobs:
         run: |
           $tabHeader = Get-Content src/VBox/Frontends/VirtualBox/src/md3/UIMd3TabStrip.h -Raw
           $tabSource = Get-Content src/VBox/Frontends/VirtualBox/src/md3/UIMd3TabStrip.cpp -Raw
-          foreach ($pattern in @('showGroupPicker', 'Move… into group…', 'tab-group-picker', 'QListWidget', 'createGroup', 'member', 'QToolButton', 'Show more tabs', 'updateOverflowButton')) {
+          foreach ($pattern in @('showGroupPicker', 'Move… into group…', 'tab-group-picker', 'QListWidget', 'createGroup', 'Create group…', 'Rename group:', 'Edit group appearance:', 'QInputDialog', 'setMaxLength', 'member', 'QToolButton', 'Show more tabs', 'updateOverflowButton')) {
             if (($tabHeader + $tabSource) -notmatch [regex]::Escape($pattern)) { throw "Tab group picker contract missing: $pattern" }
           }
           if (-not (Test-Path doc/md3/TabNavigation.md)) { throw 'Missing tab-navigation article' }

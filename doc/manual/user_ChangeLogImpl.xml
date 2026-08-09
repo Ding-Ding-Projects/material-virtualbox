@@ -199,6 +199,12 @@ Rules for adding a changelog entry to make them look more uniform:
       </listitem>
 
       <listitem>
+        <para>GUI: Added searchable strip actions for creating and renaming tab
+          groups and opening a per-group Material 3 appearance editor with
+          bounded, accessible group-name input</para>
+      </listitem>
+
+      <listitem>
         <para>GUI: Replaced decorative tab overflow text with a focusable
           Material 3 More-tabs button that opens the searchable overflow list</para>
       </listitem>

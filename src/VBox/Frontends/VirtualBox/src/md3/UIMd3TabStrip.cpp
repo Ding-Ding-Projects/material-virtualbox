@@ -29,6 +29,7 @@
 #include <QFontMetrics>
 #include <QHash>
 #include <QHBoxLayout>
+#include <QInputDialog>
 #include <QJsonArray>
 #include <QJsonDocument>
 #include <QJsonObject>
@@ -766,35 +767,101 @@ void UIMd3TabStrip::contextMenuEvent(QContextMenuEvent *pEvent)
     if (strId.isEmpty())
     {
         QMenu menu(this);
+        menu.setAccessibleName(tr("Tab strip actions"));
         UIMd3SearchField *pSearch = new UIMd3SearchField(QStringLiteral("tab-groups"),
                                                          tr("Search tab strip"), &menu);
         QWidgetAction *pSearchAction = new QWidgetAction(&menu);
         pSearchAction->setDefaultWidget(pSearch);
         menu.addAction(pSearchAction);
-        QHash<QAction *, QString> groupIds;
+        QAction *pCreateGroup = menu.addAction(tr("Create group…"));
+        pCreateGroup->setStatusTip(tr("Create a new tab group"));
+        pCreateGroup->setWhatsThis(tr("Create a new tab group with a name from 1 to 80 characters"));
+        QList<QAction *> groupActions;
         for (const UIMd3TabGroup &group : m_groups)
         {
+            const QString strGroupId = group.strId;
+            const QString strGroupName = group.strName;
             QAction *pGroup = menu.addAction(group.fCollapsed
                                            ? tr("Expand %1").arg(group.strName)
                                            : tr("Collapse %1").arg(group.strName));
             pGroup->setStatusTip(tr("Toggle group %1").arg(group.strName));
-            groupIds.insert(pGroup, group.strId);
+            pGroup->setWhatsThis(tr("Expand or collapse tab group %1").arg(group.strName));
+            groupActions << pGroup;
+
+            QAction *pRename = menu.addAction(tr("Rename group: %1").arg(group.strName));
+            pRename->setStatusTip(tr("Rename tab group %1").arg(group.strName));
+            pRename->setWhatsThis(tr("Rename tab group %1; the name is limited to 80 characters")
+                                  .arg(group.strName));
+            groupActions << pRename;
+
+            QAction *pAppearance = menu.addAction(tr("Edit group appearance: %1").arg(group.strName));
+            pAppearance->setStatusTip(tr("Edit appearance for tab group %1").arg(group.strName));
+            pAppearance->setWhatsThis(tr("Edit the appearance of tab group %1").arg(group.strName));
+            groupActions << pAppearance;
+
+            connect(pGroup, &QAction::triggered, this, [this, strGroupId]()
+            {
+                toggleGroupCollapsed(strGroupId);
+            });
+            connect(pRename, &QAction::triggered, this,
+                    [this, strGroupId, strGroupName]()
+            {
+                QInputDialog dialog(this);
+                dialog.setInputMode(QInputDialog::TextInput);
+                dialog.setWindowTitle(tr("Rename group"));
+                dialog.setAccessibleName(tr("Rename tab group"));
+                dialog.setLabelText(tr("Group name"));
+                dialog.setOkButtonText(tr("Rename"));
+                dialog.setCancelButtonText(tr("Cancel"));
+                dialog.setTextValue(strGroupName.left(80));
+                if (QLineEdit *pEditor = dialog.findChild<QLineEdit *>())
+                {
+                    pEditor->setMaxLength(80);
+                    pEditor->setAccessibleName(tr("Group name"));
+                    pEditor->setAccessibleDescription(tr("Enter 1 to 80 characters for the group name."));
+                    pEditor->setPlaceholderText(tr("Group name"));
+                    pEditor->selectAll();
+                }
+                if (dialog.exec() == QDialog::Accepted)
+                    renameGroup(strGroupId, dialog.textValue().trimmed().left(80));
+            });
+            connect(pAppearance, &QAction::triggered, this,
+                    [this, strGroupId]()
+            {
+                UIMd3AppearanceEditor::open(this, QStringLiteral("group/") + strGroupId);
+            });
         }
+        connect(pCreateGroup, &QAction::triggered, this, [this]()
+        {
+            QInputDialog dialog(this);
+            dialog.setInputMode(QInputDialog::TextInput);
+            dialog.setWindowTitle(tr("Create group"));
+            dialog.setAccessibleName(tr("Create tab group"));
+            dialog.setLabelText(tr("Group name"));
+            dialog.setOkButtonText(tr("Create"));
+            dialog.setCancelButtonText(tr("Cancel"));
+            if (QLineEdit *pEditor = dialog.findChild<QLineEdit *>())
+            {
+                pEditor->setMaxLength(80);
+                pEditor->setAccessibleName(tr("Group name"));
+                pEditor->setAccessibleDescription(tr("Enter 1 to 80 characters for the group name."));
+                pEditor->setPlaceholderText(tr("Group name"));
+            }
+            if (dialog.exec() == QDialog::Accepted)
+                createGroup(dialog.textValue().trimmed().left(80));
+        });
         QAction *pEdit = menu.addAction(tr("Edit appearance…"));
         pEdit->setStatusTip(tr("Edit appearance for the tab strip"));
+        pEdit->setWhatsThis(tr("Edit the appearance of the tab strip"));
         pEdit->setShortcut(QKeySequence(Qt::SHIFT | Qt::Key_F10));
         connect(pSearch, &UIMd3SearchField::sigFilterChanged, &menu,
-                [pSearch, groupIds, pEdit]() mutable
+                [pSearch, pCreateGroup, groupActions, pEdit]() mutable
         {
-            for (QAction *pGroup : groupIds.keys())
-                pGroup->setVisible(pSearch->matches(pGroup->text()));
+            pCreateGroup->setVisible(pSearch->matches(pCreateGroup->text()));
+            for (QAction *pGroupAction : groupActions)
+                pGroupAction->setVisible(pSearch->matches(pGroupAction->text()));
             pEdit->setVisible(pSearch->matches(pEdit->text()));
         });
-        for (QAction *pGroup : groupIds.keys())
-            connect(pGroup, &QAction::triggered, this, [this, pGroup, groupIds]()
-            {
-                toggleGroupCollapsed(groupIds.value(pGroup));
-            });
         connect(pEdit, &QAction::triggered, this, [this]()
         {
             UIMd3AppearanceEditor::open(this, QStringLiteral("tab-strip"));

@@ -15,7 +15,9 @@ This section records the native Qt implementation of the supplied Material Desig
 - [`NotificationCentre.md`](NotificationCentre.md) documents the existing center's plain-text/bounded-regex filtering, persistent bounded history, selectable rows, filtered JSON export, the two-acknowledgement/full-slider Clear history gate, and one-step Undo last clear recovery backed by the shared local history journal.
 - [`History.md`](History.md) documents the isolated append-only local journal, SHA-256 state validation, Git best-effort backing, notification and appearance/theme revisions, and the modeless <kbd>Ctrl+H</kbd>/command-palette browser with action/date filters, regex search, JSONL export, integrity verification, and validated owner-routed restore adapters.
 - [`WizardShell.md`](WizardShell.md) documents the embedded Material 3 shell around the existing native wizard pages.
-- [`TabNavigation.md`](TabNavigation.md) records the manager tab-strip behavior and its remaining accessibility, grouping, and runtime gaps.
+- [`TabNavigation.md`](TabNavigation.md) records the manager tab-strip behavior,
+  including searchable group create/rename and per-group appearance actions,
+  plus its remaining accessibility, grouping, and runtime gaps.
 - [`RuntimeCapture.md`](RuntimeCapture.md) records the genuine native screenshot contract and the current COM/service blocker.
 
 Build and runtime evidence must name the exact target, commit, host, Qt version, and whether the result is source-only, built, headless, or release-verified. Missing `svn`, `kmk`, or `scm` tools are reported as environment blockers rather than inferred passes.

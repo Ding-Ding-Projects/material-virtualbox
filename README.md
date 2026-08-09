@@ -85,7 +85,9 @@ selection to the existing global-tools model, persists groups/pins/current
 selection through VirtualBox extra data for the manager surface, keeps
 empty bulk-close queries safe, and exposes a searchable Move… into group…
 picker with member counts and an inline create-group path; overflow now has a
-focusable 48 px More-tabs button. The four
+focusable 48 px More-tabs button. Strip chrome also offers bounded group
+creation and renaming plus a per-group Edit appearance… action while retaining
+the local search field. The four
 tab-discovery searches, surface-scoped persistence, full overflow/reordering
 UI, and runtime tab adoption remain open design-coverage lanes.
 
