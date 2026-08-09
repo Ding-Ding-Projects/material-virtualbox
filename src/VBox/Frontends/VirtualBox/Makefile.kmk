@@ -559,10 +559,6 @@ endif
 # Headers containing definitions of classes that use the Q_OBJECT macro.
 #
 VirtualBox_QT_MOCHDRS = \
-	src/md3/UIMd3Tokens.h \
-	src/md3/UIMd3Language.h \
-	src/md3/UIMd3Theme.h \
-	src/md3/UIMd3Style.h \
 	src/md3/UIMd3ManagerHeader.h \
 	src/md3/UIMd3NavigationRail.h \
 	src/cloud/UICloudMachineManager.h \
@@ -738,6 +734,10 @@ endif
 # Headers containing definitions of classes that use the Q_OBJECT macro.
 #
 UICommon_QT_MOCHDRS = \
+	src/md3/UIMd3Tokens.h \
+	src/md3/UIMd3Language.h \
+	src/md3/UIMd3Theme.h \
+	src/md3/UIMd3Style.h \
 	src/VBoxAboutDlg.h \
 	src/VBoxLicenseViewer.h \
 	src/UITakeSnapshotDialog.h \
@@ -1105,9 +1105,6 @@ VBOX_GH_SOURCES := \
 #
 VirtualBox_SOURCES = \
 	src/main.cpp \
-	src/md3/UIMd3Language.cpp \
-	src/md3/UIMd3Theme.cpp \
-	src/md3/UIMd3Style.cpp \
 	src/md3/UIMd3ManagerHeader.cpp \
 	src/md3/UIMd3NavigationRail.cpp \
 	src/cloud/UICloudMachineManager.cpp \
@@ -1327,6 +1324,9 @@ UICommon_SOURCES = \
 	src/VBoxAboutDlg.cpp \
 	src/VBoxLicenseViewer.cpp \
 	src/UITakeSnapshotDialog.cpp \
+	src/md3/UIMd3Language.cpp \
+	src/md3/UIMd3Theme.cpp \
+	src/md3/UIMd3Style.cpp \
 	src/extensions/QIAdvancedSlider.cpp \
 	src/extensions/QIArrowButtonPress.cpp \
 	src/extensions/QIArrowButtonSwitch.cpp \
