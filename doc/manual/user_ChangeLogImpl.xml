@@ -121,6 +121,13 @@ Rules for adding a changelog entry to make them look more uniform:
       </listitem>
 
       <listitem>
+        <para>GUI: Added bounded persistent Material 3 notification history for
+          non-blocking messages, with local plain-text/regular-expression search,
+          unread tracking, atomic application-data storage, and legacy blocking
+          question/progress paths preserved</para>
+      </listitem>
+
+      <listitem>
         <para>Building the OSE Edition: Implemented a new configure.py script which
           unifies the ./configure (non-Windows) and configure.vbs (Windows) scripts
           Please adjust your building process accordingly, as the compatibility wrapper

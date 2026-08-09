@@ -2,8 +2,9 @@
 
 The native notification center remains the owner of the existing
 `UINotificationModel` and `UINotificationObjectItem` lifecycle. The Material 3
-lane adds a searchable extended view without replacing the model, blocking
-question/progress paths, or changing the notification ownership rules.
+lane adds a searchable extended view and a bounded persistent history model
+without replacing the model, blocking question/progress paths, or changing the
+notification ownership rules.
 
 ## Behavior
 
@@ -34,6 +35,34 @@ construction path, while the manager/runtime center receives the themed search
 surface. The field is hidden with the compact notification button and shown
 with the extended list.
 
+## Persistent history model
+
+Non-blocking legacy notifications are snapshotted before the native model is
+allowed to handle them. The snapshot stores the real title and detail, a short
+semantic category, a UTC timestamp, an error flag, and an unread flag in
+`UIMd3NotificationCentre`. Progress objects and messages marked critical for a
+blocking question or decision are deliberately excluded, so a reviewable
+history record cannot turn a modal operation into a toast or change its event
+loop semantics.
+
+The model is created after `UICommon`, the Material theme, and the language
+service. It writes schema version `1` to the application-data file
+`md3-notifications.json` through `QSaveFile`, bounds the file to 512 KiB and
+256 records, trims each field, rejects malformed or duplicate records, and
+keeps the newest records first. A failed read or atomic write leaves the
+existing in-memory state usable and never blocks the operation that produced
+the notification.
+
+`showCentre()` opens a modeless, bounded review surface with its own
+`UIMd3SearchField`; plain text remains the default and the adjacent regex
+builder searches title, detail, and category locally. Rows use plain-text
+labels, preserve unread/error state, and expose an explicit **Mark all as
+read** action. The destructive **Clear history** action is intentionally not
+exposed yet: it needs the app-wide super-confirmation, local history record,
+and undo path before it can be a safe control. The title-bar bell, transient
+toast presentation, bulk selection/export, provider-authored markdown
+rendering, and full per-row accessibility roles remain later lanes.
+
 ## Configuration and localization
 
 The language service key is `md3.notifications.search`, with English
@@ -45,25 +74,31 @@ and is cleared when the center is recreated.
 ## Failure modes and security
 
 The search is a view filter only. It does not revoke, dismiss, delete, or alter
-notifications, and it does not change the blocking semantics of questions or
-progress operations. A missing theme or language singleton leaves the legacy
-center usable and simply omits the optional themed field during early startup.
+legacy notifications, and it does not change the blocking semantics of
+questions or progress operations. A missing theme or language singleton leaves
+the legacy center usable and simply omits the optional themed field during
+early startup. History records are bounded local plain text; rich provider
+content is not interpreted as markup, and malformed or oversized JSON is
+discarded rather than executed or displayed.
 
 Patterns are evaluated by `UIMd3SearchField`, which bounds pattern length and
-uses Qt's regular-expression engine. Notification text stays in-process; it is
-not sent to a service or persisted. Provider-authored detail rendering,
-reviewable notification history, bulk selection/export/dismiss, and destructive
-clear-history confirmation remain separate open lanes.
+uses Qt's regular-expression engine. The query stays in-process and is not
+persisted. The history file is written atomically beneath the app-data
+directory; persistence failure is non-blocking and is not reported as a false
+success. Provider-authored detail rendering, bulk selection/export/dismiss,
+and destructive clear-history confirmation remain separate open lanes.
 
 ## Verification
 
 The implementation is in
 `src/VBox/Frontends/VirtualBox/src/notificationcenter/UINotificationCenter.{h,cpp}`
-and reuses the existing UICommon-owned `UIMd3SearchField` and
-`UIMd3Language`. The focused source contract checks the field wiring, the
-critical-item predicate, and the UICommon target ownership. The native
-`VirtualBox` target is built through kBuild when the Deen No toolchain is
-available; native captures are intentionally deferred for this lane.
+and
+`src/VBox/Frontends/VirtualBox/src/md3/UIMd3NotificationCentre.{h,cpp}`. The
+focused source contract checks the field wiring, the critical-item predicate,
+the bounded JSON model, lifecycle creation/destruction, and UICommon target
+ownership. UICommon and the root `VirtualBox` target are built through kBuild
+when the Deen No toolchain is available; native captures are intentionally
+deferred for this lane.
 
 ## Suggested articles
 

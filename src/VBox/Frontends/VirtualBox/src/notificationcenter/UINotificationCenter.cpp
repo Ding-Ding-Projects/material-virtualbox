@@ -46,6 +46,7 @@
 #include "UIExtraDataManager.h"
 #include "UIIconPool.h"
 #include "UIMd3Language.h"
+#include "UIMd3NotificationCentre.h"
 #include "UIMd3SearchField.h"
 #include "UIMd3Theme.h"
 #include "UINotificationCenter.h"
@@ -278,6 +279,52 @@ QUuid UINotificationCenter::append(UINotificationObject *pObject)
 
     /* Is object progress? */
     const bool fProgress = pObject->inherits("UINotificationProgress");
+
+    /* Snapshot only non-blocking records before appendObject() invokes the
+     * object.  The legacy model may call handle() and delete the object
+     * immediately, so reading these fields afterwards is unsafe. */
+    const bool fPersistHistory = !fProgress && !pObject->isCritical()
+                              && UIMd3NotificationCentre::instance();
+    QString strHistoryTitle;
+    QString strHistoryDetails;
+    QString strHistoryCategory;
+    bool fHistoryError = false;
+    if (fPersistHistory)
+    {
+        strHistoryTitle = pObject->name();
+        strHistoryDetails = pObject->details();
+        switch (pObject->objType())
+        {
+            case NotificationType_Info:
+                strHistoryCategory = UIMd3Language::instance()
+                                   ? UIMd3Language::instance()->text(QStringLiteral("md3.notifications.information"))
+                                   : tr("Information");
+                break;
+            case NotificationType_Warning:
+                strHistoryCategory = UIMd3Language::instance()
+                                   ? UIMd3Language::instance()->text(QStringLiteral("md3.notifications.warning"))
+                                   : tr("Warning");
+                fHistoryError = true;
+                break;
+            case NotificationType_Critical:
+            case NotificationType_GuruMeditation:
+                strHistoryCategory = UIMd3Language::instance()
+                                   ? UIMd3Language::instance()->text(QStringLiteral("md3.notifications.error"))
+                                   : tr("Error");
+                fHistoryError = true;
+                break;
+            default:
+                strHistoryCategory = UIMd3Language::instance()
+                                   ? UIMd3Language::instance()->text(QStringLiteral("md3.notifications.general"))
+                                   : tr("General");
+                break;
+        }
+        UIMd3NotificationCentre::instance()->post(this,
+                                                  strHistoryTitle,
+                                                  strHistoryDetails,
+                                                  strHistoryCategory,
+                                                  fHistoryError);
+    }
 
     /* Handle object. Be aware it can be deleted during handling! */
     const QUuid uId = m_pModel->appendObject(pObject);

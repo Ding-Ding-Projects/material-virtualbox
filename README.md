@@ -85,9 +85,10 @@ design-coverage lanes.
 The existing notification center now has a Material 3 search field in its
 extended view. [`doc/md3/NotificationCentre.md`](doc/md3/NotificationCentre.md)
 documents plain-text and bounded regex filtering across real notification
-metadata while preserving critical-item and blocking-operation behavior.
-Reviewable history, bulk actions, provider-authored rendering, and the native
-capture remain open lanes; this is not a claim that the legacy notification
+metadata while preserving critical-item and blocking-operation behavior, and
+retains non-blocking snapshots in a bounded searchable history model.
+Bulk actions, provider-authored rendering, and the native capture remain open
+lanes; this is not a claim that the legacy notification
 surface has been fully replaced.
 
 The existing New VM, New virtual disk, clone, import, and export flows now
