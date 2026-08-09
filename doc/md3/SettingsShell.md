@@ -60,11 +60,29 @@ source build.
 
 ## Verification
 
-On the development Windows x64 host, the exact pre-integration source tree
-compiled and linked the `UICommon`, `VirtualBox`, and `VirtualBoxVM` release
-targets with Qt 6.8.3, MSVC 14.44, and Windows SDK 10.0.26100.0. The runs
-exited 0; the known Qt/SDK C4668 and linker metadata warnings remained. Exact
-commit, CI, and Pages evidence is recorded only after that source is integrated.
+Exact source commit
+[`152327ec9fe04455de55def8bd8e943138b75737`](https://github.com/Ding-Ding-Projects/material-virtualbox/commit/152327ec9fe04455de55def8bd8e943138b75737)
+compiled the changed `UICommon` settings source and linked the shared DLL on a
+Windows x64 development host. Serial `UICommon`, `VirtualBox`, and
+`VirtualBoxVM` release targets each exited 0 with Qt 6.8.3, MSVC 14.44, and
+Windows SDK 10.0.26100.0; only the known Qt/SDK C4668 and kBuild notices
+remained. The installed artifact hashes were:
+
+| Target | Result | SHA-256 |
+| --- | --- | --- |
+| `UICommon` | changed source compiled and linked | `BC308CC34B9C8D749E67C0C625159E23C5EB9067EBF1B3E472DAB26E6D342893` |
+| `VirtualBox` | dependency-current, exit 0 | `127314B61C157DB98DF75990A10AE76E6216B135F614193BB1876E81CBC1FC0B` |
+| `VirtualBoxVM` | dependency-current, exit 0 | `2B6075A37083CCA25AE2DAB113C3B20A1136F76E35F8F864A0F93ACD4AA13F22` |
+
+The first validation run exposed a PowerShell continuation error in the new
+workflow assertion before source evaluation. CI-only correction
+[`f8c3bfffb55b8c8f0f0f884645afc1f0e99ade25`](https://github.com/Ding-Ding-Projects/material-virtualbox/commit/f8c3bfffb55b8c8f0f0f884645afc1f0e99ade25)
+then completed [validation run
+31330546183](https://github.com/Ding-Ding-Projects/material-virtualbox/actions/runs/31330546183)
+and [Pages run
+31330546180](https://github.com/Ding-Ding-Projects/material-virtualbox/actions/runs/31330546180)
+successfully. The deployed Home page and this article both returned HTTP 200
+with the new settings-shell content.
 
 Native interaction and visual capture remain deferred. A later genuine build
 capture must show Global Preferences and Machine Settings separately, ordinary

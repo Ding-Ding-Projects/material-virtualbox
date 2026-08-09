@@ -276,27 +276,29 @@ The build requires a compatible compiler, Qt 6 development files, kBuild
 the source tree; use `LocalConfig.kmk` for local overrides.
 
 **Current verification boundary:** the evidence below was built from exact
-source commit [`eb70fdf2047c4ceeb5ac9783ac41f640e582ec86`](https://github.com/Ding-Ding-Projects/material-virtualbox/commit/eb70fdf2047c4ceeb5ac9783ac41f640e582ec86)
+settings-shell source commit [`152327ec9fe04455de55def8bd8e943138b75737`](https://github.com/Ding-Ding-Projects/material-virtualbox/commit/152327ec9fe04455de55def8bd8e943138b75737)
 on a Windows x64 development host, using MSVC 14.44, Windows SDK
 10.0.26100.0, Qt 6.8.3 with the official `qtscxml` add-on, and the bundled
 kBuild executable. It is compile/link evidence, not a runtime or release claim.
 
 | Target | Local result | Completed (UTC-04:00) | Installed artifact SHA-256 |
 | --- | --- | --- | --- |
-| `UICommon` | Exit 0, compiled and linked | 2026-08-09 14:23:08 | `7C6F2ECD7C6A73A8667F76E05AB0D05C0200FF2C74E005B3C1014622E5507A80` |
-| `VirtualBox` | Exit 0, compiled and linked | 2026-08-09 14:23:28 | `27FF189DF9355F899BD7E2B1A370E7B3622DB51D9E6111FB51251F6569E2C27E` |
-| `VirtualBoxVM` | Exit 0, compiled and linked | 2026-08-09 14:23:46 | `D03DEB228A0BF99337EE001C26B772218B996610F4080AD8BDD2780029A1AC1E` |
+| `UICommon` | Exit 0, changed settings source compiled and linked | 2026-08-09 14:55:25 | `BC308CC34B9C8D749E67C0C625159E23C5EB9067EBF1B3E472DAB26E6D342893` |
+| `VirtualBox` | Exit 0, dependency-current | 2026-08-09 14:45:57 | `127314B61C157DB98DF75990A10AE76E6216B135F614193BB1876E81CBC1FC0B` |
+| `VirtualBoxVM` | Exit 0, dependency-current | 2026-08-09 14:46:24 | `2B6075A37083CCA25AE2DAB113C3B20A1136F76E35F8F864A0F93ACD4AA13F22` |
 
 The serial target commands used the repository's configured environment and
 checked `UICommon`, `VirtualBox`, and `VirtualBoxVM` separately. This proves the
-changed shared and manager translation units compiled and linked, and that the
-runtime target remained dependency-current on that host. Full runtime manager
+changed settings translation units compiled and linked, and that the manager
+and runtime targets remained dependency-current on that host. Full runtime manager
 capture remains blocked by the checkout's unregistered `VirtualBoxClient` COM
 runtime (`REGDB_E_CLASSNOTREG`); no mock screenshot is counted as GUI proof.
-Exact-tip validation [run 31328985330](https://github.com/Ding-Ding-Projects/material-virtualbox/actions/runs/31328985330)
-and Pages [run 31328985294](https://github.com/Ding-Ding-Projects/material-virtualbox/actions/runs/31328985294)
-completed successfully; the deployed Home page and raw
-`StockControlStyle.md` article returned HTTP 200 with the new content.
+CI-only correction
+[`f8c3bfffb55b8c8f0f0f884645afc1f0e99ade25`](https://github.com/Ding-Ding-Projects/material-virtualbox/commit/f8c3bfffb55b8c8f0f0f884645afc1f0e99ade25)
+completed validation [run 31330546183](https://github.com/Ding-Ding-Projects/material-virtualbox/actions/runs/31330546183)
+and Pages [run 31330546180](https://github.com/Ding-Ding-Projects/material-virtualbox/actions/runs/31330546180)
+successfully; the deployed Home page and `SettingsShell.md` article returned
+HTTP 200 with the new content.
 
 </details>
 
@@ -329,11 +331,18 @@ this README.
 ## CI and Pages
 
 This mirror contains MD3 validation and GitHub Pages workflows under
-`.github/workflows/`. Validation run `31301921195` and Pages run
-`31301921203` passed for commit `cd13222a1b5`; the published landing page and
-`SettingsSearch.md` article both returned HTTP 200. These are source-contract
-and static-site results, not proof that the native manager launched; the COM
-runtime boundary and real GUI capture remain open.
+`.github/workflows/`. Validation
+[run 31330546183](https://github.com/Ding-Ding-Projects/material-virtualbox/actions/runs/31330546183)
+and Pages
+[run 31330546180](https://github.com/Ding-Ding-Projects/material-virtualbox/actions/runs/31330546180)
+passed for CI-only corrective child commit
+[`f8c3bfffb55b8c8f0f0f884645afc1f0e99ade25`](https://github.com/Ding-Ding-Projects/material-virtualbox/commit/f8c3bfffb55b8c8f0f0f884645afc1f0e99ade25)
+of settings-shell source commit
+[`152327ec9fe04455de55def8bd8e943138b75737`](https://github.com/Ding-Ding-Projects/material-virtualbox/commit/152327ec9fe04455de55def8bd8e943138b75737);
+the published landing page and `SettingsShell.md` article both returned HTTP
+200. These are source-contract and static-site results, not proof that the
+native manager launched; the COM runtime boundary and real GUI capture remain
+open.
 
 When publication work is added, it must build from the intended commit, keep
 artifact and test evidence separate, publish only verified outputs, and expose
