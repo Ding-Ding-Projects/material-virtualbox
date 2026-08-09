@@ -42,8 +42,10 @@
 
 class QKeyEvent;
 class QHideEvent;
+class QEvent;
 class QVBoxLayout;
 class UIMd3SearchField;
+class UIMd3Button;
 
 /** One command palette entry owned by a live UI surface. */
 struct UIMd3Command
@@ -51,16 +53,26 @@ struct UIMd3Command
     UIMd3Command() : pTarget(0) {}
     UIMd3Command(const QString &strTitle, const QString &strSource,
                  const std::function<void()> &handler, QWidget *pTargetWidget = 0,
-                 const QString &strCategory = QString())
+                 const QString &strCategory = QString(),
+                 const QString &strId = QString(),
+                 const std::function<bool()> &enabledPredicate = std::function<bool()>(),
+                 const QString &strDisabledReason = QString())
         : strTitle(strTitle), strSource(strSource), strCategory(strCategory),
-          handler(handler), pTarget(pTargetWidget) {}
+          strId(strId), handler(handler), enabledPredicate(enabledPredicate),
+          strDisabledReason(strDisabledReason), pTarget(pTargetWidget) {}
 
     QString strTitle;
     /** Stable owner identifier used for replacement and unregister. */
     QString strSource;
     /** Localized owner/category shown to the user. */
     QString strCategory;
+    /** Stable command identifier used for appearance and replacement. */
+    QString strId;
     std::function<void()> handler;
+    /** Optional live predicate supplied by the owning action/model. */
+    std::function<bool()> enabledPredicate;
+    /** Localized explanation shown when the command is unavailable. */
+    QString strDisabledReason;
     QPointer<QWidget> pTarget;
 };
 
@@ -80,6 +92,7 @@ protected:
 
     virtual void keyPressEvent(QKeyEvent *pEvent) RT_OVERRIDE;
     virtual void hideEvent(QHideEvent *pEvent) RT_OVERRIDE;
+    virtual bool eventFilter(QObject *pObject, QEvent *pEvent) RT_OVERRIDE;
 
 private slots:
 
@@ -95,6 +108,7 @@ private:
 
     static UIMd3CommandPalette *s_pInstance;
     QList<UIMd3Command> m_commands;
+    QList<UIMd3Button *> m_pRows;
     UIMd3SearchField *m_pSearchField;
     QVBoxLayout *m_pResultLayout;
     QPointer<QWidget> m_pOrigin;

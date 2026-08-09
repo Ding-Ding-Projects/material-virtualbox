@@ -368,6 +368,8 @@ private:
         void prepareWidgets();
         /** Prepares connections. */
         void prepareConnections();
+        /** Rebuilds the localized command-palette registry for this manager. */
+        void registerCommandPaletteCommands();
         /** Loads settings. */
         void loadSettings();
 

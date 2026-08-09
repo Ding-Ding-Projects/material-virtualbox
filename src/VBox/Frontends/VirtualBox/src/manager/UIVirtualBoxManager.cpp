@@ -88,6 +88,7 @@
 #include "UIMd3ManagerHeader.h"
 #include "UIMd3CommandPalette.h"
 #include "UIMd3History.h"
+#include "UIMd3Language.h"
 #include "UIMd3Theme.h"
 #include "UIVirtualBoxWidget.h"
 #include "UIVirtualMachineItemCloud.h"
@@ -719,6 +720,7 @@ void UIVirtualBoxManager::sltRetranslateUI()
              +  QString(" - " VBOX_BLEEDING_EDGE);
 #endif /* VBOX_BLEEDING_EDGE */
     setWindowTitle(strTitle);
+    registerCommandPaletteCommands();
 }
 
 bool UIVirtualBoxManager::event(QEvent *pEvent)
@@ -2627,6 +2629,82 @@ void UIVirtualBoxManager::prepareWidgets()
     }
 }
 
+void UIVirtualBoxManager::registerCommandPaletteCommands()
+{
+    UIMd3CommandPalette::unregisterSource(QStringLiteral("manager"));
+    const QString strManagerSource = QStringLiteral("manager");
+    const QString strManagerCategory = tr("Manager");
+    UIMd3CommandPalette::registerCommand(UIMd3Command(tr("Open global preferences"),
+                                                       strManagerSource,
+                                                       [this]() { sltOpenPreferencesDialog(); }, 0,
+                                                       strManagerCategory,
+                                                       QStringLiteral("open-preferences")));
+    UIMd3CommandPalette::registerCommand(UIMd3Command(tr("Create a new virtual machine"),
+                                                       strManagerSource,
+                                                       [this]() { sltOpenNewMachineWizard(); }, 0,
+                                                       strManagerCategory,
+                                                       QStringLiteral("new-machine")));
+    UIMd3CommandPalette::registerCommand(UIMd3Command(tr("Open virtual media manager"),
+                                                       strManagerSource,
+                                                       [this]() { sltOpenManagerWindow(UIToolType_Media); }, 0,
+                                                       strManagerCategory,
+                                                       QStringLiteral("open-media")));
+    UIMd3CommandPalette::registerCommand(UIMd3Command(tr("Import an appliance"),
+                                                       strManagerSource,
+                                                       [this]() { sltOpenImportApplianceWizard(); }, 0,
+                                                       strManagerCategory,
+                                                       QStringLiteral("import-appliance")));
+    UIMd3CommandPalette::registerCommand(UIMd3Command(tr("Open local history"),
+                                                       strManagerSource,
+                                                       [this]()
+                                                       {
+                                                           if (UIMd3History::instance())
+                                                               UIMd3History::instance()->showCentre(this);
+                                                       }, 0, strManagerCategory,
+                                                       QStringLiteral("open-history")));
+
+    /* Register the existing action-pool destinations as live palette commands.
+     * The palette never reimplements action policy: disabled actions stay visible
+     * with an explanation, and triggering an enabled row delegates to QAction. */
+    const auto registerActionCommand = [this, &strManagerSource, &strManagerCategory]
+        (const QString &strTitle, const QString &strId, const QString &strDisabledReason,
+         const int enmActionIndex)
+    {
+        UIAction *pAction = actionPool()->action(enmActionIndex);
+        if (!pAction)
+            return;
+        UIMd3CommandPalette::registerCommand(UIMd3Command(
+            strTitle, strManagerSource,
+            [pAction]()
+            {
+                if (pAction->isEnabled())
+                    pAction->trigger();
+            }, 0, strManagerCategory, strId,
+            [pAction]() { return pAction->isEnabled(); }, strDisabledReason));
+    };
+    registerActionCommand(tr("Export an appliance"), QStringLiteral("export-appliance"),
+                          tr("Select a machine before exporting an appliance."),
+                          UIActionIndexMN_M_File_S_ExportAppliance);
+    registerActionCommand(tr("Add an existing virtual machine"), QStringLiteral("add-machine"),
+                          tr("This action is unavailable while the machine chooser is busy."),
+                          UIActionIndexMN_M_Home_S_Add);
+    registerActionCommand(tr("Create a cloud virtual machine"), QStringLiteral("new-cloud-machine"),
+                          tr("Cloud providers are unavailable in the current configuration."),
+                          UIActionIndexMN_M_Machine_S_NewCloud);
+    registerActionCommand(tr("Add a cloud virtual machine"), QStringLiteral("add-cloud-machine"),
+                          tr("Cloud providers are unavailable in the current configuration."),
+                          UIActionIndexMN_M_Machine_S_AddCloud);
+    registerActionCommand(tr("Open virtual machine settings"), QStringLiteral("machine-settings"),
+                          tr("Select a virtual machine before opening its settings."),
+                          UIActionIndexMN_M_Machine_S_Settings);
+    registerActionCommand(tr("Clone the selected virtual machine"), QStringLiteral("clone-machine"),
+                          tr("Select a virtual machine before cloning it."),
+                          UIActionIndexMN_M_Machine_S_Clone);
+    registerActionCommand(tr("Export the selected machine to OCI"), QStringLiteral("export-oci"),
+                          tr("Select a virtual machine before exporting it to OCI."),
+                          UIActionIndexMN_M_Machine_S_ExportToOCI);
+}
+
 void UIVirtualBoxManager::prepareConnections()
 {
     QShortcut *pCommandPaletteShortcut = new QShortcut(QKeySequence(Qt::CTRL | Qt::SHIFT | Qt::Key_F), this);
@@ -2642,31 +2720,10 @@ void UIVirtualBoxManager::prepareConnections()
         if (UIMd3History::instance())
             UIMd3History::instance()->showCentre(this);
     });
-    const QString strManagerSource = QStringLiteral("manager");
-    const QString strManagerCategory = tr("Manager");
-    UIMd3CommandPalette::registerCommand(UIMd3Command(tr("Open global preferences"),
-                                                       strManagerSource,
-                                                       [this]() { sltOpenPreferencesDialog(); }, this,
-                                                       strManagerCategory));
-    UIMd3CommandPalette::registerCommand(UIMd3Command(tr("Create a new virtual machine"),
-                                                       strManagerSource,
-                                                       [this]() { sltOpenNewMachineWizard(); }, this,
-                                                       strManagerCategory));
-    UIMd3CommandPalette::registerCommand(UIMd3Command(tr("Open virtual media manager"),
-                                                       strManagerSource,
-                                                       [this]() { sltOpenManagerWindow(UIToolType_Media); }, this,
-                                                       strManagerCategory));
-    UIMd3CommandPalette::registerCommand(UIMd3Command(tr("Import an appliance"),
-                                                       strManagerSource,
-                                                       [this]() { sltOpenImportApplianceWizard(); }, this,
-                                                       strManagerCategory));
-    UIMd3CommandPalette::registerCommand(UIMd3Command(tr("Open local history"),
-                                                       strManagerSource,
-                                                       [this]()
-                                                       {
-                                                           if (UIMd3History::instance())
-                                                               UIMd3History::instance()->showCentre(this);
-                                                       }, this, strManagerCategory));
+    registerCommandPaletteCommands();
+    if (UIMd3Language::instance())
+        connect(UIMd3Language::instance(), &UIMd3Language::sigLanguageChanged,
+                this, &UIVirtualBoxManager::registerCommandPaletteCommands);
 
 #ifdef VBOX_WS_NIX
     /* Desktop event handlers: */

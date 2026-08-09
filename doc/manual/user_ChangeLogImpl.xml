@@ -98,6 +98,13 @@ Rules for adding a changelog entry to make them look more uniform:
       </listitem>
 
       <listitem>
+        <para>GUI: Extended the Material 3 command palette with stable command ids,
+          category grouping, live action-pool enabled-state explanations, language
+          refresh, viewport-safe placement, keyboard Up/Down navigation, and exact
+          focus preservation for handler-owned destinations</para>
+      </listitem>
+
+      <listitem>
         <para>GUI: Added a persisted per-element Material 3 appearance editor
           for stable-key widgets, with context-menu and Shift+right-click entry,
           seed, typeface, corner-radius, scale, weight, reset and focus return</para>

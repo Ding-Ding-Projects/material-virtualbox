@@ -73,9 +73,10 @@ design-coverage work.
 
 The manager command palette is documented in
 [`doc/md3/CommandPalette.md`](doc/md3/CommandPalette.md). `Ctrl+Shift+F` is
-wired to live manager commands through a stable owner registry with bounded,
-accessible results and focus return; its native capture remains pending the
-COM registration gate.
+wired to live, category-grouped manager commands through a stable owner and
+command-id registry with action-pool enabled-state explanations, language-mode
+refresh, exact handler-owned focus, bounded accessible results, and focus return;
+its native capture remains pending the COM registration gate.
 
 The frameless Windows manager title bar is documented in
 [`doc/md3/TitleBar.md`](doc/md3/TitleBar.md). Its real Menu, Minimize,

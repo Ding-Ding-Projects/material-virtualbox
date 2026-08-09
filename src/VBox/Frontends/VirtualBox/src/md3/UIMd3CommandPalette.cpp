@@ -26,12 +26,16 @@
  */
 
 #include <QApplication>
+#include <QEvent>
 #include <QGraphicsDropShadowEffect>
+#include <QGuiApplication>
 #include <QHideEvent>
 #include <QKeyEvent>
 #include <QLabel>
 #include <QLayoutItem>
+#include <QMap>
 #include <QScrollArea>
+#include <QScreen>
 #include <QStackedWidget>
 #include <QTimer>
 #include <QVBoxLayout>
@@ -56,11 +60,15 @@ void UIMd3CommandPalette::registerCommand(const UIMd3Command &command)
     bounded.strTitle = bounded.strTitle.trimmed().left(256);
     bounded.strSource = bounded.strSource.trimmed().left(64);
     bounded.strCategory = bounded.strCategory.trimmed().left(128);
+    bounded.strId = bounded.strId.trimmed().left(96);
+    if (bounded.strId.isEmpty())
+        bounded.strId = bounded.strTitle.left(96);
+    bounded.strDisabledReason = bounded.strDisabledReason.trimmed().left(256);
     if (bounded.strTitle.isEmpty() || bounded.strSource.isEmpty() || !bounded.handler)
         return;
     UIMd3CommandPalette *pPalette = instance();
     for (int i = 0; i < pPalette->m_commands.size(); ++i)
-        if (pPalette->m_commands.at(i).strTitle == bounded.strTitle
+        if (pPalette->m_commands.at(i).strId == bounded.strId
             && pPalette->m_commands.at(i).strSource == bounded.strSource)
         {
             pPalette->m_commands[i] = bounded;
@@ -92,11 +100,25 @@ void UIMd3CommandPalette::showPalette(QWidget *pParent)
     pPalette->setParent(pParent, Qt::Dialog);
     pPalette->sltRefresh();
     pPalette->adjustSize();
+    QScreen *pScreen = pParent ? pParent->screen() : 0;
+    if (!pScreen)
+        pScreen = QGuiApplication::primaryScreen();
+    const QRect available = pScreen ? pScreen->availableGeometry() : QRect(0, 0, 1280, 720);
+    QSize boundedSize = pPalette->size();
+    boundedSize.setWidth(qMin(boundedSize.width(), qMax(320, available.width() - 24)));
+    boundedSize.setHeight(qMin(boundedSize.height(), qMax(240, available.height() - 24)));
+    pPalette->resize(boundedSize);
+    QPoint position = available.center() - QPoint(pPalette->width() / 2, pPalette->height() / 2);
     if (pParent)
     {
         const QRect parentRect = pParent->frameGeometry();
-        pPalette->move(parentRect.center() - QPoint(pPalette->width() / 2, pPalette->height() / 2));
+        position = parentRect.center() - QPoint(pPalette->width() / 2, pPalette->height() / 2);
     }
+    position.setX(qBound(available.left() + 12, position.x(),
+                         available.right() - pPalette->width() - 11));
+    position.setY(qBound(available.top() + 12, position.y(),
+                         available.bottom() - pPalette->height() - 11));
+    pPalette->move(position);
     pPalette->show();
     pPalette->raise();
     pPalette->activateWindow();
@@ -109,6 +131,8 @@ UIMd3CommandPalette::UIMd3CommandPalette()
     , m_pResultLayout(0)
 {
     setWindowTitle(tr("Command palette"));
+    setAccessibleName(tr("Command palette"));
+    setAccessibleDescription(tr("Search and activate commands from the current VirtualBox surface."));
     setWindowFlag(Qt::Tool, true);
     setModal(false);
     setAttribute(Qt::WA_DeleteOnClose, false);
@@ -136,6 +160,9 @@ void UIMd3CommandPalette::prepare()
     m_pSearchField = new UIMd3SearchField(QStringLiteral("command-palette"),
                                            tr("Search commands, machines, tools and settings"), this);
     m_pSearchField->setAccessibleName(tr("Command palette search"));
+    m_pSearchField->installEventFilter(this);
+    if (m_pSearchField->focusProxy())
+        m_pSearchField->focusProxy()->installEventFilter(this);
     connect(m_pSearchField, &UIMd3SearchField::sigFilterChanged,
             this, &UIMd3CommandPalette::sltRefresh);
     pLayout->addWidget(m_pSearchField);
@@ -162,30 +189,64 @@ void UIMd3CommandPalette::sltRefresh()
         delete pItem;
     }
 
+    m_pRows.clear();
     int cShown = 0;
     UIMd3Button *pFirst = 0;
+    QMap<QString, QList<UIMd3Command> > groupedCommands;
     foreach (const UIMd3Command &command, m_commands)
     {
-        if (!m_pSearchField->matches(command.strTitle + QLatin1Char(' ') + command.strSource))
+        const QString strCandidate = command.strTitle + QLatin1Char(' ')
+                                   + command.strCategory + QLatin1Char(' ')
+                                   + command.strSource + QLatin1Char(' ')
+                                   + command.strId;
+        if (!m_pSearchField->matches(strCandidate))
             continue;
-        UIMd3Button *pRow = new UIMd3Button(command.strTitle, UIMd3ButtonVariant_Tonal, this);
         const QString strCategory = command.strCategory.isEmpty() ? command.strSource : command.strCategory;
-        pRow->setToolTip(strCategory);
-        pRow->setAccessibleName(tr("%1 — %2").arg(command.strTitle, strCategory));
-        pRow->setAccessibleDescription(tr("Activate %1 from %2.").arg(command.strTitle, strCategory));
-        const UIMd3Command captured = command;
-        connect(pRow, &UIMd3Button::sigClicked, this, [this, captured]()
+        groupedCommands[strCategory] << command;
+    }
+    for (QMap<QString, QList<UIMd3Command> >::const_iterator it = groupedCommands.constBegin();
+         it != groupedCommands.constEnd(); ++it)
+    {
+        QLabel *pCategory = new QLabel(it.key(), this);
+        pCategory->setFont(md3Theme().font(UIMd3TypeRole_LabelLarge));
+        pCategory->setAccessibleName(tr("Command category: %1").arg(it.key()));
+        m_pResultLayout->addWidget(pCategory);
+        foreach (const UIMd3Command &command, it.value())
         {
-            hide();
-            if (captured.handler)
-                captured.handler();
-            if (captured.pTarget)
-                teleportTo(captured.pTarget);
-        });
-        m_pResultLayout->addWidget(pRow);
-        if (!pFirst)
-            pFirst = pRow;
-        ++cShown;
+            UIMd3Button *pRow = new UIMd3Button(command.strTitle, UIMd3ButtonVariant_Tonal, this);
+            pRow->setAppearanceKey(QStringLiteral("command/%1/%2").arg(command.strSource, command.strId));
+            const bool fEnabled = !command.enabledPredicate || command.enabledPredicate();
+            pRow->setEnabledState(fEnabled);
+            const QString strCategory = command.strCategory.isEmpty() ? command.strSource : command.strCategory;
+            const QString strDisabledReason = command.strDisabledReason.isEmpty()
+                                            ? tr("This command is unavailable on the current surface.")
+                                            : command.strDisabledReason;
+            pRow->setToolTip(strCategory);
+            pRow->setAccessibleName(tr("%1 — %2").arg(command.strTitle, strCategory));
+            pRow->setAccessibleDescription(fEnabled
+                                          ? tr("Activate %1 from %2.").arg(command.strTitle, strCategory)
+                                          : tr("%1 Unavailable: %2").arg(command.strTitle, strDisabledReason));
+            pRow->installEventFilter(this);
+            const UIMd3Command captured = command;
+            connect(pRow, &UIMd3Button::sigClicked, this, [this, captured]()
+            {
+                if (captured.enabledPredicate && !captured.enabledPredicate())
+                {
+                    sltRefresh();
+                    return;
+                }
+                hide();
+                if (captured.handler)
+                    captured.handler();
+                if (captured.pTarget)
+                    teleportTo(captured.pTarget);
+            });
+            m_pResultLayout->addWidget(pRow);
+            m_pRows << pRow;
+            if (!pFirst)
+                pFirst = pRow;
+            ++cShown;
+        }
     }
 
     if (!cShown)
@@ -244,6 +305,49 @@ void UIMd3CommandPalette::keyPressEvent(QKeyEvent *pEvent)
         return;
     }
     QDialog::keyPressEvent(pEvent);
+}
+
+bool UIMd3CommandPalette::eventFilter(QObject *pObject, QEvent *pEvent)
+{
+    if (pEvent->type() == QEvent::KeyPress)
+    {
+        QKeyEvent *pKeyEvent = static_cast<QKeyEvent *>(pEvent);
+        if (pKeyEvent->key() == Qt::Key_Escape)
+        {
+            hide();
+            pKeyEvent->accept();
+            return true;
+        }
+        if (pKeyEvent->key() == Qt::Key_Up || pKeyEvent->key() == Qt::Key_Down)
+        {
+            const bool fForward = pKeyEvent->key() == Qt::Key_Down;
+            int iCurrent = -1;
+            for (int i = 0; i < m_pRows.size(); ++i)
+                if (m_pRows.at(i) == pObject || m_pRows.at(i) == QApplication::focusWidget())
+                {
+                    iCurrent = i;
+                    break;
+                }
+            int iNext = fForward ? iCurrent + 1 : iCurrent - 1;
+            if (iCurrent < 0)
+                iNext = fForward ? 0 : m_pRows.size() - 1;
+            for (int c = 0; c < m_pRows.size(); ++c)
+            {
+                if (iNext < 0)
+                    iNext = m_pRows.size() - 1;
+                if (iNext >= m_pRows.size())
+                    iNext = 0;
+                if (m_pRows.at(iNext)->isEnabled())
+                {
+                    m_pRows.at(iNext)->setFocus(Qt::OtherFocusReason);
+                    pKeyEvent->accept();
+                    return true;
+                }
+                iNext += fForward ? 1 : -1;
+            }
+        }
+    }
+    return QDialog::eventFilter(pObject, pEvent);
 }
 
 void UIMd3CommandPalette::hideEvent(QHideEvent *pEvent)
