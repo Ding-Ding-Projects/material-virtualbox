@@ -202,6 +202,8 @@ public:
 
         /** Returns whether Global tool of passed @a enmType is opened. */
         bool isGlobalToolOpened(UIToolType enmType) const;
+        /** Returns whether the global tool may be selected on the current surface. */
+        bool isGlobalToolEnabled(UIToolType enmType) const;
         /** Returns whether Machine tool of passed @a enmType is opened. */
         bool isMachineToolOpened(UIToolType enmType) const;
 

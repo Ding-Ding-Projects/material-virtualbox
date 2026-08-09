@@ -66,10 +66,15 @@ jobs:
           }
           $managerSource = Get-Content src/VBox/Frontends/VirtualBox/src/manager/UIVirtualBoxManager.cpp -Raw
           if (([regex]::Matches($managerSource, [regex]::Escape('QStringLiteral("manager")'))).Count -lt 2) { throw 'Command palette manager source id is not stable across registration and cleanup.' }
-          foreach ($pattern in @('registerCommandPaletteCommands', 'sigLanguageChanged', 'sltRetranslateUI', 'registerManagerText', 'managerText', 'md3Text(', 'md3.manager.', 'pAction->isEnabled()', 'UIMd3CommandPalette::unregisterSource')) {
+          foreach ($pattern in @('registerCommandPaletteCommands', 'sigLanguageChanged', 'sltRetranslateUI', 'registerManagerText', 'managerText', 'md3Text(', 'md3.manager.', 'isGlobalToolEnabled', 'open-home-tool', 'open-extensions-tool', 'pAction->isEnabled()', 'UIMd3CommandPalette::unregisterSource')) {
             if ($managerSource -notmatch [regex]::Escape($pattern)) { throw "Command palette manager refresh contract missing: $pattern" }
           }
           if (-not (Test-Path doc/md3/CommandPalette.md)) { throw 'Missing command-palette article' }
+          $managerWidget = Get-Content src/VBox/Frontends/VirtualBox/src/manager/UIVirtualBoxWidget.cpp -Raw
+          $managerWidgetHeader = Get-Content src/VBox/Frontends/VirtualBox/src/manager/UIVirtualBoxWidget.h -Raw
+          foreach ($pattern in @('isGlobalToolEnabled', 'isMenuToolEnabled')) {
+            if (($managerWidget + $managerWidgetHeader) -notmatch [regex]::Escape($pattern)) { throw "Global tool palette predicate missing: $pattern" }
+          }
           $notificationHeader = Get-Content src/VBox/Frontends/VirtualBox/src/md3/UIMd3NotificationCentre.h -Raw
           $notificationSource = Get-Content src/VBox/Frontends/VirtualBox/src/md3/UIMd3NotificationCentre.cpp -Raw
           foreach ($pattern in @('class SHARED_LIBRARY_STUFF UIMd3NotificationCentre', 'UIMd3History', 'notification history cleared', 'notification history restored', 'sltRestoreHistoryRevision', 'currentState', 'post(', 'markAllRead', 'showCentre', 'g_iMaxPayload', 'QSaveFile', 'UIMd3SearchField', 'QCheckBox', 'sltSelectAllVisible', 'sltInvertVisibleSelection', 'sltExportVisible', 'visibleNoticeIds', 'm_selectedIds', 'sltRequestClear', 'sltUndoClear', 'undoStoragePath', 'saveRecordsAtPath', 'restoreUndoSnapshot', 'Undo last clear', 'QDialogButtonBox', 'QSlider', 'QProgressBar', 'Emergency exit', 'QAbstractAnimation::DeleteWhenStopped', 'clear()')) {

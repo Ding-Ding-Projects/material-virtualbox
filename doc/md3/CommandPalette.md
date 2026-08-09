@@ -7,7 +7,8 @@ handlers after their owning manager is destroyed.
 
 ## Behavior
 
-- The manager registers preferences, machine creation/import/export, media-manager,
+- The manager registers preferences, Home/Machines/Media/Network/Cloud/Resources/
+  Extensions destinations, machine creation/import/export, media-manager,
   cloud-machine, machine-settings, clone/OCI-export, and local-history commands.
   Each registration uses the stable `manager` owner id plus a stable command id;
   the visible `Manager` category and command copy are registered through
@@ -22,6 +23,9 @@ handlers after their owning manager is destroyed.
 - Existing action-pool commands keep their live enabled state. A disabled command
   remains discoverable with a localized explanation and cannot trigger a stale
   handler.
+- Global tool destinations use the real `UIVirtualBoxWidget::setToolsTypeGlobal`
+  path and its `isGlobalToolEnabled` predicate, so empty chooser and expert-mode
+  restrictions are preserved instead of being bypassed by a palette shortcut.
 - Manager command titles, categories, and disabled reasons are rebuilt on the
   persisted `UIMd3Language` signal, including Cantonese and bilingual copy; each
   action-pool command keeps its stable owner/id pair.

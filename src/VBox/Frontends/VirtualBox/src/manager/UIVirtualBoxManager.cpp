@@ -2661,6 +2661,14 @@ void UIVirtualBoxManager::registerCommandPaletteCommands()
     registerManagerText("md3.manager.reason-machine-settings", QStringLiteral("Select a virtual machine before opening its settings."), QStringLiteral("開啟設定前請先選取虛擬機器。"));
     registerManagerText("md3.manager.reason-clone", QStringLiteral("Select a virtual machine before cloning it."), QStringLiteral("複製前請先選取虛擬機器。"));
     registerManagerText("md3.manager.reason-oci", QStringLiteral("Select a virtual machine before exporting it to OCI."), QStringLiteral("匯出到 OCI 前請先選取虛擬機器。"));
+    registerManagerText("md3.manager.reason-tool", QStringLiteral("This tool is unavailable on the current manager surface."), QStringLiteral("呢個工具喺目前管理員畫面未能使用。"));
+    registerManagerText("md3.manager.tool-home", QStringLiteral("Home"), QStringLiteral("主頁"));
+    registerManagerText("md3.manager.tool-machines", QStringLiteral("Machines"), QStringLiteral("虛擬機"));
+    registerManagerText("md3.manager.tool-media", QStringLiteral("Media"), QStringLiteral("媒體"));
+    registerManagerText("md3.manager.tool-network", QStringLiteral("Network"), QStringLiteral("網絡"));
+    registerManagerText("md3.manager.tool-cloud", QStringLiteral("Cloud"), QStringLiteral("雲端"));
+    registerManagerText("md3.manager.tool-resources", QStringLiteral("Resources"), QStringLiteral("資源"));
+    registerManagerText("md3.manager.tool-extensions", QStringLiteral("Extensions"), QStringLiteral("擴充功能"));
 
     UIMd3CommandPalette::unregisterSource(QStringLiteral("manager"));
     const QString strManagerSource = QStringLiteral("manager");
@@ -2693,6 +2701,42 @@ void UIVirtualBoxManager::registerCommandPaletteCommands()
                                                                UIMd3History::instance()->showCentre(this);
                                                        }, 0, strManagerCategory,
                                                        QStringLiteral("open-history")));
+
+    const auto registerGlobalToolCommand = [this, &strManagerSource, &strManagerCategory, &managerText]
+        (const char *pszKey, const QString &strFallback, const QString &strCantonese,
+         const QString &strId, const UIToolType enmType)
+    {
+        /* The registry is refreshed on every language change, so update the
+         * source text before taking the localized value for this row. */
+        if (UIMd3Language::instance())
+            UIMd3Language::instance()->registerText(QString::fromLatin1(pszKey), strFallback, strCantonese);
+        UIMd3CommandPalette::registerCommand(UIMd3Command(
+            managerText(pszKey, strFallback), strManagerSource,
+            [this, enmType]()
+            {
+                if (m_pWidget && m_pWidget->isGlobalToolEnabled(enmType))
+                    m_pWidget->setToolsTypeGlobal(enmType);
+            }, 0, strManagerCategory, strId,
+            [this, enmType]()
+            {
+                return m_pWidget && m_pWidget->isGlobalToolEnabled(enmType);
+            },
+            managerText("md3.manager.reason-tool", tr("This tool is unavailable on the current manager surface."))));
+    };
+    registerGlobalToolCommand("md3.manager.tool-home", QStringLiteral("Home"), QStringLiteral("主頁"),
+                              QStringLiteral("open-home-tool"), UIToolType_Home);
+    registerGlobalToolCommand("md3.manager.tool-machines", QStringLiteral("Machines"), QStringLiteral("虛擬機"),
+                              QStringLiteral("open-machines-tool"), UIToolType_Machines);
+    registerGlobalToolCommand("md3.manager.tool-media", QStringLiteral("Media"), QStringLiteral("媒體"),
+                              QStringLiteral("open-media-tool"), UIToolType_Media);
+    registerGlobalToolCommand("md3.manager.tool-network", QStringLiteral("Network"), QStringLiteral("網絡"),
+                              QStringLiteral("open-network-tool"), UIToolType_Network);
+    registerGlobalToolCommand("md3.manager.tool-cloud", QStringLiteral("Cloud"), QStringLiteral("雲端"),
+                              QStringLiteral("open-cloud-tool"), UIToolType_Cloud);
+    registerGlobalToolCommand("md3.manager.tool-resources", QStringLiteral("Resources"), QStringLiteral("資源"),
+                              QStringLiteral("open-resources-tool"), UIToolType_Resources);
+    registerGlobalToolCommand("md3.manager.tool-extensions", QStringLiteral("Extensions"), QStringLiteral("擴充功能"),
+                              QStringLiteral("open-extensions-tool"), UIToolType_Extensions);
 
     /* Register the existing action-pool destinations as live palette commands.
      * The palette never reimplements action policy: disabled actions stay visible

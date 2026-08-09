@@ -249,6 +249,12 @@ bool UIVirtualBoxWidget::isGlobalToolOpened(UIToolType enmType) const
     return globalToolsWidget()->isToolOpened(enmType);
 }
 
+bool UIVirtualBoxWidget::isGlobalToolEnabled(UIToolType enmType) const
+{
+    AssertPtrReturn(globalToolsWidget(), false);
+    return globalToolsWidget()->isMenuToolEnabled(enmType);
+}
+
 bool UIVirtualBoxWidget::isMachineToolOpened(UIToolType enmType) const
 {
     AssertPtrReturn(machineToolsWidget(), false);

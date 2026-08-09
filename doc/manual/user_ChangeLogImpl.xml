@@ -113,6 +113,13 @@ Rules for adding a changelog entry to make them look more uniform:
       </listitem>
 
       <listitem>
+        <para>GUI: Added the seven existing global manager destinations to the
+          Material 3 command palette, routing Home, Machines, Media, Network,
+          Cloud, Resources, and Extensions through the real tool model and its
+          expert-mode and empty-chooser availability predicate</para>
+      </listitem>
+
+      <listitem>
         <para>GUI: Added a persisted per-element Material 3 appearance editor
           for stable-key widgets, with context-menu and Shift+right-click entry,
           seed, typeface, corner-radius, scale, weight, reset and focus return</para>
