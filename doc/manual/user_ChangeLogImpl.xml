@@ -212,6 +212,12 @@ Rules for adding a changelog entry to make them look more uniform:
       </listitem>
 
       <listitem>
+        <para>GUI: Made keyboard context menus target the stable current tab so
+          Shift+F10 exposes the real tab-management actions while pointer
+          context menus on strip chrome retain their group actions</para>
+      </listitem>
+
+      <listitem>
         <para>GUI: Replaced decorative tab overflow text with a focusable
           Material 3 More-tabs button that opens the searchable overflow list</para>
       </listitem>

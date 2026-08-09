@@ -763,7 +763,12 @@ void UIMd3TabStrip::mousePressEvent(QMouseEvent *pEvent)
 
 void UIMd3TabStrip::contextMenuEvent(QContextMenuEvent *pEvent)
 {
-    const QString strId = tabAt(pEvent->pos());
+    const bool fKeyboardContext = pEvent->reason() == QContextMenuEvent::Keyboard;
+    const QString strHitId = tabAt(pEvent->pos());
+    /* Keyboard context-menu events do not carry a useful tab position.  The
+     * strip has one focus/current model, so reuse that stable id; pointer
+     * chrome with no tab hit must continue to open the strip-level menu. */
+    const QString strId = fKeyboardContext ? m_strCurrentId : strHitId;
     if (strId.isEmpty())
     {
         QMenu menu(this);
@@ -890,12 +895,14 @@ void UIMd3TabStrip::contextMenuEvent(QContextMenuEvent *pEvent)
     QAction *pMove = menu.addAction(tr("Move… into group…"));
     QAction *pClose = menu.addAction(tr("Close tab"));
     QAction *pEdit = menu.addAction(tr("Edit tab appearance…"));
+    menu.setAccessibleName(tr("Tab actions"));
     if (selected.fPinned)
     {
         pClose->setEnabled(false);
         pClose->setStatusTip(tr("Unpin this tab before closing it"));
     }
     pEdit->setStatusTip(tr("Edit appearance for %1").arg(selected.strLabel));
+    pEdit->setWhatsThis(tr("Edit the appearance of tab %1").arg(selected.strLabel));
     pEdit->setShortcut(QKeySequence(Qt::SHIFT | Qt::Key_F10));
     connect(pSearch, &UIMd3SearchField::sigFilterChanged, this,
             [pSearch, pPin, pMove, pClose, pEdit]()
@@ -913,6 +920,10 @@ void UIMd3TabStrip::contextMenuEvent(QContextMenuEvent *pEvent)
         UIMd3AppearanceEditor::open(this, QStringLiteral("tab/") + strId);
     });
     pSearch->setFocus(Qt::OtherFocusReason);
-    menu.exec(pEvent->globalPos());
+    const QRect focusRect = tabRect(strId);
+    const QPoint menuPosition = fKeyboardContext && focusRect.isValid()
+                              ? mapToGlobal(focusRect.center())
+                              : pEvent->globalPos();
+    menu.exec(menuPosition);
     pEvent->accept();
 }

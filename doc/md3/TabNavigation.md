@@ -14,6 +14,11 @@ global-tools surface. It is implemented by
 - Keyboard Left and Right move the active tab, while a pointer click selects a
   tab. The strip has a named `tab-strip` object and a visible active-state
   treatment from the shared Material 3 theme.
+- A keyboard-originated context-menu event (including <kbd>Shift+F10</kbd>)
+  reuses the stable current tab when the event has no pointer hit, so the
+  resulting menu exposes that tab's pin, move, close, and `Edit tab
+  appearance…` actions. A pointer context menu on strip chrome still opens
+  the strip-level group menu, and the tab action menu keeps its local search.
 - Labels are registered with the shared language service and update live for
   English, playful Cantonese, and bilingual modes. The manager mirrors the
   existing chooser and expert-mode restrictions into disabled tab states, so a

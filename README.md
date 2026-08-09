@@ -88,7 +88,9 @@ empty bulk-close queries safe, and exposes a searchable Move… into group…
 picker with member counts and an inline create-group path; overflow now has a
 focusable 48 px More-tabs button. Strip chrome also offers bounded group
 creation and renaming plus a per-group Edit appearance… action while retaining
-the local search field. The four
+the local search field. Keyboard context menus reuse the stable current tab so
+<kbd>Shift+F10</kbd> exposes real tab-management actions; pointer chrome keeps
+its strip-level menu. The four
 tab-discovery searches, surface-scoped persistence, full overflow/reordering
 UI, and runtime tab adoption remain open design-coverage lanes.
 
