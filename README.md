@@ -7,10 +7,10 @@ application-owned presentation toward one coherent Qt 6 design system.
 
 > **Implementation status:** the shared theme, style, language, persisted brand,
 > native manager title bar, manager navigation rail, manager tab strip, command
-> palette, appearance editor, and the shared settings search/regex field are
-> wired into the existing VirtualBox frontend. Wizard, tool, notification, and
-> runtime shells remain in progress. Build and release claims below are
-> deliberately bounded.
+> palette, appearance editor, shared settings search/regex field, and the
+> notification-center search are wired into the existing VirtualBox frontend.
+> Wizard, tool, notification-history, and runtime shells remain in progress.
+> Build and release claims below are deliberately bounded.
 
 ## Contents
 
@@ -81,6 +81,14 @@ selection through VirtualBox extra data for the manager surface, and keeps
 empty bulk-close queries safe. The four tab-discovery searches, surface-scoped
 persistence, full overflow/reordering UI, and runtime tab adoption remain open
 design-coverage lanes.
+
+The existing notification center now has a Material 3 search field in its
+extended view. [`doc/md3/NotificationCentre.md`](doc/md3/NotificationCentre.md)
+documents plain-text and bounded regex filtering across real notification
+metadata while preserving critical-item and blocking-operation behavior.
+Reviewable history, bulk actions, provider-authored rendering, and the native
+capture remain open lanes; this is not a claim that the legacy notification
+surface has been fully replaced.
 
 The handoff requires accounting for all 69 archive entries. The maintained
 ledger is [`doc/md3/DesignCoverage.md`](doc/md3/DesignCoverage.md), with its

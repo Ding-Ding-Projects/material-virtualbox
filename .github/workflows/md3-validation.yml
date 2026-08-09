@@ -49,6 +49,14 @@ jobs:
             if ($virtualBoxSources -match [regex]::Escape($path)) { throw "Shared MD3 source must not be linked only by VirtualBox: $path" }
             if ($uiCommonSources -notmatch [regex]::Escape($path)) { throw "Shared MD3 source missing from UICommon: $path" }
           }
+      - name: Validate notification search integration
+        shell: pwsh
+        run: |
+          $notificationSource = Get-Content src/VBox/Frontends/VirtualBox/src/notificationcenter/UINotificationCenter.cpp -Raw
+          foreach ($pattern in @('UIMd3SearchField', 'updateItemVisibility', 'pObject->name\(\)', 'pObject->details\(\)', 'pObject->internalName\(\)', 'pObject->helpKeyword\(\)', 'isExtendedMode\(\) \|\| pItem->isCritical\(\)')) {
+            if ($notificationSource -notmatch $pattern) { throw "Notification search contract missing: $pattern" }
+          }
+          if (-not (Test-Path doc/md3/NotificationCentre.md)) { throw 'Missing notification-center article' }
       - name: Collect safe validation evidence
         if: ${{ always() }}
         continue-on-error: true

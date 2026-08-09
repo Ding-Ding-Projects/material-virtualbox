@@ -45,6 +45,9 @@
 #include "QIToolButton.h"
 #include "UIExtraDataManager.h"
 #include "UIIconPool.h"
+#include "UIMd3Language.h"
+#include "UIMd3SearchField.h"
+#include "UIMd3Theme.h"
 #include "UINotificationCenter.h"
 #include "UINotificationObjectItem.h"
 #include "UINotificationModel.h"
@@ -214,6 +217,7 @@ UINotificationCenter::UINotificationCenter(QWidget *pParent)
     , m_enmAlignment(Qt::AlignTop)
     , m_enmOrder(Qt::AscendingOrder)
     , m_pLayoutMain(0)
+    , m_pSearchField(0)
     , m_pLayoutButtons(0)
     , m_pButtonOpen(0)
     , m_pButtonToggleSorting(0)
@@ -560,6 +564,19 @@ void UINotificationCenter::sltRetranslateUI()
 #endif
     if (m_pButtonRemoveFinished)
         m_pButtonRemoveFinished->setToolTip(tr("Delete finished notifications"));
+
+    if (m_pSearchField)
+    {
+        UIMd3Language *pLanguage = UIMd3Language::instance();
+        QString strPlaceholder = tr("Search notifications");
+        if (pLanguage)
+        {
+            const QString strTranslated = pLanguage->text(QStringLiteral("md3.notifications.search"));
+            if (!strTranslated.isEmpty())
+                strPlaceholder = strTranslated;
+        }
+        m_pSearchField->setPlaceholderText(strPlaceholder);
+    }
 }
 
 bool UINotificationCenter::eventFilter(QObject *pObject, QEvent *pEvent)
@@ -671,6 +688,8 @@ void UINotificationCenter::sltHandleOrderChange()
     /* Populate model contents again: */
     foreach (const QUuid &uId, m_pModel->ids())
         createItem(uId);
+
+    updateItemVisibility();
 
     /* Hide and slide away if there are no notifications to show: */
     setHidden(m_pModel->ids().isEmpty());
@@ -790,6 +809,8 @@ void UINotificationCenter::sltHandleModelItemAdded(const QUuid &uId)
     /* Add corresponding model item representation: */
     createItem(uId);
 
+    updateItemVisibility();
+
     /* Show if there are notifications to show: */
     setHidden(m_pModel->ids().isEmpty());
 }
@@ -818,6 +839,8 @@ void UINotificationCenter::sltHandleModelItemRemoved(const QUuid &uId)
         /* Remove corresponding model item representation: */
         delete m_items.take(uId);
     }
+
+    updateItemVisibility();
 
     /* Hide and slide away if there are no notifications to show: */
     setHidden(m_pModel->ids().isEmpty());
@@ -905,6 +928,37 @@ void UINotificationCenter::prepareWidgets()
     m_pLayoutMain = new QVBoxLayout(this);
     if (m_pLayoutMain)
     {
+        /* The temporary notification-center is created before the process-wide
+         * Material 3 theme.  Defer this widget until the themed center is
+         * created, so the shared search field never dereferences a null theme. */
+        if (UIMd3Theme::instance())
+        {
+            UIMd3Language *pLanguage = UIMd3Language::instance();
+            if (pLanguage)
+                pLanguage->registerText(QStringLiteral("md3.notifications.search"),
+                                         QStringLiteral("Search notifications"),
+                                         QStringLiteral("搜尋通知"));
+            QString strPlaceholder = tr("Search notifications");
+            if (pLanguage)
+            {
+                const QString strTranslated = pLanguage->text(QStringLiteral("md3.notifications.search"));
+                if (!strTranslated.isEmpty())
+                    strPlaceholder = strTranslated;
+            }
+            m_pSearchField = new UIMd3SearchField(QStringLiteral("notification-center"),
+                                                   strPlaceholder, this);
+            if (m_pSearchField)
+            {
+                m_pSearchField->setVisible(false);
+                connect(m_pSearchField, &UIMd3SearchField::sigFilterChanged,
+                        this, &UINotificationCenter::updateItemVisibility);
+                if (pLanguage)
+                    connect(pLanguage, &UIMd3Language::sigLanguageChanged,
+                            this, &UINotificationCenter::sltRetranslateUI);
+                m_pLayoutMain->addWidget(m_pSearchField);
+            }
+        }
+
         /* Create container scroll-area: */
         UINotificationScrollArea *pScrollAreaContainer = new UINotificationScrollArea(this);
         if (pScrollAreaContainer)
@@ -1237,9 +1291,10 @@ void UINotificationCenter::setExtendedMode(bool fExtended)
 #endif
     m_pButtonRemoveFinished->setVisible(!isExtendedMode());
 
-    /* Hide all unrelated items for extended mode: */
-    foreach (UINotificationObjectItem *pItem, m_items.values())
-        pItem->setVisible(!isExtendedMode() || pItem->isCritical());
+    if (m_pSearchField)
+        m_pSearchField->setVisible(isExtendedMode());
+
+    updateItemVisibility();
 }
 
 void UINotificationCenter::setAnimatedValue(int iValue)
@@ -1328,6 +1383,8 @@ void UINotificationCenter::adjustGeometry()
                 iItemsHeight += pItem->minimumSizeHint().height() + iSpacing;
         if (iItemsHeight > 0)
             iItemsHeight -= iSpacing;
+        if (m_pSearchField && m_pSearchField->isVisible())
+            iItemsHeight += m_pSearchField->minimumSizeHint().height() + m_pLayoutMain->spacing();
         iItemsHeight += iT + iB;
 
         /* Make sure actual height is no more than the parent height: */
@@ -1363,9 +1420,32 @@ void UINotificationCenter::createItem(const QUuid &uId)
 {
     /* Create item itself: */
     UINotificationObjectItem *pItem = UINotificationItem::create(this, m_pModel->objectById(uId));
-    pItem->setVisible(!isExtendedMode() || pItem->isCritical());
+    if (!pItem)
+        return;
     m_items[uId] = pItem;
     m_pLayoutItems->insertWidget(m_enmOrder == Qt::AscendingOrder ? -1 : 0, pItem);
+    updateItemVisibility();
+}
+
+void UINotificationCenter::updateItemVisibility()
+{
+    foreach (UINotificationObjectItem *pItem, m_items.values())
+    {
+        if (!pItem)
+            continue;
+
+        UINotificationObject *pObject = pItem->internalObject();
+        QStringList aSearchParts;
+        if (pObject)
+        {
+            aSearchParts << pObject->name()
+                         << pObject->details()
+                         << pObject->internalName()
+                         << pObject->helpKeyword();
+        }
+        const bool fMatches = !m_pSearchField || m_pSearchField->matches(aSearchParts.join(QLatin1Char(' ')));
+        pItem->setVisible((!isExtendedMode() || pItem->isCritical()) && fMatches);
+    }
 }
 
 

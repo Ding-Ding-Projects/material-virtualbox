@@ -54,6 +54,7 @@ class QIToolButton;
 class UINotificationModel;
 class UINotificationObject;
 class UINotificationObjectItem;
+class UIMd3SearchField;
 
 /** QWidget-based notification-center overlay. */
 class SHARED_LIBRARY_STUFF UINotificationCenter : public QWidget
@@ -282,6 +283,8 @@ private:
 
     /** Creates item with @a uId specified. */
     void createItem(const QUuid &uId);
+    /** Applies the current notification search and extended-mode visibility. */
+    void updateItemVisibility();
 
     /** Holds the fallback parent singleton instance. */
     static QWidget              *s_pFallbackParent;
@@ -298,6 +301,8 @@ private:
 
     /** Holds the main layout instance. */
     QVBoxLayout  *m_pLayoutMain;
+    /** Holds the notification search field. */
+    UIMd3SearchField *m_pSearchField;
     /** Holds the buttons layout instance. */
     QHBoxLayout  *m_pLayoutButtons;
     /** Holds the open button instance. */
