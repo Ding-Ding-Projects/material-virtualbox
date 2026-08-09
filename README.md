@@ -98,19 +98,21 @@ The build requires a compatible compiler, Qt 6 development files, kBuild
 `configure.py`. Do not copy generated output or machine-local settings into
 the source tree; use `LocalConfig.kmk` for local overrides.
 
-**Current checkout boundary:** on the audit host, `svn`, `kmk`, `scm`, and
-`qmake` were not installed or discoverable. `py -3 configure.py --help` did
-run successfully, but no compile, test, packaging, or GUI runtime result was
-claimed. Install or expose the required toolchain in the execution
-environment before treating a build as verified.
+**Current checkout boundary:** this Windows checkout now has a verified native
+`VirtualBox` target build. The local build used the bundled kBuild executable,
+MSVC 14.44, Windows SDK 10.0.26100.0, Qt 6.8.3 plus the official `qtscxml`
+add-on, WDK headers, Mako, GNU Bison/Flex/M4, NASM, and `xsltproc`. The
+generated executable links and installs successfully. Full runtime manager
+capture remains blocked by the checkout's unregistered `VirtualBoxClient` COM
+runtime (`REGDB_E_CLASSNOTREG`); no mock screenshot is counted as GUI proof.
 
 ## Verification boundaries
 
-Static inspection currently proves the design package, the 69-entry ledger,
-the shared MD3 theme/style integration, and the existing VirtualBox target
-structure. The following remain open until the remaining native shells land:
+Static inspection and the native build prove the design package, the 69-entry
+ledger, the shared MD3 theme/style integration, and the compiled VirtualBox
+target. The following remain open:
 
-- compilation of `VirtualBox`, `VirtualBoxVM`, and `UICommon`;
+- compilation of `VirtualBoxVM` and the complete release packaging path;
 - Qt widget, accessibility, keyboard, localization, and persistence tests;
 - Windows frameless title-bar, DPI, snap-layout, and focus validation;
 - manager, settings, wizard, manager-tool, notification, and runtime screenshot
@@ -124,10 +126,12 @@ this README.
 
 ## CI and Pages
 
-This mirror currently contains only the stale-question workflow at
-`.github/workflows/question-stale.yml`. There is no checked-in build, release,
-or GitHub Pages publication workflow, and no `.openai/hosting.json` project.
-Consequently, CI and Pages publication are **not verified** for this rewrite.
+This mirror contains MD3 validation and GitHub Pages workflows under
+`.github/workflows/`. Validation run `31299627844` passed for commit
+`f1efef9ac03`, and Pages run `31299627815` passed for the same commit; the
+published site at <https://ding-ding-projects.github.io/material-virtualbox/>
+returned HTTP 200. The next runs verify the title-bar commit
+`97249e1bfe6`.
 
 When publication work is added, it must build from the intended commit, keep
 artifact and test evidence separate, publish only verified outputs, and expose
