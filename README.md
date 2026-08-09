@@ -91,10 +91,12 @@ metadata while preserving critical-item and blocking-operation behavior, and
 retains non-blocking snapshots in a bounded searchable history model.
 The manager header's Notifications button opens that review surface and shows
 an unread marker. The history rows now support filtered selection, inversion,
-selected-read updates, and bounded JSON export; provider-authored rendering,
-bulk dismiss/delete, destructive clear confirmation, and the native capture
-remain open lanes. This is not a claim that the legacy notification surface
-has been fully replaced.
+selected-read updates, and bounded JSON export. **Clear history** uses an
+app-owned destructive gate with the exact record count, two acknowledgements,
+a full-range slider, animated progress, Emergency exit/Escape, and focus return;
+the local-Git revision/undo path, provider-authored rendering, bulk
+dismiss/delete, and native capture remain open lanes. This is not a claim that
+the legacy notification surface has been fully replaced.
 
 The existing New VM, New virtual disk, clone, import, and export flows now
 compose an embedded Material 3 wizard shell around their real

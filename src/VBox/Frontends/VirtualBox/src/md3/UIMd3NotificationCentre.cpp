@@ -29,11 +29,13 @@
 #include <QDateTime>
 #include <QCheckBox>
 #include <QDialog>
+#include <QDialogButtonBox>
 #include <QDir>
 #include <QFile>
 #include <QFileDialog>
 #include <QFileInfo>
 #include <QFrame>
+#include <QGraphicsOpacityEffect>
 #include <QHBoxLayout>
 #include <QIODevice>
 #include <QJsonArray>
@@ -42,11 +44,15 @@
 #include <QLabel>
 #include <QLayout>
 #include <QPalette>
+#include <QPointer>
+#include <QProgressBar>
+#include <QPropertyAnimation>
 #include <QPushButton>
 #include <QSaveFile>
 #include <QScrollArea>
 #include <QSet>
 #include <QSize>
+#include <QSlider>
 #include <QStandardPaths>
 #include <QVBoxLayout>
 #include <QUuid>
@@ -115,6 +121,33 @@ void UIMd3NotificationCentre::create()
             UIMd3Language::instance()->registerText(QStringLiteral("md3.notifications.selectedSummary"),
                                                      QStringLiteral("%1 selected"),
                                                      QStringLiteral("已選取 %1 項"));
+            UIMd3Language::instance()->registerText(QStringLiteral("md3.notifications.clear"),
+                                                     QStringLiteral("Clear history"),
+                                                     QStringLiteral("清除紀錄"));
+            UIMd3Language::instance()->registerText(QStringLiteral("md3.notifications.clearTitle"),
+                                                     QStringLiteral("Clear notification history?"),
+                                                     QStringLiteral("清除通知紀錄？"));
+            UIMd3Language::instance()->registerText(QStringLiteral("md3.notifications.clearCount"),
+                                                     QStringLiteral("This removes %1 retained notification records from md3-notifications.json."),
+                                                     QStringLiteral("呢個動作會由 md3-notifications.json 清除 %1 項保留通知紀錄。"));
+            UIMd3Language::instance()->registerText(QStringLiteral("md3.notifications.clearAckRecords"),
+                                                     QStringLiteral("I understand these records will be removed."),
+                                                     QStringLiteral("我明白呢啲紀錄會被移除。"));
+            UIMd3Language::instance()->registerText(QStringLiteral("md3.notifications.clearAckUndo"),
+                                                     QStringLiteral("I understand this dialog does not provide an undo."),
+                                                     QStringLiteral("我明白呢個對話框冇提供復原。"));
+            UIMd3Language::instance()->registerText(QStringLiteral("md3.notifications.clearSlider"),
+                                                     QStringLiteral("Slide fully to authorize"),
+                                                     QStringLiteral("將滑桿推到底先可以授權"));
+            UIMd3Language::instance()->registerText(QStringLiteral("md3.notifications.clearReady"),
+                                                     QStringLiteral("Ready to clear"),
+                                                     QStringLiteral("準備清除"));
+            UIMd3Language::instance()->registerText(QStringLiteral("md3.notifications.clearEmergency"),
+                                                     QStringLiteral("Emergency exit"),
+                                                     QStringLiteral("緊急退出"));
+            UIMd3Language::instance()->registerText(QStringLiteral("md3.notifications.clearAuthorize"),
+                                                     QStringLiteral("Clear records"),
+                                                     QStringLiteral("清除紀錄"));
             UIMd3Language::instance()->registerText(QStringLiteral("md3.notifications.empty"),
                                                      QStringLiteral("No local notifications"),
                                                      QStringLiteral("暫時冇通知"));
@@ -157,6 +190,7 @@ UIMd3NotificationCentre::UIMd3NotificationCentre()
     , m_pInvertSelectionButton(0)
     , m_pMarkSelectedReadButton(0)
     , m_pExportButton(0)
+    , m_pClearButton(0)
     , m_pSelectionSummary(0)
 {
     load();
@@ -379,6 +413,8 @@ void UIMd3NotificationCentre::updateBulkActions()
         m_pMarkSelectedReadButton->setEnabled(cSelectedVisible > 0);
     if (m_pExportButton)
         m_pExportButton->setEnabled(!visibleIds.isEmpty());
+    if (m_pClearButton)
+        m_pClearButton->setEnabled(!m_notices.isEmpty());
 }
 
 void UIMd3NotificationCentre::sltSelectAllVisible()
@@ -473,6 +509,214 @@ void UIMd3NotificationCentre::sltExportVisible()
     file.commit();
 }
 
+void UIMd3NotificationCentre::sltRequestClear()
+{
+    if (!m_pDialog || m_notices.isEmpty())
+        return;
+
+    QDialog dialog(m_pDialog, Qt::Dialog | Qt::WindowTitleHint);
+    dialog.setObjectName(QStringLiteral("md3NotificationClearConfirmation"));
+    dialog.setModal(true);
+    dialog.setWindowModality(Qt::WindowModal);
+    const QString strTitle = md3NotificationText("md3.notifications.clearTitle",
+                                                  tr("Clear notification history?"));
+    dialog.setWindowTitle(strTitle);
+    dialog.setAccessibleName(strTitle);
+    dialog.setMinimumSize(QSize(460, 360));
+
+    QPalette palette = dialog.palette();
+    palette.setColor(QPalette::Window, md3(UIMd3ColorRole_SurfaceContainer));
+    palette.setColor(QPalette::Base, md3(UIMd3ColorRole_SurfaceContainer));
+    dialog.setAutoFillBackground(true);
+    dialog.setPalette(palette);
+
+    QVBoxLayout *pRootLayout = new QVBoxLayout(&dialog);
+    pRootLayout->setContentsMargins(md3Theme().gutter(), md3Theme().gutter(),
+                                    md3Theme().gutter(), md3Theme().gutter());
+    pRootLayout->setSpacing(g_iRowSpacing);
+
+    QLabel *pHeading = new QLabel(strTitle, &dialog);
+    pHeading->setFont(md3Theme().font(UIMd3TypeRole_HeadlineSmall));
+    pHeading->setAccessibleName(strTitle);
+    pRootLayout->addWidget(pHeading);
+
+    QLabel *pCount = new QLabel(md3NotificationText("md3.notifications.clearCount",
+                                                     tr("This removes %1 retained notification records from md3-notifications.json."))
+                                .arg(m_notices.size()),
+                                &dialog);
+    pCount->setWordWrap(true);
+    pCount->setAccessibleName(pCount->text());
+    pRootLayout->addWidget(pCount);
+
+    QCheckBox *pAcknowledgeRecords = new QCheckBox(
+        md3NotificationText("md3.notifications.clearAckRecords",
+                            tr("I understand these records will be removed.")),
+        &dialog);
+    pAcknowledgeRecords->setObjectName(QStringLiteral("md3ClearAcknowledgeRecords"));
+    pAcknowledgeRecords->setAccessibleName(pAcknowledgeRecords->text());
+    pAcknowledgeRecords->setAccessibleDescription(
+        tr("First acknowledgement required before the authorization slider is enabled"));
+    pRootLayout->addWidget(pAcknowledgeRecords);
+
+    QCheckBox *pAcknowledgeUndo = new QCheckBox(
+        md3NotificationText("md3.notifications.clearAckUndo",
+                            tr("I understand this dialog does not provide an undo.")),
+        &dialog);
+    pAcknowledgeUndo->setObjectName(QStringLiteral("md3ClearAcknowledgeUndo"));
+    pAcknowledgeUndo->setAccessibleName(pAcknowledgeUndo->text());
+    pAcknowledgeUndo->setAccessibleDescription(
+        tr("Second acknowledgement required before the authorization slider is enabled"));
+    pRootLayout->addWidget(pAcknowledgeUndo);
+
+    QLabel *pSliderHeading = new QLabel(
+        md3NotificationText("md3.notifications.clearSlider",
+                            tr("Slide fully to authorize")),
+        &dialog);
+    pSliderHeading->setAccessibleName(pSliderHeading->text());
+    pRootLayout->addWidget(pSliderHeading);
+
+    QSlider *pSlider = new QSlider(Qt::Horizontal, &dialog);
+    pSlider->setObjectName(QStringLiteral("md3ClearAuthorizationSlider"));
+    pSlider->setRange(0, 100);
+    pSlider->setValue(0);
+    pSlider->setSingleStep(10);
+    pSlider->setPageStep(25);
+    pSlider->setTickInterval(25);
+    pSlider->setTickPosition(QSlider::TicksBelow);
+    pSlider->setEnabled(false);
+    pSlider->setAccessibleName(pSliderHeading->text());
+    pSlider->setAccessibleDescription(
+        tr("The clear action remains unavailable until the slider reaches 100 percent"));
+    pRootLayout->addWidget(pSlider);
+
+    QProgressBar *pProgress = new QProgressBar(&dialog);
+    pProgress->setObjectName(QStringLiteral("md3ClearAuthorizationProgress"));
+    pProgress->setRange(0, 100);
+    pProgress->setValue(0);
+    pProgress->setTextVisible(true);
+    pProgress->setFormat(QStringLiteral("%p%"));
+    pProgress->setAccessibleName(tr("Clear authorization progress"));
+    pProgress->setAccessibleDescription(
+        tr("Animated progress follows the authorization slider and completes at 100 percent"));
+    pRootLayout->addWidget(pProgress);
+
+    QLabel *pStatus = new QLabel(tr("Both acknowledgements are required."), &dialog);
+    pStatus->setWordWrap(true);
+    pStatus->setAccessibleName(pStatus->text());
+    pRootLayout->addWidget(pStatus);
+    QGraphicsOpacityEffect *pCompletionEffect = new QGraphicsOpacityEffect(pStatus);
+    pCompletionEffect->setOpacity(1.0);
+    pStatus->setGraphicsEffect(pCompletionEffect);
+
+    QDialogButtonBox *pButtons = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel,
+                                                       Qt::Horizontal,
+                                                       &dialog);
+    QPushButton *pAuthorize = pButtons->button(QDialogButtonBox::Ok);
+    QPushButton *pEmergencyExit = pButtons->button(QDialogButtonBox::Cancel);
+    pAuthorize->setObjectName(QStringLiteral("md3ClearAuthorizeButton"));
+    pAuthorize->setText(md3NotificationText("md3.notifications.clearAuthorize",
+                                            tr("Clear records")));
+    pAuthorize->setAccessibleName(pAuthorize->text());
+    pAuthorize->setEnabled(false);
+    pEmergencyExit->setObjectName(QStringLiteral("md3ClearEmergencyExitButton"));
+    pEmergencyExit->setText(md3NotificationText("md3.notifications.clearEmergency",
+                                                 tr("Emergency exit")));
+    pEmergencyExit->setAccessibleName(pEmergencyExit->text());
+    pEmergencyExit->setToolTip(pEmergencyExit->text());
+    pRootLayout->addWidget(pButtons);
+
+    QPointer<QPropertyAnimation> pProgressAnimation;
+    QPointer<QPropertyAnimation> pCompletionAnimation;
+    const auto animateProgress = [&pProgressAnimation, pProgress](int iValue)
+    {
+        if (pProgressAnimation)
+            pProgressAnimation->stop();
+        pProgressAnimation = new QPropertyAnimation(pProgress, "value", pProgress);
+        pProgressAnimation->setDuration(140);
+        pProgressAnimation->setEasingCurve(QEasingCurve::OutCubic);
+        pProgressAnimation->setStartValue(pProgress->value());
+        pProgressAnimation->setEndValue(iValue);
+        pProgressAnimation->start(QAbstractAnimation::DeleteWhenStopped);
+    };
+
+    const auto animateCompletion = [&pCompletionAnimation, pCompletionEffect]()
+    {
+        if (pCompletionAnimation)
+            pCompletionAnimation->stop();
+        pCompletionAnimation = new QPropertyAnimation(pCompletionEffect, "opacity", pCompletionEffect);
+        pCompletionAnimation->setDuration(220);
+        pCompletionAnimation->setEasingCurve(QEasingCurve::OutCubic);
+        pCompletionAnimation->setStartValue(0.35);
+        pCompletionAnimation->setEndValue(1.0);
+        pCompletionAnimation->start(QAbstractAnimation::DeleteWhenStopped);
+    };
+
+    const auto updateAuthorizationState = [&]()
+    {
+        const bool fAcknowledged = pAcknowledgeRecords->isChecked()
+                                 && pAcknowledgeUndo->isChecked();
+        pSlider->setEnabled(fAcknowledged);
+        if (!fAcknowledged)
+        {
+            pSlider->setValue(0);
+            animateProgress(0);
+            pProgress->setFormat(QStringLiteral("%p%"));
+            pStatus->setText(tr("Both acknowledgements are required."));
+        }
+        pAuthorize->setEnabled(fAcknowledged && pSlider->value() == 100);
+    };
+
+    connect(pAcknowledgeRecords, &QCheckBox::toggled, &dialog,
+            [&updateAuthorizationState](bool) { updateAuthorizationState(); });
+    connect(pAcknowledgeUndo, &QCheckBox::toggled, &dialog,
+            [&updateAuthorizationState](bool) { updateAuthorizationState(); });
+    connect(pSlider, &QSlider::valueChanged, &dialog,
+            [&, pProgress, pStatus, pAuthorize](int iValue)
+    {
+        animateProgress(iValue);
+        if (iValue == 100)
+        {
+            const QString strReady = md3NotificationText("md3.notifications.clearReady",
+                                                         tr("Ready to clear"));
+            pProgress->setFormat(strReady);
+            pStatus->setText(strReady);
+            animateCompletion();
+        }
+        else
+        {
+            pProgress->setFormat(QStringLiteral("%p%"));
+            pStatus->setText(tr("Keep sliding until the authorization reaches 100 percent."));
+        }
+        pStatus->setAccessibleName(pStatus->text());
+        pAuthorize->setEnabled(pAcknowledgeRecords->isChecked()
+                               && pAcknowledgeUndo->isChecked()
+                               && iValue == 100);
+    });
+    connect(pButtons, &QDialogButtonBox::accepted, &dialog,
+            [this, &dialog, pAcknowledgeRecords, pAcknowledgeUndo, pSlider,
+             pProgress, pStatus, pAuthorize]()
+    {
+        if (!pAcknowledgeRecords->isChecked() || !pAcknowledgeUndo->isChecked()
+            || pSlider->value() != 100)
+            return;
+        pAuthorize->setEnabled(false);
+        pProgress->setValue(100);
+        pProgress->setFormat(md3NotificationText("md3.notifications.clearReady",
+                                                 tr("Ready to clear")));
+        pStatus->setText(md3NotificationText("md3.notifications.clearReady",
+                                             tr("Ready to clear")));
+        pStatus->setAccessibleName(pStatus->text());
+        clear();
+        dialog.accept();
+    });
+    connect(pButtons, &QDialogButtonBox::rejected, &dialog, &QDialog::reject);
+
+    dialog.resize(560, 420);
+    dialog.exec();
+    if (m_pClearButton)
+        m_pClearButton->setFocus(Qt::OtherFocusReason);
+}
+
 void UIMd3NotificationCentre::clear()
 {
     if (m_notices.isEmpty())
@@ -548,6 +792,15 @@ void UIMd3NotificationCentre::showCentre(QWidget *pParent)
     pBulkLayout->addWidget(m_pSelectionSummary, 1);
     pRootLayout->addLayout(pBulkLayout);
 
+    QHBoxLayout *pDestructiveLayout = new QHBoxLayout;
+    pDestructiveLayout->setContentsMargins(0, 0, 0, 0);
+    m_pClearButton = new QPushButton(m_pDialog);
+    m_pClearButton->setMinimumSize(QSize(48, md3Theme().controlHeight()));
+    m_pClearButton->setProperty("destructive", true);
+    pDestructiveLayout->addWidget(m_pClearButton);
+    pDestructiveLayout->addStretch(1);
+    pRootLayout->addLayout(pDestructiveLayout);
+
     QScrollArea *pScrollArea = new QScrollArea(m_pDialog);
     pScrollArea->setWidgetResizable(true);
     pScrollArea->setFrameShape(QFrame::NoFrame);
@@ -570,6 +823,8 @@ void UIMd3NotificationCentre::showCentre(QWidget *pParent)
             this, &UIMd3NotificationCentre::sltMarkSelectedRead);
     connect(m_pExportButton, &QPushButton::clicked,
             this, &UIMd3NotificationCentre::sltExportVisible);
+    connect(m_pClearButton, &QPushButton::clicked,
+            this, &UIMd3NotificationCentre::sltRequestClear);
     connect(this, &UIMd3NotificationCentre::sigChanged,
             this, &UIMd3NotificationCentre::sltRefreshDialog);
     if (UIMd3Language::instance())
@@ -587,6 +842,7 @@ void UIMd3NotificationCentre::showCentre(QWidget *pParent)
         m_pInvertSelectionButton = 0;
         m_pMarkSelectedReadButton = 0;
         m_pExportButton = 0;
+        m_pClearButton = 0;
         m_pSelectionSummary = 0;
     });
 
@@ -648,6 +904,13 @@ void UIMd3NotificationCentre::sltRetranslateUI()
         const QString strExport = md3NotificationText("md3.notifications.export", tr("Export view"));
         m_pExportButton->setText(strExport);
         m_pExportButton->setAccessibleName(strExport);
+    }
+    if (m_pClearButton)
+    {
+        const QString strClear = md3NotificationText("md3.notifications.clear", tr("Clear history"));
+        m_pClearButton->setText(strClear);
+        m_pClearButton->setAccessibleName(strClear);
+        m_pClearButton->setToolTip(strClear);
     }
     sltRefreshDialog();
 }

@@ -134,6 +134,8 @@ private slots:
     void sltMarkSelectedRead();
     /** Exports the selected records, or the visible filtered records. */
     void sltExportVisible();
+    /** Opens the app-owned super-confirmation before clearing all history. */
+    void sltRequestClear();
 
 private:
 
@@ -161,6 +163,7 @@ private:
     QPushButton *m_pInvertSelectionButton;
     QPushButton *m_pMarkSelectedReadButton;
     QPushButton *m_pExportButton;
+    QPushButton *m_pClearButton;
     QLabel *m_pSelectionSummary;
     QSet<QString> m_selectedIds;
 };

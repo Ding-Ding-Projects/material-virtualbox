@@ -61,7 +61,7 @@ jobs:
           if (-not (Test-Path doc/md3/WizardShell.md)) { throw 'Missing wizard shell article' }
           $notificationHeader = Get-Content src/VBox/Frontends/VirtualBox/src/md3/UIMd3NotificationCentre.h -Raw
           $notificationSource = Get-Content src/VBox/Frontends/VirtualBox/src/md3/UIMd3NotificationCentre.cpp -Raw
-          foreach ($pattern in @('class SHARED_LIBRARY_STUFF UIMd3NotificationCentre', 'post(', 'markAllRead', 'showCentre', 'g_iMaxPayload', 'QSaveFile', 'UIMd3SearchField', 'QCheckBox', 'sltSelectAllVisible', 'sltInvertVisibleSelection', 'sltExportVisible', 'visibleNoticeIds', 'm_selectedIds')) {
+          foreach ($pattern in @('class SHARED_LIBRARY_STUFF UIMd3NotificationCentre', 'post(', 'markAllRead', 'showCentre', 'g_iMaxPayload', 'QSaveFile', 'UIMd3SearchField', 'QCheckBox', 'sltSelectAllVisible', 'sltInvertVisibleSelection', 'sltExportVisible', 'visibleNoticeIds', 'm_selectedIds', 'sltRequestClear', 'QDialogButtonBox', 'QSlider', 'QProgressBar', 'Emergency exit', 'QAbstractAnimation::DeleteWhenStopped', 'clear()')) {
             if (($notificationHeader + $notificationSource) -notmatch [regex]::Escape($pattern)) { throw "Notification history contract missing: $pattern" }
           }
           if (-not (Test-Path doc/md3/NotificationCentre.md)) { throw 'Missing notification-center article' }

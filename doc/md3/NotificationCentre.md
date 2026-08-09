@@ -63,11 +63,21 @@ the active query; **Mark selected as read** persists the selected state. **Expor
 view** writes the selected rows when a selection exists, otherwise the visible
 filtered rows, as bounded versioned JSON through an atomic `QSaveFile`.
 
-The destructive **Clear history** action is intentionally not exposed yet: it
-needs the app-wide super-confirmation, local history record, and undo path
-before it can be a safe control. Transient toast presentation, bulk dismiss or
-delete, provider-authored markdown rendering, and full per-row accessibility
-roles remain later lanes.
+The destructive **Clear history** action is exposed through an app-owned
+super-confirmation. The dialog states the exact retained-record count and the
+`md3-notifications.json` target, requires two independently operated
+acknowledgements, keeps a full-range authorization slider disabled until both
+are checked, animates a bounded progress bar while the slider moves, and shows
+a distinct ready state at 100 percent. **Emergency exit** and Escape cancel
+the operation, and focus returns to **Clear history** after either cancellation
+or completion. Only the fully authorized path calls `clear()`; the ordinary
+review surface never clears records implicitly.
+
+The current model does not yet write an append-only local-Git history revision
+or provide a restore/undo command for a cleared record set. Transient toast
+presentation, bulk dismiss or delete, provider-authored markdown rendering,
+and full per-row accessibility roles remain later lanes. The absence of an undo
+is stated inside the gate so the user can make an informed destructive choice.
 
 ## Configuration and localization
 
@@ -92,8 +102,10 @@ uses Qt's regular-expression engine. The query stays in-process and is not
 persisted. The history file is written atomically beneath the app-data
 directory; persistence failure is non-blocking and is not reported as a false
 success. Export opens the native save picker, bounds the JSON payload, and
-fails closed if the destination cannot be written. Bulk dismiss/delete and
-destructive clear-history confirmation remain separate open lanes.
+fails closed if the destination cannot be written. Clear authorization is
+modal only because it is a destructive decision; the history model itself
+remains non-blocking. The missing local-Git revision/undo path is an explicit
+verification gap rather than a silently implied recovery guarantee.
 
 ## Verification
 
@@ -103,10 +115,10 @@ and
 `src/VBox/Frontends/VirtualBox/src/md3/UIMd3NotificationCentre.{h,cpp}`. The
 focused source contract checks the field wiring, the critical-item predicate,
 the bounded JSON model, selectable-row and export actions, lifecycle
-creation/destruction, and UICommon target ownership. UICommon and the root
-`VirtualBox` target are built through kBuild
-when the Deen No toolchain is available; native captures are intentionally
-deferred for this lane.
+creation/destruction, the two-acknowledgement/full-slider clear gate, focus
+return, and UICommon target ownership. UICommon and the root `VirtualBox`
+target are built through kBuild when the Windows toolchain is available; native
+captures are intentionally deferred for this lane.
 
 ## Suggested articles
 

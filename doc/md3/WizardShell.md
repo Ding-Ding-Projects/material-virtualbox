@@ -44,7 +44,7 @@ in the existing page widgets and renderer paths.
 `UIMd3Wizard.{h,cpp}` is listed in `UICommon_QT_MOCHDRS` and
 `UICommon_SOURCES`. `UINativeWizard` composes the shell while retaining every
 existing page and button contract. The focused Windows `UICommon` kBuild
-target is the required compile gate; native wizard HuiShots are deliberately
+target is the required compile gate; native wizard captures are deliberately
 deferred for the current task because the COM/SDS runtime boundary is not
 registered.
 

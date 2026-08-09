@@ -140,6 +140,13 @@ Rules for adding a changelog entry to make them look more uniform:
       </listitem>
 
       <listitem>
+        <para>GUI: Added an app-owned Clear history confirmation that states the
+          exact record count, requires two acknowledgements and a full-range
+          slider, animates authorization progress, and provides Emergency exit,
+          Escape cancellation, and focus return before clearing records</para>
+      </listitem>
+
+      <listitem>
         <para>GUI: Added the tab strip's Move into group picker with bounded
           search, member counts, a top-level target, and inline group creation</para>
       </listitem>
