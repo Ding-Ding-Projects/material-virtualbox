@@ -111,6 +111,14 @@ jobs:
             if ($notificationSource -notmatch $pattern) { throw "Notification search contract missing: $pattern" }
           }
            if (-not (Test-Path doc/md3/NotificationCentre.md)) { throw 'Missing notification-center article' }
+      - name: Validate notification row accessibility
+        shell: pwsh
+        run: |
+          $rowSource = Get-Content src/VBox/Frontends/VirtualBox/src/notificationcenter/UINotificationObjectItem.cpp -Raw
+          foreach ($pattern in @('setFocusPolicy(Qt::StrongFocus)', 'setAccessibleName', 'setAccessibleDescription', 'Press Enter, Return, or Space', 'QEvent::FocusIn', 'QEvent::FocusOut', 'QEvent::KeyPress', 'Qt::Key_Enter', 'Qt::Key_Return', 'Qt::Key_Space', 'hasFocus()', 'QPen', 'Notification details')) {
+            if ($rowSource -notmatch [regex]::Escape($pattern)) { throw "Notification row accessibility contract missing: $pattern" }
+          }
+          if (-not (Test-Path doc/md3/NotificationCentre.md)) { throw 'Missing notification-center article' }
       - name: Validate tab group picker integration
         shell: pwsh
         run: |

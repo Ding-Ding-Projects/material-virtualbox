@@ -57,11 +57,14 @@ The manager header's **Notifications** button opens `showCentre()`, a modeless,
 bounded review surface with its own `UIMd3SearchField`; plain text remains the
 default and the adjacent regex builder searches title, detail, and category
 locally. Rows use plain-text labels, preserve unread/error state, and expose an
-explicit **Mark all as read** action. Each row also has a keyboard-reachable
-selection checkbox. **Select visible** and **Invert selection** are scoped to
-the active query; **Mark selected as read** persists the selected state. **Export
-view** writes the selected rows when a selection exists, otherwise the visible
-filtered rows, as bounded versioned JSON through an atomic `QSaveFile`.
+explicit **Mark all as read** action. Each row now has a visible focus ring, an
+accessible name and description, and a keyboard disclosure path: <kbd>Enter</kbd>
+or <kbd>Space</kbd> expands or collapses its details without requiring a pointer.
+Each row also has a keyboard-reachable selection checkbox. **Select visible** and
+**Invert selection** are scoped to the active query; **Mark selected as read**
+persists the selected state. **Export view** writes the selected rows when a
+selection exists, otherwise the visible filtered rows, as bounded versioned JSON
+through an atomic `QSaveFile`.
 
 The destructive **Clear history** action is exposed through an app-owned
 super-confirmation. The dialog states the exact retained-record count and the
@@ -92,8 +95,8 @@ versioned palette, typography, density, named-theme, and per-element payload
 before applying it and recording the restore. Settings/runtime revisions remain
 export-only until their owning surfaces supply adapters; the browser never
 guesses how to apply unknown bytes. Transient toast presentation, bulk dismiss or delete,
-provider-authored markdown rendering, and full per-row accessibility roles
-remain later lanes.
+provider-authored markdown rendering, selection semantics for every row control,
+and full per-row restore accessibility remain later lanes.
 
 ## Configuration and localization
 
@@ -126,23 +129,26 @@ a destructive decision; the history model itself remains non-blocking. The
 shared local journal uses a fixed local Git identity, never configures a
 remote, and falls back to the atomic files when Git cannot initialize or
 commit. Surface-specific adapters for settings/runtime state, all-record diff
-views, retention controls, and full per-row restore accessibility remain
-explicit verification gaps.
+views, retention controls, selection semantics for every row control, and full
+per-row restore accessibility remain explicit verification gaps.
 
 ## Verification
 
 The implementation is in
 `src/VBox/Frontends/VirtualBox/src/notificationcenter/UINotificationCenter.{h,cpp}`
 and
-`src/VBox/Frontends/VirtualBox/src/md3/UIMd3NotificationCentre.{h,cpp}`. The
-focused source contract checks the field wiring, the critical-item predicate,
-the bounded JSON model, selectable-row/export/restore actions, the notification
+`src/VBox/Frontends/VirtualBox/src/md3/UIMd3NotificationCentre.{h,cpp}`, and
+`src/VBox/Frontends/VirtualBox/src/notificationcenter/UINotificationObjectItem.{h,cpp}`.
+The focused source contract checks the field wiring, the critical-item predicate,
+focusable row disclosure, keyboard Enter/Return/Space handling, visible focus,
+accessible names/descriptions, the bounded JSON model, selectable-row/export/restore actions, the notification
 history restore adapter, the shared
 `UIMd3History` lifecycle and SHA-256 journal, the two-acknowledgement/full-
 slider clear gate, focus return, and UICommon target ownership. UICommon and
-the root `VirtualBox`/`VirtualBoxVM` targets are built through kBuild when the
-Windows toolchain is available; native captures are intentionally deferred for
-this lane.
+the changed `UINotificationObjectItem.cpp` object was compiled through kBuild
+with the Windows toolchain. A full UICommon target run remains blocked by Qt
+6.8's `qnumeric.h` C4668 warning being promoted to an error in unrelated
+translation units; native captures are intentionally deferred for this lane.
 
 ## Suggested articles
 

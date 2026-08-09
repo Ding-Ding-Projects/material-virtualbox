@@ -8,7 +8,8 @@ application-owned presentation toward one coherent Qt 6 design system.
 > **Implementation status:** the shared theme, style, language, persisted brand,
 > native manager title bar, manager navigation rail, manager tab strip, command
 > palette, appearance editor, shared settings search/regex field, and the
-> notification-center search are wired into the existing VirtualBox frontend.
+> notification-center search and keyboard-accessible notification rows are wired
+> into the existing VirtualBox frontend.
 > Wizard, tool, and runtime shells remain in progress; the local history
 > browser now restores validated notification and appearance/theme revisions
 > through their owning services.
@@ -102,7 +103,9 @@ selected-read updates, and bounded JSON export. **Clear history** uses an
 app-owned destructive gate with the exact record count, two acknowledgements,
 a full-range slider, animated progress, Emergency exit/Escape, and focus return;
 the review surface also offers one bounded **Undo last clear** recovery
-snapshot. The shared [`doc/md3/History.md`](doc/md3/History.md) journal records
+snapshot. Legacy notification rows expose an accessible name, visible keyboard
+focus, and Enter/Return/Space details disclosure; pointer-only expansion is no
+longer required. The shared [`doc/md3/History.md`](doc/md3/History.md) journal records
 clear, restore, and later notification-change revisions in an isolated local
 Git repository when Git is available, with an atomic-file fallback. The full
 history browser is now reachable with `Ctrl+H` and from the command palette;
@@ -110,7 +113,8 @@ it provides plain-text-first search with the anchored regex builder,
 action/date filters, bounded JSONL export, integrity verification, and a
 validated Restore notification and appearance/theme state actions for supported
 revisions. Surface-specific settings/runtime restore adapters, provider-authored
-rendering, bulk dismiss/delete, and native capture remain open lanes. This is
+rendering, bulk dismiss/delete, complete row selection/restore semantics, and
+native capture remain open lanes. This is
 not a claim that the legacy notification surface has been fully replaced.
 
 The existing New VM, New virtual disk, clone, import, and export flows now

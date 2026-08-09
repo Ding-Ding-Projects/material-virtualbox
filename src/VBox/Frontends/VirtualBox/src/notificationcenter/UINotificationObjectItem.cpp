@@ -30,9 +30,11 @@
 #include <QCheckBox>
 #include <QFont>
 #include <QHBoxLayout>
+#include <QKeyEvent>
 #include <QLabel>
 #include <QPainter>
 #include <QPaintEvent>
+#include <QPen>
 #include <QProgressBar>
 #include <QPushButton>
 #include <QStyle>
@@ -84,6 +86,8 @@ void UINotificationObjectItem::prepare()
 {
     /* Make sure item is opaque. */
     setAutoFillBackground(true);
+    /* Make the row itself reachable so details do not depend on a pointer. */
+    setFocusPolicy(Qt::StrongFocus);
 
     /* Prepare everything: */
     prepareWidgets();
@@ -117,9 +121,31 @@ void UINotificationObjectItem::setItemWidthHint(int iHint)
 
 void UINotificationObjectItem::sltRetranslateUI()
 {
+    /* Keep the row accessible name in sync with its visible primary label. */
+    const QString strAccessibleName = m_pLabelName && !m_pLabelName->text().isEmpty()
+                                    ? m_pLabelName->text()
+                                    : QApplication::translate("UIMessageCenter", "Notification");
+    setAccessibleName(strAccessibleName);
+    setAccessibleDescription(QApplication::translate("UIMessageCenter",
+                                                     "Press Enter, Return, or Space to expand or collapse notification details."));
+
+    /* Translate the details region: */
+    if (m_pLabelDetails)
+        m_pLabelDetails->setAccessibleName(QApplication::translate("UIMessageCenter", "Notification details"));
+
+    /* Translate help-control: */
+    if (m_pButtonHelp)
+    {
+        m_pButtonHelp->setToolTip(QApplication::translate("UIMessageCenter", "Open help for this notification"));
+        m_pButtonHelp->setAccessibleName(QApplication::translate("UIMessageCenter", "Open help for this notification"));
+    }
+
     /* Translate close-button: */
     if (m_pButtonClose)
+    {
         m_pButtonClose->setToolTip(QApplication::translate("UIMessageCenter", "Close"));
+        m_pButtonClose->setAccessibleName(QApplication::translate("UIMessageCenter", "Close notification"));
+    }
 }
 
 void UINotificationObjectItem::prepareWidgets()
@@ -242,10 +268,36 @@ bool UINotificationObjectItem::event(QEvent *pEvent)
             update();
             break;
         }
+        case QEvent::FocusIn:
+        case QEvent::FocusOut:
+        {
+            update();
+            break;
+        }
+        case QEvent::KeyPress:
+        {
+            QKeyEvent *pKeyEvent = static_cast<QKeyEvent *>(pEvent);
+            if (   m_pLabelDetails
+                && !m_pLabelDetails->text().isEmpty()
+                && (pKeyEvent->key() == Qt::Key_Enter
+                    || pKeyEvent->key() == Qt::Key_Return
+                    || pKeyEvent->key() == Qt::Key_Space))
+            {
+                m_fToggled = !m_fToggled;
+                m_pLabelDetails->setVisible(m_fToggled);
+                pKeyEvent->accept();
+                update();
+                return true;
+            }
+            break;
+        }
         case QEvent::MouseButtonRelease:
         {
-            m_fToggled = !m_fToggled;
-            m_pLabelDetails->setVisible(m_fToggled && !m_pLabelDetails->text().isEmpty());
+            if (m_pLabelDetails)
+            {
+                m_fToggled = !m_fToggled;
+                m_pLabelDetails->setVisible(m_fToggled && !m_pLabelDetails->text().isEmpty());
+            }
             break;
         }
         default:
@@ -300,14 +352,16 @@ void UINotificationObjectItem::paintEvent(QPaintEvent *pPaintEvent)
     painter.fillRect(effectiveRect, grad);
 
     /* If item is hovered: */
-    if (m_fHovered)
+    if (m_fHovered || hasFocus())
     {
         /* Gather suitable color: */
         QColor color3 = pal.color(fActive ? QPalette::Active : QPalette::Inactive, QPalette::Highlight);
-        /* Override painter pen: */
-        painter.setPen(color3);
+        /* Make keyboard focus visibly stronger than hover. */
+        QPen pen(color3);
+        pen.setWidth(hasFocus() ? 2 : 1);
+        painter.setPen(pen);
         /* Draw frame: */
-        painter.drawRect(effectiveRect);
+        painter.drawRect(hasFocus() ? effectiveRect.adjusted(1, 1, -1, -1) : effectiveRect);
     }
 }
 
