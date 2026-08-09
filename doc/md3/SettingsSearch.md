@@ -4,6 +4,8 @@ The Global Preferences and Machine Settings shell now uses the shared `UIMd3Sear
 
 The `.*` affordance opens a non-blocking, anchored `UIMd3RegexBuilder` for that field. It accepts a bounded pattern, the supported `i`, `m`, `s`, and `x` flags, and sample text. Validation is local through Qt's `QRegularExpression`; invalid patterns stay in the builder and are not applied. Applying a valid pattern keeps the query and flags attached to that field, while **Use plain text** returns to the normal case-insensitive literal match. A field never shares regex state with another search surface.
 
+The same settings header exposes the persisted language mode (English, Hong Kong Cantonese, or bilingual) and two independent 1–5 funny-level sliders. They call the shared `UIMd3Language` instance directly, emit live change notifications, and restore their values through the existing extra-data lifecycle rather than a second preferences store.
+
 ## Behavior and failure modes
 
 - Patterns and samples are capped at 4096 characters and flags at 16 characters.

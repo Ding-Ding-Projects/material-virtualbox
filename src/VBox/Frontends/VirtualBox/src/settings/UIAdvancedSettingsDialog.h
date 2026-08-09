@@ -40,6 +40,7 @@
 
 /* Forward declarations: */
 class QGridLayout;
+class QComboBox;
 class QProgressBar;
 class QShowEvent;
 class QStackedWidget;
@@ -48,6 +49,7 @@ class QIDialogButtonBox;
 class UIFilterEditor;
 class UIMd3SearchField;
 class UIModeCheckBox;
+class QSlider;
 class UINotificationCenter;
 class UIPopupCenter;
 class UISettingsPage;
@@ -309,6 +311,13 @@ private:
 
         /** Holds the filter editor instance. */
         UIMd3SearchField *m_pEditorFilter;
+
+        /** Holds the persisted language-mode selector. */
+        QComboBox *m_pLanguageMode;
+        /** Holds the independent English playfulness control. */
+        QSlider *m_pEnglishFunny;
+        /** Holds the independent Cantonese playfulness control. */
+        QSlider *m_pCantoneseFunny;
 
         /** Holds the scroll-area instance. */
         UIVerticalScrollArea *m_pScrollArea;

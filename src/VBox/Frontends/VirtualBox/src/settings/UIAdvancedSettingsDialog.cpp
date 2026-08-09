@@ -43,6 +43,7 @@
 #include <QPushButton>
 #include <QScrollArea>
 #include <QScrollBar>
+#include <QSignalBlocker>
 #include <QSlider>
 #include <QSpinBox>
 #include <QStackedWidget>
@@ -73,6 +74,7 @@
 #include "UIShortcutPool.h"
 #include "UITranslationEventListener.h"
 #include "UIMd3SearchField.h"
+#include "UIMd3Language.h"
 
 
 /** QCheckBox subclass used as mode checkbox. */
@@ -826,6 +828,9 @@ UIAdvancedSettingsDialog::UIAdvancedSettingsDialog(QWidget *pParent,
     , m_pLayoutMain(0)
     , m_pCheckBoxMode(0)
     , m_pEditorFilter(0)
+    , m_pLanguageMode(0)
+    , m_pEnglishFunny(0)
+    , m_pCantoneseFunny(0)
     , m_pScrollArea(0)
     , m_pScrollViewport(0)
     , m_pButtonBox(0)
@@ -1039,6 +1044,21 @@ void UIAdvancedSettingsDialog::sltRetranslateUI()
     /* Translate filter editor placeholder: */
     if (m_pEditorFilter)
         m_pEditorFilter->setPlaceholderText(tr("Search settings"));
+
+    if (m_pLanguageMode)
+    {
+        const int iCurrent = (int)md3Language().mode();
+        QSignalBlocker blocker(m_pLanguageMode);
+        m_pLanguageMode->clear();
+        m_pLanguageMode->addItem(tr("English"));
+        m_pLanguageMode->addItem(tr("Hong Kong Cantonese"));
+        m_pLanguageMode->addItem(tr("Bilingual"));
+        m_pLanguageMode->setCurrentIndex(iCurrent);
+    }
+    if (m_pEnglishFunny)
+        m_pEnglishFunny->setToolTip(tr("English funny level (1 serious, 5 playful)"));
+    if (m_pCantoneseFunny)
+        m_pCantoneseFunny->setToolTip(tr("Cantonese funny level (1 serious, 5 playful)"));
 
     /* Translate warning-pane stuff: */
     m_pWarningPane->setWarningLabelText(tr("Invalid settings detected"));
@@ -1581,6 +1601,53 @@ void UIAdvancedSettingsDialog::prepareSelector()
         connect(m_pEditorFilter, &UIMd3SearchField::sigFilterChanged,
                 this, &UIAdvancedSettingsDialog::sltApplyFilteringRules);
         m_pLayoutMain->addWidget(m_pEditorFilter, 0, 2);
+    }
+
+    /* Prepare persisted language and independent funny-level controls. */
+    QWidget *pLanguagePanel = new QWidget(centralWidget());
+    if (pLanguagePanel)
+    {
+        QHBoxLayout *pLanguageLayout = new QHBoxLayout(pLanguagePanel);
+        pLanguageLayout->setContentsMargins(0, 0, 0, 0);
+        pLanguageLayout->setSpacing(6);
+        m_pLanguageMode = new QComboBox(pLanguagePanel);
+        m_pLanguageMode->setAccessibleName(tr("Language mode"));
+        pLanguageLayout->addWidget(m_pLanguageMode);
+        m_pEnglishFunny = new QSlider(Qt::Horizontal, pLanguagePanel);
+        m_pEnglishFunny->setRange(1, 5);
+        m_pEnglishFunny->setValue(md3Language().playfulness());
+        m_pEnglishFunny->setAccessibleName(tr("English funny level"));
+        pLanguageLayout->addWidget(m_pEnglishFunny);
+        m_pCantoneseFunny = new QSlider(Qt::Horizontal, pLanguagePanel);
+        m_pCantoneseFunny->setRange(1, 5);
+        m_pCantoneseFunny->setValue(md3Language().cantonesePlayfulness());
+        m_pCantoneseFunny->setAccessibleName(tr("Cantonese funny level"));
+        pLanguageLayout->addWidget(m_pCantoneseFunny);
+        m_pLayoutMain->addWidget(pLanguagePanel, 0, 1);
+        connect(m_pLanguageMode, qOverload<int>(&QComboBox::currentIndexChanged), this,
+                [](int iIndex) { md3Language().setMode((UIMd3LanguageMode)iIndex); });
+        connect(m_pEnglishFunny, &QSlider::valueChanged, this,
+                [](int iValue) { md3Language().setPlayfulness(iValue); });
+        connect(m_pCantoneseFunny, &QSlider::valueChanged, this,
+                [](int iValue) { md3Language().setCantonesePlayfulness(iValue); });
+        connect(&md3Language(), &UIMd3Language::sigLanguageChanged, this, [this]()
+        {
+            if (m_pLanguageMode)
+            {
+                QSignalBlocker blocker(m_pLanguageMode);
+                m_pLanguageMode->setCurrentIndex((int)md3Language().mode());
+            }
+            if (m_pEnglishFunny)
+            {
+                QSignalBlocker blocker(m_pEnglishFunny);
+                m_pEnglishFunny->setValue(md3Language().playfulness());
+            }
+            if (m_pCantoneseFunny)
+            {
+                QSignalBlocker blocker(m_pCantoneseFunny);
+                m_pCantoneseFunny->setValue(md3Language().cantonesePlayfulness());
+            }
+        });
     }
 
     /* Configure selector created above: */

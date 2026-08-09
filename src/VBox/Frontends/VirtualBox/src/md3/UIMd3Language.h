@@ -94,5 +94,7 @@ private:
 
 /** Convenience accessor used at every call site. */
 inline QString md3Text(const QString &strKey) { return UIMd3Language::instance()->text(strKey); }
+/** Convenience reference for settings controls and live language updates. */
+inline UIMd3Language &md3Language() { return *UIMd3Language::instance(); }
 
 #endif /* !FEQT_INCLUDED_SRC_md3_UIMd3Language_h */
