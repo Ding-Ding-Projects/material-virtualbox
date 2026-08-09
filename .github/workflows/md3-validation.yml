@@ -81,7 +81,16 @@ jobs:
           foreach ($pattern in @('UIMd3SearchField', 'updateItemVisibility', 'pObject->name\(\)', 'pObject->details\(\)', 'pObject->internalName\(\)', 'pObject->helpKeyword\(\)', 'isExtendedMode\(\) \|\| pItem->isCritical\(\)', 'UIMd3NotificationCentre::instance\(\)->post', 'fPersistHistory')) {
             if ($notificationSource -notmatch $pattern) { throw "Notification search contract missing: $pattern" }
           }
-          if (-not (Test-Path doc/md3/NotificationCentre.md)) { throw 'Missing notification-center article' }
+           if (-not (Test-Path doc/md3/NotificationCentre.md)) { throw 'Missing notification-center article' }
+      - name: Validate tab group picker integration
+        shell: pwsh
+        run: |
+          $tabHeader = Get-Content src/VBox/Frontends/VirtualBox/src/md3/UIMd3TabStrip.h -Raw
+          $tabSource = Get-Content src/VBox/Frontends/VirtualBox/src/md3/UIMd3TabStrip.cpp -Raw
+          foreach ($pattern in @('showGroupPicker', 'Move… into group…', 'tab-group-picker', 'QListWidget', 'createGroup', 'member')) {
+            if (($tabHeader + $tabSource) -notmatch [regex]::Escape($pattern)) { throw "Tab group picker contract missing: $pattern" }
+          }
+          if (-not (Test-Path doc/md3/TabNavigation.md)) { throw 'Missing tab-navigation article' }
       - name: Collect safe validation evidence
         if: ${{ always() }}
         continue-on-error: true

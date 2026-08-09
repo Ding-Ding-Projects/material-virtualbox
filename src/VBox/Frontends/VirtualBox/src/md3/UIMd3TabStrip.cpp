@@ -22,18 +22,26 @@
  * SPDX-License-Identifier: GPL-3.0-only
  */
 
+#include <QAbstractItemView>
 #include <QContextMenuEvent>
+#include <QDialog>
+#include <QDialogButtonBox>
 #include <QFontMetrics>
 #include <QHash>
+#include <QHBoxLayout>
 #include <QJsonArray>
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QKeyEvent>
 #include <QKeySequence>
+#include <QLabel>
 #include <QLineEdit>
+#include <QListWidget>
 #include <QMenu>
 #include <QMouseEvent>
 #include <QPainter>
+#include <QPalette>
+#include <QPushButton>
 #include <QRegularExpression>
 #include <QVBoxLayout>
 #include <QWidgetAction>
@@ -563,6 +571,133 @@ void UIMd3TabStrip::showOverflowMenu()
     menu.exec(mapToGlobal(QPoint(width() - 44, height())));
 }
 
+void UIMd3TabStrip::showGroupPicker(const QString &strTabId)
+{
+    QDialog dialog(this, Qt::Tool | Qt::WindowTitleHint | Qt::WindowCloseButtonHint);
+    dialog.setObjectName(QStringLiteral("md3TabGroupPicker"));
+    dialog.setWindowTitle(tr("Move tab into group"));
+    dialog.setAccessibleName(tr("Move tab into group"));
+    dialog.setMinimumSize(QSize(440, 420));
+    dialog.setAutoFillBackground(true);
+    QPalette palette = dialog.palette();
+    palette.setColor(QPalette::Window, md3(UIMd3ColorRole_SurfaceContainer));
+    palette.setColor(QPalette::Base, md3(UIMd3ColorRole_SurfaceContainer));
+    dialog.setPalette(palette);
+
+    QVBoxLayout *pRootLayout = new QVBoxLayout(&dialog);
+    pRootLayout->setContentsMargins(md3Theme().gutter(), md3Theme().gutter(),
+                                    md3Theme().gutter(), md3Theme().gutter());
+    pRootLayout->setSpacing(8);
+
+    QLabel *pHeading = new QLabel(tr("Choose an existing group or create one"), &dialog);
+    pHeading->setFont(md3Theme().font(UIMd3TypeRole_HeadlineSmall));
+    pRootLayout->addWidget(pHeading);
+
+    UIMd3SearchField *pSearch = new UIMd3SearchField(QStringLiteral("tab-group-picker"),
+                                                     tr("Search groups"), &dialog);
+    pRootLayout->addWidget(pSearch);
+
+    QLabel *pEmpty = new QLabel(tr("No groups yet. Create one below."), &dialog);
+    pEmpty->setWordWrap(true);
+    pEmpty->setAccessibleName(pEmpty->text());
+    pRootLayout->addWidget(pEmpty);
+
+    QListWidget *pGroups = new QListWidget(&dialog);
+    pGroups->setObjectName(QStringLiteral("md3TabGroupPickerList"));
+    pGroups->setAccessibleName(tr("Move target groups"));
+    pGroups->setSelectionMode(QAbstractItemView::SingleSelection);
+    pRootLayout->addWidget(pGroups, 1);
+
+    QHBoxLayout *pCreateLayout = new QHBoxLayout;
+    pCreateLayout->setContentsMargins(0, 0, 0, 0);
+    QLineEdit *pNewGroup = new QLineEdit(&dialog);
+    pNewGroup->setPlaceholderText(tr("New group name"));
+    pNewGroup->setAccessibleName(tr("New group name"));
+    QPushButton *pCreate = new QPushButton(tr("Create group"), &dialog);
+    pCreate->setAccessibleName(tr("Create group"));
+    pCreateLayout->addWidget(pNewGroup, 1);
+    pCreateLayout->addWidget(pCreate);
+    pRootLayout->addLayout(pCreateLayout);
+
+    QDialogButtonBox *pButtons = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel,
+                                                      Qt::Horizontal, &dialog);
+    pButtons->button(QDialogButtonBox::Ok)->setText(tr("Move"));
+    pButtons->button(QDialogButtonBox::Ok)->setAccessibleName(tr("Move tab into selected group"));
+    pButtons->button(QDialogButtonBox::Cancel)->setAccessibleName(tr("Cancel moving tab"));
+    pRootLayout->addWidget(pButtons);
+
+    const auto populate = [this, pGroups, pEmpty, pSearch]()
+    {
+        const QString strQuery = pSearch->text();
+        pGroups->clear();
+        QListWidgetItem *pNoGroup = new QListWidgetItem(tr("No group (top level)"), pGroups);
+        pNoGroup->setData(Qt::UserRole, QString());
+        pNoGroup->setToolTip(tr("Keep this tab outside a group"));
+        int cGroups = 0;
+        for (const UIMd3TabGroup &group : m_groups)
+        {
+            int cMembers = 0;
+            for (const UIMd3Tab &tab : m_tabs)
+                if (tab.strGroupId == group.strId)
+                    ++cMembers;
+            const QString strLabel = QStringLiteral("%1 · %2 · %3")
+                                   .arg(group.strName,
+                                        group.color.name(QColor::HexRgb),
+                                        tr("%1 members").arg(cMembers));
+            QListWidgetItem *pItem = new QListWidgetItem(strLabel, pGroups);
+            pItem->setData(Qt::UserRole, group.strId);
+            pItem->setToolTip(tr("%1, color %2, %3 members")
+                              .arg(group.strName, group.color.name(QColor::HexRgb))
+                              .arg(cMembers));
+            ++cGroups;
+        }
+        pEmpty->setVisible(cGroups == 0);
+        for (int i = 0; i < pGroups->count(); ++i)
+        {
+            QListWidgetItem *pItem = pGroups->item(i);
+            pItem->setHidden(!strQuery.isEmpty() && !pSearch->matches(pItem->text()));
+        }
+        if (pGroups->currentRow() < 0)
+            pGroups->setCurrentRow(0);
+    };
+    connect(pSearch, &UIMd3SearchField::sigFilterChanged, &dialog, populate);
+    connect(pGroups, &QListWidget::currentRowChanged, &dialog,
+            [pButtons](int iRow)
+    {
+        pButtons->button(QDialogButtonBox::Ok)->setEnabled(iRow >= 0);
+    });
+    connect(pCreate, &QPushButton::clicked, &dialog,
+            [this, pNewGroup, pGroups, populate]()
+    {
+        const QString strGroupId = createGroup(pNewGroup->text());
+        if (strGroupId.isEmpty())
+            return;
+        pNewGroup->clear();
+        populate();
+        for (int i = 0; i < pGroups->count(); ++i)
+            if (pGroups->item(i)->data(Qt::UserRole).toString() == strGroupId)
+            {
+                pGroups->setCurrentRow(i);
+                break;
+            }
+    });
+    connect(pButtons, &QDialogButtonBox::accepted, &dialog,
+            [this, &dialog, pGroups, strTabId]()
+    {
+        QListWidgetItem *pItem = pGroups->currentItem();
+        if (!pItem)
+            return;
+        moveToGroup(strTabId, pItem->data(Qt::UserRole).toString());
+        dialog.accept();
+    });
+    connect(pButtons, &QDialogButtonBox::rejected, &dialog, &QDialog::reject);
+
+    populate();
+    pGroups->setCurrentRow(0);
+    pSearch->setFocus(Qt::OtherFocusReason);
+    dialog.exec();
+}
+
 void UIMd3TabStrip::mousePressEvent(QMouseEvent *pEvent)
 {
     const QString strId = tabAt(pEvent->position().toPoint());
@@ -649,6 +784,7 @@ void UIMd3TabStrip::contextMenuEvent(QContextMenuEvent *pEvent)
     pSearchAction->setDefaultWidget(pSearch);
     menu.addAction(pSearchAction);
     QAction *pPin = menu.addAction(selected.fPinned ? tr("Unpin tab") : tr("Pin tab"));
+    QAction *pMove = menu.addAction(tr("Move… into group…"));
     QAction *pClose = menu.addAction(tr("Close tab"));
     QAction *pEdit = menu.addAction(tr("Edit tab appearance…"));
     if (selected.fPinned)
@@ -659,13 +795,15 @@ void UIMd3TabStrip::contextMenuEvent(QContextMenuEvent *pEvent)
     pEdit->setStatusTip(tr("Edit appearance for %1").arg(selected.strLabel));
     pEdit->setShortcut(QKeySequence(Qt::SHIFT | Qt::Key_F10));
     connect(pSearch, &UIMd3SearchField::sigFilterChanged, this,
-            [pSearch, pPin, pClose, pEdit]()
+            [pSearch, pPin, pMove, pClose, pEdit]()
     {
         pPin->setVisible(pSearch->matches(pPin->text()));
+        pMove->setVisible(pSearch->matches(pMove->text()));
         pClose->setVisible(pSearch->matches(pClose->text()));
         pEdit->setVisible(pSearch->matches(pEdit->text()));
     });
     connect(pPin, &QAction::triggered, this, [this, strId]() { togglePinned(strId); });
+    connect(pMove, &QAction::triggered, this, [this, strId]() { showGroupPicker(strId); });
     connect(pClose, &QAction::triggered, this, [this, strId]() { closeTab(strId); });
     connect(pEdit, &QAction::triggered, this, [this, strId]()
     {

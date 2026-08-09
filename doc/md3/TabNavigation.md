@@ -19,8 +19,10 @@ global-tools surface. It is implemented by
   existing chooser and expert-mode restrictions into disabled tab states, so a
   tab cannot bypass the underlying `UITools` policy.
 - Tab actions include a local search field, pin or unpin, close, and
-  `Edit tab appearance…`. Shift+right-click opens the appearance editor for
-  the selected tab.
+  `Edit tab appearance…`. `Move… into group…` opens a real keyboard-operable
+  picker with its own bounded regex-capable search field, member counts, color
+  labels, a no-group target, and an inline create-group path. Shift+right-click
+  opens the appearance editor for the selected tab.
 - Right-clicking strip chrome opens the strip appearance editor and a searchable
   group expand/collapse menu; every one of those local menus uses the shared
   anchored regex builder.
@@ -49,10 +51,10 @@ destinations before this model is reused there.
 The MD3 validation workflow checks the tab-strip source and MOC header are
 wired into `UICommon`, and the native `VirtualBox` target has compiled the
 new translation unit and its Qt MOC output. Full tab management remains in
-progress: the four independent tab-discovery searches, drag reordering, full
-group creation/move picker, bulk-close preview/confirmation, vertical docking,
-per-tab `QAccessible::PageTab` children, surface-scoped persistence, and
-runtime-window adoption still need
+progress: the four independent tab-discovery searches, drag reordering, group
+rename/delete/reorder surfaces, bulk-close preview/confirmation, vertical
+docking, per-tab `QAccessible::PageTab` children, surface-scoped persistence,
+and runtime-window adoption still need
 their own production lanes. The current strip does provide an interactive
 overflow menu, group expand/collapse menu, visible focus ring, and
 restriction-aware enabled states.

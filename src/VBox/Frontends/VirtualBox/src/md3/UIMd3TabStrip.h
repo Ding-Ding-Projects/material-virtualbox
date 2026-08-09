@@ -100,6 +100,7 @@ private:
     QRect tabRect(const QString &strId) const;
     QString tabAt(const QPoint &position) const;
     void showOverflowMenu();
+    void showGroupPicker(const QString &strTabId);
     void announceModelChanged();
 
     QList<UIMd3Tab>      m_tabs;
