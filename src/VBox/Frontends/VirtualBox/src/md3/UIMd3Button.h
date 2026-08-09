@@ -59,6 +59,9 @@ public:
     void setIcon(const QIcon &icon);
     void setVariant(UIMd3ButtonVariant enmVariant);
     void setEnabledState(bool fEnabled);
+    /** Keeps a row focusable while preventing activation (for unavailable commands). */
+    void setActivationEnabled(bool fEnabled);
+    bool isActivationEnabled() const { return m_fActivationEnabled; }
 
     virtual QSize sizeHint() const RT_OVERRIDE;
     virtual QSize minimumSizeHint() const RT_OVERRIDE;
@@ -77,6 +80,7 @@ private:
     QString m_strText;
     QIcon m_icon;
     UIMd3ButtonVariant m_enmVariant;
+    bool m_fActivationEnabled;
 };
 
 #endif /* !FEQT_INCLUDED_SRC_md3_UIMd3Button_h */

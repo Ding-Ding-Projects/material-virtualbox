@@ -42,8 +42,47 @@
 
 #include "UIMd3Button.h"
 #include "UIMd3CommandPalette.h"
+#include "UIMd3Language.h"
 #include "UIMd3SearchField.h"
 #include "UIMd3Theme.h"
+
+static void registerMd3PaletteTexts()
+{
+    if (!UIMd3Language::instance())
+        return;
+    UIMd3Language::instance()->registerText(QStringLiteral("md3.palette.title"),
+                                            QStringLiteral("Command palette"),
+                                            QStringLiteral("指令調色盤"));
+    UIMd3Language::instance()->registerText(QStringLiteral("md3.palette.search"),
+                                            QStringLiteral("Search commands, machines, tools and settings"),
+                                            QStringLiteral("搜尋指令、虛擬機、工具同設定"));
+    UIMd3Language::instance()->registerText(QStringLiteral("md3.palette.search-name"),
+                                            QStringLiteral("Command palette search"),
+                                            QStringLiteral("指令調色盤搜尋"));
+    UIMd3Language::instance()->registerText(QStringLiteral("md3.palette.category"),
+                                            QStringLiteral("Command category"),
+                                            QStringLiteral("指令分類"));
+    UIMd3Language::instance()->registerText(QStringLiteral("md3.palette.unavailable"),
+                                            QStringLiteral("This command is unavailable on the current surface."),
+                                            QStringLiteral("呢個指令喺目前畫面未能使用。"));
+    UIMd3Language::instance()->registerText(QStringLiteral("md3.palette.activate"),
+                                            QStringLiteral("Activate %1 from %2."),
+                                            QStringLiteral("由 %2 啟用 %1。"));
+    UIMd3Language::instance()->registerText(QStringLiteral("md3.palette.unavailable-format"),
+                                            QStringLiteral("%1 Unavailable: %2"),
+                                            QStringLiteral("%1 未能使用：%2"));
+    UIMd3Language::instance()->registerText(QStringLiteral("md3.palette.empty"),
+                                            QStringLiteral("No command matches this search."),
+                                            QStringLiteral("搵唔到符合呢個搜尋嘅指令。"));
+    UIMd3Language::instance()->registerText(QStringLiteral("md3.palette.empty-name"),
+                                            QStringLiteral("No command matches this search"),
+                                            QStringLiteral("搵唔到符合呢個搜尋嘅指令"));
+}
+
+static QString md3PaletteText(const QString &strKey, const QString &strFallback)
+{
+    return UIMd3Language::instance() ? md3Text(strKey) : strFallback;
+}
 
 UIMd3CommandPalette *UIMd3CommandPalette::s_pInstance = 0;
 
@@ -99,14 +138,17 @@ void UIMd3CommandPalette::showPalette(QWidget *pParent)
     pPalette->m_pOrigin = QApplication::focusWidget();
     pPalette->setParent(pParent, Qt::Dialog);
     pPalette->sltRefresh();
-    pPalette->adjustSize();
     QScreen *pScreen = pParent ? pParent->screen() : 0;
     if (!pScreen)
         pScreen = QGuiApplication::primaryScreen();
     const QRect available = pScreen ? pScreen->availableGeometry() : QRect(0, 0, 1280, 720);
+    const int iAvailableWidth = qMax(1, available.width() - 24);
+    const int iAvailableHeight = qMax(1, available.height() - 24);
+    pPalette->setMinimumSize(qMin(420, iAvailableWidth), qMin(280, iAvailableHeight));
+    pPalette->adjustSize();
     QSize boundedSize = pPalette->size();
-    boundedSize.setWidth(qMin(boundedSize.width(), qMax(320, available.width() - 24)));
-    boundedSize.setHeight(qMin(boundedSize.height(), qMax(240, available.height() - 24)));
+    boundedSize.setWidth(qMin(boundedSize.width(), iAvailableWidth));
+    boundedSize.setHeight(qMin(boundedSize.height(), iAvailableHeight));
     pPalette->resize(boundedSize);
     QPoint position = available.center() - QPoint(pPalette->width() / 2, pPalette->height() / 2);
     if (pParent)
@@ -127,16 +169,22 @@ void UIMd3CommandPalette::showPalette(QWidget *pParent)
 
 UIMd3CommandPalette::UIMd3CommandPalette()
     : QDialog(0)
+    , m_pTitle(0)
     , m_pSearchField(0)
     , m_pResultLayout(0)
 {
-    setWindowTitle(tr("Command palette"));
-    setAccessibleName(tr("Command palette"));
-    setAccessibleDescription(tr("Search and activate commands from the current VirtualBox surface."));
+    registerMd3PaletteTexts();
+    setWindowTitle(md3PaletteText(QStringLiteral("md3.palette.title"), tr("Command palette")));
+    setAccessibleName(md3PaletteText(QStringLiteral("md3.palette.title"), tr("Command palette")));
+    setAccessibleDescription(md3PaletteText(QStringLiteral("md3.palette.search"),
+                                             tr("Search and activate commands from the current VirtualBox surface.")));
     setWindowFlag(Qt::Tool, true);
     setModal(false);
     setAttribute(Qt::WA_DeleteOnClose, false);
     prepare();
+    if (UIMd3Language::instance())
+        connect(UIMd3Language::instance(), &UIMd3Language::sigLanguageChanged,
+                this, &UIMd3CommandPalette::sltRetranslateUI, Qt::UniqueConnection);
 }
 
 UIMd3CommandPalette::~UIMd3CommandPalette()
@@ -153,13 +201,16 @@ void UIMd3CommandPalette::prepare()
     pLayout->setContentsMargins(24, 22, 24, 22);
     pLayout->setSpacing(12);
 
-    QLabel *pTitle = new QLabel(tr("Command palette"), this);
-    pTitle->setFont(md3Theme().font(UIMd3TypeRole_HeadlineSmall));
-    pLayout->addWidget(pTitle);
+    m_pTitle = new QLabel(md3PaletteText(QStringLiteral("md3.palette.title"), tr("Command palette")), this);
+    m_pTitle->setObjectName(QStringLiteral("md3CommandPaletteTitle"));
+    m_pTitle->setFont(md3Theme().font(UIMd3TypeRole_HeadlineSmall));
+    pLayout->addWidget(m_pTitle);
 
     m_pSearchField = new UIMd3SearchField(QStringLiteral("command-palette"),
-                                           tr("Search commands, machines, tools and settings"), this);
-    m_pSearchField->setAccessibleName(tr("Command palette search"));
+                                           md3PaletteText(QStringLiteral("md3.palette.search"),
+                                                          tr("Search commands, machines, tools and settings")), this);
+    m_pSearchField->setAccessibleName(md3PaletteText(QStringLiteral("md3.palette.search-name"),
+                                                     tr("Command palette search")));
     m_pSearchField->installEventFilter(this);
     if (m_pSearchField->focusProxy())
         m_pSearchField->focusProxy()->installEventFilter(this);
@@ -178,6 +229,26 @@ void UIMd3CommandPalette::prepare()
     pLayout->addWidget(pScroll, 1);
 }
 
+void UIMd3CommandPalette::sltRetranslateUI()
+{
+    registerMd3PaletteTexts();
+    const QString strTitle = md3PaletteText(QStringLiteral("md3.palette.title"), tr("Command palette"));
+    setWindowTitle(strTitle);
+    setAccessibleName(strTitle);
+    setAccessibleDescription(md3PaletteText(QStringLiteral("md3.palette.search"),
+                                             tr("Search and activate commands from the current VirtualBox surface.")));
+    if (m_pTitle)
+        m_pTitle->setText(strTitle);
+    if (m_pSearchField)
+    {
+        m_pSearchField->setPlaceholderText(md3PaletteText(QStringLiteral("md3.palette.search"),
+                                                          tr("Search commands, machines, tools and settings")));
+        m_pSearchField->setAccessibleName(md3PaletteText(QStringLiteral("md3.palette.search-name"),
+                                                          tr("Command palette search")));
+    }
+    sltRefresh();
+}
+
 void UIMd3CommandPalette::sltRefresh()
 {
     if (!m_pResultLayout || !m_pSearchField)
@@ -185,7 +256,12 @@ void UIMd3CommandPalette::sltRefresh()
     while (QLayoutItem *pItem = m_pResultLayout->takeAt(0))
     {
         if (pItem->widget())
+        {
+            pItem->widget()->hide();
+            pItem->widget()->setEnabled(false);
+            pItem->widget()->setAttribute(Qt::WA_TransparentForMouseEvents, true);
             pItem->widget()->deleteLater();
+        }
         delete pItem;
     }
 
@@ -209,23 +285,29 @@ void UIMd3CommandPalette::sltRefresh()
     {
         QLabel *pCategory = new QLabel(it.key(), this);
         pCategory->setFont(md3Theme().font(UIMd3TypeRole_LabelLarge));
-        pCategory->setAccessibleName(tr("Command category: %1").arg(it.key()));
+        pCategory->setAccessibleName(md3PaletteText(QStringLiteral("md3.palette.category"),
+                                                     tr("Command category")).arg(it.key()));
         m_pResultLayout->addWidget(pCategory);
         foreach (const UIMd3Command &command, it.value())
         {
             UIMd3Button *pRow = new UIMd3Button(command.strTitle, UIMd3ButtonVariant_Tonal, this);
             pRow->setAppearanceKey(QStringLiteral("command/%1/%2").arg(command.strSource, command.strId));
             const bool fEnabled = !command.enabledPredicate || command.enabledPredicate();
-            pRow->setEnabledState(fEnabled);
+            pRow->setEnabledState(true);
+            pRow->setActivationEnabled(fEnabled);
             const QString strCategory = command.strCategory.isEmpty() ? command.strSource : command.strCategory;
             const QString strDisabledReason = command.strDisabledReason.isEmpty()
-                                            ? tr("This command is unavailable on the current surface.")
+                                            ? md3PaletteText(QStringLiteral("md3.palette.unavailable"),
+                                                             tr("This command is unavailable on the current surface."))
                                             : command.strDisabledReason;
             pRow->setToolTip(strCategory);
-            pRow->setAccessibleName(tr("%1 — %2").arg(command.strTitle, strCategory));
+            pRow->setAccessibleName(QStringLiteral("%1 — %2").arg(command.strTitle, strCategory));
             pRow->setAccessibleDescription(fEnabled
-                                          ? tr("Activate %1 from %2.").arg(command.strTitle, strCategory)
-                                          : tr("%1 Unavailable: %2").arg(command.strTitle, strDisabledReason));
+                                          ? md3PaletteText(QStringLiteral("md3.palette.activate"),
+                                                           tr("Activate %1 from %2.")).arg(command.strTitle, strCategory)
+                                          : md3PaletteText(QStringLiteral("md3.palette.unavailable-format"),
+                                                           tr("%1 Unavailable: %2")).arg(command.strTitle, strDisabledReason));
+            pRow->setProperty("md3Unavailable", !fEnabled);
             pRow->installEventFilter(this);
             const UIMd3Command captured = command;
             connect(pRow, &UIMd3Button::sigClicked, this, [this, captured]()
@@ -251,8 +333,10 @@ void UIMd3CommandPalette::sltRefresh()
 
     if (!cShown)
     {
-        QLabel *pEmpty = new QLabel(tr("No command matches this search."), this);
-        pEmpty->setAccessibleName(tr("No command matches this search"));
+        QLabel *pEmpty = new QLabel(md3PaletteText(QStringLiteral("md3.palette.empty"),
+                                                    tr("No command matches this search.")), this);
+        pEmpty->setAccessibleName(md3PaletteText(QStringLiteral("md3.palette.empty-name"),
+                                                  tr("No command matches this search")));
         m_pResultLayout->addWidget(pEmpty);
     }
     m_pResultLayout->addStretch(1);
@@ -281,6 +365,8 @@ void UIMd3CommandPalette::teleportTo(QWidget *pTarget)
                 pStack->setCurrentWidget(pPage);
         }
     pTarget->setFocus(Qt::ShortcutFocusReason);
+    if (pTarget->graphicsEffect())
+        return;
     QGraphicsDropShadowEffect *pFlash = new QGraphicsDropShadowEffect(pTarget);
     pFlash->setColor(md3(UIMd3ColorRole_Primary));
     pFlash->setBlurRadius(40);
@@ -337,7 +423,7 @@ bool UIMd3CommandPalette::eventFilter(QObject *pObject, QEvent *pEvent)
                     iNext = m_pRows.size() - 1;
                 if (iNext >= m_pRows.size())
                     iNext = 0;
-                if (m_pRows.at(iNext)->isEnabled())
+                if (m_pRows.at(iNext)->isEnabled() && m_pRows.at(iNext)->isVisible())
                 {
                     m_pRows.at(iNext)->setFocus(Qt::OtherFocusReason);
                     pKeyEvent->accept();

@@ -78,6 +78,15 @@ UIMd3Language::UIMd3Language()
     , m_iPlayfulness(1)
     , m_iCantonesePlayfulness(1)
 {
+    /* Shared search affordances use the same persisted language service as
+     * the surfaces that own them.  Keeping these keys here prevents each
+     * search field from growing a subtly different translation path. */
+    registerText(QStringLiteral("md3.search.regex-builder"),
+                 QStringLiteral("Open the regex builder for this search"),
+                 QStringLiteral("開啟呢個搜尋嘅正則表達式建立器"));
+    registerText(QStringLiteral("md3.search.regex-builder-name"),
+                 QStringLiteral("Open regex builder"),
+                 QStringLiteral("開啟正則表達式建立器"));
 }
 
 UIMd3Language::~UIMd3Language() = default;

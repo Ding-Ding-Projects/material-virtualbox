@@ -10,24 +10,30 @@ handlers after their owning manager is destroyed.
 - The manager registers preferences, machine creation/import/export, media-manager,
   cloud-machine, machine-settings, clone/OCI-export, and local-history commands.
   Each registration uses the stable `manager` owner id plus a stable command id;
-  the visible `Manager` category is localized separately, so language changes do
-  not strand cleanup, duplicate rows, or lose per-command appearance overrides.
+  the visible `Manager` category and command copy are registered through
+  `UIMd3Language`, so English, playful Cantonese, bilingual mode, and the two
+  independent funny-level sliders refresh without stranding cleanup, duplicate
+  rows, or per-command appearance overrides.
 - Plain-text matching remains the default through `UIMd3SearchField`; its anchored regex builder supplies the optional regex mode.
 - Results are grouped by their localized category, match title/category/source/id,
-  and are keyboard-focusable MD3 buttons. Up/Down moves between enabled rows;
-  Enter or Space activates the focused command.
+  and are keyboard-focusable MD3 buttons. Up/Down moves between available and
+  unavailable rows; an unavailable row stays focusable so its explanation can be
+  announced, while Enter or Space is rejected until its live predicate is true.
 - Existing action-pool commands keep their live enabled state. A disabled command
   remains discoverable with a localized explanation and cannot trigger a stale
   handler.
-- Manager command titles and categories are rebuilt on the persisted language-mode
-  signal, while each action-pool command keeps its stable owner/id pair.
+- Manager command titles, categories, and disabled reasons are rebuilt on the
+  persisted `UIMd3Language` signal, including Cantonese and bilingual copy; each
+  action-pool command keeps its stable owner/id pair.
 - Escape closes the overlay and returns focus to the originating widget.
 - Handler-owned destinations keep their own focus: the palette does not raise the
   manager again after opening Preferences, a wizard, a tool, or local history.
   Other registered commands may still raise, focus, switch, and briefly highlight
   an existing target widget.
 - Empty results state is explicit and accessible; overlay size and position are
-  bounded to the current screen with an internal scroll area.
+  bounded to the current screen, including narrow available geometries, with an
+  internal scroll area. Refresh hides and disables old rows before deferred
+  deletion so stale handlers cannot be clicked during a language or query update.
 
 ## Failure and safety behavior
 

@@ -105,6 +105,14 @@ Rules for adding a changelog entry to make them look more uniform:
       </listitem>
 
       <listitem>
+        <para>GUI: Bound command-palette copy to the persisted Material 3 language
+          service for English, Cantonese, bilingual, and independent funny-level
+          presentation; unavailable rows remain focusable with their explanation,
+          block activation until the live predicate permits it, and remain within
+          narrow-screen geometry while stale refresh rows are hidden</para>
+      </listitem>
+
+      <listitem>
         <para>GUI: Added a persisted per-element Material 3 appearance editor
           for stable-key widgets, with context-menu and Shift+right-click entry,
           seed, typeface, corner-radius, scale, weight, reset and focus return</para>

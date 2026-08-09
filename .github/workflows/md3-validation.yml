@@ -61,12 +61,12 @@ jobs:
           if (-not (Test-Path doc/md3/WizardShell.md)) { throw 'Missing wizard shell article' }
           $paletteHeader = Get-Content src/VBox/Frontends/VirtualBox/src/md3/UIMd3CommandPalette.h -Raw
           $paletteSource = Get-Content src/VBox/Frontends/VirtualBox/src/md3/UIMd3CommandPalette.cpp -Raw
-          foreach ($pattern in @('class SHARED_LIBRARY_STUFF UIMd3CommandPalette', 'registerCommand', 'unregisterSource', 'showPalette', 'UIMd3Button', 'UIMd3SearchField', 'focusProxy', 'matches(', 'Qt::Key_Escape', 'Qt::Key_Up', 'Qt::Key_Down', 'sigClicked', 'setAccessibleDescription', 'setEnabledState', 'enabledPredicate', 'strDisabledReason', 'strId', 'QMap', 'availableGeometry', 'eventFilter', 'strCategory')) {
+          foreach ($pattern in @('class SHARED_LIBRARY_STUFF UIMd3CommandPalette', 'registerCommand', 'unregisterSource', 'showPalette', 'UIMd3Button', 'UIMd3SearchField', 'focusProxy', 'matches(', 'Qt::Key_Escape', 'Qt::Key_Up', 'Qt::Key_Down', 'sigClicked', 'setAccessibleDescription', 'setEnabledState', 'setActivationEnabled', 'enabledPredicate', 'strDisabledReason', 'strId', 'QMap', 'availableGeometry', 'setMinimumSize', 'eventFilter', 'strCategory', 'registerMd3PaletteTexts', 'md3Text(')) {
             if (($paletteHeader + $paletteSource) -notmatch [regex]::Escape($pattern)) { throw "Command palette contract missing: $pattern" }
           }
           $managerSource = Get-Content src/VBox/Frontends/VirtualBox/src/manager/UIVirtualBoxManager.cpp -Raw
           if (([regex]::Matches($managerSource, [regex]::Escape('QStringLiteral("manager")'))).Count -lt 2) { throw 'Command palette manager source id is not stable across registration and cleanup.' }
-          foreach ($pattern in @('registerCommandPaletteCommands', 'sigLanguageChanged', 'pAction->isEnabled()', 'UIMd3CommandPalette::unregisterSource')) {
+          foreach ($pattern in @('registerCommandPaletteCommands', 'sigLanguageChanged', 'sltRetranslateUI', 'registerManagerText', 'managerText', 'md3Text(', 'md3.manager.', 'pAction->isEnabled()', 'UIMd3CommandPalette::unregisterSource')) {
             if ($managerSource -notmatch [regex]::Escape($pattern)) { throw "Command palette manager refresh contract missing: $pattern" }
           }
           if (-not (Test-Path doc/md3/CommandPalette.md)) { throw 'Missing command-palette article' }

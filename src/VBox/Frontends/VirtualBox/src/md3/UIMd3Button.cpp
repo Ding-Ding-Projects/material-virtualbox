@@ -27,6 +27,7 @@ UIMd3Button::UIMd3Button(const QString &strText, UIMd3ButtonVariant enmVariant, 
     : UIMd3Widget(pParent, QStringLiteral("button/") + strText)
     , m_strText(strText)
     , m_enmVariant(enmVariant)
+    , m_fActivationEnabled(true)
 {
     setFocusPolicy(Qt::StrongFocus);
     setCursor(Qt::PointingHandCursor);
@@ -61,7 +62,15 @@ void UIMd3Button::setVariant(UIMd3ButtonVariant enmVariant)
 
 void UIMd3Button::setEnabledState(bool fEnabled)
 {
+    m_fActivationEnabled = fEnabled;
     setEnabled(fEnabled);
+    setCursor(fEnabled ? Qt::PointingHandCursor : Qt::ForbiddenCursor);
+    update();
+}
+
+void UIMd3Button::setActivationEnabled(bool fEnabled)
+{
+    m_fActivationEnabled = fEnabled;
     setCursor(fEnabled ? Qt::PointingHandCursor : Qt::ForbiddenCursor);
     update();
 }
@@ -109,6 +118,7 @@ QSize UIMd3Button::minimumSizeHint() const
 void UIMd3Button::paintEvent(QPaintEvent *)
 {
     QPainter painter(this);
+    const bool fInteractive = isEnabled() && m_fActivationEnabled;
     const QRect body = rect().adjusted(0, 0, -1, -1);
     const int iRadius = m_enmVariant == UIMd3ButtonVariant_Icon
                       ? height() / 2 : qMin(effectiveRadius() + 4, height() / 2);
@@ -120,7 +130,7 @@ void UIMd3Button::paintEvent(QPaintEvent *)
         QColor container = md3(containerRole());
         if (m_enmVariant == UIMd3ButtonVariant_Filled && effectiveAccent().isValid())
             container = effectiveAccent();
-        if (!isEnabled())
+        if (!fInteractive)
             container.setAlpha(UIMd3StateLayer::Disabled * 255 / 100);
         painter.setRenderHint(QPainter::Antialiasing, true);
         QPainterPath path;
@@ -135,11 +145,11 @@ void UIMd3Button::paintEvent(QPaintEvent *)
         painter.setBrush(Qt::NoBrush);
         painter.drawRoundedRect(body, iRadius, iRadius);
     }
-    if (isEnabled())
+    if (fInteractive)
         paintStateLayer(painter, body, labelRole(), iRadius);
 
     QColor label = md3(labelRole());
-    if (!isEnabled())
+    if (!fInteractive)
         label.setAlpha(UIMd3StateLayer::Disabled * 255 / 100);
     painter.setPen(label);
     painter.setFont(effectiveFont(UIMd3TypeRole_LabelLarge));
@@ -148,7 +158,7 @@ void UIMd3Button::paintEvent(QPaintEvent *)
     {
         const QRect iconRect(content.left() + 16, content.center().y() - 9, 18, 18);
         m_icon.paint(&painter, iconRect, Qt::AlignCenter,
-                     isEnabled() ? QIcon::Normal : QIcon::Disabled);
+                     fInteractive ? QIcon::Normal : QIcon::Disabled);
         content.setLeft(iconRect.right() + 8);
     }
     if (m_enmVariant != UIMd3ButtonVariant_Icon)
@@ -160,13 +170,13 @@ void UIMd3Button::mouseReleaseEvent(QMouseEvent *pEvent)
 {
     const bool fInside = rect().contains(pEvent->pos());
     UIMd3Widget::mouseReleaseEvent(pEvent);
-    if (fInside && isEnabled() && pEvent->button() == Qt::LeftButton)
+    if (fInside && isEnabled() && m_fActivationEnabled && pEvent->button() == Qt::LeftButton)
         emit sigClicked();
 }
 
 void UIMd3Button::keyPressEvent(QKeyEvent *pEvent)
 {
-    if (isEnabled() && (pEvent->key() == Qt::Key_Space ||
+    if (isEnabled() && m_fActivationEnabled && (pEvent->key() == Qt::Key_Space ||
                         pEvent->key() == Qt::Key_Return ||
                         pEvent->key() == Qt::Key_Enter))
     {

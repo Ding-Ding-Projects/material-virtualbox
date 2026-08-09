@@ -17,6 +17,11 @@
 #include "UIMd3Language.h"
 #include "UIMd3Theme.h"
 
+static QString md3SearchText(const QString &strKey, const QString &strFallback)
+{
+    return UIMd3Language::instance() ? md3Text(strKey) : strFallback;
+}
+
 UIMd3SearchField::UIMd3SearchField(const QString &strFieldId, const QString &strPlaceholder, QWidget *pParent)
     : QWidget(pParent)
     , m_strFieldId(strFieldId)
@@ -52,8 +57,10 @@ void UIMd3SearchField::setPlaceholderText(const QString &strText)
     }
     if (m_pBuilderButton)
     {
-        m_pBuilderButton->setToolTip(tr("Open the regex builder for this search"));
-        m_pBuilderButton->setAccessibleName(tr("Open regex builder"));
+        m_pBuilderButton->setToolTip(md3SearchText(QStringLiteral("md3.search.regex-builder"),
+                                                    tr("Open the regex builder for this search")));
+        m_pBuilderButton->setAccessibleName(md3SearchText(QStringLiteral("md3.search.regex-builder-name"),
+                                                           tr("Open regex builder")));
     }
 }
 
@@ -177,8 +184,10 @@ void UIMd3SearchField::prepare()
     pLayout->addWidget(m_pEditor, 1);
     m_pBuilderButton = new QToolButton(this);
     m_pBuilderButton->setText(QStringLiteral(".*"));
-    m_pBuilderButton->setToolTip(tr("Open the regex builder for this search"));
-    m_pBuilderButton->setAccessibleName(tr("Open regex builder"));
+    m_pBuilderButton->setToolTip(md3SearchText(QStringLiteral("md3.search.regex-builder"),
+                                                tr("Open the regex builder for this search")));
+    m_pBuilderButton->setAccessibleName(md3SearchText(QStringLiteral("md3.search.regex-builder-name"),
+                                                       tr("Open regex builder")));
     m_pBuilderButton->setMinimumSize(QSize(48, md3Theme().controlHeight()));
     pLayout->addWidget(m_pBuilderButton);
     setMinimumHeight(md3Theme().controlHeight() + 8);

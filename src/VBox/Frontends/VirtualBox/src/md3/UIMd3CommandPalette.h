@@ -43,6 +43,7 @@
 class QKeyEvent;
 class QHideEvent;
 class QEvent;
+class QLabel;
 class QVBoxLayout;
 class UIMd3SearchField;
 class UIMd3Button;
@@ -97,6 +98,7 @@ protected:
 private slots:
 
     void sltRefresh();
+    void sltRetranslateUI();
 
 private:
 
@@ -109,6 +111,7 @@ private:
     static UIMd3CommandPalette *s_pInstance;
     QList<UIMd3Command> m_commands;
     QList<UIMd3Button *> m_pRows;
+    QLabel *m_pTitle;
     UIMd3SearchField *m_pSearchField;
     QVBoxLayout *m_pResultLayout;
     QPointer<QWidget> m_pOrigin;

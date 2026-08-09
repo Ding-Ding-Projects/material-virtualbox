@@ -2631,30 +2631,61 @@ void UIVirtualBoxManager::prepareWidgets()
 
 void UIVirtualBoxManager::registerCommandPaletteCommands()
 {
+    const auto registerManagerText = [](const char *pszKey, const QString &strEnglish,
+                                        const QString &strCantonese)
+    {
+        if (UIMd3Language::instance())
+            UIMd3Language::instance()->registerText(QString::fromLatin1(pszKey), strEnglish, strCantonese);
+    };
+    const auto managerText = [](const char *pszKey, const QString &strFallback)
+    {
+        return UIMd3Language::instance() ? md3Text(QString::fromLatin1(pszKey)) : strFallback;
+    };
+
+    registerManagerText("md3.manager.category", QStringLiteral("Manager"), QStringLiteral("管理員"));
+    registerManagerText("md3.manager.open-preferences", QStringLiteral("Open global preferences"), QStringLiteral("開啟全域偏好設定"));
+    registerManagerText("md3.manager.new-machine", QStringLiteral("Create a new virtual machine"), QStringLiteral("建立新虛擬機器"));
+    registerManagerText("md3.manager.open-media", QStringLiteral("Open virtual media manager"), QStringLiteral("開啟虛擬媒體管理員"));
+    registerManagerText("md3.manager.import-appliance", QStringLiteral("Import an appliance"), QStringLiteral("匯入裝置"));
+    registerManagerText("md3.manager.open-history", QStringLiteral("Open local history"), QStringLiteral("開啟本機歷史"));
+    registerManagerText("md3.manager.export-appliance", QStringLiteral("Export an appliance"), QStringLiteral("匯出裝置"));
+    registerManagerText("md3.manager.add-machine", QStringLiteral("Add an existing virtual machine"), QStringLiteral("加入現有虛擬機器"));
+    registerManagerText("md3.manager.new-cloud-machine", QStringLiteral("Create a cloud virtual machine"), QStringLiteral("建立雲端虛擬機器"));
+    registerManagerText("md3.manager.add-cloud-machine", QStringLiteral("Add a cloud virtual machine"), QStringLiteral("加入雲端虛擬機器"));
+    registerManagerText("md3.manager.machine-settings", QStringLiteral("Open virtual machine settings"), QStringLiteral("開啟虛擬機器設定"));
+    registerManagerText("md3.manager.clone-machine", QStringLiteral("Clone the selected virtual machine"), QStringLiteral("複製所選虛擬機器"));
+    registerManagerText("md3.manager.export-oci", QStringLiteral("Export the selected machine to OCI"), QStringLiteral("匯出所選機器到 OCI"));
+    registerManagerText("md3.manager.reason-export-appliance", QStringLiteral("Select a machine before exporting an appliance."), QStringLiteral("匯出前請先選取虛擬機器。"));
+    registerManagerText("md3.manager.reason-add-machine", QStringLiteral("This action is unavailable while the machine chooser is busy."), QStringLiteral("機器選擇器忙緊，暫時未能使用此動作。"));
+    registerManagerText("md3.manager.reason-cloud", QStringLiteral("Cloud providers are unavailable in the current configuration."), QStringLiteral("目前設定未提供雲端供應商。"));
+    registerManagerText("md3.manager.reason-machine-settings", QStringLiteral("Select a virtual machine before opening its settings."), QStringLiteral("開啟設定前請先選取虛擬機器。"));
+    registerManagerText("md3.manager.reason-clone", QStringLiteral("Select a virtual machine before cloning it."), QStringLiteral("複製前請先選取虛擬機器。"));
+    registerManagerText("md3.manager.reason-oci", QStringLiteral("Select a virtual machine before exporting it to OCI."), QStringLiteral("匯出到 OCI 前請先選取虛擬機器。"));
+
     UIMd3CommandPalette::unregisterSource(QStringLiteral("manager"));
     const QString strManagerSource = QStringLiteral("manager");
-    const QString strManagerCategory = tr("Manager");
-    UIMd3CommandPalette::registerCommand(UIMd3Command(tr("Open global preferences"),
+    const QString strManagerCategory = managerText("md3.manager.category", tr("Manager"));
+    UIMd3CommandPalette::registerCommand(UIMd3Command(managerText("md3.manager.open-preferences", tr("Open global preferences")),
                                                        strManagerSource,
                                                        [this]() { sltOpenPreferencesDialog(); }, 0,
                                                        strManagerCategory,
                                                        QStringLiteral("open-preferences")));
-    UIMd3CommandPalette::registerCommand(UIMd3Command(tr("Create a new virtual machine"),
+    UIMd3CommandPalette::registerCommand(UIMd3Command(managerText("md3.manager.new-machine", tr("Create a new virtual machine")),
                                                        strManagerSource,
                                                        [this]() { sltOpenNewMachineWizard(); }, 0,
                                                        strManagerCategory,
                                                        QStringLiteral("new-machine")));
-    UIMd3CommandPalette::registerCommand(UIMd3Command(tr("Open virtual media manager"),
+    UIMd3CommandPalette::registerCommand(UIMd3Command(managerText("md3.manager.open-media", tr("Open virtual media manager")),
                                                        strManagerSource,
                                                        [this]() { sltOpenManagerWindow(UIToolType_Media); }, 0,
                                                        strManagerCategory,
                                                        QStringLiteral("open-media")));
-    UIMd3CommandPalette::registerCommand(UIMd3Command(tr("Import an appliance"),
+    UIMd3CommandPalette::registerCommand(UIMd3Command(managerText("md3.manager.import-appliance", tr("Import an appliance")),
                                                        strManagerSource,
                                                        [this]() { sltOpenImportApplianceWizard(); }, 0,
                                                        strManagerCategory,
                                                        QStringLiteral("import-appliance")));
-    UIMd3CommandPalette::registerCommand(UIMd3Command(tr("Open local history"),
+    UIMd3CommandPalette::registerCommand(UIMd3Command(managerText("md3.manager.open-history", tr("Open local history")),
                                                        strManagerSource,
                                                        [this]()
                                                        {
@@ -2682,26 +2713,26 @@ void UIVirtualBoxManager::registerCommandPaletteCommands()
             }, 0, strManagerCategory, strId,
             [pAction]() { return pAction->isEnabled(); }, strDisabledReason));
     };
-    registerActionCommand(tr("Export an appliance"), QStringLiteral("export-appliance"),
-                          tr("Select a machine before exporting an appliance."),
+    registerActionCommand(managerText("md3.manager.export-appliance", tr("Export an appliance")), QStringLiteral("export-appliance"),
+                          managerText("md3.manager.reason-export-appliance", tr("Select a machine before exporting an appliance.")),
                           UIActionIndexMN_M_File_S_ExportAppliance);
-    registerActionCommand(tr("Add an existing virtual machine"), QStringLiteral("add-machine"),
-                          tr("This action is unavailable while the machine chooser is busy."),
+    registerActionCommand(managerText("md3.manager.add-machine", tr("Add an existing virtual machine")), QStringLiteral("add-machine"),
+                          managerText("md3.manager.reason-add-machine", tr("This action is unavailable while the machine chooser is busy.")),
                           UIActionIndexMN_M_Home_S_Add);
-    registerActionCommand(tr("Create a cloud virtual machine"), QStringLiteral("new-cloud-machine"),
-                          tr("Cloud providers are unavailable in the current configuration."),
+    registerActionCommand(managerText("md3.manager.new-cloud-machine", tr("Create a cloud virtual machine")), QStringLiteral("new-cloud-machine"),
+                          managerText("md3.manager.reason-cloud", tr("Cloud providers are unavailable in the current configuration.")),
                           UIActionIndexMN_M_Machine_S_NewCloud);
-    registerActionCommand(tr("Add a cloud virtual machine"), QStringLiteral("add-cloud-machine"),
-                          tr("Cloud providers are unavailable in the current configuration."),
+    registerActionCommand(managerText("md3.manager.add-cloud-machine", tr("Add a cloud virtual machine")), QStringLiteral("add-cloud-machine"),
+                          managerText("md3.manager.reason-cloud", tr("Cloud providers are unavailable in the current configuration.")),
                           UIActionIndexMN_M_Machine_S_AddCloud);
-    registerActionCommand(tr("Open virtual machine settings"), QStringLiteral("machine-settings"),
-                          tr("Select a virtual machine before opening its settings."),
+    registerActionCommand(managerText("md3.manager.machine-settings", tr("Open virtual machine settings")), QStringLiteral("machine-settings"),
+                          managerText("md3.manager.reason-machine-settings", tr("Select a virtual machine before opening its settings.")),
                           UIActionIndexMN_M_Machine_S_Settings);
-    registerActionCommand(tr("Clone the selected virtual machine"), QStringLiteral("clone-machine"),
-                          tr("Select a virtual machine before cloning it."),
+    registerActionCommand(managerText("md3.manager.clone-machine", tr("Clone the selected virtual machine")), QStringLiteral("clone-machine"),
+                          managerText("md3.manager.reason-clone", tr("Select a virtual machine before cloning it.")),
                           UIActionIndexMN_M_Machine_S_Clone);
-    registerActionCommand(tr("Export the selected machine to OCI"), QStringLiteral("export-oci"),
-                          tr("Select a virtual machine before exporting it to OCI."),
+    registerActionCommand(managerText("md3.manager.export-oci", tr("Export the selected machine to OCI")), QStringLiteral("export-oci"),
+                          managerText("md3.manager.reason-oci", tr("Select a virtual machine before exporting it to OCI.")),
                           UIActionIndexMN_M_Machine_S_ExportToOCI);
 }
 
@@ -2723,7 +2754,7 @@ void UIVirtualBoxManager::prepareConnections()
     registerCommandPaletteCommands();
     if (UIMd3Language::instance())
         connect(UIMd3Language::instance(), &UIMd3Language::sigLanguageChanged,
-                this, &UIVirtualBoxManager::registerCommandPaletteCommands);
+                this, &UIVirtualBoxManager::sltRetranslateUI, Qt::UniqueConnection);
 
 #ifdef VBOX_WS_NIX
     /* Desktop event handlers: */
