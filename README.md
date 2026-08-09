@@ -248,12 +248,11 @@ The build requires a compatible compiler, Qt 6 development files, kBuild
 `configure.py`. Do not copy generated output or machine-local settings into
 the source tree; use `LocalConfig.kmk` for local overrides.
 
-**Current checkout boundary:** the evidence below is an **uncommitted local
-build**, not evidence attributed to a repository commit or a published release.
-It was built on a Windows x64 development host from baseline
-`42310d27d98985634ec0868f8e31fa4c27343d97` plus the working-tree manager-shell
-changes, using MSVC 14.44, Windows SDK 10.0.26100.0, Qt 6.8.3 with the official
-`qtscxml` add-on, and the bundled kBuild executable.
+**Current verification boundary:** the evidence below was built from exact
+source commit [`74004bd7025fd9c81284d540625fc583737dc8c0`](https://github.com/Ding-Ding-Projects/material-virtualbox/commit/74004bd7025fd9c81284d540625fc583737dc8c0)
+on a Windows x64 development host, using MSVC 14.44, Windows SDK
+10.0.26100.0, Qt 6.8.3 with the official `qtscxml` add-on, and the bundled
+kBuild executable. It is compile/link evidence, not a runtime or release claim.
 
 | Target | Local result | Completed (UTC-04:00) | Installed artifact SHA-256 |
 | --- | --- | --- | --- |

@@ -81,10 +81,9 @@ destinations before this model is reused there.
 ## Verification
 
 The MD3 validation workflow checks the tab-strip source and MOC header are
-wired into `UICommon`. The uncommitted local `VirtualBox` result in the
+wired into `UICommon`. The commit-attributed local `VirtualBox` result in the
 [manager-shell evidence table](ManagerShell.md#verification-and-remaining-work)
-compiled the translation unit and its Qt MOC output; it is not evidence
-attributed to a repository commit. Full tab management remains in
+compiled the translation unit and its Qt MOC output. Full tab management remains in
 progress: the four independent cross-window tab-discovery searches, drag
   reordering, group delete/reorder surfaces, bulk-close preview/confirmation,
   the full guided regex builder with capture output and copy/export, vertical

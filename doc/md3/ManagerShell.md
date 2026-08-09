@@ -84,10 +84,11 @@ evidence for that failure path.
 
 ## Verification and remaining work
 
-The current compile evidence is an **uncommitted local Windows x64 build** from
-baseline `42310d27d98985634ec0868f8e31fa4c27343d97` plus the working-tree shell
-changes. It used MSVC 14.44, Windows SDK 10.0.26100.0, Qt 6.8.3 with the
-official `qtscxml` add-on, and the bundled kBuild executable.
+The current compile evidence was built from exact source commit
+[`74004bd7025fd9c81284d540625fc583737dc8c0`](https://github.com/Ding-Ding-Projects/material-virtualbox/commit/74004bd7025fd9c81284d540625fc583737dc8c0)
+on a Windows x64 development host. It used MSVC 14.44, Windows SDK
+10.0.26100.0, Qt 6.8.3 with the official `qtscxml` add-on, and the bundled
+kBuild executable.
 
 | Target | Result | Completed (UTC-04:00) | Installed artifact SHA-256 |
 | --- | --- | --- | --- |

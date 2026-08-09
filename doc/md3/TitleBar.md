@@ -50,11 +50,11 @@ that launch failure is recorded rather than replaced with a design preview.
 
 ## Verification
 
-The uncommitted local Windows `VirtualBox` build in the
+The commit-attributed local Windows `VirtualBox` build in the
 [manager-shell evidence table](ManagerShell.md#verification-and-remaining-work)
 compiled the manager header and linked and installed the manager executable;
-it is not evidence attributed to a repository commit. Native verification remains open for real normal,
-maximized, restored, snap-edge, high-DPI, keyboard-focus, and bilingual
+native verification remains open for real normal, maximized, restored,
+snap-edge, high-DPI, keyboard-focus, and bilingual
 captures after a sanctioned COM/SDS-capable runtime is available.
 
 Suggested articles: [`ManagerShell.md`](ManagerShell.md),

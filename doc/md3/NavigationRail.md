@@ -75,7 +75,7 @@ reasons, and stacked labels remain present, and that all fourteen user-facing to
 (thirteen `UIToolType` labels plus the description) use stable `md3.tool.*` keys,
 and that both the Qt translation
 listener and unique Material-language connection remain present. The
-uncommitted local UICommon, VirtualBox, and VirtualBoxVM results in the
+commit-attributed local UICommon, VirtualBox, and VirtualBoxVM results in the
 [manager-shell evidence table](ManagerShell.md#verification-and-remaining-work)
 are the compile evidence for the lane; runtime verification still requires a working `VirtualBoxClient` COM
 registration and a real native capture of the rail in Home, Machines, and at
