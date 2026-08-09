@@ -1,0 +1,390 @@
+/* $Id$ */
+/** @file
+ * VBox Qt GUI - UIMd3Theme class implementation.
+ */
+
+/*
+ * Copyright (C) 2026 Material Virtual Machine contributors.
+ *
+ * This file is part of VirtualBox base platform packages, as
+ * available from https://www.virtualbox.org.
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation, in version 3 of the
+ * License.
+ *
+ * SPDX-License-Identifier: GPL-3.0-only
+ */
+
+
+/* Qt includes: */
+#include <QApplication>
+#include <QFontDatabase>
+#include <QJsonDocument>
+#include <QJsonObject>
+#include <QPalette>
+#include <QStyleHints>
+#include <QVariantMap>
+
+/* GUI includes: */
+#include "UIExtraDataManager.h"
+#include "UIMd3Theme.h"
+
+/* Extradata keys owned by the Material 3 shell. */
+static const char *g_pszKeySeed       = "GUI/Md3/Seed";
+static const char *g_pszKeyScheme     = "GUI/Md3/Scheme";
+static const char *g_pszKeyScale      = "GUI/Md3/FontScale";
+static const char *g_pszKeyCompact    = "GUI/Md3/Compact";
+static const char *g_pszKeyFont       = "GUI/Md3/FontFamily";
+static const char *g_pszKeyAppearance = "GUI/Md3/Appearance";
+static const char *g_pszKeyThemes     = "GUI/Md3/NamedThemes";
+
+UIMd3Theme *UIMd3Theme::s_pInstance = 0;
+
+UIMd3Theme *UIMd3Theme::instance() { return s_pInstance; }
+
+void UIMd3Theme::create()
+{
+    if (s_pInstance)
+        return;
+    s_pInstance = new UIMd3Theme;
+    s_pInstance->loadFromExtraData();
+}
+
+void UIMd3Theme::destroy()
+{
+    if (!s_pInstance)
+        return;
+    s_pInstance->saveToExtraData();
+    delete s_pInstance;
+    s_pInstance = 0;
+}
+
+UIMd3Theme::UIMd3Theme()
+    : m_seed(QColor("#6750A4"))
+    , m_enmScheme(UIMd3Scheme_Dark)
+    , m_dFontScale(1.0)
+    , m_fCompact(false)
+    , m_strFontFamily("Roboto Flex")
+{
+    regenerate();
+}
+
+UIMd3Theme::~UIMd3Theme()
+{
+}
+
+QColor UIMd3Theme::color(UIMd3ColorRole enmRole) const
+{
+    AssertReturn(enmRole >= 0 && enmRole < UIMd3ColorRole_Max, QColor());
+    return m_colors[enmRole];
+}
+
+QColor UIMd3Theme::stateLayer(UIMd3ColorRole enmRole, int iOpacityPercent) const
+{
+    QColor result = color(enmRole);
+    result.setAlpha(qBound(0, iOpacityPercent, 100) * 255 / 100);
+    return result;
+}
+
+void UIMd3Theme::setSeed(const QColor &seed)
+{
+    if (!seed.isValid() || seed == m_seed)
+        return;
+    m_seed = seed;
+    regenerate();
+    saveToExtraData();
+    emit sigThemeChanged();
+}
+
+void UIMd3Theme::setScheme(UIMd3Scheme enmScheme)
+{
+    if (enmScheme == m_enmScheme)
+        return;
+    m_enmScheme = enmScheme;
+    regenerate();
+    saveToExtraData();
+    emit sigThemeChanged();
+}
+
+void UIMd3Theme::setFontScale(double dScale)
+{
+    const double dClamped = qBound(0.75, dScale, 2.0);
+    if (qFuzzyCompare(dClamped, m_dFontScale))
+        return;
+    m_dFontScale = dClamped;
+    saveToExtraData();
+    emit sigThemeChanged();
+}
+
+void UIMd3Theme::setCompact(bool fCompact)
+{
+    if (fCompact == m_fCompact)
+        return;
+    m_fCompact = fCompact;
+    saveToExtraData();
+    emit sigThemeChanged();
+}
+
+QFont UIMd3Theme::font(UIMd3TypeRole enmRole) const
+{
+    struct { int iSize; int iWeight; } aScale[UIMd3TypeRole_Max] =
+    {
+        { 57, QFont::Normal }, { 45, QFont::Normal }, { 36, QFont::Normal },
+        { 32, QFont::Normal }, { 28, QFont::Normal }, { 24, QFont::Normal },
+        { 22, QFont::Medium }, { 16, QFont::Medium }, { 14, QFont::Medium },
+        { 16, QFont::Normal }, { 14, QFont::Normal }, { 12, QFont::Normal },
+        { 14, QFont::Medium }, { 12, QFont::Medium }, { 11, QFont::Medium }
+    };
+    QFont result(m_strFontFamily);
+    if (!QFontDatabase::families().contains(m_strFontFamily))
+        result = QFont("Segoe UI");
+    const int iIndex = qBound(0, (int)enmRole, (int)UIMd3TypeRole_Max - 1);
+    result.setPixelSize(qMax(9, (int)(aScale[iIndex].iSize * m_dFontScale * (m_fCompact ? 0.92 : 1.0))));
+    result.setWeight((QFont::Weight)aScale[iIndex].iWeight);
+    return result;
+}
+
+UIMd3Appearance UIMd3Theme::appearance(const QString &strKey) const
+{
+    return m_appearances.value(strKey, UIMd3Appearance());
+}
+
+void UIMd3Theme::setAppearance(const QString &strKey, const UIMd3Appearance &appearance)
+{
+    m_appearances[strKey] = appearance;
+    saveToExtraData();
+    emit sigThemeChanged();
+}
+
+void UIMd3Theme::clearAppearance(const QString &strKey)
+{
+    if (m_appearances.remove(strKey) > 0)
+    {
+        saveToExtraData();
+        emit sigThemeChanged();
+    }
+}
+
+void UIMd3Theme::saveNamedTheme(const QString &strName)
+{
+    QVariantMap map;
+    map["seed"]    = m_seed.name();
+    map["scheme"]  = (int)m_enmScheme;
+    map["scale"]   = m_dFontScale;
+    map["compact"] = m_fCompact;
+    map["font"]    = m_strFontFamily;
+    m_namedThemes[strName] = map;
+    saveToExtraData();
+}
+
+bool UIMd3Theme::applyNamedTheme(const QString &strName)
+{
+    if (!m_namedThemes.contains(strName))
+        return false;
+    const QVariantMap map = m_namedThemes.value(strName);
+    m_seed        = QColor(map.value("seed", "#6750A4").toString());
+    m_enmScheme   = (UIMd3Scheme)map.value("scheme", (int)UIMd3Scheme_Dark).toInt();
+    m_dFontScale  = map.value("scale", 1.0).toDouble();
+    m_fCompact    = map.value("compact", false).toBool();
+    m_strFontFamily = map.value("font", "Roboto Flex").toString();
+    regenerate();
+    saveToExtraData();
+    emit sigThemeChanged();
+    return true;
+}
+
+QByteArray UIMd3Theme::exportNamedThemes() const
+{
+    QJsonObject root;
+    for (QHash<QString, QVariantMap>::const_iterator it = m_namedThemes.begin(); it != m_namedThemes.end(); ++it)
+        root.insert(it.key(), QJsonObject::fromVariantMap(it.value()));
+    return QJsonDocument(root).toJson(QJsonDocument::Indented);
+}
+
+bool UIMd3Theme::importNamedThemes(const QByteArray &data)
+{
+    QJsonParseError error;
+    const QJsonDocument doc = QJsonDocument::fromJson(data, &error);
+    if (error.error != QJsonParseError::NoError || !doc.isObject())
+        return false;
+    const QJsonObject root = doc.object();
+    for (QJsonObject::const_iterator it = root.begin(); it != root.end(); ++it)
+        if (it.value().isObject())
+            m_namedThemes[it.key()] = it.value().toObject().toVariantMap();
+    saveToExtraData();
+    return true;
+}
+
+void UIMd3Theme::loadFromExtraData()
+{
+    const QString strSeed = gEDataManager->md3String(g_pszKeySeed);
+    if (!strSeed.isEmpty() && QColor(strSeed).isValid())
+        m_seed = QColor(strSeed);
+    m_enmScheme     = (UIMd3Scheme)gEDataManager->md3String(g_pszKeyScheme, "0").toInt();
+    m_dFontScale    = gEDataManager->md3String(g_pszKeyScale, "1.0").toDouble();
+    m_fCompact      = gEDataManager->md3String(g_pszKeyCompact, "false") == "true";
+    const QString strFont = gEDataManager->md3String(g_pszKeyFont);
+    if (!strFont.isEmpty())
+        m_strFontFamily = strFont;
+
+    /* Per-element overrides: */
+    m_appearances.clear();
+    const QJsonDocument docAppearance = QJsonDocument::fromJson(gEDataManager->md3String(g_pszKeyAppearance).toUtf8());
+    const QJsonObject objAppearance = docAppearance.object();
+    for (QJsonObject::const_iterator it = objAppearance.begin(); it != objAppearance.end(); ++it)
+    {
+        const QJsonObject entry = it.value().toObject();
+        UIMd3Appearance appearance;
+        appearance.fValid   = true;
+        appearance.seed     = QColor(entry.value("seed").toString());
+        appearance.strFont  = entry.value("font").toString();
+        appearance.iRadius  = entry.value("radius").toInt(UIMd3Shape::Large);
+        appearance.dScale   = entry.value("scale").toDouble(1.0);
+        appearance.iWeight  = entry.value("weight").toInt(QFont::Normal);
+        m_appearances.insert(it.key(), appearance);
+    }
+
+    /* Named themes: */
+    m_namedThemes.clear();
+    importNamedThemes(gEDataManager->md3String(g_pszKeyThemes).toUtf8());
+
+    regenerate();
+    emit sigThemeChanged();
+}
+
+void UIMd3Theme::saveToExtraData() const
+{
+    gEDataManager->setMd3String(g_pszKeySeed, m_seed.name());
+    gEDataManager->setMd3String(g_pszKeyScheme, QString::number((int)m_enmScheme));
+    gEDataManager->setMd3String(g_pszKeyScale, QString::number(m_dFontScale));
+    gEDataManager->setMd3String(g_pszKeyCompact, m_fCompact ? "true" : "false");
+    gEDataManager->setMd3String(g_pszKeyFont, m_strFontFamily);
+
+    QJsonObject objAppearance;
+    for (QHash<QString, UIMd3Appearance>::const_iterator it = m_appearances.begin(); it != m_appearances.end(); ++it)
+    {
+        QJsonObject entry;
+        entry.insert("seed",   it.value().seed.isValid() ? it.value().seed.name() : QString());
+        entry.insert("font",   it.value().strFont);
+        entry.insert("radius", it.value().iRadius);
+        entry.insert("scale",  it.value().dScale);
+        entry.insert("weight", it.value().iWeight);
+        objAppearance.insert(it.key(), entry);
+    }
+    gEDataManager->setMd3String(g_pszKeyAppearance, QString::fromUtf8(QJsonDocument(objAppearance).toJson(QJsonDocument::Compact)));
+    gEDataManager->setMd3String(g_pszKeyThemes, QString::fromUtf8(exportNamedThemes()));
+}
+
+UIMd3Scheme UIMd3Theme::effectiveScheme() const
+{
+    if (m_enmScheme != UIMd3Scheme_System)
+        return m_enmScheme;
+    if (qApp->styleHints()->colorScheme() == Qt::ColorScheme::Light)
+        return UIMd3Scheme_Light;
+    return UIMd3Scheme_Dark;
+}
+
+QColor UIMd3Theme::tone(const QColor &base, int iTone)
+{
+    /* Approximate the HCT tonal palette by holding hue and chroma while
+     * driving lightness to the requested tone. This keeps the palette
+     * perceptually close to the reference implementation without pulling
+     * an extra dependency into the frontend. */
+    qreal h = 0, s = 0, l = 0, a = 0;
+    base.getHslF(&h, &s, &l, &a);
+    const qreal dTarget = qBound(0.0, iTone / 100.0, 1.0);
+    /* Chroma decays towards the extremes, exactly as the M3 palettes do: */
+    const qreal dChroma = s * (1.0 - qAbs(dTarget - 0.5) * 0.7);
+    QColor result;
+    result.setHslF(h, qBound(0.0, dChroma, 1.0), dTarget, a);
+    return result.toRgb();
+}
+
+void UIMd3Theme::regenerate()
+{
+    const bool fDark = effectiveScheme() == UIMd3Scheme_Dark || effectiveScheme() == UIMd3Scheme_HighContrastDark;
+    const bool fContrast = effectiveScheme() == UIMd3Scheme_HighContrastDark || effectiveScheme() == UIMd3Scheme_HighContrastLight;
+
+    QColor primaryBase = m_seed;
+    QColor secondaryBase = QColor::fromHsvF(fmod(m_seed.hueF() + 0.02, 1.0), m_seed.saturationF() * 0.4, m_seed.valueF());
+    QColor tertiaryBase = QColor::fromHsvF(fmod(m_seed.hueF() + 0.16, 1.0), m_seed.saturationF() * 0.6, m_seed.valueF());
+    QColor neutralBase = QColor::fromHsvF(m_seed.hueF(), m_seed.saturationF() * 0.06, m_seed.valueF());
+    QColor errorBase = QColor("#B3261E");
+
+    if (fDark)
+    {
+        m_colors[UIMd3ColorRole_Primary]                  = tone(primaryBase, fContrast ? 90 : 80);
+        m_colors[UIMd3ColorRole_OnPrimary]                = tone(primaryBase, 20);
+        m_colors[UIMd3ColorRole_PrimaryContainer]         = tone(primaryBase, 30);
+        m_colors[UIMd3ColorRole_OnPrimaryContainer]       = tone(primaryBase, 90);
+        m_colors[UIMd3ColorRole_Secondary]                = tone(secondaryBase, 80);
+        m_colors[UIMd3ColorRole_OnSecondary]              = tone(secondaryBase, 20);
+        m_colors[UIMd3ColorRole_SecondaryContainer]       = tone(secondaryBase, 30);
+        m_colors[UIMd3ColorRole_OnSecondaryContainer]     = tone(secondaryBase, 90);
+        m_colors[UIMd3ColorRole_Tertiary]                 = tone(tertiaryBase, 80);
+        m_colors[UIMd3ColorRole_OnTertiary]               = tone(tertiaryBase, 20);
+        m_colors[UIMd3ColorRole_TertiaryContainer]        = tone(tertiaryBase, 30);
+        m_colors[UIMd3ColorRole_OnTertiaryContainer]      = tone(tertiaryBase, 90);
+        m_colors[UIMd3ColorRole_Error]                    = tone(errorBase, 80);
+        m_colors[UIMd3ColorRole_OnError]                  = tone(errorBase, 20);
+        m_colors[UIMd3ColorRole_ErrorContainer]           = tone(errorBase, 30);
+        m_colors[UIMd3ColorRole_OnErrorContainer]         = tone(errorBase, 90);
+        m_colors[UIMd3ColorRole_Surface]                  = tone(neutralBase, 6);
+        m_colors[UIMd3ColorRole_OnSurface]                = tone(neutralBase, fContrast ? 100 : 90);
+        m_colors[UIMd3ColorRole_OnSurfaceVariant]         = tone(neutralBase, 80);
+        m_colors[UIMd3ColorRole_SurfaceContainerLowest]   = tone(neutralBase, 4);
+        m_colors[UIMd3ColorRole_SurfaceContainerLow]      = tone(neutralBase, 10);
+        m_colors[UIMd3ColorRole_SurfaceContainer]         = tone(neutralBase, 12);
+        m_colors[UIMd3ColorRole_SurfaceContainerHigh]     = tone(neutralBase, 17);
+        m_colors[UIMd3ColorRole_SurfaceContainerHighest]  = tone(neutralBase, 22);
+        m_colors[UIMd3ColorRole_Outline]                  = tone(neutralBase, fContrast ? 80 : 60);
+        m_colors[UIMd3ColorRole_OutlineVariant]           = tone(neutralBase, 30);
+    }
+    else
+    {
+        m_colors[UIMd3ColorRole_Primary]                  = tone(primaryBase, fContrast ? 30 : 40);
+        m_colors[UIMd3ColorRole_OnPrimary]                = tone(primaryBase, 100);
+        m_colors[UIMd3ColorRole_PrimaryContainer]         = tone(primaryBase, 90);
+        m_colors[UIMd3ColorRole_OnPrimaryContainer]       = tone(primaryBase, 10);
+        m_colors[UIMd3ColorRole_Secondary]                = tone(secondaryBase, 40);
+        m_colors[UIMd3ColorRole_OnSecondary]              = tone(secondaryBase, 100);
+        m_colors[UIMd3ColorRole_SecondaryContainer]       = tone(secondaryBase, 90);
+        m_colors[UIMd3ColorRole_OnSecondaryContainer]     = tone(secondaryBase, 10);
+        m_colors[UIMd3ColorRole_Tertiary]                 = tone(tertiaryBase, 40);
+        m_colors[UIMd3ColorRole_OnTertiary]               = tone(tertiaryBase, 100);
+        m_colors[UIMd3ColorRole_TertiaryContainer]        = tone(tertiaryBase, 90);
+        m_colors[UIMd3ColorRole_OnTertiaryContainer]      = tone(tertiaryBase, 10);
+        m_colors[UIMd3ColorRole_Error]                    = tone(errorBase, 40);
+        m_colors[UIMd3ColorRole_OnError]                  = tone(errorBase, 100);
+        m_colors[UIMd3ColorRole_ErrorContainer]           = tone(errorBase, 90);
+        m_colors[UIMd3ColorRole_OnErrorContainer]         = tone(errorBase, 10);
+        m_colors[UIMd3ColorRole_Surface]                  = tone(neutralBase, 98);
+        m_colors[UIMd3ColorRole_OnSurface]                = tone(neutralBase, fContrast ? 0 : 10);
+        m_colors[UIMd3ColorRole_OnSurfaceVariant]         = tone(neutralBase, 30);
+        m_colors[UIMd3ColorRole_SurfaceContainerLowest]   = tone(neutralBase, 100);
+        m_colors[UIMd3ColorRole_SurfaceContainerLow]      = tone(neutralBase, 96);
+        m_colors[UIMd3ColorRole_SurfaceContainer]         = tone(neutralBase, 94);
+        m_colors[UIMd3ColorRole_SurfaceContainerHigh]     = tone(neutralBase, 92);
+        m_colors[UIMd3ColorRole_SurfaceContainerHighest]  = tone(neutralBase, 90);
+        m_colors[UIMd3ColorRole_Outline]                  = tone(neutralBase, fContrast ? 30 : 50);
+        m_colors[UIMd3ColorRole_OutlineVariant]           = tone(neutralBase, 80);
+    }
+    m_colors[UIMd3ColorRole_Scrim] = QColor(0, 0, 0, 153);
+
+    /* Publish an approximate QPalette so any not-yet-migrated widget still reads correctly: */
+    QPalette palette = qApp->palette();
+    palette.setColor(QPalette::Window,          m_colors[UIMd3ColorRole_Surface]);
+    palette.setColor(QPalette::WindowText,      m_colors[UIMd3ColorRole_OnSurface]);
+    palette.setColor(QPalette::Base,            m_colors[UIMd3ColorRole_SurfaceContainerLow]);
+    palette.setColor(QPalette::AlternateBase,   m_colors[UIMd3ColorRole_SurfaceContainer]);
+    palette.setColor(QPalette::Text,            m_colors[UIMd3ColorRole_OnSurface]);
+    palette.setColor(QPalette::Button,          m_colors[UIMd3ColorRole_SurfaceContainerHigh]);
+    palette.setColor(QPalette::ButtonText,      m_colors[UIMd3ColorRole_OnSurface]);
+    palette.setColor(QPalette::Highlight,       m_colors[UIMd3ColorRole_SecondaryContainer]);
+    palette.setColor(QPalette::HighlightedText, m_colors[UIMd3ColorRole_OnSecondaryContainer]);
+    palette.setColor(QPalette::ToolTipBase,     m_colors[UIMd3ColorRole_SurfaceContainerHighest]);
+    palette.setColor(QPalette::ToolTipText,     m_colors[UIMd3ColorRole_OnSurface]);
+    qApp->setPalette(palette);
+}

@@ -1,0 +1,726 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Roboto+Flex:opsz,wght@8..144,300..700&family=Roboto+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  html,body{margin:0;padding:0;background:#141218;color:#E6E0E9;font-family:"Roboto Flex","Segoe UI",system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+  *{box-sizing:border-box}
+  a{color:#D0BCFF;text-decoration:none}
+  a:hover{color:#EADDFF;text-decoration:underline}
+  button{font:inherit;color:inherit;border:0;background:none;cursor:pointer}
+  input,select,textarea{font:inherit;color:inherit}
+  input[type=range]{accent-color:#D0BCFF}
+  ::-webkit-scrollbar{width:10px;height:10px}
+  ::-webkit-scrollbar-thumb{background:#49454F;border-radius:8px}
+  @keyframes mvmIn{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:none}}
+</style>
+</helmet>
+
+<div style="height:100vh;display:flex;flex-direction:column;background:#141218;overflow:hidden;font-size:13px">
+
+  <div style="height:44px;flex:none;display:flex;align-items:center;gap:10px;padding:0 6px 0 12px;background:#1D1B20;border-bottom:1px solid #2B2930">
+    <div style="width:26px;height:26px;flex:none;display:grid;place-items:center;border-radius:8px;background:#D0BCFF;color:#381E72;font-weight:700;font-size:14px">{{ brandMark }}</div>
+    <div style="font-size:13px;font-weight:600;white-space:nowrap">{{ dialogTitle }}</div>
+    <div style="flex:1;min-width:8px"></div>
+    <div style="flex:none;display:flex;gap:4px;font-size:11.5px">
+      <a href="Manager.dc.html" style="padding:5px 10px;border-radius:12px;background:#2B2930;color:#CAC4D0">Manager</a>
+      <a href="Runtime Window.dc.html" style="padding:5px 10px;border-radius:12px;background:#2B2930;color:#CAC4D0">Runtime</a>
+      <a href="Wizards.dc.html" style="padding:5px 10px;border-radius:12px;background:#2B2930;color:#CAC4D0">Wizards</a>
+      <a href="Managers.dc.html" style="padding:5px 10px;border-radius:12px;background:#2B2930;color:#CAC4D0">Managers</a>
+    </div>
+    <div style="flex:none;display:flex;gap:2px;margin-left:6px">
+      <button onClick="{{ winMinimize }}" style="width:38px;height:32px;border-radius:8px;color:#CAC4D0" style-hover="background:#2B2930">─</button>
+      <button onClick="{{ winMaximize }}" style="width:38px;height:32px;border-radius:8px;color:#CAC4D0" style-hover="background:#2B2930">▢</button>
+      <button onClick="{{ winClose }}" style="width:38px;height:32px;border-radius:8px;color:#CAC4D0" style-hover="background:#93000A;color:#FFDAD6">✕</button>
+    </div>
+  </div>
+
+  <div style="flex:none;display:flex;align-items:center;gap:8px;padding:12px 18px 10px;min-width:0">
+    <div style="flex:1;min-width:0;display:flex;align-items:center;gap:8px;height:38px;padding:0 12px;border-radius:19px;background:#2B2930">
+      <span style="color:#938F99">⌕</span>
+      <input value="{{ searchQuery }}" onInput="{{ setSearch }}" placeholder="Search every settings page, editor and current value" style="flex:1;min-width:0;background:none;border:0;outline:none;font-size:12.5px" />
+      <span style="font-size:10.5px;color:#938F99;white-space:nowrap">{{ searchSummary }}</span>
+    </div>
+    <button onClick="{{ openRegex }}" title="Regex builder for settings search" style="width:38px;height:38px;flex:none;border-radius:12px;background:#4F378B;color:#EADDFF;font-family:'Roboto Mono',monospace;font-weight:600" style-hover="filter:brightness(1.15)">.*</button>
+    <button onClick="{{ toggleExpert }}" style="height:38px;flex:none;padding:0 16px;border-radius:19px;background:{{ expertBg }};color:{{ expertFg }};font-size:12.5px;font-weight:600">{{ expertLabel }}</button>
+  </div>
+
+  <div style="flex:1;min-height:0;display:flex;gap:12px;padding:0 18px 12px;min-width:0">
+
+    <div style="width:210px;flex:none;min-width:0;display:flex;flex-direction:column;gap:2px;background:#1D1B20;border:1px solid #2B2930;border-radius:16px;padding:8px;overflow-y:auto">
+      <sc-for list="{{ pages }}" as="p" hint-placeholder-count="10">
+        <button onClick="{{ p.select }}" style="display:flex;align-items:center;gap:10px;padding:9px 10px;border-radius:12px;background:{{ p.bg }};color:{{ p.fg }};text-align:left;min-width:0" style-hover="background:#2B2930">
+          <img src="{{ p.iconSrc }}" alt="" style="width:18px;height:18px;flex:none;object-fit:contain" />
+          <span style="flex:1;min-width:0;font-size:12.5px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ p.label }}</span>
+          <span style="width:7px;height:7px;flex:none;border-radius:50%;background:{{ p.dot }}"></span>
+        </button>
+      </sc-for>
+    </div>
+
+    <div style="flex:1;min-width:0;display:flex;flex-direction:column;background:#1D1B20;border:1px solid #2B2930;border-radius:16px;overflow:hidden">
+      <div style="flex:none;display:flex;align-items:center;gap:10px;padding:14px 16px 10px;border-bottom:1px solid #2B2930;min-width:0">
+        <div style="min-width:0">
+          <div style="font-size:10.5px;font-weight:700;letter-spacing:1.2px;text-transform:uppercase;color:#D0BCFF">Machine settings · {{ machineName }}</div>
+          <div style="font-size:18px;font-weight:500;margin-top:2px">{{ pageTitle }}</div>
+        </div>
+        <div style="flex:1"></div>
+        <button onClick="{{ openAppearance }}" title="Edit appearance of this page" style="flex:none;width:34px;height:32px;border-radius:16px;color:#CAC4D0" style-hover="background:#2B2930">✎</button>
+      </div>
+      <div style="flex:1;min-height:0;min-width:0;overflow-y:auto;overflow-x:hidden;padding:16px">{{ pageBody }}</div>
+    </div>
+  </div>
+
+  <div style="flex:none;display:flex;align-items:center;gap:10px;padding:0 18px 14px;min-width:0">
+    <div style="flex:1;min-width:0;font-size:11.5px;color:{{ validityColor }};overflow:hidden;text-overflow:ellipsis">{{ validityText }}</div>
+    <button onClick="{{ resetPage }}" style="flex:none;height:38px;padding:0 16px;border-radius:19px;color:#D0BCFF;font-size:12.5px;font-weight:600" style-hover="background:#2B2930">Reset page</button>
+    <button onClick="{{ cancel }}" style="flex:none;height:38px;padding:0 18px;border-radius:19px;background:transparent;border:1px solid #49454F;color:#CAC4D0;font-size:12.5px;font-weight:600" style-hover="background:#2B2930">Cancel</button>
+    <button onClick="{{ apply }}" style="flex:none;height:38px;padding:0 20px;border-radius:19px;background:{{ applyBg }};color:{{ applyFg }};font-size:12.5px;font-weight:600" style-hover="filter:brightness(1.12)">{{ applyLabel }}</button>
+  </div>
+
+  <sc-if value="{{ overlayOpen }}" hint-placeholder-val="{{ false }}">
+    <div style="position:fixed;inset:0;z-index:40;display:grid;place-items:center;background:#00000099;backdrop-filter:blur(3px)">
+      <div style="width:min(680px,calc(100vw - 64px));max-height:calc(100vh - 90px);display:flex;flex-direction:column;background:#211F26;border:1px solid #36343B;border-radius:28px;box-shadow:0 24px 60px #000000aa;animation:mvmIn .2s cubic-bezier(.05,.7,.1,1);overflow:hidden">
+        <div style="flex:none;display:flex;align-items:flex-start;gap:12px;padding:22px 24px 12px">
+          <div style="flex:1;min-width:0">
+            <div style="font-size:10.5px;font-weight:700;letter-spacing:1.2px;text-transform:uppercase;color:#D0BCFF">{{ overlayEyebrow }}</div>
+            <div style="font-size:20px;font-weight:500;margin-top:3px">{{ overlayTitle }}</div>
+          </div>
+          <button onClick="{{ closeOverlay }}" style="width:34px;height:34px;flex:none;border-radius:17px;color:#CAC4D0" style-hover="background:#36343B">✕</button>
+        </div>
+        <div style="flex:1;min-height:0;overflow-y:auto;padding:0 24px 22px">{{ overlayBody }}</div>
+      </div>
+    </div>
+  </sc-if>
+
+  <div style="position:fixed;right:20px;bottom:20px;z-index:50;display:flex;flex-direction:column;gap:8px;width:330px">
+    <sc-for list="{{ toasts }}" as="t" hint-placeholder-count="0">
+      <div style="padding:12px 14px;border-radius:14px;background:#36343B;border-left:3px solid {{ t.accent }};box-shadow:0 8px 26px #000000aa;animation:mvmIn .2s ease">
+        <div style="font-size:12.5px;font-weight:600">{{ t.title }}</div>
+        <div style="font-size:11.5px;color:#CAC4D0;margin-top:2px">{{ t.detail }}</div>
+      </div>
+    </sc-for>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;brandMark&quot;:{&quot;editor&quot;:&quot;text&quot;,&quot;default&quot;:&quot;M&quot;,&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;Branding&quot;}}">
+const T = {
+  primary: '#D0BCFF', onPrimary: '#381E72', primaryContainer: '#4F378B', onPrimaryContainer: '#EADDFF',
+  secondaryContainer: '#4A4458', onSecondaryContainer: '#E8DEF8', surfaceHigh: '#2B2930', surfaceHighest: '#36343B',
+  onSurface: '#E6E0E9', onSurfaceVar: '#CAC4D0', outline: '#938F99', outlineVar: '#49454F', error: '#F2B8B5', ok: '#7ED9A6', warn: '#F7C77A'
+};
+const I = (n) => 'icons/' + n;
+const h = React.createElement;
+
+/* MachineSettingsPageType_* from UIAdvancedSettingsDialogSpecific.cpp */
+const PAGES = [
+  { id: 'general', label: 'General', icon: 'machine_16px.png' },
+  { id: 'system', label: 'System', icon: 'chipset_16px.png' },
+  { id: 'display', label: 'Display', icon: 'vrdp_16px.png' },
+  { id: 'storage', label: 'Storage', icon: 'hd_16px.png' },
+  { id: 'audio', label: 'Audio', icon: 'sound_16px.png' },
+  { id: 'network', label: 'Network', icon: 'nw_16px.png' },
+  { id: 'serial', label: 'Serial Ports', icon: 'serial_port_16px.png' },
+  { id: 'usb', label: 'USB', icon: 'usb_16px.png' },
+  { id: 'sf', label: 'Shared Folders', icon: 'sf_16px.png' },
+  { id: 'interface', label: 'User Interface', icon: 'interface_16px.png' }
+];
+
+const DEFAULTS = {
+  name: 'Win11-Dev', osFamily: 'Microsoft Windows', osType: 'Windows 11 (64-bit)',
+  snapshotFolder: 'C:\\Users\\you\\VirtualBox VMs\\Win11-Dev\\Snapshots', description: '',
+  encryption: false, cipher: 'AES-XTS256-PLAIN64',
+  baseMemory: 8192, processors: 6, execCap: 100,
+  bootOrder: ['Hard Disk', 'Optical', 'Floppy', 'Network'], bootEnabled: { 'Hard Disk': true, Optical: true, Floppy: false, Network: false },
+  chipset: 'ICH9', tpm: 'v2.0', pointing: 'USB Tablet', ioapic: true, efi: true, secureBoot: true, utc: false,
+  pae: true, nestedVtx: false, nestedPaging: true, paravirt: 'Default',
+  videoMemory: 128, monitors: 1, scaleFactor: 100, graphicsController: 'VBoxSVGA', accel3d: false,
+  vrdeEnabled: false, vrdePort: '3389', vrdeAuth: 'Null', vrdeTimeout: 5000, vrdeMultiConnect: false,
+  recordingEnabled: false, recordingMode: 'Video/Audio', recordingPath: 'C:\\Users\\you\\VirtualBox VMs\\Win11-Dev\\Win11-Dev.webm',
+  recordingSize: '1280x720', recordingFps: 25, recordingQuality: 6,
+  storage: [
+    { id: 'sata', name: 'SATA', type: 'AHCI', ports: 2, hostIO: true, attachments: [{ id: 'a1', slot: 'SATA Port 0', medium: 'Win11-Dev.vdi', kind: 'Hard Disk', size: '120 GB', ssd: true, hotplug: false }, { id: 'a2', slot: 'SATA Port 1', medium: 'Empty', kind: 'Optical Drive', size: '—', ssd: false, hotplug: true }] },
+    { id: 'ide', name: 'IDE', type: 'PIIX4', ports: 2, hostIO: false, attachments: [] }
+  ],
+  audioEnabled: true, audioDriver: 'Windows Audio Session', audioController: 'Intel HD Audio', audioIn: true, audioOut: true,
+  adapters: [
+    { id: 1, enabled: true, attached: 'NAT', name: '', adapterType: 'Intel PRO/1000 MT Desktop', promisc: 'Deny', mac: '080027A1B2C3', cableConnected: true },
+    { id: 2, enabled: false, attached: 'Not attached', name: '', adapterType: 'Intel PRO/1000 MT Desktop', promisc: 'Deny', mac: '0800275F6E7D', cableConnected: true },
+    { id: 3, enabled: false, attached: 'Not attached', name: '', adapterType: 'Intel PRO/1000 MT Desktop', promisc: 'Deny', mac: '080027119C4A', cableConnected: true },
+    { id: 4, enabled: false, attached: 'Not attached', name: '', adapterType: 'Intel PRO/1000 MT Desktop', promisc: 'Deny', mac: '0800273D22E1', cableConnected: true }
+  ],
+  ports: [
+    { id: 1, enabled: false, number: 'COM1', irq: '4', io: '0x3F8', mode: 'Disconnected', path: '', connect: false },
+    { id: 2, enabled: false, number: 'COM2', irq: '3', io: '0x2F8', mode: 'Disconnected', path: '', connect: false }
+  ],
+  usbEnabled: true, usbController: 'USB 3.0 (xHCI) Controller',
+  usbFilters: [{ id: 'f1', name: 'YubiKey', active: true, vendor: '1050', product: '0407' }],
+  folders: [{ id: 'sf1', name: 'shared', path: 'C:\\Users\\you\\shared', access: 'Full', autoMount: true, mountPoint: '', transient: false }, { id: 'sf2', name: 'iso', path: 'C:\\Users\\you\\Downloads\\iso', access: 'Read-only', autoMount: false, mountPoint: '', transient: false }],
+  menuBar: true, statusBar: true, miniToolbar: true, miniToolbarTop: false, miniToolbarFullscreen: true, visualState: 'Normal'
+};
+
+class Component extends DCLogic {
+  state = {
+    page: 'general', expert: false, searchQuery: '', pageQuery: '', regexApplied: null,
+    saved: JSON.parse(JSON.stringify(DEFAULTS)), draft: JSON.parse(JSON.stringify(DEFAULTS)),
+    overlay: null, overlayCtx: null, toasts: [],
+    regexPattern: '', regexFlags: 'iu', regexSample: 'Base Memory 8192 MB',
+    appearance: { target: '', radius: 16, scale: 1, weight: 400, font: 'Roboto Flex', seed: '#6750A4' },
+    selectedController: 'sata', selectedAttachment: 'a1', selectedAdapter: 1, selectedPort: 1, selectedFilter: 'f1', selectedFolder: 'sf1'
+  };
+
+  toast(title, detail, accent) {
+    const id = Math.random().toString(16).slice(2);
+    this.setState((s) => ({ toasts: [...s.toasts, { id, title, detail, accent: accent || T.primary }] }));
+    setTimeout(() => this.setState((s) => ({ toasts: s.toasts.filter((t) => t.id !== id) })), 3400);
+  }
+  set(patch) { this.setState((s) => ({ draft: Object.assign({}, s.draft, patch) })); }
+  d() { return this.state.draft; }
+  dirty() { return JSON.stringify(this.state.draft) !== JSON.stringify(this.state.saved); }
+
+  /* ---------- validation, per UISettingsPageValidator ---------- */
+  problems() {
+    const d = this.d(), out = {};
+    const add = (page, msg) => { (out[page] = out[page] || []).push(msg); };
+    if (!d.name.trim()) add('general', 'The machine name cannot be empty.');
+    if (d.baseMemory > 24576) add('system', 'More than 24576 MB of RAM is assigned to the machine; the host may not have enough memory.');
+    if (d.processors > 8) add('system', 'More virtual CPUs are assigned than physical cores on the host.');
+    if (d.execCap < 70) add('system', 'The execution cap is set to a low value; the guest may feel sluggish.');
+    if (d.accel3d && d.videoMemory < 128) add('display', '3D acceleration needs at least 128 MB of video memory.');
+    if (d.monitors > 1 && d.videoMemory < 128) add('display', 'The video memory is below the amount required for ' + d.monitors + ' monitors.');
+    if (d.vrdeEnabled && !/^\d+(-\d+)?$/.test(d.vrdePort)) add('display', 'The remote display port must be a number or a range.');
+    if (d.recordingEnabled && !d.recordingPath.trim()) add('display', 'The recording file path cannot be empty.');
+    d.adapters.forEach((a) => { if (a.enabled && (a.attached === 'Bridged Adapter' || a.attached === 'Host-only Adapter' || a.attached === 'Internal Network' || a.attached === 'NAT Network') && !a.name.trim()) add('network', 'Adapter ' + a.id + ' has no network name selected.'); });
+    d.ports.forEach((p) => { if (p.enabled && p.mode !== 'Disconnected' && !p.path.trim()) add('serial', 'Port ' + p.id + ' has no path or address set.'); });
+    d.folders.forEach((f) => { if (!f.path.trim()) add('sf', 'Shared folder "' + f.name + '" has no host path.'); });
+    if (d.usbEnabled && d.usbFilters.some((f) => !f.name.trim())) add('usb', 'A USB filter has no name.');
+    return out;
+  }
+
+  /* ---------- controls ---------- */
+  pageSearchRow() {
+    const q = this.state.pageQuery || '';
+    return h('div', { style: { display: 'flex', gap: 6, marginBottom: 12, minWidth: 0 } },
+      h('div', { style: { flex: 1, minWidth: 0, display: 'flex', alignItems: 'center', gap: 8, height: 36, padding: '0 12px', borderRadius: 18, background: T.surfaceHigh } },
+        h('span', { style: { color: T.outline } }, '⌕'),
+        h('input', { value: q, onChange: (e) => this.setState({ pageQuery: e.target.value }), placeholder: 'Search the editors on this page', style: { flex: 1, minWidth: 0, background: 'none', border: 0, outline: 'none', fontSize: 12.5, color: T.onSurface } }),
+        q ? h('button', { onClick: () => this.setState({ pageQuery: '' }), style: { color: T.outline, fontSize: 12 } }, '✕') : null),
+      h('button', { onClick: () => this.setState({ overlay: 'regex' }), title: 'Regex builder for this field', style: { width: 36, height: 36, flex: 'none', borderRadius: 12, background: T.primaryContainer, color: T.onPrimaryContainer, fontFamily: 'Roboto Mono, monospace', fontWeight: 600 } }, '.*'));
+  }
+  filterCards(node) {
+    const q = (this.state.pageQuery || '').toLowerCase();
+    if (!q || !node || !node.props || !node.props.children) return node;
+    const kids = React.Children.toArray(node.props.children).filter((c) => c && c.key && String(c.key).toLowerCase().includes(q));
+    return h('div', null, kids.length ? kids : h('div', { style: { padding: 14, borderRadius: 12, background: T.surfaceHigh, color: T.outline, fontSize: 12.5 } }, 'No editor group on this page matches “' + this.state.pageQuery + '”.'));
+  }
+  card(title, children, subtitle) {
+    return h('div', { key: title, style: { background: T.surfaceHigh, borderRadius: 16, padding: '14px 16px', marginBottom: 10, minWidth: 0 } },
+      h('div', { style: { display: 'flex', alignItems: 'baseline', gap: 8, marginBottom: 12 } },
+        h('div', { style: { fontSize: 12.5, fontWeight: 700, color: T.primary } }, title),
+        subtitle ? h('div', { style: { fontSize: 11, color: T.outline } }, subtitle) : null),
+      children);
+  }
+  grid(children, cols) { return h('div', { style: { display: 'grid', gridTemplateColumns: 'repeat(' + (cols || 2) + ',minmax(0,1fr))', gap: 12, minWidth: 0 } }, children); }
+  field(label, node, hint) {
+    return h('label', { key: label, style: { display: 'grid', gap: 5, minWidth: 0 } },
+      h('span', { style: { fontSize: 11.5, fontWeight: 700, color: T.outline } }, label), node,
+      hint ? h('span', { style: { fontSize: 10.5, color: T.outline } }, hint) : null);
+  }
+  text(value, onChange, props) {
+    return h('input', Object.assign({ value, onChange }, props || {}, { style: { width: '100%', height: 40, padding: '0 12px', borderRadius: 12, background: T.surfaceHighest, border: '1px solid ' + T.outlineVar, outline: 'none', fontSize: 12.5, color: T.onSurface } }));
+  }
+  combo(value, options, onChange) {
+    return h('select', { value, onChange, style: { width: '100%', height: 40, padding: '0 10px', borderRadius: 12, background: T.surfaceHighest, border: '1px solid ' + T.outlineVar, outline: 'none', fontSize: 12.5, color: T.onSurface } },
+      options.map((o) => h('option', { key: o, value: o }, o)));
+  }
+  slider(value, min, max, step, onChange, suffix) {
+    return h('div', { style: { display: 'grid', gap: 4 } },
+      h('div', { style: { display: 'flex', justifyContent: 'space-between', fontSize: 11.5, color: T.onSurfaceVar } },
+        h('span', null, min + (suffix || '')), h('b', { style: { color: T.primary } }, value + (suffix || '')), h('span', null, max + (suffix || ''))),
+      h('input', { type: 'range', min, max, step: step || 1, value, onChange, style: { width: '100%' } }));
+  }
+  check(label, checked, onChange) {
+    return h('label', { key: label, style: { display: 'flex', alignItems: 'center', gap: 9, padding: '7px 0', fontSize: 12.5, cursor: 'pointer', minWidth: 0 } },
+      h('input', { type: 'checkbox', checked, onChange, style: { width: 16, height: 16, accentColor: T.primary } }),
+      h('span', { style: { minWidth: 0 } }, label));
+  }
+  btn(label, onClick, kind, disabled) {
+    const map = { filled: { background: T.primary, color: T.onPrimary }, tonal: { background: T.secondaryContainer, color: T.onSecondaryContainer }, text: { background: 'transparent', color: T.primary }, outlined: { background: 'transparent', color: T.onSurfaceVar, border: '1px solid ' + T.outlineVar } };
+    return h('button', { key: label, onClick: disabled ? undefined : onClick, disabled: Boolean(disabled), style: Object.assign({ height: 34, padding: '0 14px', borderRadius: 17, fontSize: 12, fontWeight: 600, whiteSpace: 'nowrap', opacity: disabled ? .45 : 1 }, map[kind || 'tonal']) }, label);
+  }
+  rowList(items, selectedId, onSelect, render) {
+    return h('div', { style: { display: 'grid', gap: 4, marginBottom: 10 } }, items.map((it) => h('button', {
+      key: it.id, onClick: () => onSelect(it.id),
+      style: { display: 'flex', alignItems: 'center', gap: 10, padding: '9px 11px', borderRadius: 12, background: selectedId === it.id ? T.secondaryContainer : T.surfaceHighest, textAlign: 'left', minWidth: 0 }
+    }, render(it))));
+  }
+
+  /* ---------- pages ---------- */
+  pageGeneral() {
+    const d = this.d();
+    return h('div', null,
+      this.card('Basic', this.grid([
+        this.field('Name', this.text(d.name, (e) => this.set({ name: e.target.value }))),
+        this.field('Type', this.combo(d.osFamily, ['Microsoft Windows', 'Linux', 'BSD', 'Solaris', 'Other'], (e) => this.set({ osFamily: e.target.value }))),
+        this.field('Version', this.combo(d.osType, ['Windows 11 (64-bit)', 'Windows 10 (64-bit)', 'Ubuntu (64-bit)', 'Debian (64-bit)', 'Oracle Linux 9 (64-bit)'], (e) => this.set({ osType: e.target.value })))
+      ])),
+      this.card('Advanced', h('div', null,
+        this.grid([this.field('Snapshot Folder', this.text(d.snapshotFolder, (e) => this.set({ snapshotFolder: e.target.value })))], 1),
+        h('div', { style: { height: 10 } }),
+        this.grid([
+          this.field('Shared Clipboard', this.combo(d.clipboard || 'Disabled', ['Disabled', 'Host To Guest', 'Guest To Host', 'Bidirectional'], (e) => this.set({ clipboard: e.target.value }))),
+          this.field('Drag\'n\'Drop', this.combo(d.dnd || 'Disabled', ['Disabled', 'Host To Guest', 'Guest To Host', 'Bidirectional'], (e) => this.set({ dnd: e.target.value })))
+        ]))),
+      this.card('Description', h('textarea', {
+        value: d.description, onChange: (e) => this.set({ description: e.target.value }), rows: 4, placeholder: 'Notes about this machine…',
+        style: { width: '100%', padding: 12, borderRadius: 12, background: T.surfaceHighest, border: '1px solid ' + T.outlineVar, outline: 'none', fontSize: 12.5, color: T.onSurface, resize: 'vertical' }
+      })),
+      this.card('Disk Encryption', h('div', null,
+        this.check('Enable Disk Encryption', d.encryption, (e) => this.set({ encryption: e.target.checked })),
+        d.encryption ? this.grid([
+          this.field('Cipher', this.combo(d.cipher, ['AES-XTS256-PLAIN64', 'AES-XTS128-PLAIN64'], (e) => this.set({ cipher: e.target.value }))),
+          this.field('Password', this.text(d.encPassword || '', (e) => this.set({ encPassword: e.target.value }), { type: 'password', placeholder: 'Enter password' })),
+          this.field('Repeat Password', this.text(d.encPassword2 || '', (e) => this.set({ encPassword2: e.target.value }), { type: 'password', placeholder: 'Repeat password' }))
+        ]) : h('div', { style: { fontSize: 11.5, color: T.outline } }, 'Encryption applies to every attached hard disk image of this machine.'))));
+  }
+
+  pageSystem() {
+    const d = this.d();
+    const move = (name, dir) => {
+      const order = [...d.bootOrder]; const i = order.indexOf(name); const j = i + dir;
+      if (i < 0 || j < 0 || j >= order.length) return;
+      order[i] = order[j]; order[j] = name; this.set({ bootOrder: order });
+    };
+    return h('div', null,
+      this.card('Motherboard', h('div', null,
+        this.grid([
+          this.field('Base Memory', this.slider(d.baseMemory, 512, 32768, 256, (e) => this.set({ baseMemory: Number(e.target.value) }), ' MB')),
+          this.field('Chipset', this.combo(d.chipset, ['PIIX3', 'ICH9', 'ARMv8Virtual'], (e) => this.set({ chipset: e.target.value }))),
+          this.field('TPM', this.combo(d.tpm, ['None', 'v1.2', 'v2.0', 'Host', 'SWTPM'], (e) => this.set({ tpm: e.target.value }))),
+          this.field('Pointing Device', this.combo(d.pointing, ['PS/2 Mouse', 'USB Tablet', 'USB Multi-Touch Tablet'], (e) => this.set({ pointing: e.target.value })))
+        ]),
+        h('div', { style: { marginTop: 12, fontSize: 11.5, fontWeight: 700, color: T.outline } }, 'Boot Order'),
+        h('div', { style: { display: 'grid', gap: 4, marginTop: 6 } }, d.bootOrder.map((name) => h('div', {
+          key: name, style: { display: 'flex', alignItems: 'center', gap: 8, padding: '7px 10px', borderRadius: 10, background: T.surfaceHighest }
+        },
+          h('input', { type: 'checkbox', checked: d.bootEnabled[name], onChange: (e) => this.set({ bootEnabled: Object.assign({}, d.bootEnabled, { [name]: e.target.checked }) }), style: { accentColor: T.primary } }),
+          h('span', { style: { flex: 1, fontSize: 12.5 } }, name),
+          h('button', { onClick: () => move(name, -1), style: { width: 26, height: 26, borderRadius: 8, color: T.onSurfaceVar } }, '↑'),
+          h('button', { onClick: () => move(name, 1), style: { width: 26, height: 26, borderRadius: 8, color: T.onSurfaceVar } }, '↓')))),
+        h('div', { style: { marginTop: 10 } },
+          this.check('Enable I/O APIC', d.ioapic, (e) => this.set({ ioapic: e.target.checked })),
+          this.check('Enable EFI (special OSes only)', d.efi, (e) => this.set({ efi: e.target.checked, secureBoot: e.target.checked ? d.secureBoot : false })),
+          d.efi ? this.check('Enable Secure Boot', d.secureBoot, (e) => this.set({ secureBoot: e.target.checked })) : null,
+          this.check('Hardware Clock in UTC Time', d.utc, (e) => this.set({ utc: e.target.checked }))))),
+      this.card('Processor', h('div', null,
+        this.grid([
+          this.field('Processors', this.slider(d.processors, 1, 16, 1, (e) => this.set({ processors: Number(e.target.value) }), ' CPU')),
+          this.field('Execution Cap', this.slider(d.execCap, 10, 100, 1, (e) => this.set({ execCap: Number(e.target.value) }), '%'))
+        ]),
+        h('div', { style: { marginTop: 8 } },
+          this.check('Enable PAE/NX', d.pae, (e) => this.set({ pae: e.target.checked })),
+          this.check('Enable Nested VT-x/AMD-V', d.nestedVtx, (e) => this.set({ nestedVtx: e.target.checked }))))),
+      this.card('Acceleration', h('div', null,
+        this.grid([this.field('Paravirtualization Interface', this.combo(d.paravirt, ['Default', 'Legacy', 'Minimal', 'Hyper-V', 'KVM', 'None'], (e) => this.set({ paravirt: e.target.value })))], 1),
+        h('div', { style: { marginTop: 8 } }, this.check('Enable Nested Paging', d.nestedPaging, (e) => this.set({ nestedPaging: e.target.checked }))))));
+  }
+
+  pageDisplay() {
+    const d = this.d();
+    return h('div', null,
+      this.card('Screen', h('div', null,
+        this.grid([
+          this.field('Video Memory', this.slider(d.videoMemory, 0, 256, 1, (e) => this.set({ videoMemory: Number(e.target.value) }), ' MB')),
+          this.field('Monitor Count', this.slider(d.monitors, 1, 8, 1, (e) => this.set({ monitors: Number(e.target.value) }), '')),
+          this.field('Scale Factor', this.slider(d.scaleFactor, 25, 300, 5, (e) => this.set({ scaleFactor: Number(e.target.value) }), '%')),
+          this.field('Graphics Controller', this.combo(d.graphicsController, ['VBoxVGA', 'VMSVGA', 'VBoxSVGA', 'None'], (e) => this.set({ graphicsController: e.target.value })))
+        ]),
+        h('div', { style: { marginTop: 8 } }, this.check('Enable 3D Acceleration', d.accel3d, (e) => this.set({ accel3d: e.target.checked }))))),
+      this.card('Remote Display', h('div', null,
+        this.check('Enable Server', d.vrdeEnabled, (e) => this.set({ vrdeEnabled: e.target.checked })),
+        d.vrdeEnabled ? h('div', { style: { marginTop: 8 } }, this.grid([
+          this.field('Server Port', this.text(d.vrdePort, (e) => this.set({ vrdePort: e.target.value }))),
+          this.field('Authentication Method', this.combo(d.vrdeAuth, ['Null', 'External', 'Guest'], (e) => this.set({ vrdeAuth: e.target.value }))),
+          this.field('Authentication Timeout', this.text(String(d.vrdeTimeout), (e) => this.set({ vrdeTimeout: Number(e.target.value) || 0 }))),
+          h('div', { key: 'mc', style: { display: 'flex', alignItems: 'flex-end' } }, this.check('Allow Multiple Connections', d.vrdeMultiConnect, (e) => this.set({ vrdeMultiConnect: e.target.checked })))
+        ])) : h('div', { style: { fontSize: 11.5, color: T.outline } }, 'The VRDP server requires the Extension Pack.'))),
+      this.card('Recording', h('div', null,
+        this.check('Enable Recording', d.recordingEnabled, (e) => this.set({ recordingEnabled: e.target.checked })),
+        d.recordingEnabled ? h('div', { style: { marginTop: 8 } },
+          this.grid([
+            this.field('Recording Mode', this.combo(d.recordingMode, ['Video/Audio', 'Video Only', 'Audio Only'], (e) => this.set({ recordingMode: e.target.value }))),
+            this.field('File Path', this.text(d.recordingPath, (e) => this.set({ recordingPath: e.target.value }))),
+            this.field('Frame Size', this.combo(d.recordingSize, ['640x480', '720x400', '1024x768', '1280x720', '1920x1080'], (e) => this.set({ recordingSize: e.target.value }))),
+            this.field('Frame Rate', this.slider(d.recordingFps, 1, 60, 1, (e) => this.set({ recordingFps: Number(e.target.value) }), ' fps')),
+            this.field('Video Quality', this.slider(d.recordingQuality, 1, 10, 1, (e) => this.set({ recordingQuality: Number(e.target.value) }), '')),
+            this.field('Screens', this.combo(d.recordingScreens || 'Screen 1', ['Screen 1', 'All screens'], (e) => this.set({ recordingScreens: e.target.value })))
+          ])) : null)));
+  }
+
+  pageStorage() {
+    const d = this.d();
+    const ctrl = d.storage.find((c) => c.id === this.state.selectedController) || d.storage[0];
+    const att = ctrl ? (ctrl.attachments.find((a) => a.id === this.state.selectedAttachment) || ctrl.attachments[0]) : null;
+    const updateCtrl = (patch) => this.set({ storage: d.storage.map((c) => c.id === ctrl.id ? Object.assign({}, c, patch) : c) });
+    const updateAtt = (patch) => this.set({ storage: d.storage.map((c) => c.id === ctrl.id ? Object.assign({}, c, { attachments: c.attachments.map((a) => a.id === att.id ? Object.assign({}, a, patch) : a) }) : c) });
+    return h('div', null,
+      this.card('Storage Devices', h('div', null,
+        d.storage.map((c) => h('div', { key: c.id, style: { marginBottom: 6 } },
+          h('button', { onClick: () => this.setState({ selectedController: c.id }), style: { width: '100%', display: 'flex', alignItems: 'center', gap: 9, padding: '9px 11px', borderRadius: 12, background: this.state.selectedController === c.id ? T.secondaryContainer : T.surfaceHighest, textAlign: 'left' } },
+            h('img', { src: I('hd_16px.png'), alt: '', style: { width: 15, height: 15 } }),
+            h('span', { style: { flex: 1, fontSize: 12.5, fontWeight: 600 } }, 'Controller: ' + c.name),
+            h('span', { style: { fontSize: 11, color: T.outline } }, c.attachments.length + ' attached')),
+          h('div', { style: { display: 'grid', gap: 3, marginTop: 3 } }, c.attachments.map((a) => h('button', {
+            key: a.id, onClick: () => this.setState({ selectedController: c.id, selectedAttachment: a.id }),
+            style: { display: 'flex', alignItems: 'center', gap: 9, marginLeft: 22, padding: '7px 10px', borderRadius: 10, background: this.state.selectedAttachment === a.id && this.state.selectedController === c.id ? T.primaryContainer : T.surfaceHighest, textAlign: 'left' }
+          },
+            h('span', { style: { flex: 1, minWidth: 0, fontSize: 12, overflow: 'hidden', textOverflow: 'ellipsis' } }, a.slot + ' · ' + a.medium),
+            h('span', { style: { fontSize: 10.5, color: T.outline } }, a.kind)))))),
+        h('div', { style: { display: 'flex', gap: 8, marginTop: 10, flexWrap: 'wrap' } },
+          this.btn('Add controller', () => this.set({ storage: [...d.storage, { id: 'c' + Date.now(), name: 'NVMe', type: 'NVMe', ports: 1, hostIO: true, attachments: [] }] }), 'tonal'),
+          this.btn('Add attachment', () => updateCtrl({ attachments: [...ctrl.attachments, { id: 'a' + Date.now(), slot: ctrl.name + ' Port ' + ctrl.attachments.length, medium: 'Empty', kind: 'Hard Disk', size: '—', ssd: false, hotplug: false }] }), 'tonal', !ctrl),
+          this.btn('Remove selected', () => { if (!att) return; updateCtrl({ attachments: ctrl.attachments.filter((a) => a.id !== att.id) }); this.toast('Detached', att.slot); }, 'outlined', !att)))),
+      ctrl ? this.card('Controller: ' + ctrl.name, this.grid([
+        this.field('Type', this.combo(ctrl.type, ['AHCI', 'PIIX4', 'PIIX3', 'ICH6', 'LsiLogic', 'BusLogic', 'NVMe', 'virtio-scsi'], (e) => updateCtrl({ type: e.target.value }))),
+        this.field('Port Count', this.slider(ctrl.ports, 1, 30, 1, (e) => updateCtrl({ ports: Number(e.target.value) }), '')),
+        h('div', { key: 'hio', style: { display: 'flex', alignItems: 'flex-end' } }, this.check('Use Host I/O Cache', ctrl.hostIO, (e) => updateCtrl({ hostIO: e.target.checked })))
+      ])) : null,
+      att ? this.card('Attributes · ' + att.slot, h('div', null,
+        this.grid([
+          this.field('Hard Disk / Optical', this.combo(att.medium, ['Empty', 'Win11-Dev.vdi', 'Ubuntu-24.04.vdi', 'ubuntu-24.04.iso'], (e) => updateAtt({ medium: e.target.value }))),
+          this.field('Device type', this.combo(att.kind, ['Hard Disk', 'Optical Drive', 'Floppy Drive'], (e) => updateAtt({ kind: e.target.value })))
+        ]),
+        h('div', { style: { marginTop: 8 } },
+          this.check('Solid-state Drive', att.ssd, (e) => updateAtt({ ssd: e.target.checked })),
+          this.check('Hot-pluggable', att.hotplug, (e) => updateAtt({ hotplug: e.target.checked }))),
+        h('div', { style: { marginTop: 8, fontSize: 11.5, color: T.outline, fontFamily: 'Roboto Mono, monospace' } }, 'Virtual size ' + att.size))) : null);
+  }
+
+  pageAudio() {
+    const d = this.d();
+    return h('div', null,
+      this.card('Audio', h('div', null,
+        this.check('Enable Audio', d.audioEnabled, (e) => this.set({ audioEnabled: e.target.checked })),
+        d.audioEnabled ? h('div', { style: { marginTop: 8 } },
+          this.grid([
+            this.field('Host Audio Driver', this.combo(d.audioDriver, ['Default', 'Windows Audio Session', 'Windows DirectSound', 'PulseAudio', 'ALSA', 'OSS', 'Null Audio Driver'], (e) => this.set({ audioDriver: e.target.value }))),
+            this.field('Audio Controller', this.combo(d.audioController, ['ICH AC97', 'SoundBlaster 16', 'Intel HD Audio', 'virtio-sound'], (e) => this.set({ audioController: e.target.value })))
+          ]),
+          h('div', { style: { marginTop: 8 } },
+            this.check('Enable Audio Output', d.audioOut, (e) => this.set({ audioOut: e.target.checked })),
+            this.check('Enable Audio Input', d.audioIn, (e) => this.set({ audioIn: e.target.checked })))) :
+          h('div', { style: { fontSize: 11.5, color: T.outline } }, 'The virtual audio device is removed from the guest entirely.'))));
+  }
+
+  pageNetwork() {
+    const d = this.d();
+    const a = d.adapters.find((x) => x.id === this.state.selectedAdapter) || d.adapters[0];
+    const upd = (patch) => this.set({ adapters: d.adapters.map((x) => x.id === a.id ? Object.assign({}, x, patch) : x) });
+    const needsName = ['Bridged Adapter', 'Internal Network', 'Host-only Adapter', 'NAT Network', 'Cloud Network', 'Host-only Network', 'Generic Driver'].includes(a.attached);
+    const nameOptions = { 'Bridged Adapter': ['en0', 'Ethernet', 'Wi-Fi'], 'Internal Network': ['intnet', 'buildnet'], 'Host-only Adapter': ['vboxnet0', 'vboxnet1'], 'NAT Network': ['NatNetwork', 'qa-net'], 'Host-only Network': ['hostonlynet1'], 'Cloud Network': ['cloudnet1'], 'Generic Driver': ['UDPTunnel', 'VDE'] }[a.attached] || [];
+    return h('div', null,
+      h('div', { style: { display: 'flex', gap: 4, marginBottom: 10, flexWrap: 'wrap' } }, d.adapters.map((x) => h('button', {
+        key: x.id, onClick: () => this.setState({ selectedAdapter: x.id }),
+        style: { height: 32, padding: '0 14px', borderRadius: 16, background: this.state.selectedAdapter === x.id ? T.primary : T.surfaceHigh, color: this.state.selectedAdapter === x.id ? T.onPrimary : T.onSurfaceVar, fontSize: 12, fontWeight: 600 }
+      }, 'Adapter ' + x.id + (x.enabled ? '' : ' ·off')))),
+      this.card('Adapter ' + a.id, h('div', null,
+        this.check('Enable Network Adapter', a.enabled, (e) => upd({ enabled: e.target.checked })),
+        a.enabled ? h('div', { style: { marginTop: 8 } },
+          this.grid([
+            this.field('Attached to', this.combo(a.attached, ['Not attached', 'NAT', 'NAT Network', 'Bridged Adapter', 'Internal Network', 'Host-only Adapter', 'Host-only Network', 'Generic Driver', 'Cloud Network'], (e) => upd({ attached: e.target.value, name: '' }))),
+            needsName ? this.field('Name', this.combo(a.name || nameOptions[0] || '', nameOptions, (e) => upd({ name: e.target.value }))) : h('div', { key: 'sp' })
+          ]),
+          h('div', { style: { height: 10 } }),
+          this.grid([
+            this.field('Adapter Type', this.combo(a.adapterType, ['PCnet-PCI II', 'PCnet-FAST III', 'Intel PRO/1000 MT Desktop', 'Intel PRO/1000 T Server', 'Intel PRO/1000 MT Server', 'Paravirtualized Network (virtio-net)'], (e) => upd({ adapterType: e.target.value }))),
+            this.field('Promiscuous Mode', this.combo(a.promisc, ['Deny', 'Allow VMs', 'Allow All'], (e) => upd({ promisc: e.target.value }))),
+            this.field('MAC Address', this.text(a.mac, (e) => upd({ mac: e.target.value.toUpperCase().replace(/[^0-9A-F]/g, '').slice(0, 12) }))),
+            h('div', { key: 'cc', style: { display: 'flex', alignItems: 'flex-end' } }, this.check('Cable Connected', a.cableConnected, (e) => upd({ cableConnected: e.target.checked })))
+          ]),
+          h('div', { style: { display: 'flex', gap: 8, marginTop: 10 } },
+            this.btn('Refresh MAC', () => upd({ mac: '080027' + Math.random().toString(16).slice(2, 8).toUpperCase() }), 'tonal'),
+            this.btn('Port Forwarding…', () => this.setState({ overlay: 'portForward' }), 'outlined', a.attached !== 'NAT' && a.attached !== 'NAT Network'))) :
+          h('div', { style: { fontSize: 11.5, color: T.outline } }, 'The adapter is not presented to the guest.'))));
+  }
+
+  pageSerial() {
+    const d = this.d();
+    const p = d.ports.find((x) => x.id === this.state.selectedPort) || d.ports[0];
+    const upd = (patch) => this.set({ ports: d.ports.map((x) => x.id === p.id ? Object.assign({}, x, patch) : x) });
+    return h('div', null,
+      h('div', { style: { display: 'flex', gap: 4, marginBottom: 10 } }, d.ports.map((x) => h('button', {
+        key: x.id, onClick: () => this.setState({ selectedPort: x.id }),
+        style: { height: 32, padding: '0 14px', borderRadius: 16, background: this.state.selectedPort === x.id ? T.primary : T.surfaceHigh, color: this.state.selectedPort === x.id ? T.onPrimary : T.onSurfaceVar, fontSize: 12, fontWeight: 600 }
+      }, 'Port ' + x.id))),
+      this.card('Port ' + p.id, h('div', null,
+        this.check('Enable Serial Port', p.enabled, (e) => upd({ enabled: e.target.checked })),
+        p.enabled ? h('div', { style: { marginTop: 8 } },
+          this.grid([
+            this.field('Port Number', this.combo(p.number, ['COM1', 'COM2', 'COM3', 'COM4', 'User-defined'], (e) => upd({ number: e.target.value }))),
+            this.field('IRQ', this.text(p.irq, (e) => upd({ irq: e.target.value }))),
+            this.field('I/O Base', this.text(p.io, (e) => upd({ io: e.target.value }))),
+            this.field('Port Mode', this.combo(p.mode, ['Disconnected', 'Host Pipe', 'Host Device', 'Raw File', 'TCP'], (e) => upd({ mode: e.target.value })))
+          ]),
+          p.mode !== 'Disconnected' ? h('div', { style: { marginTop: 10 } },
+            this.grid([this.field('Path/Address', this.text(p.path, (e) => upd({ path: e.target.value }), { placeholder: '\\\\.\\pipe\\vbox' }))], 1),
+            h('div', { style: { marginTop: 6 } }, this.check('Connect to existing pipe/socket', p.connect, (e) => upd({ connect: e.target.checked })))) : null) : null)));
+  }
+
+  pageUsb() {
+    const d = this.d();
+    const f = d.usbFilters.find((x) => x.id === this.state.selectedFilter);
+    return h('div', null,
+      this.card('USB', h('div', null,
+        this.check('Enable USB Controller', d.usbEnabled, (e) => this.set({ usbEnabled: e.target.checked })),
+        d.usbEnabled ? h('div', { style: { marginTop: 8 } },
+          this.grid([this.field('Controller', this.combo(d.usbController, ['USB 1.1 (OHCI) Controller', 'USB 2.0 (OHCI + EHCI) Controller', 'USB 3.0 (xHCI) Controller'], (e) => this.set({ usbController: e.target.value })))], 1)) : null)),
+      d.usbEnabled ? this.card('Device Filters', h('div', null,
+        this.rowList(d.usbFilters, this.state.selectedFilter, (id) => this.setState({ selectedFilter: id }), (it) => [
+          h('input', { key: 'c', type: 'checkbox', checked: it.active, onChange: (e) => { e.stopPropagation(); this.set({ usbFilters: d.usbFilters.map((x) => x.id === it.id ? Object.assign({}, x, { active: e.target.checked }) : x) }); }, style: { accentColor: T.primary } }),
+          h('span', { key: 'n', style: { flex: 1, minWidth: 0, fontSize: 12.5 } }, it.name),
+          h('span', { key: 'v', style: { fontSize: 11, color: T.outline, fontFamily: 'Roboto Mono, monospace' } }, it.vendor + ':' + it.product)
+        ]),
+        h('div', { style: { display: 'flex', gap: 8, flexWrap: 'wrap' } },
+          this.btn('Add empty filter', () => { const id = 'f' + Date.now(); this.set({ usbFilters: [...d.usbFilters, { id, name: 'New Filter ' + (d.usbFilters.length + 1), active: true, vendor: '', product: '' }] }); this.setState({ selectedFilter: id }); }, 'tonal'),
+          this.btn('Add from device', () => { const id = 'f' + Date.now(); this.set({ usbFilters: [...d.usbFilters, { id, name: 'Kingston DataTraveler', active: true, vendor: '0951', product: '1666' }] }); this.setState({ selectedFilter: id }); }, 'tonal'),
+          this.btn('Edit filter…', () => this.setState({ overlay: 'usbFilter' }), 'outlined', !f),
+          this.btn('Remove', () => { if (!f) return; this.set({ usbFilters: d.usbFilters.filter((x) => x.id !== f.id) }); this.toast('Filter removed', f.name); }, 'outlined', !f)))) : null);
+  }
+
+  pageSf() {
+    const d = this.d();
+    const f = d.folders.find((x) => x.id === this.state.selectedFolder);
+    return h('div', null,
+      this.card('Shared Folders', h('div', null,
+        this.rowList(d.folders, this.state.selectedFolder, (id) => this.setState({ selectedFolder: id }), (it) => [
+          h('img', { key: 'i', src: I('sf_16px.png'), alt: '', style: { width: 15, height: 15 } }),
+          h('span', { key: 'n', style: { flex: 1, minWidth: 0 } },
+            h('b', { style: { fontSize: 12.5 } }, it.name),
+            h('small', { style: { display: 'block', fontSize: 11, color: T.outline, overflow: 'hidden', textOverflow: 'ellipsis' } }, it.path)),
+          h('span', { key: 'a', style: { fontSize: 11, color: T.outline } }, it.access + (it.autoMount ? ' · auto-mount' : ''))
+        ]),
+        h('div', { style: { display: 'flex', gap: 8 } },
+          this.btn('Add folder', () => { const id = 'sf' + Date.now(); this.set({ folders: [...d.folders, { id, name: 'new-folder', path: '', access: 'Full', autoMount: false, mountPoint: '', transient: false }] }); this.setState({ selectedFolder: id, overlay: 'folderDetails' }); }, 'tonal'),
+          this.btn('Edit folder…', () => this.setState({ overlay: 'folderDetails' }), 'outlined', !f),
+          this.btn('Remove', () => { if (!f) return; this.set({ folders: d.folders.filter((x) => x.id !== f.id) }); this.toast('Folder removed', f.name); }, 'outlined', !f)))));
+  }
+
+  pageInterface() {
+    const d = this.d();
+    return h('div', null,
+      this.card('Menu Bar', h('div', null,
+        this.check('Show Menu Bar', d.menuBar, (e) => this.set({ menuBar: e.target.checked })),
+        h('div', { style: { display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 8 } },
+          ['Machine', 'View', 'Input', 'Devices', 'Help'].map((m) => h('span', { key: m, style: { height: 28, display: 'inline-flex', alignItems: 'center', padding: '0 12px', borderRadius: 14, background: d.menuBar ? T.primaryContainer : T.surfaceHighest, color: d.menuBar ? T.onPrimaryContainer : T.outline, fontSize: 11.5, fontWeight: 600 } }, m))))),
+      this.card('Status Bar', h('div', null,
+        this.check('Show Status Bar', d.statusBar, (e) => this.set({ statusBar: e.target.checked })),
+        h('div', { style: { display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 8 } },
+          ['Hard Disks', 'Optical Disks', 'Floppy Disks', 'Audio', 'Network', 'USB', 'Shared Folders', 'Display', 'Recording', 'Features', 'Mouse', 'Keyboard'].map((m) =>
+            h('span', { key: m, style: { height: 28, display: 'inline-flex', alignItems: 'center', padding: '0 11px', borderRadius: 14, background: d.statusBar ? T.surfaceHighest : 'transparent', border: '1px solid ' + T.outlineVar, color: d.statusBar ? T.onSurfaceVar : T.outline, fontSize: 11, fontWeight: 600 } }, m))))),
+      this.card('Mini Toolbar', h('div', null,
+        this.check('Show in Full-screen/Seamless', d.miniToolbarFullscreen, (e) => this.set({ miniToolbarFullscreen: e.target.checked })),
+        this.check('Show at Top of Screen', d.miniToolbarTop, (e) => this.set({ miniToolbarTop: e.target.checked })))),
+      this.card('Visual State', this.grid([
+        this.field('Visual State', this.combo(d.visualState, ['Normal', 'Fullscreen', 'Seamless', 'Scaled'], (e) => this.set({ visualState: e.target.value })))
+      ], 1)));
+  }
+
+  pageBody() {
+    const map = { general: 'pageGeneral', system: 'pageSystem', display: 'pageDisplay', storage: 'pageStorage', audio: 'pageAudio', network: 'pageNetwork', serial: 'pageSerial', usb: 'pageUsb', sf: 'pageSf', interface: 'pageInterface' };
+    const body = this.filterCards(this[map[this.state.page]]());
+    const problems = this.problems()[this.state.page] || [];
+    return h('div', null,
+      this.pageSearchRow(),
+      problems.length ? h('div', { style: { padding: '11px 13px', borderRadius: 12, background: '#4E1B1B', color: '#FFDAD6', fontSize: 12, marginBottom: 10 } },
+        problems.map((p, i) => h('div', { key: i }, '• ' + p))) : null,
+      body);
+  }
+
+  /* ---------- overlays ---------- */
+  portForwardBody() {
+    const rules = this.state.draft.pfRules || [{ id: 'r1', name: 'ssh', proto: 'TCP', hostIp: '', hostPort: '2222', guestIp: '', guestPort: '22' }];
+    const setRules = (next) => this.set({ pfRules: next });
+    return h('div', null,
+      h('div', { style: { display: 'grid', gap: 6, marginBottom: 12 } }, rules.map((r) => h('div', { key: r.id, style: { display: 'grid', gridTemplateColumns: '1.2fr .8fr 1fr .8fr 1fr .8fr auto', gap: 6, alignItems: 'center' } },
+        this.text(r.name, (e) => setRules(rules.map((x) => x.id === r.id ? Object.assign({}, x, { name: e.target.value }) : x))),
+        this.combo(r.proto, ['TCP', 'UDP'], (e) => setRules(rules.map((x) => x.id === r.id ? Object.assign({}, x, { proto: e.target.value }) : x))),
+        this.text(r.hostIp, (e) => setRules(rules.map((x) => x.id === r.id ? Object.assign({}, x, { hostIp: e.target.value }) : x)), { placeholder: 'Host IP' }),
+        this.text(r.hostPort, (e) => setRules(rules.map((x) => x.id === r.id ? Object.assign({}, x, { hostPort: e.target.value }) : x)), { placeholder: 'Host port' }),
+        this.text(r.guestIp, (e) => setRules(rules.map((x) => x.id === r.id ? Object.assign({}, x, { guestIp: e.target.value }) : x)), { placeholder: 'Guest IP' }),
+        this.text(r.guestPort, (e) => setRules(rules.map((x) => x.id === r.id ? Object.assign({}, x, { guestPort: e.target.value }) : x)), { placeholder: 'Guest port' }),
+        h('button', { onClick: () => setRules(rules.filter((x) => x.id !== r.id)), style: { width: 32, height: 32, borderRadius: 10, color: T.error } }, '✕')))),
+      h('div', { style: { display: 'flex', justifyContent: 'space-between', gap: 8 } },
+        this.btn('Add rule', () => setRules([...rules, { id: 'r' + Date.now(), name: 'rule' + (rules.length + 1), proto: 'TCP', hostIp: '', hostPort: '', guestIp: '', guestPort: '' }]), 'tonal'),
+        this.btn('Done', () => this.setState({ overlay: null }), 'filled')));
+  }
+  usbFilterBody() {
+    const d = this.d();
+    const f = d.usbFilters.find((x) => x.id === this.state.selectedFilter);
+    if (!f) return h('div', null, 'No filter selected.');
+    const upd = (patch) => this.set({ usbFilters: d.usbFilters.map((x) => x.id === f.id ? Object.assign({}, x, patch) : x) });
+    return h('div', null,
+      this.grid([
+        this.field('Name', this.text(f.name, (e) => upd({ name: e.target.value }))),
+        this.field('Vendor ID', this.text(f.vendor, (e) => upd({ vendor: e.target.value }))),
+        this.field('Product ID', this.text(f.product, (e) => upd({ product: e.target.value }))),
+        this.field('Revision', this.text(f.revision || '', (e) => upd({ revision: e.target.value }))),
+        this.field('Manufacturer', this.text(f.manufacturer || '', (e) => upd({ manufacturer: e.target.value }))),
+        this.field('Product', this.text(f.productName || '', (e) => upd({ productName: e.target.value }))),
+        this.field('Serial No.', this.text(f.serial || '', (e) => upd({ serial: e.target.value }))),
+        this.field('Remote', this.combo(f.remote || 'Any', ['Any', 'Yes', 'No'], (e) => upd({ remote: e.target.value })))
+      ]),
+      h('div', { style: { display: 'flex', justifyContent: 'flex-end', marginTop: 14 } }, this.btn('Done', () => this.setState({ overlay: null }), 'filled')));
+  }
+  folderDetailsBody() {
+    const d = this.d();
+    const f = d.folders.find((x) => x.id === this.state.selectedFolder);
+    if (!f) return h('div', null, 'No folder selected.');
+    const upd = (patch) => this.set({ folders: d.folders.map((x) => x.id === f.id ? Object.assign({}, x, patch) : x) });
+    return h('div', null,
+      this.grid([
+        this.field('Folder Path', this.text(f.path, (e) => upd({ path: e.target.value }), { placeholder: 'C:\\path\\to\\folder' })),
+        this.field('Folder Name', this.text(f.name, (e) => upd({ name: e.target.value }))),
+        this.field('Mount point', this.text(f.mountPoint, (e) => upd({ mountPoint: e.target.value }), { placeholder: 'Optional' })),
+        this.field('Access', this.combo(f.access, ['Full', 'Read-only'], (e) => upd({ access: e.target.value })))
+      ]),
+      h('div', { style: { marginTop: 8 } },
+        this.check('Auto-mount', f.autoMount, (e) => upd({ autoMount: e.target.checked })),
+        this.check('Make Permanent', !f.transient, (e) => upd({ transient: !e.target.checked }))),
+      h('div', { style: { display: 'flex', justifyContent: 'flex-end', marginTop: 14 } }, this.btn('Done', () => this.setState({ overlay: null }), 'filled')));
+  }
+  regexBody() {
+    const s = this.state;
+    let ok = true, feedback = 'Plain text is the default. Applying a pattern switches the settings search to regex.';
+    try { if (s.regexPattern) new RegExp(s.regexPattern, s.regexFlags); } catch (e) { ok = false; feedback = e.message; }
+    let preview = '';
+    if (ok && s.regexPattern) { try { const mt = s.regexSample.match(new RegExp(s.regexPattern, s.regexFlags)); preview = mt ? 'Match: ' + mt[0] : 'No match in sample.'; } catch (e) {} }
+    const constructs = [['Any', '.'], ['Digit', '\\d'], ['Word', '\\w'], ['Space', '\\s'], ['Start', '^'], ['End', '$'], ['Group', '()'], ['Class', '[]'], ['Or', '|'], ['0+', '*'], ['1+', '+'], ['Opt', '?']];
+    return h('div', null,
+      this.field('Pattern', this.text(s.regexPattern, (e) => this.setState({ regexPattern: e.target.value }), { placeholder: '^(memory|cpu)', spellCheck: false })),
+      h('div', { style: { display: 'flex', gap: 6, flexWrap: 'wrap', margin: '10px 0' } }, constructs.map(([label, token]) => h('button', {
+        key: token, onClick: () => this.setState((st) => ({ regexPattern: st.regexPattern + token })),
+        style: { height: 30, padding: '0 11px', borderRadius: 15, background: T.surfaceHigh, color: T.onSurfaceVar, fontSize: 11.5, fontWeight: 600 }
+      }, label + '  ' + token))),
+      this.grid([
+        this.field('Flags', this.text(s.regexFlags, (e) => this.setState({ regexFlags: e.target.value }), { maxLength: 8 })),
+        this.field('Sample text', this.text(s.regexSample, (e) => this.setState({ regexSample: e.target.value })))
+      ]),
+      h('div', { style: { marginTop: 12, padding: 11, borderRadius: 12, background: ok ? T.surfaceHigh : '#4E1B1B', color: ok ? T.onSurfaceVar : T.error, fontSize: 12 } }, feedback),
+      preview ? h('div', { style: { marginTop: 8, padding: 11, borderRadius: 12, background: '#0F0D13', fontFamily: 'Roboto Mono, monospace', fontSize: 11.5 } }, preview) : null,
+      h('div', { style: { display: 'flex', justifyContent: 'space-between', marginTop: 14 } },
+        this.btn('Clear', () => { this.setState({ regexApplied: null, regexPattern: '', overlay: null }); this.toast('Plain text restored', 'Settings search'); }, 'text'),
+        this.btn('Apply pattern', () => {
+          if (!ok || !s.regexPattern) return this.toast('Not applied', 'Enter a valid pattern first', T.error);
+          this.setState({ regexApplied: { pattern: s.regexPattern, flags: s.regexFlags }, overlay: null });
+          this.toast('Regex applied', 'Settings search uses /' + s.regexPattern + '/' + s.regexFlags);
+        }, 'filled')));
+  }
+  appearanceBody() {
+    const a = this.state.appearance;
+    const set = (patch) => this.setState({ appearance: Object.assign({}, a, patch) });
+    return h('div', null,
+      h('div', { style: { fontSize: 12, color: T.outline, marginBottom: 12 } }, 'Target: ' + (a.target || 'settings page')),
+      this.grid([
+        this.field('Seed color', h('div', { style: { display: 'flex', gap: 6 } }, ['#6750A4', '#0F4C8C', '#2F6B4F', '#8A5024'].map((c) => h('button', { key: c, onClick: () => set({ seed: c }), style: { flex: 1, height: 40, borderRadius: 12, background: c, border: '2px solid ' + (a.seed === c ? T.primary : T.outlineVar) } })))),
+        this.field('Font family', this.combo(a.font, ['Roboto Flex', 'Segoe UI', 'Consolas'], (e) => set({ font: e.target.value }))),
+        this.field('Corner radius · ' + a.radius + 'px', h('input', { type: 'range', min: 4, max: 32, value: a.radius, onChange: (e) => set({ radius: Number(e.target.value) }), style: { width: '100%' } })),
+        this.field('Font scale · ' + a.scale.toFixed(2), h('input', { type: 'range', min: .85, max: 1.35, step: .05, value: a.scale, onChange: (e) => set({ scale: Number(e.target.value) }), style: { width: '100%' } }))
+      ]),
+      h('div', { style: { marginTop: 14, padding: 14, borderRadius: a.radius, background: T.surfaceHigh, fontFamily: a.font, fontSize: 13 * a.scale, borderLeft: '4px solid ' + a.seed } }, 'Live preview of this page’s appearance.'),
+      h('div', { style: { display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 14 } },
+        this.btn('Reset', () => this.setState({ appearance: { target: a.target, radius: 16, scale: 1, weight: 400, font: 'Roboto Flex', seed: '#6750A4' } }), 'text'),
+        this.btn('Apply', () => { this.setState({ overlay: null }); this.toast('Appearance applied', a.target || 'settings page'); }, 'filled')));
+  }
+
+  renderVals() {
+    const s = this.state;
+    const problems = this.problems();
+    const problemCount = Object.values(problems).reduce((n, arr) => n + arr.length, 0);
+    const q = s.searchQuery;
+    const pageText = {
+      general: 'name type version snapshot folder shared clipboard drag drop description disk encryption cipher password',
+      system: 'base memory boot order chipset tpm pointing device i/o apic efi secure boot hardware clock utc processors execution cap pae nx nested vt-x paravirtualization nested paging',
+      display: 'video memory monitor count scale factor graphics controller 3d acceleration remote display server port authentication recording frame size rate quality',
+      storage: 'controller sata ide nvme port count host i/o cache hard disk optical solid-state hot-pluggable',
+      audio: 'enable audio host audio driver controller audio output input',
+      network: 'adapter attached to nat bridged internal host-only nat network mac address promiscuous cable connected port forwarding',
+      serial: 'serial port number irq i/o base port mode host pipe device raw file tcp path',
+      usb: 'usb controller ohci ehci xhci device filters vendor product revision manufacturer serial remote',
+      sf: 'shared folders path name mount point access read-only auto-mount permanent transient',
+      interface: 'menu bar status bar mini toolbar visual state normal fullscreen seamless scaled'
+    };
+    const match = (id) => {
+      if (!q) return true;
+      const hay = (PAGES.find((p) => p.id === id).label + ' ' + pageText[id]).toLowerCase();
+      if (s.regexApplied) { try { return new RegExp(s.regexApplied.pattern, s.regexApplied.flags).test(hay); } catch (e) { return false; } }
+      return hay.includes(q.toLowerCase());
+    };
+    const visible = PAGES.filter((p) => match(p.id));
+
+    const overlayMeta = {
+      portForward: ['NAT rules', 'Port Forwarding Rules'], usbFilter: ['USB', 'Filter details'],
+      folderDetails: ['Shared folder', 'Folder details'], regex: ['Search tool', 'Regex builder'], appearance: ['Element appearance', 'Edit appearance']
+    }[s.overlay] || ['', ''];
+    const overlayBodies = { portForward: () => this.portForwardBody(), usbFilter: () => this.usbFilterBody(), folderDetails: () => this.folderDetailsBody(), regex: () => this.regexBody(), appearance: () => this.appearanceBody() };
+
+    return {
+      brandMark: this.props.brandMark ?? 'M',
+      dialogTitle: s.draft.name + ' — Settings',
+      machineName: s.draft.name,
+      pageTitle: (PAGES.find((p) => p.id === s.page) || PAGES[0]).label,
+      searchQuery: q,
+      setSearch: (e) => this.setState({ searchQuery: e.target.value }),
+      searchSummary: q ? visible.length + ' / ' + PAGES.length + ' pages' : '',
+      openRegex: () => this.setState({ overlay: 'regex' }),
+      expertLabel: s.expert ? 'Expert Mode' : 'Basic Mode',
+      expertBg: s.expert ? T.primary : T.surfaceHigh, expertFg: s.expert ? T.onPrimary : T.onSurfaceVar,
+      toggleExpert: () => { this.setState({ expert: !s.expert }); this.toast(s.expert ? 'Basic Mode' : 'Expert Mode', s.expert ? 'Guided one-page-at-a-time editing' : 'All editors on every page are shown'); },
+
+      pages: (q ? visible : PAGES).map((p) => ({
+        label: p.label, iconSrc: I(p.icon),
+        bg: p.id === s.page ? T.secondaryContainer : 'transparent',
+        fg: p.id === s.page ? T.onSurface : T.onSurfaceVar,
+        dot: (problems[p.id] || []).length ? T.error : 'transparent',
+        select: () => this.setState({ page: p.id })
+      })),
+      pageBody: this.pageBody(),
+      openAppearance: () => this.setState({ overlay: 'appearance', appearance: Object.assign({}, s.appearance, { target: 'Settings page · ' + s.page }) }),
+
+      validityText: problemCount ? problemCount + ' setting(s) need attention before these changes can be applied.' : (this.dirty() ? 'Changes are pending. Apply writes them to the machine.' : 'No pending changes.'),
+      validityColor: problemCount ? T.error : T.outline,
+      applyLabel: this.dirty() ? 'Apply' : 'OK',
+      applyBg: problemCount ? T.surfaceHigh : T.primary, applyFg: problemCount ? T.outline : T.onPrimary,
+      apply: () => {
+        if (problemCount) return this.toast('Cannot apply', problemCount + ' setting(s) are invalid', T.error);
+        this.setState({ saved: JSON.parse(JSON.stringify(s.draft)) });
+        this.toast('Applied', 'Machine settings written to ' + s.draft.name);
+      },
+      cancel: () => { this.setState({ draft: JSON.parse(JSON.stringify(s.saved)) }); this.toast('Reverted', 'All pending changes discarded'); },
+      resetPage: () => {
+        const fresh = JSON.parse(JSON.stringify(DEFAULTS));
+        const keys = { general: ['name', 'osFamily', 'osType', 'snapshotFolder', 'description', 'encryption', 'cipher'], system: ['baseMemory', 'processors', 'execCap', 'bootOrder', 'bootEnabled', 'chipset', 'tpm', 'pointing', 'ioapic', 'efi', 'secureBoot', 'utc', 'pae', 'nestedVtx', 'nestedPaging', 'paravirt'], display: ['videoMemory', 'monitors', 'scaleFactor', 'graphicsController', 'accel3d', 'vrdeEnabled', 'vrdePort', 'vrdeAuth', 'vrdeTimeout', 'vrdeMultiConnect', 'recordingEnabled', 'recordingMode', 'recordingPath', 'recordingSize', 'recordingFps', 'recordingQuality'], storage: ['storage'], audio: ['audioEnabled', 'audioDriver', 'audioController', 'audioIn', 'audioOut'], network: ['adapters'], serial: ['ports'], usb: ['usbEnabled', 'usbController', 'usbFilters'], sf: ['folders'], interface: ['menuBar', 'statusBar', 'miniToolbar', 'miniToolbarTop', 'miniToolbarFullscreen', 'visualState'] }[s.page] || [];
+        const patch = {}; keys.forEach((k) => { patch[k] = fresh[k]; });
+        this.set(patch); this.toast('Page reset', (PAGES.find((p) => p.id === s.page) || {}).label + ' restored to defaults');
+      },
+      winMinimize: () => this.toast('Minimize', 'Dialog minimized'),
+      winMaximize: () => this.toast('Maximize', 'Dialog toggled maximized'),
+      winClose: () => { window.location.href = 'Manager.dc.html'; },
+
+      overlayOpen: Boolean(s.overlay), overlayEyebrow: overlayMeta[0], overlayTitle: overlayMeta[1],
+      overlayBody: s.overlay ? overlayBodies[s.overlay]() : null,
+      closeOverlay: () => this.setState({ overlay: null }),
+      toasts: s.toasts
+    };
+  }
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,432 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Roboto+Flex:opsz,wght@8..144,300..700&family=Roboto+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  html,body{margin:0;padding:0;background:#141218;color:#E6E0E9;font-family:"Roboto Flex","Segoe UI",system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+  *{box-sizing:border-box}
+  a{color:#D0BCFF;text-decoration:none}
+  a:hover{color:#EADDFF;text-decoration:underline}
+  button{font:inherit;color:inherit;border:0;background:none;cursor:pointer}
+  input,select,textarea{font:inherit;color:inherit}
+  input[type=range]{accent-color:#D0BCFF}
+  ::-webkit-scrollbar{width:10px;height:10px}
+  ::-webkit-scrollbar-thumb{background:#49454F;border-radius:8px}
+  @keyframes mvmIn{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:none}}
+</style>
+</helmet>
+
+<div style="height:100vh;display:flex;flex-direction:column;background:#141218;overflow:hidden;font-size:13px">
+
+  <div style="height:44px;flex:none;display:flex;align-items:center;gap:10px;padding:0 6px 0 12px;background:#1D1B20;border-bottom:1px solid #2B2930">
+    <div style="width:26px;height:26px;flex:none;display:grid;place-items:center;border-radius:8px;background:#D0BCFF;color:#381E72;font-weight:700;font-size:14px">{{ brandMark }}</div>
+    <div style="font-size:13px;font-weight:600;white-space:nowrap">{{ windowTitle }}</div>
+    <div style="flex:1;min-width:8px"></div>
+    <div style="flex:none;display:flex;gap:4px;font-size:11.5px">
+      <a href="Manager.dc.html" style="padding:5px 10px;border-radius:12px;background:#2B2930;color:#CAC4D0">Manager</a>
+      <a href="VM Settings.dc.html" style="padding:5px 10px;border-radius:12px;background:#2B2930;color:#CAC4D0">Settings</a>
+      <a href="Wizards.dc.html" style="padding:5px 10px;border-radius:12px;background:#2B2930;color:#CAC4D0">Wizards</a>
+      <a href="Managers.dc.html" style="padding:5px 10px;border-radius:12px;background:#2B2930;color:#CAC4D0">Managers</a>
+    </div>
+    <div style="flex:none;display:flex;gap:2px;margin-left:6px">
+      <button onClick="{{ winMinimize }}" style="width:38px;height:32px;border-radius:8px;color:#CAC4D0" style-hover="background:#2B2930">─</button>
+      <button onClick="{{ winMaximize }}" style="width:38px;height:32px;border-radius:8px;color:#CAC4D0" style-hover="background:#2B2930">▢</button>
+      <button onClick="{{ winClose }}" style="width:38px;height:32px;border-radius:8px;color:#CAC4D0" style-hover="background:#93000A;color:#FFDAD6">✕</button>
+    </div>
+  </div>
+
+  <sc-if value="{{ showMenuBar }}" hint-placeholder-val="{{ true }}">
+    <div style="height:34px;flex:none;display:flex;align-items:center;gap:2px;padding:0 8px;background:#1D1B20;border-bottom:1px solid #2B2930;position:relative;z-index:20">
+      <sc-for list="{{ menus }}" as="menu" hint-placeholder-count="5">
+        <button onClick="{{ menu.toggle }}" style="height:26px;padding:0 12px;border-radius:8px;background:{{ menu.bg }};color:{{ menu.fg }};font-size:12.5px;font-weight:500" style-hover="background:#2B2930">{{ menu.label }}</button>
+      </sc-for>
+      <div style="flex:1"></div>
+      <span style="font-size:11px;color:#938F99;white-space:nowrap">{{ hostKeyHint }}</span>
+    </div>
+  </sc-if>
+
+  <div style="flex:1;min-height:0;position:relative;display:flex;align-items:center;justify-content:center;background:#0B0A0E;overflow:hidden">
+    <div style="width:{{ screenWidth }};height:{{ screenHeight }};max-width:100%;max-height:100%;background:#101016;border:1px solid #2B2930;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;color:#77707F;font-family:'Roboto Mono',monospace;font-size:12px">
+      <div style="font-size:13px;color:#CAC4D0">{{ guestHeadline }}</div>
+      <div>{{ guestResolution }}</div>
+      <div>{{ guestState }}</div>
+    </div>
+
+    <sc-if value="{{ menuOpen }}" hint-placeholder-val="{{ false }}">
+      <div onClick="{{ closeMenu }}" style="position:fixed;inset:0;z-index:25">
+        <div style="position:absolute;left:{{ menuX }}px;top:{{ menuY }}px;min-width:290px;max-height:70vh;overflow-y:auto;padding:6px;background:#211F26;border:1px solid #36343B;border-radius:14px;box-shadow:0 16px 44px #000000bb;display:grid;gap:1px">
+          <sc-for list="{{ menuItems }}" as="mi" hint-placeholder-count="6">
+            <button onClick="{{ mi.run }}" style="display:flex;align-items:center;gap:10px;text-align:left;padding:8px 11px;border-radius:9px;color:{{ mi.fg }};font-size:12.5px" style-hover="background:#36343B">
+              <span style="width:14px;flex:none;color:#D0BCFF;font-size:11px">{{ mi.check }}</span>
+              <span style="flex:1;min-width:0">{{ mi.label }}</span>
+              <span style="flex:none;font-family:'Roboto Mono',monospace;font-size:10.5px;color:#938F99">{{ mi.shortcut }}</span>
+            </button>
+          </sc-for>
+        </div>
+      </div>
+    </sc-if>
+
+    <sc-if value="{{ showMiniToolbar }}" hint-placeholder-val="{{ true }}">
+      <div style="position:absolute;{{ miniPos }}:8px;left:50%;transform:translateX(-50%);display:flex;align-items:center;gap:4px;padding:5px 8px;border-radius:16px;background:#211F26;border:1px solid #36343B;box-shadow:0 8px 26px #000000aa;z-index:15">
+        <span style="font-size:11.5px;color:#CAC4D0;padding:0 6px;white-space:nowrap">{{ miniTitle }}</span>
+        <sc-for list="{{ miniActions }}" as="ma" hint-placeholder-count="5">
+          <button onClick="{{ ma.run }}" title="{{ ma.hint }}" style="width:28px;height:28px;border-radius:14px;color:#CAC4D0;font-size:12px" style-hover="background:#36343B;color:#D0BCFF">{{ ma.icon }}</button>
+        </sc-for>
+      </div>
+    </sc-if>
+  </div>
+
+  <sc-if value="{{ showStatusBar }}" hint-placeholder-val="{{ true }}">
+    <div style="height:30px;flex:none;display:flex;align-items:center;gap:8px;padding:0 12px;background:#1D1B20;border-top:1px solid #2B2930;min-width:0">
+      <div style="flex:1;min-width:0;display:flex;align-items:center;gap:4px;overflow-x:auto">
+        <sc-for list="{{ indicators }}" as="ind" hint-placeholder-count="8">
+          <button onClick="{{ ind.click }}" title="{{ ind.hint }}" style="flex:none;display:flex;align-items:center;gap:5px;height:22px;padding:0 8px;border-radius:11px;background:{{ ind.bg }};color:{{ ind.fg }};font-size:10.5px;font-weight:600;white-space:nowrap" style-hover="filter:brightness(1.2)">
+            <img src="{{ ind.iconSrc }}" alt="" style="width:12px;height:12px;object-fit:contain;opacity:{{ ind.opacity }}" />
+            <span>{{ ind.label }}</span>
+          </button>
+        </sc-for>
+      </div>
+      <span style="flex:none;font-size:10.5px;color:#938F99;white-space:nowrap">{{ hostKeyState }}</span>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{ overlayOpen }}" hint-placeholder-val="{{ false }}">
+    <div style="position:fixed;inset:0;z-index:40;display:grid;place-items:center;background:#00000099;backdrop-filter:blur(3px)">
+      <div style="width:min(660px,calc(100vw - 64px));max-height:calc(100vh - 90px);display:flex;flex-direction:column;background:#211F26;border:1px solid #36343B;border-radius:28px;box-shadow:0 24px 60px #000000aa;animation:mvmIn .2s cubic-bezier(.05,.7,.1,1);overflow:hidden">
+        <div style="flex:none;display:flex;align-items:flex-start;gap:12px;padding:22px 24px 12px">
+          <div style="flex:1;min-width:0">
+            <div style="font-size:10.5px;font-weight:700;letter-spacing:1.2px;text-transform:uppercase;color:#D0BCFF">{{ overlayEyebrow }}</div>
+            <div style="font-size:20px;font-weight:500;margin-top:3px">{{ overlayTitle }}</div>
+          </div>
+          <button onClick="{{ closeOverlay }}" style="width:34px;height:34px;flex:none;border-radius:17px;color:#CAC4D0" style-hover="background:#36343B">✕</button>
+        </div>
+        <div style="flex:1;min-height:0;overflow-y:auto;padding:0 24px 22px">{{ overlayBody }}</div>
+      </div>
+    </div>
+  </sc-if>
+
+  <div style="position:fixed;right:20px;bottom:46px;z-index:50;display:flex;flex-direction:column;gap:8px;width:330px">
+    <sc-for list="{{ toasts }}" as="t" hint-placeholder-count="0">
+      <div style="padding:12px 14px;border-radius:14px;background:#36343B;border-left:3px solid {{ t.accent }};box-shadow:0 8px 26px #000000aa;animation:mvmIn .2s ease">
+        <div style="font-size:12.5px;font-weight:600">{{ t.title }}</div>
+        <div style="font-size:11.5px;color:#CAC4D0;margin-top:2px">{{ t.detail }}</div>
+      </div>
+    </sc-for>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;brandName&quot;:{&quot;editor&quot;:&quot;text&quot;,&quot;default&quot;:&quot;Material Virtual Machine&quot;,&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;Branding&quot;},&quot;brandMark&quot;:{&quot;editor&quot;:&quot;text&quot;,&quot;default&quot;:&quot;M&quot;,&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;Branding&quot;}}">
+const T = {
+  primary: '#D0BCFF', onPrimary: '#381E72', primaryContainer: '#4F378B', onPrimaryContainer: '#EADDFF',
+  secondaryContainer: '#4A4458', onSecondaryContainer: '#E8DEF8', surfaceHigh: '#2B2930', surfaceHighest: '#36343B',
+  onSurface: '#E6E0E9', onSurfaceVar: '#CAC4D0', outline: '#938F99', outlineVar: '#49454F', error: '#F2B8B5', ok: '#7ED9A6'
+};
+const I = (n) => 'icons/' + n;
+const h = React.createElement;
+
+class Component extends DCLogic {
+  state = {
+    name: 'Win11-Dev', running: true, paused: false, visualState: 'Normal', resolution: '1920 × 1080',
+    menu: null, menuPos: { x: 0, y: 0 },
+    menuBar: true, statusBar: true, miniToolbar: true, miniToolbarTop: false,
+    mouseCaptured: false, keyboardCaptured: false, hostKey: 'Right Ctrl',
+    guestAdditions: true, recording: false, autoResize: true, adjustWindow: true, scaledOutput: false,
+    devices: { optical: 'Empty', floppy: 'Empty', usbAttached: ['YubiKey'], sharedClipboard: 'Bidirectional', dragDrop: 'Disabled', network: true, audioOut: true, audioIn: true },
+    overlay: null, overlayCtx: null, toasts: [], snapshotName: 'Snapshot 4', logQuery: '', usbQuery: '', sessionQuery: '', menuQuery: ''
+  };
+
+  toast(title, detail, accent) {
+    const id = Math.random().toString(16).slice(2);
+    this.setState((s) => ({ toasts: [...s.toasts, { id, title, detail, accent: accent || T.primary }] }));
+    setTimeout(() => this.setState((s) => ({ toasts: s.toasts.filter((t) => t.id !== id) })), 3200);
+  }
+  set(patch) { this.setState(patch); }
+  toggleDev(key) { this.setState((s) => ({ devices: Object.assign({}, s.devices, { [key]: !s.devices[key] }) })); }
+
+  /* Menus mirror UIActionPoolRuntime: Machine / View / Input / Devices / Help */
+  menuDef(id) {
+    const s = this.state;
+    const item = (label, shortcut, run, checked) => ({ label, shortcut: shortcut || '', run, checked });
+    if (id === 'machine') return [
+      item('Settings…', 'Host+S', () => { window.location.href = 'VM Settings.dc.html'; }),
+      item('Take Snapshot…', 'Host+T', () => this.setState({ overlay: 'takeSnapshot', menu: null })),
+      item('Session Information…', 'Host+N', () => this.setState({ overlay: 'sessionInfo', menu: null })),
+      item('File Manager…', '', () => this.setState({ overlay: 'fileManager', menu: null })),
+      item('Show Log…', 'Host+L', () => this.setState({ overlay: 'log', menu: null })),
+      item('Pause', 'Host+P', () => { this.setState({ paused: !s.paused, menu: null }); this.toast(s.paused ? 'Resumed' : 'Paused', s.name); }, s.paused),
+      item('Reset', 'Host+R', () => { this.setState({ menu: null }); this.toast('Reset', 'The guest was reset'); }),
+      item('Detach GUI', '', () => { this.setState({ menu: null }); this.toast('Detached', 'The VM keeps running headless'); }),
+      item('Save State', '', () => { this.setState({ running: false, menu: null }); this.toast('State saved', s.name + ' is saved'); }),
+      item('ACPI Shutdown', 'Host+H', () => { this.setState({ menu: null }); this.toast('ACPI shutdown', 'Signal sent to the guest'); }),
+      item('Power Off', '', () => this.setState({ overlay: 'powerOff', menu: null }))
+    ];
+    if (id === 'view') return [
+      item('Full-screen Mode', 'Host+F', () => { this.setState({ visualState: s.visualState === 'Fullscreen' ? 'Normal' : 'Fullscreen', menu: null }); }, s.visualState === 'Fullscreen'),
+      item('Seamless Mode', 'Host+L', () => { this.setState({ visualState: s.visualState === 'Seamless' ? 'Normal' : 'Seamless', menu: null }); }, s.visualState === 'Seamless'),
+      item('Scaled Mode', 'Host+C', () => { this.setState({ visualState: s.visualState === 'Scaled' ? 'Normal' : 'Scaled', menu: null }); }, s.visualState === 'Scaled'),
+      item('Adjust Window Size', 'Host+A', () => { this.setState({ menu: null }); this.toast('Window adjusted', 'Window fits the guest resolution'); }),
+      item('Auto-resize Guest Display', 'Host+G', () => this.setState({ autoResize: !s.autoResize, menu: null }), s.autoResize),
+      item('Take Screenshot…', 'Host+E', () => { this.setState({ menu: null }); this.toast('Screenshot saved', s.name + '_' + Date.now() + '.png'); }),
+      item('Recording', '', () => { this.setState({ recording: !s.recording, menu: null }); this.toast(s.recording ? 'Recording stopped' : 'Recording started', s.name); }, s.recording),
+      item('Recording Settings…', '', () => { window.location.href = 'VM Settings.dc.html'; }),
+      item('Menu Bar', '', () => this.setState({ menuBar: !s.menuBar, menu: null }), s.menuBar),
+      item('Status Bar', '', () => this.setState({ statusBar: !s.statusBar, menu: null }), s.statusBar),
+      item('Mini Toolbar', '', () => this.setState({ miniToolbar: !s.miniToolbar, menu: null }), s.miniToolbar),
+      item('Virtual Screen 1 · 1920×1080', '', () => { this.setState({ resolution: '1920 × 1080', menu: null }); }, s.resolution === '1920 × 1080'),
+      item('Virtual Screen 1 · 1280×800', '', () => { this.setState({ resolution: '1280 × 800', menu: null }); }, s.resolution === '1280 × 800')
+    ];
+    if (id === 'input') return [
+      item('Keyboard Settings…', '', () => { window.location.href = 'Managers.dc.html'; }),
+      item('Soft Keyboard…', '', () => this.setState({ overlay: 'softKeyboard', menu: null })),
+      item('Insert Ctrl+Alt+Del', 'Host+Del', () => { this.setState({ menu: null }); this.toast('Sent', 'Ctrl+Alt+Del delivered to the guest'); }),
+      item('Insert Ctrl+Alt+Backspace', 'Host+Backspace', () => { this.setState({ menu: null }); this.toast('Sent', 'Ctrl+Alt+Backspace delivered'); }),
+      item('Mouse Integration', 'Host+I', () => { this.setState({ mouseCaptured: false, menu: null }); this.toast('Mouse integration', 'Pointer moves freely between host and guest'); }, !s.mouseCaptured),
+      item('Capture Keyboard', '', () => { this.setState({ keyboardCaptured: !s.keyboardCaptured, menu: null }); }, s.keyboardCaptured)
+    ];
+    if (id === 'devices') return [
+      item('Optical Drives · ' + s.devices.optical, '', () => this.setState({ overlay: 'chooseDisk', overlayCtx: 'optical', menu: null })),
+      item('Floppy Drives · ' + s.devices.floppy, '', () => this.setState({ overlay: 'chooseDisk', overlayCtx: 'floppy', menu: null })),
+      item('Audio Output', '', () => { this.toggleDev('audioOut'); this.setState({ menu: null }); }, s.devices.audioOut),
+      item('Audio Input', '', () => { this.toggleDev('audioIn'); this.setState({ menu: null }); }, s.devices.audioIn),
+      item('Network Adapter 1 Connected', '', () => { this.toggleDev('network'); this.setState({ menu: null }); }, s.devices.network),
+      item('Network Settings…', '', () => { window.location.href = 'VM Settings.dc.html'; }),
+      item('USB Devices…', '', () => this.setState({ overlay: 'usb', menu: null })),
+      item('Shared Folders Settings…', '', () => { window.location.href = 'VM Settings.dc.html'; }),
+      item('Shared Clipboard · ' + s.devices.sharedClipboard, '', () => this.setState({ overlay: 'clipboard', menu: null })),
+      item('Drag and Drop · ' + s.devices.dragDrop, '', () => this.setState({ overlay: 'dragdrop', menu: null })),
+      item('Insert Guest Additions CD image…', '', () => { this.setState({ devices: Object.assign({}, s.devices, { optical: 'VBoxGuestAdditions.iso' }), menu: null }); this.toast('Inserted', 'VBoxGuestAdditions.iso mounted'); }),
+      item('Upgrade Guest Additions…', '', () => { this.setState({ menu: null }); this.toast('Upgrade started', 'Guest Additions update requested'); })
+    ];
+    return [
+      item('Contents…', 'F1', () => { this.setState({ menu: null }); this.toast('Help', 'The local help browser opens here'); }),
+      item('Preferences…', '', () => { window.location.href = 'Managers.dc.html'; }),
+      item('About…', '', () => this.setState({ overlay: 'about', menu: null }))
+    ];
+  }
+
+  /* ---------- overlay bodies ---------- */
+  btn(label, onClick, kind, disabled) {
+    const map = { filled: { background: T.primary, color: T.onPrimary }, tonal: { background: T.secondaryContainer, color: T.onSecondaryContainer }, text: { background: 'transparent', color: T.primary }, danger: { background: '#93000A', color: '#FFDAD6' }, outlined: { background: 'transparent', color: T.onSurfaceVar, border: '1px solid ' + T.outlineVar } };
+    return h('button', { key: label, onClick: disabled ? undefined : onClick, disabled: Boolean(disabled), style: Object.assign({ height: 36, padding: '0 16px', borderRadius: 18, fontSize: 12.5, fontWeight: 600, opacity: disabled ? .45 : 1 }, map[kind || 'tonal']) }, label);
+  }
+  row(k, v) { return h('div', { key: k, style: { display: 'contents' } }, h('div', { style: { color: T.outline } }, k), h('div', null, v)); }
+
+  sessionInfoBody() {
+    const s = this.state;
+    const sq = (s.sessionQuery || '').toLowerCase();
+    const allRows = [
+      ['Runtime Attributes', ''], ['Screen Resolution', s.resolution + ' × 32'], ['VM Uptime', '02:14:31'],
+      ['Clipboard Mode', s.devices.sharedClipboard], ['Drag and Drop Mode', s.devices.dragDrop],
+      ['VM Execution Engine', 'Hyper-V'], ['Nested Paging', 'Active'], ['Unrestricted Execution', 'Active'],
+      ['Paravirtualization Interface', 'HyperV'], ['Guest Additions', s.guestAdditions ? '7.2.0 r170000' : 'Not detected'],
+      ['Guest OS Type', 'Windows 11 (64-bit)'], ['Remote Desktop Server', 'Disabled']
+    ];
+    const rows = allRows.filter(([k, val]) => !sq || (k + ' ' + val).toLowerCase().includes(sq));
+    return h('div', null,
+      h('div', { style: { display: 'flex', gap: 8, marginBottom: 10 } },
+        h('input', { value: s.sessionQuery || '', onChange: (e) => this.setState({ sessionQuery: e.target.value }), placeholder: 'Search runtime attributes', style: { flex: 1, height: 40, padding: '0 12px', borderRadius: 12, background: T.surfaceHigh, border: '1px solid ' + T.outlineVar, outline: 'none', fontSize: 12.5, color: T.onSurface } }),
+        h('button', { onClick: () => this.toast('Regex builder', 'Opens the shared builder for this field'), style: { width: 40, height: 40, borderRadius: 12, background: T.primaryContainer, color: T.onPrimaryContainer, fontFamily: 'Roboto Mono, monospace', fontWeight: 600 } }, '.*')),
+      h('div', { style: { display: 'grid', gridTemplateColumns: 'minmax(140px,220px) minmax(0,1fr)', gap: '7px 16px', fontSize: 12.5, background: T.surfaceHigh, padding: 14, borderRadius: 14 } },
+        rows.flatMap(([k, v], i) => [h('div', { key: 'k' + i, style: { color: T.outline } }, k), h('div', { key: 'v' + i }, v)])),
+      h('div', { style: { display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 14 } },
+        this.btn('Copy all', () => this.toast('Copied', 'Session information copied'), 'text'),
+        this.btn('Close', () => this.setState({ overlay: null }), 'filled')));
+  }
+  logBody() {
+    const lines = ['00:00:01.204 VirtualBox VM 7.2.0 r170000 win.amd64 release log', '00:00:01.312 Host RAM: 65217MB total', "00:00:01.512 Guest OS type: 'Windows 11 (64-bit)'", '00:00:02.884 Display: VBoxSVGA, VRAM 128MB', '00:00:03.118 GUI: Machine session state changed to Running', '00:00:04.507 NAT: Network attachment NAT']
+      .filter((l) => !this.state.logQuery || l.toLowerCase().includes(this.state.logQuery.toLowerCase()));
+    return h('div', null,
+      h('div', { style: { display: 'flex', gap: 8, marginBottom: 10 } },
+        h('input', { value: this.state.logQuery, onChange: (e) => this.setState({ logQuery: e.target.value }), placeholder: 'Search this log', style: { flex: 1, height: 40, padding: '0 12px', borderRadius: 12, background: T.surfaceHigh, border: '1px solid ' + T.outlineVar, outline: 'none', fontSize: 12.5, color: T.onSurface } }),
+        h('button', { onClick: () => this.toast('Regex builder', 'Opens the shared builder for this field'), style: { width: 40, height: 40, borderRadius: 12, background: T.primaryContainer, color: T.onPrimaryContainer, fontFamily: 'Roboto Mono, monospace', fontWeight: 600 } }, '.*')),
+      h('pre', { style: { margin: 0, padding: 14, borderRadius: 14, background: '#0F0D13', fontFamily: 'Roboto Mono, monospace', fontSize: 11.5, lineHeight: 1.7, color: '#C9C3D2', whiteSpace: 'pre-wrap' } }, lines.join('\n') || 'No line matches.'),
+      h('div', { style: { display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 14 } },
+        this.btn('Save…', () => this.toast('Saved', 'VBox.log written to disk'), 'tonal'),
+        this.btn('Close', () => this.setState({ overlay: null }), 'filled')));
+  }
+  chooseDiskBody() {
+    const kind = this.state.overlayCtx;
+    const options = kind === 'optical' ? ['Empty', 'ubuntu-24.04.iso', 'VBoxGuestAdditions.iso', 'Windows11.iso'] : ['Empty', 'boot.img'];
+    return h('div', null,
+      h('div', { style: { display: 'grid', gap: 4 } }, options.map((o) => h('button', {
+        key: o, onClick: () => { this.setState({ devices: Object.assign({}, this.state.devices, { [kind]: o }), overlay: null }); this.toast(o === 'Empty' ? 'Drive emptied' : 'Mounted', o); },
+        style: { display: 'flex', alignItems: 'center', gap: 10, padding: '11px 13px', borderRadius: 12, background: this.state.devices[kind] === o ? T.secondaryContainer : T.surfaceHigh, textAlign: 'left' }
+      }, h('img', { src: I('hd_16px.png'), alt: '', style: { width: 15, height: 15 } }), h('span', { style: { flex: 1, fontSize: 12.5 } }, o)))),
+      h('div', { style: { display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 14 } },
+        this.btn('Choose a disk file…', () => { this.setState({ overlay: null }); this.toast('File chooser', 'Pick an image from disk'); }, 'text'),
+        this.btn('Cancel', () => this.setState({ overlay: null }), 'tonal')));
+  }
+  usbBody() {
+    const q = (this.state.usbQuery || '').toLowerCase();
+    const all = ['YubiKey', 'Kingston DataTraveler', 'Logitech Webcam C920', 'Arduino Uno'].filter((d) => !q || d.toLowerCase().includes(q));
+    const attached = this.state.devices.usbAttached;
+    return h('div', null,
+      h('div', { style: { display: 'flex', gap: 8, marginBottom: 10 } },
+        h('input', { value: this.state.usbQuery || '', onChange: (e) => this.setState({ usbQuery: e.target.value }), placeholder: 'Search attached and available devices', style: { flex: 1, height: 40, padding: '0 12px', borderRadius: 12, background: T.surfaceHigh, border: '1px solid ' + T.outlineVar, outline: 'none', fontSize: 12.5, color: T.onSurface } }),
+        h('button', { onClick: () => this.toast('Regex builder', 'Opens the shared builder for this field'), style: { width: 40, height: 40, borderRadius: 12, background: T.primaryContainer, color: T.onPrimaryContainer, fontFamily: 'Roboto Mono, monospace', fontWeight: 600 } }, '.*')),
+      h('div', { style: { display: 'grid', gap: 4 } }, all.map((dev) => h('button', {
+        key: dev, onClick: () => {
+          const next = attached.includes(dev) ? attached.filter((d) => d !== dev) : [...attached, dev];
+          this.setState({ devices: Object.assign({}, this.state.devices, { usbAttached: next }) });
+          this.toast(attached.includes(dev) ? 'Detached' : 'Attached', dev);
+        },
+        style: { display: 'flex', alignItems: 'center', gap: 10, padding: '11px 13px', borderRadius: 12, background: attached.includes(dev) ? T.secondaryContainer : T.surfaceHigh, textAlign: 'left' }
+      }, h('img', { src: I('usb_16px.png'), alt: '', style: { width: 15, height: 15 } }),
+        h('span', { style: { flex: 1, fontSize: 12.5 } }, dev),
+        h('span', { style: { fontSize: 11, color: attached.includes(dev) ? T.primary : T.outline } }, attached.includes(dev) ? 'attached' : 'available')))),
+      h('div', { style: { display: 'flex', justifyContent: 'flex-end', marginTop: 14 } }, this.btn('Done', () => this.setState({ overlay: null }), 'filled')));
+  }
+  modeBody(key, options) {
+    return h('div', null,
+      h('div', { style: { display: 'grid', gap: 4 } }, options.map((o) => h('button', {
+        key: o, onClick: () => { this.setState({ devices: Object.assign({}, this.state.devices, { [key]: o }), overlay: null }); this.toast('Mode set', o); },
+        style: { padding: '11px 13px', borderRadius: 12, background: this.state.devices[key] === o ? T.secondaryContainer : T.surfaceHigh, textAlign: 'left', fontSize: 12.5 }
+      }, o))));
+  }
+  takeSnapshotBody() {
+    return h('div', null,
+      h('label', { style: { display: 'grid', gap: 5 } }, h('span', { style: { fontSize: 11.5, fontWeight: 700, color: T.outline } }, 'Snapshot name'),
+        h('input', { value: this.state.snapshotName, autoFocus: true, onChange: (e) => this.setState({ snapshotName: e.target.value }), style: { width: '100%', height: 40, padding: '0 12px', borderRadius: 12, background: T.surfaceHigh, border: '1px solid ' + T.outlineVar, outline: 'none', fontSize: 12.5, color: T.onSurface } })),
+      h('div', { style: { height: 10 } }),
+      h('textarea', { rows: 4, placeholder: 'Snapshot description', style: { width: '100%', padding: 12, borderRadius: 12, background: T.surfaceHigh, border: '1px solid ' + T.outlineVar, outline: 'none', fontSize: 12.5, color: T.onSurface, resize: 'vertical' } }),
+      h('div', { style: { display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 14 } },
+        this.btn('Cancel', () => this.setState({ overlay: null }), 'text'),
+        this.btn('Take snapshot', () => { const n = this.state.snapshotName.trim(); if (!n) return this.toast('Name required', 'Give the snapshot a name', T.error); this.setState({ overlay: null }); this.toast('Snapshot taken', n + ' — the machine keeps running'); }, 'filled')));
+  }
+  powerOffBody() {
+    return h('div', null,
+      h('div', { style: { padding: 12, borderRadius: 12, background: '#4E1B1B', color: '#FFDAD6', fontSize: 12.5, marginBottom: 14 } },
+        'Powering off is equivalent to pulling the power cord. Unsaved guest data is lost.'),
+      h('div', { style: { display: 'grid', gap: 6 } },
+        [['Save the machine state', 'saved'], ['Send the shutdown signal', 'acpi'], ['Power off the machine', 'off']].map(([label, mode]) => h('button', {
+          key: mode, onClick: () => { this.setState({ overlay: null, running: mode !== 'off' ? this.state.running : false }); this.toast(label, mode === 'off' ? 'The machine is powered off' : 'Request sent to the guest', mode === 'off' ? T.error : T.primary); },
+          style: { padding: '13px 14px', borderRadius: 14, background: T.surfaceHigh, textAlign: 'left', fontSize: 12.5, fontWeight: 600 }
+        }, label))),
+      h('label', { style: { display: 'flex', alignItems: 'center', gap: 9, marginTop: 12, fontSize: 12 } },
+        h('input', { type: 'checkbox', style: { accentColor: T.primary } }), 'Restore current snapshot after powering off'),
+      h('div', { style: { display: 'flex', justifyContent: 'flex-end', marginTop: 14 } }, this.btn('Cancel', () => this.setState({ overlay: null }), 'text')));
+  }
+  softKeyboardBody() {
+    const rows = [['Esc', 'F1', 'F2', 'F3', 'F4', 'F5', 'F6', 'F7', 'F8', 'F9', 'F10', 'F11', 'F12'], ['`', '1', '2', '3', '4', '5', '6', '7', '8', '9', '0', '-', '=', '⌫'], ['Tab', 'Q', 'W', 'E', 'R', 'T', 'Y', 'U', 'I', 'O', 'P', '[', ']'], ['Caps', 'A', 'S', 'D', 'F', 'G', 'H', 'J', 'K', 'L', ';', "'", '⏎'], ['Shift', 'Z', 'X', 'C', 'V', 'B', 'N', 'M', ',', '.', '/', 'Shift'], ['Ctrl', 'Win', 'Alt', 'Space', 'Alt', 'Ctrl']];
+    return h('div', null,
+      h('div', { style: { display: 'grid', gap: 4 } }, rows.map((r, i) => h('div', { key: i, style: { display: 'flex', gap: 4 } }, r.map((k, j) => h('button', {
+        key: j, onClick: () => this.toast('Key sent', k + ' delivered to the guest'),
+        style: { flex: k === 'Space' ? 6 : 1, minWidth: 26, height: 32, borderRadius: 8, background: T.surfaceHigh, color: T.onSurfaceVar, fontSize: 11 }
+      }, k))))),
+      h('div', { style: { display: 'flex', justifyContent: 'flex-end', marginTop: 14 } }, this.btn('Close', () => this.setState({ overlay: null }), 'filled')));
+  }
+  fileManagerBody() {
+    return h('div', null,
+      h('div', { style: { display: 'flex', gap: 10 } },
+        [['Host · C:\\Users\\you', ['Downloads/', 'Documents/', 'VirtualBox VMs/']], ['Guest · /home/user', ['projects/', 'notes.md', 'build.sh']]].map(([title, items]) =>
+          h('div', { key: title, style: { flex: 1, minWidth: 0, background: T.surfaceHigh, borderRadius: 14, padding: 12 } },
+            h('div', { style: { fontSize: 12, fontWeight: 700, color: T.primary, marginBottom: 8 } }, title),
+            h('div', { style: { display: 'grid', gap: 3 } }, items.map((it) => h('button', { key: it, onClick: () => this.toast('Selected', it), style: { padding: '7px 9px', borderRadius: 9, background: T.surfaceHighest, fontSize: 12, textAlign: 'left' } }, it))))))
+      ,
+      h('div', { style: { display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 14 } },
+        this.btn('Copy to guest', () => this.toast('Copied to guest', 'Transfer recorded in history'), 'tonal'),
+        this.btn('Copy to host', () => this.toast('Copied to host', 'Transfer recorded in history'), 'tonal'),
+        this.btn('Close', () => this.setState({ overlay: null }), 'filled')));
+  }
+  aboutBody() {
+    return h('div', null,
+      h('div', { style: { display: 'flex', gap: 14, alignItems: 'center', padding: 16, borderRadius: 16, background: T.surfaceHigh } },
+        h('div', { style: { width: 52, height: 52, borderRadius: 16, background: T.primary, color: T.onPrimary, display: 'grid', placeItems: 'center', fontSize: 24, fontWeight: 700 } }, this.props.brandMark ?? 'M'),
+        h('div', null,
+          h('div', { style: { fontSize: 17, fontWeight: 600 } }, this.props.brandName ?? 'Material Virtual Machine'),
+          h('div', { style: { fontSize: 12, color: T.outline, marginTop: 4 } }, 'Version 7.2.0 r170000 · Qt 6.8 · Windows'),
+          h('div', { style: { fontSize: 11.5, color: T.outline, marginTop: 6, lineHeight: 1.6 } }, 'Material 3 front-end for the VirtualBox platform. Licensed under GPL-3.0-only.'))),
+      h('div', { style: { display: 'flex', justifyContent: 'flex-end', marginTop: 14 } }, this.btn('Close', () => this.setState({ overlay: null }), 'filled')));
+  }
+
+  renderVals() {
+    const s = this.state;
+    const MENUS = [['machine', '&Machine'], ['view', '&View'], ['input', '&Input'], ['devices', '&Devices'], ['help', '&Help']];
+    const items = s.menu ? this.menuDef(s.menu) : [];
+    const overlayMeta = {
+      sessionInfo: ['Runtime', 'Session Information'], log: ['Diagnostics', 'Log Viewer'], chooseDisk: ['Devices', s.overlayCtx === 'floppy' ? 'Floppy Drive' : 'Optical Drive'],
+      usb: ['Devices', 'USB Devices'], clipboard: ['Devices', 'Shared Clipboard'], dragdrop: ['Devices', 'Drag and Drop'],
+      takeSnapshot: ['Machine state', 'Take Snapshot'], powerOff: ['Close the machine', 'Close Virtual Machine'],
+      softKeyboard: ['Input', 'Soft Keyboard'], fileManager: ['Guest control', 'File Manager'], about: ['Product', 'About']
+    }[s.overlay] || ['', ''];
+    const overlayBodies = {
+      sessionInfo: () => this.sessionInfoBody(), log: () => this.logBody(), chooseDisk: () => this.chooseDiskBody(),
+      usb: () => this.usbBody(), clipboard: () => this.modeBody('sharedClipboard', ['Disabled', 'Host To Guest', 'Guest To Host', 'Bidirectional']),
+      dragdrop: () => this.modeBody('dragDrop', ['Disabled', 'Host To Guest', 'Guest To Host', 'Bidirectional']),
+      takeSnapshot: () => this.takeSnapshotBody(), powerOff: () => this.powerOffBody(), softKeyboard: () => this.softKeyboardBody(),
+      fileManager: () => this.fileManagerBody(), about: () => this.aboutBody()
+    };
+
+    const ind = (label, on, icon, hint, click) => ({
+      label, iconSrc: I(icon), hint, opacity: on ? 1 : .4,
+      bg: on ? T.surfaceHighest : 'transparent', fg: on ? T.onSurfaceVar : T.outline, click
+    });
+
+    return {
+      brandMark: this.props.brandMark ?? 'M',
+      windowTitle: s.name + ' [' + (s.paused ? 'Paused' : s.running ? 'Running' : 'Saved') + '] — ' + (this.props.brandName ?? 'Material Virtual Machine'),
+      showMenuBar: s.menuBar, showStatusBar: s.statusBar, showMiniToolbar: s.miniToolbar,
+      hostKeyHint: 'Host key: ' + s.hostKey,
+      menus: MENUS.map(([id, label]) => ({
+        label: label.replace('&', ''), bg: s.menu === id ? T.secondaryContainer : 'transparent', fg: s.menu === id ? T.onSurface : T.onSurfaceVar,
+        toggle: (e) => { const r = e.currentTarget.getBoundingClientRect(); this.setState({ menu: s.menu === id ? null : id, menuPos: { x: r.left, y: r.bottom + 4 } }); }
+      })),
+      menuOpen: Boolean(s.menu), menuX: Math.min(s.menuPos.x, (typeof window !== 'undefined' ? window.innerWidth : 1200) - 310), menuY: s.menuPos.y,
+      closeMenu: () => this.setState({ menu: null }),
+      menuItems: items.map((it) => ({ label: it.label, shortcut: it.shortcut, check: it.checked ? '✓' : '', fg: T.onSurface, run: it.run })),
+
+      screenWidth: s.visualState === 'Scaled' ? '70%' : '92%',
+      screenHeight: s.visualState === 'Fullscreen' || s.visualState === 'Seamless' ? '100%' : '88%',
+      guestHeadline: s.paused ? 'Guest paused' : s.running ? 'Guest display · ' + s.name : 'Machine is not running',
+      guestResolution: s.resolution + ' · ' + s.visualState + ' mode',
+      guestState: s.guestAdditions ? 'Guest Additions 7.2.0 active' : 'Guest Additions not installed',
+
+      miniPos: s.miniToolbarTop ? 'top' : 'bottom',
+      miniTitle: s.name,
+      miniActions: [
+        { icon: '⛶', hint: 'Toggle full-screen', run: () => this.setState({ visualState: s.visualState === 'Fullscreen' ? 'Normal' : 'Fullscreen' }) },
+        { icon: '❙❙', hint: 'Pause', run: () => { this.setState({ paused: !s.paused }); this.toast(s.paused ? 'Resumed' : 'Paused', s.name); } },
+        { icon: '⟲', hint: 'Reset', run: () => this.toast('Reset', 'The guest was reset') },
+        { icon: '⌸', hint: 'Take snapshot', run: () => this.setState({ overlay: 'takeSnapshot' }) },
+        { icon: '⏻', hint: 'Close the machine', run: () => this.setState({ overlay: 'powerOff' }) }
+      ],
+
+      indicators: [
+        ind('HDD', true, 'hd_16px.png', 'Hard disks · 41.2 GB used', () => this.toast('Hard Disks', 'SATA Port 0 · Win11-Dev.vdi')),
+        ind('CD', s.devices.optical !== 'Empty', 'hd_16px.png', 'Optical drive · ' + s.devices.optical, () => this.setState({ overlay: 'chooseDisk', overlayCtx: 'optical' })),
+        ind('FD', s.devices.floppy !== 'Empty', 'hd_16px.png', 'Floppy drive · ' + s.devices.floppy, () => this.setState({ overlay: 'chooseDisk', overlayCtx: 'floppy' })),
+        ind('Audio', s.devices.audioOut || s.devices.audioIn, 'sound_16px.png', 'Audio output/input', () => this.toggleDev('audioOut')),
+        ind('Net', s.devices.network, 'nw_16px.png', 'Adapter 1 · NAT', () => this.toggleDev('network')),
+        ind('USB', s.devices.usbAttached.length > 0, 'usb_16px.png', s.devices.usbAttached.length + ' device(s) attached', () => this.setState({ overlay: 'usb' })),
+        ind('SF', true, 'sf_16px.png', '2 shared folders', () => { window.location.href = 'VM Settings.dc.html'; }),
+        ind('Display', true, 'vrdp_16px.png', s.resolution, () => this.toast('Display', s.resolution + ' · ' + s.visualState)),
+        ind('Rec', s.recording, 'vrdp_16px.png', s.recording ? 'Recording' : 'Not recording', () => { this.setState({ recording: !s.recording }); this.toast(s.recording ? 'Recording stopped' : 'Recording started', s.name); }),
+        ind('Features', true, 'chipset_16px.png', 'Nested paging active, Hyper-V', () => this.setState({ overlay: 'sessionInfo' })),
+        ind('Mouse', s.mouseCaptured, 'interface_16px.png', s.mouseCaptured ? 'Pointer captured' : 'Mouse integration on', () => { this.setState({ mouseCaptured: !s.mouseCaptured }); }),
+        ind('Keyboard', s.keyboardCaptured, 'interface_16px.png', s.keyboardCaptured ? 'Keyboard captured' : 'Keyboard not captured', () => this.setState({ keyboardCaptured: !s.keyboardCaptured }))
+      ],
+      hostKeyState: (s.mouseCaptured || s.keyboardCaptured ? 'Captured — press ' : 'Free — ') + s.hostKey,
+
+      winMinimize: () => this.toast('Minimize', 'Runtime window minimized'),
+      winMaximize: () => this.setState({ visualState: s.visualState === 'Fullscreen' ? 'Normal' : 'Fullscreen' }),
+      winClose: () => this.setState({ overlay: 'powerOff' }),
+
+      overlayOpen: Boolean(s.overlay), overlayEyebrow: overlayMeta[0], overlayTitle: overlayMeta[1],
+      overlayBody: s.overlay ? overlayBodies[s.overlay]() : null,
+      closeOverlay: () => this.setState({ overlay: null }),
+      toasts: s.toasts
+    };
+  }
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,477 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Roboto+Flex:opsz,wght@8..144,300..700&family=Roboto+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  html,body{margin:0;padding:0;background:#141218;color:#E6E0E9;font-family:"Roboto Flex","Segoe UI",system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+  *{box-sizing:border-box}
+  a{color:#D0BCFF;text-decoration:none}
+  a:hover{color:#EADDFF;text-decoration:underline}
+  button{font:inherit;color:inherit;border:0;background:none;cursor:pointer}
+  input,select,textarea{font:inherit;color:inherit}
+  input[type=range]{accent-color:#D0BCFF}
+  ::-webkit-scrollbar{width:10px;height:10px}
+  ::-webkit-scrollbar-thumb{background:#49454F;border-radius:8px}
+  @keyframes mvmIn{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:none}}
+</style>
+</helmet>
+
+<div style="height:100vh;display:flex;flex-direction:column;background:#141218;overflow:hidden;font-size:13px">
+
+  <div style="height:44px;flex:none;display:flex;align-items:center;gap:10px;padding:0 6px 0 12px;background:#1D1B20;border-bottom:1px solid #2B2930">
+    <div style="width:26px;height:26px;flex:none;display:grid;place-items:center;border-radius:8px;background:#D0BCFF;color:#381E72;font-weight:700;font-size:14px">{{ brandMark }}</div>
+    <div style="font-size:13px;font-weight:600;white-space:nowrap">{{ wizardTitle }}</div>
+    <div style="flex:1;min-width:8px"></div>
+    <div style="flex:none;display:flex;gap:4px;font-size:11.5px">
+      <a href="Manager.dc.html" style="padding:5px 10px;border-radius:12px;background:#2B2930;color:#CAC4D0">Manager</a>
+      <a href="VM Settings.dc.html" style="padding:5px 10px;border-radius:12px;background:#2B2930;color:#CAC4D0">Settings</a>
+      <a href="Runtime Window.dc.html" style="padding:5px 10px;border-radius:12px;background:#2B2930;color:#CAC4D0">Runtime</a>
+      <a href="Managers.dc.html" style="padding:5px 10px;border-radius:12px;background:#2B2930;color:#CAC4D0">Managers</a>
+    </div>
+    <div style="flex:none;display:flex;gap:2px;margin-left:6px">
+      <button onClick="{{ winMinimize }}" style="width:38px;height:32px;border-radius:8px;color:#CAC4D0" style-hover="background:#2B2930">─</button>
+      <button onClick="{{ winMaximize }}" style="width:38px;height:32px;border-radius:8px;color:#CAC4D0" style-hover="background:#2B2930">▢</button>
+      <button onClick="{{ winClose }}" style="width:38px;height:32px;border-radius:8px;color:#CAC4D0" style-hover="background:#93000A;color:#FFDAD6">✕</button>
+    </div>
+  </div>
+
+  <div style="flex:none;display:flex;align-items:center;gap:6px;padding:12px 18px 8px;overflow-x:auto">
+    <sc-for list="{{ wizardTabs }}" as="w" hint-placeholder-count="5">
+      <button onClick="{{ w.select }}" style="flex:none;height:34px;display:flex;align-items:center;gap:8px;padding:0 14px;border-radius:17px;background:{{ w.bg }};color:{{ w.fg }};font-size:12.5px;font-weight:600;white-space:nowrap" style-hover="filter:brightness(1.15)">
+        <span style="width:16px;height:16px;flex:none;background-image:{{ w.iconCss }};background-size:contain;background-repeat:no-repeat;background-position:center"></span><span>{{ w.label }}</span>
+      </button>
+    </sc-for>
+    <div style="flex:1;min-width:8px"></div>
+    <button onClick="{{ toggleExpert }}" style="flex:none;height:34px;padding:0 14px;border-radius:17px;background:{{ expertBg }};color:{{ expertFg }};font-size:12.5px;font-weight:600">{{ expertLabel }}</button>
+  </div>
+
+  <div style="flex:1;min-height:0;display:flex;gap:12px;padding:0 18px 12px;min-width:0">
+
+    <div style="width:230px;flex:none;min-width:0;display:flex;flex-direction:column;gap:6px;background:#1D1B20;border:1px solid #2B2930;border-radius:16px;padding:12px;overflow-y:auto">
+      <div style="font-size:10.5px;font-weight:700;letter-spacing:1.1px;text-transform:uppercase;color:#938F99;margin-bottom:2px">Steps</div>
+      <sc-for list="{{ steps }}" as="st" hint-placeholder-count="4">
+        <button onClick="{{ st.select }}" style="display:flex;align-items:center;gap:10px;padding:9px 10px;border-radius:12px;background:{{ st.bg }};text-align:left;min-width:0" style-hover="background:#2B2930">
+          <span style="width:22px;height:22px;flex:none;display:grid;place-items:center;border-radius:11px;background:{{ st.badgeBg }};color:{{ st.badgeFg }};font-size:11px;font-weight:700">{{ st.badge }}</span>
+          <span style="flex:1;min-width:0;font-size:12.5px;font-weight:600;color:{{ st.fg }};overflow:hidden;text-overflow:ellipsis">{{ st.label }}</span>
+        </button>
+      </sc-for>
+      <div style="flex:1"></div>
+      <div style="font-size:11px;color:#938F99;line-height:1.5">{{ stepHint }}</div>
+    </div>
+
+    <div style="flex:1;min-width:0;display:flex;flex-direction:column;background:#1D1B20;border:1px solid #2B2930;border-radius:16px;overflow:hidden">
+      <div style="flex:none;padding:14px 16px 10px;border-bottom:1px solid #2B2930;min-width:0">
+        <div style="font-size:10.5px;font-weight:700;letter-spacing:1.2px;text-transform:uppercase;color:#D0BCFF">{{ wizardTitle }}</div>
+        <div style="font-size:18px;font-weight:500;margin-top:2px">{{ stepTitle }}</div>
+        <div style="font-size:12px;color:#938F99;margin-top:4px;max-width:640px;line-height:1.5">{{ stepSubtitle }}</div>
+      </div>
+      <div style="flex:1;min-height:0;min-width:0;overflow-y:auto;overflow-x:hidden;padding:16px">{{ stepBody }}</div>
+    </div>
+  </div>
+
+  <div style="flex:none;display:flex;align-items:center;gap:10px;padding:0 18px 14px;min-width:0">
+    <div style="flex:1;min-width:0;font-size:11.5px;color:{{ validityColor }};overflow:hidden;text-overflow:ellipsis">{{ validityText }}</div>
+    <button onClick="{{ back }}" style="flex:none;height:38px;padding:0 18px;border-radius:19px;background:transparent;border:1px solid #49454F;color:{{ backFg }};font-size:12.5px;font-weight:600" style-hover="background:#2B2930">Back</button>
+    <button onClick="{{ cancel }}" style="flex:none;height:38px;padding:0 16px;border-radius:19px;color:#D0BCFF;font-size:12.5px;font-weight:600" style-hover="background:#2B2930">Cancel</button>
+    <button onClick="{{ next }}" style="flex:none;height:38px;padding:0 22px;border-radius:19px;background:{{ nextBg }};color:{{ nextFg }};font-size:12.5px;font-weight:600" style-hover="filter:brightness(1.12)">{{ nextLabel }}</button>
+  </div>
+
+  <sc-if value="{{ resultOpen }}" hint-placeholder-val="{{ false }}">
+    <div style="position:fixed;inset:0;z-index:40;display:grid;place-items:center;background:#00000099;backdrop-filter:blur(3px)">
+      <div style="width:min(560px,calc(100vw - 64px));background:#211F26;border:1px solid #36343B;border-radius:28px;padding:24px;box-shadow:0 24px 60px #000000aa;animation:mvmIn .2s cubic-bezier(.05,.7,.1,1)">
+        <div style="font-size:10.5px;font-weight:700;letter-spacing:1.2px;text-transform:uppercase;color:#D0BCFF">Wizard complete</div>
+        <div style="font-size:20px;font-weight:500;margin:4px 0 10px">{{ resultTitle }}</div>
+        <div style="font-size:12.5px;color:#CAC4D0;line-height:1.6">{{ resultBody }}</div>
+        <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:18px">
+          <button onClick="{{ closeResult }}" style="height:38px;padding:0 16px;border-radius:19px;color:#D0BCFF;font-size:12.5px;font-weight:600">Start another</button>
+          <a href="Manager.dc.html" style="height:38px;display:inline-flex;align-items:center;padding:0 20px;border-radius:19px;background:#D0BCFF;color:#381E72;font-size:12.5px;font-weight:600">Back to Manager</a>
+        </div>
+      </div>
+    </div>
+  </sc-if>
+
+  <div style="position:fixed;right:20px;bottom:20px;z-index:50;display:flex;flex-direction:column;gap:8px;width:330px">
+    <sc-for list="{{ toasts }}" as="t" hint-placeholder-count="0">
+      <div style="padding:12px 14px;border-radius:14px;background:#36343B;border-left:3px solid {{ t.accent }};box-shadow:0 8px 26px #000000aa;animation:mvmIn .2s ease">
+        <div style="font-size:12.5px;font-weight:600">{{ t.title }}</div>
+        <div style="font-size:11.5px;color:#CAC4D0;margin-top:2px">{{ t.detail }}</div>
+      </div>
+    </sc-for>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;brandMark&quot;:{&quot;editor&quot;:&quot;text&quot;,&quot;default&quot;:&quot;M&quot;,&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;Branding&quot;}}">
+const T = {
+  primary: '#D0BCFF', onPrimary: '#381E72', primaryContainer: '#4F378B', onPrimaryContainer: '#EADDFF',
+  secondaryContainer: '#4A4458', onSecondaryContainer: '#E8DEF8', surfaceHigh: '#2B2930', surfaceHighest: '#36343B',
+  onSurface: '#E6E0E9', onSurfaceVar: '#CAC4D0', outline: '#938F99', outlineVar: '#49454F', error: '#F2B8B5', ok: '#7ED9A6'
+};
+const I = (n) => 'icons/' + n;
+const h = React.createElement;
+
+const WIZARDS = {
+  newvm: {
+    label: 'New Virtual Machine', icon: 'vm_new_32px.png',
+    steps: [
+      { id: 'name', label: 'Name and Operating System', subtitle: 'Choose a descriptive name and destination folder, and select the operating system you intend to install.' },
+      { id: 'unattended', label: 'Unattended Guest OS Install', subtitle: 'Provide the credentials and options for an unattended installation, or skip it entirely.' },
+      { id: 'hardware', label: 'Hardware', subtitle: 'Set the base memory, processor count and EFI for the new machine.' },
+      { id: 'disk', label: 'Virtual Hard Disk', subtitle: 'Create a new disk, use an existing one, or add no disk at all.' },
+      { id: 'summary', label: 'Summary', subtitle: 'The machine will be created with the settings below.' }
+    ]
+  },
+  clonevm: {
+    label: 'Clone Virtual Machine', icon: 'machine_details_manager_24px.png',
+    steps: [
+      { id: 'namepath', label: 'New machine name and path', subtitle: 'Choose a name and location for the clone, and how MAC addresses are handled.' },
+      { id: 'type', label: 'Clone type', subtitle: 'A full clone copies every disk image; a linked clone keeps a differencing image against the source.' },
+      { id: 'mode', label: 'Snapshots', subtitle: 'Decide how much of the snapshot tree is carried into the clone.' },
+      { id: 'summary', label: 'Summary', subtitle: 'Review the clone before it is created.' }
+    ]
+  },
+  exportapp: {
+    label: 'Export Virtual Appliance', icon: 'media_manager_24px.png',
+    steps: [
+      { id: 'vms', label: 'Virtual machines', subtitle: 'Select the machines to include in the appliance.' },
+      { id: 'format', label: 'Format settings', subtitle: 'Choose the appliance format, target file and MAC address policy.' },
+      { id: 'settings', label: 'Appliance settings', subtitle: 'Review and edit the descriptors written into the appliance.' }
+    ]
+  },
+  importapp: {
+    label: 'Import Virtual Appliance', icon: 'media_manager_24px.png',
+    steps: [
+      { id: 'source', label: 'Appliance to import', subtitle: 'Choose a local OVF/OVA file or a cloud source.' },
+      { id: 'settings', label: 'Appliance settings', subtitle: 'Adjust the machines and hardware read from the appliance descriptor.' }
+    ]
+  },
+  newvd: {
+    label: 'Create Virtual Hard Disk', icon: 'hd_16px.png',
+    steps: [
+      { id: 'filetype', label: 'Virtual hard disk file type', subtitle: 'Choose the format for the new disk image.' },
+      { id: 'variant', label: 'Storage on physical hard disk', subtitle: 'Dynamically allocated images grow as they fill; fixed-size images are faster.' },
+      { id: 'sizelocation', label: 'File location and size', subtitle: 'Choose where the image lives and how large the guest sees it.' }
+    ]
+  }
+};
+
+class Component extends DCLogic {
+  state = {
+    wizard: 'newvm', step: 0, expert: false, result: null, toasts: [],
+    newvm: { name: 'New Machine', folder: 'C:\\Users\\you\\VirtualBox VMs', iso: '', osFamily: 'Microsoft Windows', osType: 'Windows 11 (64-bit)', skipUnattended: true, username: 'vboxuser', password: '', hostname: 'newmachine.myguest.virtualbox.org', productKey: '', installGA: false, gaIso: '', memory: 4096, cpus: 2, efi: false, diskChoice: 'create', diskSize: 50, diskName: 'New Machine.vdi', preallocate: false },
+    clonevm: { source: 'Win11-Dev', name: 'Win11-Dev Clone', path: 'C:\\Users\\you\\VirtualBox VMs', macPolicy: 'Generate new MAC addresses for all network adapters', keepDiskNames: false, keepHwUUIDs: false, type: 'full', mode: 'current' },
+    exportapp: { machines: ['Win11-Dev'], format: 'Open Virtualization Format 2.0', file: 'C:\\Users\\you\\Documents\\appliance.ova', macPolicy: 'Include only NAT network adapter MAC addresses', manifest: true, includeIso: false, product: '', vendor: '', version: '1.0', description: '' },
+    importapp: { source: 'Local File System', file: 'C:\\Users\\you\\Downloads\\appliance.ova', machineName: 'Imported Machine', cpus: 2, memory: 4096, basefolder: 'C:\\Users\\you\\VirtualBox VMs', mac: 'Include only NAT network adapter MAC addresses', importHardDrives: 'VDI' },
+    newvd: { fileType: 'VDI (VirtualBox Disk Image)', variant: 'dynamic', split: false, name: 'NewDisk.vdi', location: 'C:\\Users\\you\\VirtualBox VMs', size: 50 }
+  };
+
+  toast(title, detail, accent) {
+    const id = Math.random().toString(16).slice(2);
+    this.setState((s) => ({ toasts: [...s.toasts, { id, title, detail, accent: accent || T.primary }] }));
+    setTimeout(() => this.setState((s) => ({ toasts: s.toasts.filter((t) => t.id !== id) })), 3200);
+  }
+  d() { return this.state[this.state.wizard]; }
+  set(patch) { this.setState((s) => ({ [s.wizard]: Object.assign({}, s[s.wizard], patch) })); }
+  steps() { return WIZARDS[this.state.wizard].steps; }
+  visibleSteps() {
+    const st = this.steps();
+    if (this.state.wizard === 'newvm' && this.d().skipUnattended) return st.filter((x) => x.id !== 'unattended');
+    return st;
+  }
+
+  /* ---------- controls ---------- */
+  card(title, children) {
+    return h('div', { key: title, style: { background: T.surfaceHigh, borderRadius: 16, padding: '14px 16px', marginBottom: 10, minWidth: 0 } },
+      h('div', { style: { fontSize: 12.5, fontWeight: 700, color: T.primary, marginBottom: 12 } }, title), children);
+  }
+  grid(children, cols) { return h('div', { style: { display: 'grid', gridTemplateColumns: 'repeat(' + (cols || 2) + ',minmax(0,1fr))', gap: 12, minWidth: 0 } }, children); }
+  field(label, node, hint) {
+    return h('label', { key: label, style: { display: 'grid', gap: 5, minWidth: 0 } },
+      h('span', { style: { fontSize: 11.5, fontWeight: 700, color: T.outline } }, label), node,
+      hint ? h('span', { style: { fontSize: 10.5, color: T.outline } }, hint) : null);
+  }
+  text(value, onChange, props) {
+    return h('input', Object.assign({ value, onChange }, props || {}, { style: { width: '100%', height: 40, padding: '0 12px', borderRadius: 12, background: T.surfaceHighest, border: '1px solid ' + T.outlineVar, outline: 'none', fontSize: 12.5, color: T.onSurface } }));
+  }
+  combo(value, options, onChange) {
+    return h('select', { value, onChange, style: { width: '100%', height: 40, padding: '0 10px', borderRadius: 12, background: T.surfaceHighest, border: '1px solid ' + T.outlineVar, outline: 'none', fontSize: 12.5, color: T.onSurface } }, options.map((o) => h('option', { key: o, value: o }, o)));
+  }
+  slider(value, min, max, step, onChange, suffix) {
+    return h('div', { style: { display: 'grid', gap: 4 } },
+      h('div', { style: { display: 'flex', justifyContent: 'space-between', fontSize: 11.5, color: T.onSurfaceVar } }, h('span', null, min + suffix), h('b', { style: { color: T.primary } }, value + suffix), h('span', null, max + suffix)),
+      h('input', { type: 'range', min, max, step, value, onChange, style: { width: '100%' } }));
+  }
+  check(label, checked, onChange, hint) {
+    return h('label', { key: label, style: { display: 'flex', alignItems: 'flex-start', gap: 9, padding: '7px 0', fontSize: 12.5, cursor: 'pointer' } },
+      h('input', { type: 'checkbox', checked, onChange, style: { width: 16, height: 16, marginTop: 1, accentColor: T.primary } }),
+      h('span', null, label, hint ? h('span', { style: { display: 'block', fontSize: 10.5, color: T.outline, marginTop: 2 } }, hint) : null));
+  }
+  radio(options, value, onChange) {
+    return h('div', { style: { display: 'grid', gap: 6 } }, options.map(([id, label, hint]) => h('button', {
+      key: id, onClick: () => onChange(id),
+      style: { display: 'flex', alignItems: 'flex-start', gap: 10, padding: '12px 13px', borderRadius: 14, background: value === id ? T.secondaryContainer : T.surfaceHighest, textAlign: 'left', border: '1px solid ' + (value === id ? T.primary : 'transparent') }
+    },
+      h('span', { style: { width: 16, height: 16, flex: 'none', marginTop: 1, borderRadius: 8, border: '2px solid ' + (value === id ? T.primary : T.outline), background: value === id ? T.primary : 'transparent' } }),
+      h('span', { style: { minWidth: 0 } }, h('b', { style: { fontSize: 12.5 } }, label), hint ? h('span', { style: { display: 'block', fontSize: 11, color: T.outline, marginTop: 3, lineHeight: 1.5 } }, hint) : null))));
+  }
+  summary(rows) {
+    return h('div', { style: { display: 'grid', gridTemplateColumns: 'minmax(130px,220px) minmax(0,1fr)', gap: '7px 16px', fontSize: 12.5, background: T.surfaceHigh, padding: 14, borderRadius: 14 } },
+      rows.flatMap(([k, v], i) => [h('div', { key: 'k' + i, style: { color: T.outline } }, k), h('div', { key: 'v' + i, style: { overflowWrap: 'anywhere' } }, v)]));
+  }
+
+  /* ---------- step bodies ---------- */
+  body_newvm(step) {
+    const d = this.d();
+    if (step === 'name') return h('div', null,
+      this.card('Machine', this.grid([
+        this.field('Name', this.text(d.name, (e) => this.set({ name: e.target.value, diskName: e.target.value + '.vdi' }))),
+        this.field('Folder', this.text(d.folder, (e) => this.set({ folder: e.target.value }))),
+        this.field('ISO Image', this.combo(d.iso || '<not selected>', ['<not selected>', 'ubuntu-24.04.iso', 'Windows11.iso', 'debian-13.iso'], (e) => this.set({ iso: e.target.value === '<not selected>' ? '' : e.target.value })), 'Selecting an ISO enables unattended installation.'),
+        this.field('Type', this.combo(d.osFamily, ['Microsoft Windows', 'Linux', 'BSD', 'Solaris', 'Other'], (e) => this.set({ osFamily: e.target.value }))),
+        this.field('Version', this.combo(d.osType, ['Windows 11 (64-bit)', 'Windows 10 (64-bit)', 'Ubuntu (64-bit)', 'Debian (64-bit)', 'Oracle Linux 9 (64-bit)'], (e) => this.set({ osType: e.target.value })))
+      ])),
+      this.card('Unattended install', this.check('Skip Unattended Installation', d.skipUnattended, (e) => this.set({ skipUnattended: e.target.checked }), d.iso ? 'The selected ISO can be installed automatically.' : 'Select an ISO image first to enable unattended installation.')));
+    if (step === 'unattended') return h('div', null,
+      this.card('User account', this.grid([
+        this.field('Username', this.text(d.username, (e) => this.set({ username: e.target.value }))),
+        this.field('Password', this.text(d.password, (e) => this.set({ password: e.target.value }), { type: 'password', placeholder: 'Set a guest password' })),
+        this.field('Hostname / Domain', this.text(d.hostname, (e) => this.set({ hostname: e.target.value }))),
+        this.field('Product Key', this.text(d.productKey, (e) => this.set({ productKey: e.target.value }), { placeholder: 'Optional' }))
+      ])),
+      this.card('Additions', h('div', null,
+        this.check('Install Guest Additions', d.installGA, (e) => this.set({ installGA: e.target.checked })),
+        d.installGA ? this.field('Guest Additions ISO', this.text(d.gaIso, (e) => this.set({ gaIso: e.target.value }), { placeholder: 'C:\\Program Files\\Oracle\\VirtualBox\\VBoxGuestAdditions.iso' })) : null)));
+    if (step === 'hardware') return h('div', null,
+      this.card('Hardware', h('div', null,
+        this.grid([
+          this.field('Base Memory', this.slider(d.memory, 512, 32768, 256, (e) => this.set({ memory: Number(e.target.value) }), ' MB')),
+          this.field('Processors', this.slider(d.cpus, 1, 16, 1, (e) => this.set({ cpus: Number(e.target.value) }), ' CPU'))
+        ]),
+        h('div', { style: { marginTop: 8 } }, this.check('Enable EFI (special OSes only)', d.efi, (e) => this.set({ efi: e.target.checked }))))));
+    if (step === 'disk') return h('div', null,
+      this.card('Virtual hard disk', this.radio([
+        ['create', 'Create a Virtual Hard Disk Now', 'A new dynamically allocated VDI is created alongside the machine.'],
+        ['existing', 'Use an Existing Virtual Hard Disk File', 'Attach a disk image that already exists on this host.'],
+        ['none', 'Do Not Add a Virtual Hard Disk', 'The machine is created without any storage attached.']
+      ], d.diskChoice, (v) => this.set({ diskChoice: v }))),
+      d.diskChoice === 'create' ? this.card('New disk', h('div', null,
+        this.grid([
+          this.field('Disk file name', this.text(d.diskName, (e) => this.set({ diskName: e.target.value }))),
+          this.field('Disk size', this.slider(d.diskSize, 1, 2048, 1, (e) => this.set({ diskSize: Number(e.target.value) }), ' GB'))
+        ]),
+        h('div', { style: { marginTop: 8 } }, this.check('Pre-allocate Full Size', d.preallocate, (e) => this.set({ preallocate: e.target.checked }), 'A fixed-size image is faster but takes the full space immediately.')))) : null,
+      d.diskChoice === 'existing' ? this.card('Existing disk', this.field('Disk image', this.combo(d.existingDisk || 'Win11-Dev.vdi', ['Win11-Dev.vdi', 'Ubuntu-24.04.vdi', 'Debian-Build.vdi'], (e) => this.set({ existingDisk: e.target.value })))) : null);
+    return h('div', null, this.summary([
+      ['Machine Name', d.name], ['Machine Folder', d.folder], ['ISO Image', d.iso || 'None'],
+      ['Guest OS Type', d.osType], ['Unattended Install', d.skipUnattended ? 'Skipped' : 'Enabled for ' + d.username],
+      ['Base Memory', d.memory + ' MB'], ['Processors', String(d.cpus)], ['EFI', d.efi ? 'Enabled' : 'Disabled'],
+      ['Virtual Hard Disk', d.diskChoice === 'create' ? d.diskName + ' · ' + d.diskSize + ' GB ' + (d.preallocate ? '(fixed)' : '(dynamic)') : d.diskChoice === 'existing' ? (d.existingDisk || 'Win11-Dev.vdi') : 'None']
+    ]));
+  }
+
+  body_clonevm(step) {
+    const d = this.d();
+    if (step === 'namepath') return h('div', null,
+      this.card('Clone', this.grid([
+        this.field('Source machine', this.combo(d.source, ['Win11-Dev', 'Ubuntu-24.04', 'Debian-Build', 'Win10-QA', 'OL9-Server'], (e) => this.set({ source: e.target.value, name: e.target.value + ' Clone' }))),
+        this.field('Name', this.text(d.name, (e) => this.set({ name: e.target.value }))),
+        this.field('Path', this.text(d.path, (e) => this.set({ path: e.target.value })))
+      ])),
+      this.card('MAC address policy', h('div', null,
+        this.radio([
+          ['Include all network adapter MAC addresses', 'Include all network adapter MAC addresses', 'The clone keeps every MAC address of the source.'],
+          ['Include only NAT network adapter MAC addresses', 'Include only NAT network adapter MAC addresses', 'Only NAT adapters keep their MAC address.'],
+          ['Generate new MAC addresses for all network adapters', 'Generate new MAC addresses for all network adapters', 'Every adapter gets a fresh MAC address.']
+        ], d.macPolicy, (v) => this.set({ macPolicy: v })),
+        h('div', { style: { marginTop: 10 } },
+          this.check('Keep Disk Names', d.keepDiskNames, (e) => this.set({ keepDiskNames: e.target.checked })),
+          this.check('Keep Hardware UUIDs', d.keepHwUUIDs, (e) => this.set({ keepHwUUIDs: e.target.checked }))))));
+    if (step === 'type') return this.card('Clone type', this.radio([
+      ['full', 'Full clone', 'An exact copy including all virtual hard disk files; it is independent of the source machine.'],
+      ['linked', 'Linked clone', 'A new machine with differencing images; the source machine must keep its snapshot.']
+    ], d.type, (v) => this.set({ type: v })));
+    if (step === 'mode') return this.card('Snapshots', this.radio([
+      ['current', 'Current machine state', 'Only the current state is cloned; no snapshots are carried over.'],
+      ['branch', 'Current snapshot tree branch', 'The snapshot branch that leads to the current state is cloned.'],
+      ['everything', 'Everything', 'The whole snapshot tree is cloned.']
+    ], d.mode, (v) => this.set({ mode: v })));
+    return this.summary([
+      ['Source', d.source], ['Clone Name', d.name], ['Path', d.path],
+      ['MAC Address Policy', d.macPolicy], ['Clone Type', d.type === 'full' ? 'Full clone' : 'Linked clone'],
+      ['Snapshots', d.mode === 'current' ? 'Current machine state' : d.mode === 'branch' ? 'Current snapshot tree branch' : 'Everything'],
+      ['Keep Disk Names', d.keepDiskNames ? 'Yes' : 'No'], ['Keep Hardware UUIDs', d.keepHwUUIDs ? 'Yes' : 'No']
+    ]);
+  }
+
+  body_exportapp(step) {
+    const d = this.d();
+    const all = ['Win11-Dev', 'Ubuntu-24.04', 'Debian-Build', 'Win10-QA', 'OL9-Server', 'Sandbox-Alpine'];
+    if (step === 'vms') return this.card('Virtual machines', h('div', { style: { display: 'grid', gap: 4 } }, all.map((m) => h('button', {
+      key: m, onClick: () => this.set({ machines: d.machines.includes(m) ? d.machines.filter((x) => x !== m) : [...d.machines, m] }),
+      style: { display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px', borderRadius: 12, background: d.machines.includes(m) ? T.secondaryContainer : T.surfaceHighest, textAlign: 'left' }
+    },
+      h('input', { type: 'checkbox', readOnly: true, checked: d.machines.includes(m), style: { accentColor: T.primary } }),
+      h('img', { src: I('machine_16px.png'), alt: '', style: { width: 15, height: 15 } }),
+      h('span', { style: { flex: 1, fontSize: 12.5 } }, m)))));
+    if (step === 'format') return h('div', null,
+      this.card('Format', this.grid([
+        this.field('Format', this.combo(d.format, ['Open Virtualization Format 0.9', 'Open Virtualization Format 1.0', 'Open Virtualization Format 2.0', 'Oracle Cloud Infrastructure'], (e) => this.set({ format: e.target.value }))),
+        this.field('File', this.text(d.file, (e) => this.set({ file: e.target.value })))
+      ])),
+      this.card('MAC address policy', this.radio([
+        ['Include all network adapter MAC addresses', 'Include all network adapter MAC addresses', ''],
+        ['Include only NAT network adapter MAC addresses', 'Include only NAT network adapter MAC addresses', ''],
+        ['Strip all network adapter MAC addresses', 'Strip all network adapter MAC addresses', '']
+      ], d.macPolicy, (v) => this.set({ macPolicy: v }))),
+      this.card('Additionally', h('div', null,
+        this.check('Write Manifest File', d.manifest, (e) => this.set({ manifest: e.target.checked })),
+        this.check('Include ISO Image Files', d.includeIso, (e) => this.set({ includeIso: e.target.checked })))));
+    return h('div', null,
+      this.card('Appliance descriptors', this.grid([
+        this.field('Product', this.text(d.product, (e) => this.set({ product: e.target.value }), { placeholder: 'Optional' })),
+        this.field('Vendor', this.text(d.vendor, (e) => this.set({ vendor: e.target.value }), { placeholder: 'Optional' })),
+        this.field('Version', this.text(d.version, (e) => this.set({ version: e.target.value }))),
+        this.field('License', this.text(d.license || '', (e) => this.set({ license: e.target.value }), { placeholder: 'Optional' }))
+      ])),
+      this.card('Description', h('textarea', { value: d.description, onChange: (e) => this.set({ description: e.target.value }), rows: 4, placeholder: 'Description written into the appliance', style: { width: '100%', padding: 12, borderRadius: 12, background: T.surfaceHighest, border: '1px solid ' + T.outlineVar, outline: 'none', fontSize: 12.5, color: T.onSurface, resize: 'vertical' } })),
+      this.summary([['Machines', d.machines.join(', ') || 'None selected'], ['Format', d.format], ['File', d.file], ['Manifest', d.manifest ? 'Yes' : 'No']]));
+  }
+
+  body_importapp(step) {
+    const d = this.d();
+    if (step === 'source') return h('div', null,
+      this.card('Source', this.grid([
+        this.field('Source', this.combo(d.source, ['Local File System', 'Oracle Cloud Infrastructure'], (e) => this.set({ source: e.target.value }))),
+        this.field('File', this.text(d.file, (e) => this.set({ file: e.target.value }), { placeholder: 'C:\\path\\appliance.ova' }))
+      ])),
+      h('div', { style: { fontSize: 11.5, color: T.outline } }, 'Appliances with an unverified certificate prompt before the descriptor is read.'));
+    return h('div', null,
+      this.card('Machine', this.grid([
+        this.field('Name', this.text(d.machineName, (e) => this.set({ machineName: e.target.value }))),
+        this.field('Machine Base Folder', this.text(d.basefolder, (e) => this.set({ basefolder: e.target.value }))),
+        this.field('CPU', this.slider(d.cpus, 1, 16, 1, (e) => this.set({ cpus: Number(e.target.value) }), '')),
+        this.field('RAM', this.slider(d.memory, 512, 32768, 256, (e) => this.set({ memory: Number(e.target.value) }), ' MB')),
+        this.field('MAC Address Policy', this.combo(d.mac, ['Include all network adapter MAC addresses', 'Include only NAT network adapter MAC addresses', 'Generate new MAC addresses for all network adapters'], (e) => this.set({ mac: e.target.value }))),
+        this.field('Import hard drives as', this.combo(d.importHardDrives, ['VDI', 'VMDK', 'VHD'], (e) => this.set({ importHardDrives: e.target.value })))
+      ])),
+      this.summary([['Appliance', d.file], ['Machine', d.machineName], ['CPU', String(d.cpus)], ['RAM', d.memory + ' MB'], ['Disk format', d.importHardDrives]]));
+  }
+
+  body_newvd(step) {
+    const d = this.d();
+    if (step === 'filetype') return this.card('Virtual hard disk file type', this.radio([
+      ['VDI (VirtualBox Disk Image)', 'VDI (VirtualBox Disk Image)', 'The native format; best choice unless another tool must read the image.'],
+      ['VHD (Virtual Hard Disk)', 'VHD (Virtual Hard Disk)', 'Readable by Hyper-V and other Microsoft tooling.'],
+      ['VMDK (Virtual Machine Disk)', 'VMDK (Virtual Machine Disk)', 'Readable by VMware products.']
+    ], d.fileType, (v) => this.set({ fileType: v })));
+    if (step === 'variant') return h('div', null,
+      this.card('Storage on physical hard disk', this.radio([
+        ['dynamic', 'Dynamically allocated', 'The image file grows as the guest fills it, up to the chosen size.'],
+        ['fixed', 'Fixed size', 'The whole file is written up front; usually faster to use.']
+      ], d.variant, (v) => this.set({ variant: v }))),
+      this.card('Split', this.check('Split into files of less than 2GB', d.split, (e) => this.set({ split: e.target.checked }))));
+    return h('div', null,
+      this.card('File location and size', this.grid([
+        this.field('File name', this.text(d.name, (e) => this.set({ name: e.target.value }))),
+        this.field('Location', this.text(d.location, (e) => this.set({ location: e.target.value }))),
+        this.field('Disk size', this.slider(d.size, 1, 2048, 1, (e) => this.set({ size: Number(e.target.value) }), ' GB'))
+      ], 1)),
+      this.summary([['File type', d.fileType], ['Storage', d.variant === 'dynamic' ? 'Dynamically allocated' : 'Fixed size'], ['Split', d.split ? 'Yes' : 'No'], ['Path', d.location + '\\' + d.name], ['Size', d.size + ' GB']]));
+  }
+
+  /* ---------- validation ---------- */
+  stepProblems() {
+    const s = this.state, d = this.d();
+    const step = (this.visibleSteps()[s.step] || {}).id;
+    if (s.wizard === 'newvm') {
+      if (step === 'name') { if (!d.name.trim()) return 'The machine name cannot be empty.'; if (!d.folder.trim()) return 'Choose a machine folder.'; if (!d.skipUnattended && !d.iso) return 'Unattended install needs an ISO image.'; }
+      if (step === 'unattended') { if (!d.username.trim()) return 'A username is required for the unattended install.'; if (d.password.length < 4) return 'The guest password must be at least 4 characters.'; }
+      if (step === 'hardware') { if (d.memory < 1024) return 'This guest type usually needs at least 1024 MB.'; }
+      if (step === 'disk') { if (d.diskChoice === 'create' && !d.diskName.trim()) return 'Give the new disk a file name.'; }
+    }
+    if (s.wizard === 'clonevm' && step === 'namepath' && !d.name.trim()) return 'The clone needs a name.';
+    if (s.wizard === 'exportapp') { if (step === 'vms' && !d.machines.length) return 'Select at least one machine to export.'; if (step === 'format' && !d.file.trim()) return 'Choose a target file for the appliance.'; }
+    if (s.wizard === 'importapp' && step === 'source' && !d.file.trim()) return 'Choose an appliance file to import.';
+    if (s.wizard === 'newvd' && step === 'sizelocation') { if (!d.name.trim()) return 'The disk file needs a name.'; if (d.size < 1) return 'The disk must be at least 1 GB.'; }
+    return '';
+  }
+
+  finish() {
+    const s = this.state, d = this.d();
+    const text = {
+      newvm: ['Virtual machine created', d.name + ' was created with ' + d.memory + ' MB RAM, ' + d.cpus + ' CPU and ' + (d.diskChoice === 'create' ? 'a new ' + d.diskSize + ' GB disk' : d.diskChoice === 'existing' ? 'an existing disk' : 'no disk') + '.'],
+      clonevm: ['Machine cloned', d.name + ' was created as a ' + (d.type === 'full' ? 'full' : 'linked') + ' clone of ' + d.source + '.'],
+      exportapp: ['Appliance exported', d.machines.length + ' machine(s) written to ' + d.file + '.'],
+      importapp: ['Appliance imported', d.machineName + ' was imported from ' + d.file + '.'],
+      newvd: ['Virtual hard disk created', d.location + '\\' + d.name + ' · ' + d.size + ' GB ' + (d.variant === 'dynamic' ? 'dynamically allocated' : 'fixed size') + '.']
+    }[s.wizard];
+    this.setState({ result: { title: text[0], body: text[1] } });
+  }
+
+  renderVals() {
+    const s = this.state;
+    const steps = this.visibleSteps();
+    const current = steps[Math.min(s.step, steps.length - 1)] || steps[0];
+    const problem = this.stepProblems();
+    const isLast = s.step >= steps.length - 1;
+    const bodyFn = { newvm: 'body_newvm', clonevm: 'body_clonevm', exportapp: 'body_exportapp', importapp: 'body_importapp', newvd: 'body_newvd' }[s.wizard];
+    const finishLabel = { newvm: 'Finish', clonevm: 'Clone', exportapp: 'Export', importapp: 'Import', newvd: 'Create' }[s.wizard];
+
+    return {
+      brandMark: this.props.brandMark ?? 'M',
+      wizardTitle: WIZARDS[s.wizard].label,
+      wizardTabs: Object.keys(WIZARDS).map((id) => ({
+        label: WIZARDS[id].label.replace('Virtual Machine', 'VM').replace('Virtual Appliance', 'Appliance').replace('Virtual Hard Disk', 'Hard Disk'),
+        iconCss: 'url("' + I(WIZARDS[id].icon) + '")',
+        bg: id === s.wizard ? T.primary : T.surfaceHigh, fg: id === s.wizard ? T.onPrimary : T.onSurfaceVar,
+        select: () => this.setState({ wizard: id, step: 0 })
+      })),
+      expertLabel: s.expert ? 'Expert Mode' : 'Basic Mode',
+      expertBg: s.expert ? T.primary : T.surfaceHigh, expertFg: s.expert ? T.onPrimary : T.onSurfaceVar,
+      toggleExpert: () => { this.setState({ expert: !s.expert, step: !s.expert ? 0 : s.step }); this.toast(s.expert ? 'Basic Mode' : 'Expert Mode', s.expert ? 'One guided step at a time' : 'Every page of this wizard is reachable directly'); },
+
+      steps: steps.map((st, i) => ({
+        label: st.label, badge: i < s.step ? '✓' : String(i + 1),
+        badgeBg: i === s.step ? T.primary : i < s.step ? T.primaryContainer : T.surfaceHighest,
+        badgeFg: i === s.step ? T.onPrimary : i < s.step ? T.onPrimaryContainer : T.outline,
+        bg: i === s.step ? T.secondaryContainer : 'transparent',
+        fg: i === s.step ? T.onSurface : T.onSurfaceVar,
+        select: () => { if (s.expert || i <= s.step) this.setState({ step: i }); else this.toast('Step locked', 'Complete the current step, or switch to Expert Mode'); }
+      })),
+      stepHint: s.expert ? 'Expert Mode: every step is reachable directly.' : 'Basic Mode: steps unlock as you complete them.',
+      stepTitle: current.label, stepSubtitle: current.subtitle,
+      stepBody: this[bodyFn](current.id),
+
+      validityText: problem || (isLast ? 'Ready to ' + finishLabel.toLowerCase() + '.' : 'Step ' + (s.step + 1) + ' of ' + steps.length),
+      validityColor: problem ? T.error : T.outline,
+      backFg: s.step === 0 ? T.outline : T.onSurfaceVar,
+      back: () => { if (s.step === 0) return this.toast('First step', 'There is nothing before this step'); this.setState({ step: s.step - 1 }); },
+      cancel: () => { window.location.href = 'Manager.dc.html'; },
+      nextLabel: isLast ? finishLabel : 'Next',
+      nextBg: problem ? T.surfaceHigh : T.primary, nextFg: problem ? T.outline : T.onPrimary,
+      next: () => {
+        if (problem) return this.toast('Cannot continue', problem, T.error);
+        if (isLast) return this.finish();
+        this.setState({ step: s.step + 1 });
+      },
+
+      resultOpen: Boolean(s.result), resultTitle: s.result ? s.result.title : '', resultBody: s.result ? s.result.body : '',
+      closeResult: () => this.setState({ result: null, step: 0 }),
+      winMinimize: () => this.toast('Minimize', 'Wizard minimized'),
+      winMaximize: () => this.toast('Maximize', 'Wizard toggled maximized'),
+      winClose: () => { window.location.href = 'Manager.dc.html'; },
+      toasts: s.toasts
+    };
+  }
+}
+</script>
+</body>
+</html>

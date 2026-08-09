@@ -1,0 +1,999 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Roboto+Flex:opsz,wght@8..144,300..700&family=Roboto+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  html,body{margin:0;padding:0;background:#141218;color:#E6E0E9;font-family:"Roboto Flex","Segoe UI",system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+  *{box-sizing:border-box}
+  a{color:#D0BCFF;text-decoration:none}
+  a:hover{color:#EADDFF;text-decoration:underline}
+  button{font:inherit;color:inherit;border:0;background:none;cursor:pointer}
+  input,select,textarea{font:inherit;color:inherit}
+  input[type=range]{accent-color:#D0BCFF}
+  ::-webkit-scrollbar{width:10px;height:10px}
+  ::-webkit-scrollbar-thumb{background:#49454F;border-radius:8px}
+  ::-webkit-scrollbar-track{background:transparent}
+  @keyframes mvmIn{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:none}}
+</style>
+</helmet>
+
+<div style="height:100vh;display:flex;flex-direction:column;background:#141218;overflow:hidden;font-size:13px">
+
+  <div style="height:44px;flex:none;display:flex;align-items:center;gap:10px;padding:0 6px 0 12px;background:#1D1B20;border-bottom:1px solid #2B2930">
+    <div style="width:26px;height:26px;flex:none;display:grid;place-items:center;border-radius:8px;background:#D0BCFF;color:#381E72;font-weight:700;font-size:14px">{{ brandMark }}</div>
+    <div style="font-size:13px;font-weight:600;white-space:nowrap">{{ brandName }}</div>
+    <div style="font-size:12px;color:#938F99;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0">Manager</div>
+    <div style="flex:1;min-width:8px"></div>
+    <div style="flex:none;display:flex;gap:4px;font-size:11.5px">
+      <a href="VM Settings.dc.html" style="padding:5px 10px;border-radius:12px;background:#2B2930;color:#CAC4D0">Settings</a>
+      <a href="Runtime Window.dc.html" style="padding:5px 10px;border-radius:12px;background:#2B2930;color:#CAC4D0">Runtime</a>
+      <a href="Wizards.dc.html" style="padding:5px 10px;border-radius:12px;background:#2B2930;color:#CAC4D0">Wizards</a>
+      <a href="Managers.dc.html" style="padding:5px 10px;border-radius:12px;background:#2B2930;color:#CAC4D0">Managers</a>
+    </div>
+    <button onClick="{{ openPalette }}" title="Command palette · Ctrl+Shift+F" style="flex:none;display:flex;align-items:center;gap:8px;height:30px;padding:0 12px;border-radius:15px;background:#2B2930;color:#CAC4D0;font-size:12px;white-space:nowrap" style-hover="background:#36343B;color:#E6E0E9">
+      <span>⌕</span><span>Search everything</span><span style="font-family:'Roboto Mono',monospace;font-size:10px;color:#938F99;border:1px solid #49454F;border-radius:4px;padding:1px 5px">Ctrl+Shift+F</span>
+    </button>
+    <button onClick="{{ openNotifications }}" title="Notification centre" style="flex:none;width:34px;height:30px;border-radius:15px;color:#CAC4D0;position:relative" style-hover="background:#2B2930">
+      <span style="font-size:15px">◉</span>
+      <sc-if value="{{ hasUnread }}" hint-placeholder-val="{{ true }}"><span style="position:absolute;top:3px;right:6px;width:7px;height:7px;border-radius:50%;background:#F2B8B5"></span></sc-if>
+    </button>
+    <div style="flex:none;display:flex;gap:2px;margin-left:6px">
+      <button onClick="{{ winMinimize }}" title="Minimize" style="width:38px;height:32px;border-radius:8px;color:#CAC4D0" style-hover="background:#2B2930">─</button>
+      <button onClick="{{ winMaximize }}" title="Maximize" style="width:38px;height:32px;border-radius:8px;color:#CAC4D0" style-hover="background:#2B2930">▢</button>
+      <button onClick="{{ winClose }}" title="Close" style="width:38px;height:32px;border-radius:8px;color:#CAC4D0" style-hover="background:#93000A;color:#FFDAD6">✕</button>
+    </div>
+  </div>
+
+  <div style="height:40px;flex:none;display:flex;align-items:flex-end;gap:3px;padding:0 8px;background:#1D1B20;border-bottom:1px solid #2B2930;min-width:0">
+    <div style="flex:1;min-width:0;display:flex;align-items:flex-end;gap:3px;overflow-x:auto;overflow-y:hidden">
+      <sc-for list="{{ openTabs }}" as="tab" hint-placeholder-count="3">
+        <button onClick="{{ tab.select }}" onContextMenu="{{ tab.menu }}" title="{{ tab.title }}" style="flex:none;height:32px;max-width:210px;min-width:120px;display:flex;align-items:center;gap:7px;padding:0 10px;border-radius:10px 10px 0 0;background:{{ tab.bg }};color:{{ tab.fg }};font-size:12px;font-weight:500;white-space:nowrap">
+          <span style="width:6px;height:6px;flex:none;border-radius:50%;background:{{ tab.dot }}"></span>
+          <span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;text-align:left">{{ tab.label }}</span>
+          <span onClick="{{ tab.close }}" style="width:16px;height:16px;flex:none;display:grid;place-items:center;border-radius:50%;color:#938F99;font-size:11px" style-hover="background:#49454F;color:#E6E0E9">✕</span>
+        </button>
+      </sc-for>
+    </div>
+    <button onClick="{{ newTab }}" title="New tab" style="flex:none;width:30px;height:30px;margin-bottom:2px;border-radius:8px;color:#CAC4D0;font-size:16px" style-hover="background:#2B2930">＋</button>
+    <button onClick="{{ openTabManager }}" title="Tabs, groups and safe closing" style="flex:none;width:30px;height:30px;margin-bottom:2px;border-radius:8px;color:#CAC4D0;font-size:14px" style-hover="background:#2B2930">☰</button>
+  </div>
+
+  <div style="flex:1;min-height:0;display:flex">
+
+    <div style="width:92px;flex:none;display:flex;flex-direction:column;align-items:center;gap:3px;padding:10px 6px;background:#1D1B20;border-right:1px solid #2B2930;overflow-y:auto">
+      <sc-for list="{{ railItems }}" as="item" hint-placeholder-count="7">
+        <button onClick="{{ item.select }}" title="{{ item.hint }}" style="width:100%;display:grid;justify-items:center;gap:3px;padding:5px 0 7px;border-radius:16px;color:{{ item.fg }}" style-hover="background:#2B2930">
+          <span style="width:54px;height:30px;display:grid;place-items:center;border-radius:15px;background:{{ item.pill }}"><span style="width:22px;height:22px;background-image:{{ item.iconCss }};background-size:contain;background-repeat:no-repeat;background-position:center"></span></span>
+          <span style="font-size:10.5px;font-weight:600;white-space:nowrap">{{ item.label }}</span>
+        </button>
+      </sc-for>
+      <div style="flex:1"></div>
+      <button onClick="{{ openPreferences }}" title="Global preferences" style="width:100%;display:grid;justify-items:center;gap:3px;padding:5px 0 7px;border-radius:16px;color:#CAC4D0" style-hover="background:#2B2930">
+        <span style="width:54px;height:30px;display:grid;place-items:center;border-radius:15px;font-size:16px">⚙</span>
+        <span style="font-size:10.5px;font-weight:600">Preferences</span>
+      </button>
+    </div>
+
+    <div style="flex:1;min-width:0;display:flex;flex-direction:column">
+
+      <div style="flex:none;display:flex;align-items:center;gap:10px;padding:14px 20px 10px;min-width:0">
+        <div style="min-width:0">
+          <div style="font-size:10.5px;font-weight:700;letter-spacing:1.2px;text-transform:uppercase;color:#D0BCFF">{{ eyebrow }}</div>
+          <div style="font-size:22px;font-weight:500;margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ pageTitle }}</div>
+        </div>
+        <div style="flex:1;min-width:8px"></div>
+        <div style="flex:none;display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end">
+          <sc-for list="{{ pageActions }}" as="act" hint-placeholder-count="4">
+            <button onClick="{{ act.run }}" title="{{ act.hint }}" style="height:36px;display:flex;align-items:center;gap:7px;padding:0 16px;border-radius:18px;background:{{ act.bg }};color:{{ act.fg }};border:{{ act.border }};font-size:12.5px;font-weight:600;white-space:nowrap" style-hover="filter:brightness(1.12)">
+              <span style="width:16px;height:16px;flex:none;background-image:{{ act.iconCss }};background-size:contain;background-repeat:no-repeat;background-position:center"></span>
+              <span>{{ act.label }}</span>
+            </button>
+          </sc-for>
+        </div>
+      </div>
+
+      <div style="flex:1;min-height:0;display:flex;gap:12px;padding:0 20px 14px;min-width:0">
+
+        <sc-if value="{{ showChooser }}" hint-placeholder-val="{{ true }}">
+          <div style="width:274px;flex:none;min-width:0;display:flex;flex-direction:column;gap:8px;background:#1D1B20;border:1px solid #2B2930;border-radius:16px;padding:10px;overflow:hidden">
+            <div style="display:flex;gap:6px;align-items:center;min-width:0">
+              <div style="flex:1;min-width:0;display:flex;align-items:center;gap:8px;height:38px;padding:0 12px;border-radius:19px;background:#2B2930">
+                <span style="color:#938F99;flex:none">⌕</span>
+                <input value="{{ chooserQuery }}" onInput="{{ setChooserQuery }}" placeholder="Search machines" style="flex:1;min-width:0;background:none;border:0;outline:none;font-size:12.5px" />
+              </div>
+              <button onClick="{{ openRegexChooser }}" title="Regex builder for this field" style="width:38px;height:38px;flex:none;border-radius:12px;background:#4F378B;color:#EADDFF;font-family:'Roboto Mono',monospace;font-size:12px;font-weight:600" style-hover="filter:brightness(1.15)">.*</button>
+            </div>
+            <div style="flex:1;min-height:0;min-width:0;overflow-y:auto;overflow-x:hidden;display:flex;flex-direction:column;gap:2px">
+              <sc-for list="{{ chooserRows }}" as="row" hint-placeholder-count="6">
+                <button onClick="{{ row.select }}" onContextMenu="{{ row.menu }}" style="display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:12px;background:{{ row.bg }};text-align:left;min-width:0" style-hover="background:#2B2930">
+                  <span style="width:26px;height:26px;flex:none;display:grid;place-items:center;border-radius:8px;background:{{ row.iconBg }}"><span style="width:16px;height:16px;background-image:{{ row.iconCss }};background-size:contain;background-repeat:no-repeat;background-position:center"></span></span>
+                  <span style="flex:1;min-width:0">
+                    <span style="display:block;font-size:12.5px;font-weight:{{ row.weight }};overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ row.name }}</span>
+                    <span style="display:block;font-size:10.5px;color:#938F99;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ row.sub }}</span>
+                  </span>
+                  <span style="width:7px;height:7px;flex:none;border-radius:50%;background:{{ row.dot }}"></span>
+                </button>
+              </sc-for>
+            </div>
+            <div style="flex:none;padding-top:8px;border-top:1px solid #2B2930;font-size:10.5px;color:#938F99">{{ chooserSummary }}</div>
+          </div>
+        </sc-if>
+
+        <div style="flex:1;min-width:0;display:flex;flex-direction:column;background:#1D1B20;border:1px solid #2B2930;border-radius:16px;overflow:hidden">
+          <sc-if value="{{ showMachineTools }}" hint-placeholder-val="{{ true }}">
+            <div style="flex:none;display:flex;align-items:center;gap:6px;padding:8px 10px;border-bottom:1px solid #2B2930;min-width:0">
+              <div style="flex:1;min-width:0;display:flex;align-items:center;gap:4px;overflow-x:auto;overflow-y:hidden">
+                <sc-for list="{{ machineTools }}" as="mt" hint-placeholder-count="5">
+                  <button onClick="{{ mt.select }}" style="flex:none;height:32px;display:flex;align-items:center;gap:7px;padding:0 13px;border-radius:16px;background:{{ mt.bg }};color:{{ mt.fg }};font-size:12px;font-weight:600;white-space:nowrap" style-hover="filter:brightness(1.15)">
+                    <span style="width:16px;height:16px;flex:none;background-image:{{ mt.iconCss }};background-size:contain;background-repeat:no-repeat;background-position:center"></span><span>{{ mt.label }}</span>
+                  </button>
+                </sc-for>
+              </div>
+              <button onClick="{{ openExport }}" title="Export this view" style="flex:none;width:34px;height:32px;border-radius:16px;color:#CAC4D0;font-size:13px" style-hover="background:#2B2930">⇩</button>
+              <button onClick="{{ openAppearanceForPane }}" title="Edit appearance of this pane" style="flex:none;width:34px;height:32px;border-radius:16px;color:#CAC4D0;font-size:13px" style-hover="background:#2B2930">✎</button>
+            </div>
+          </sc-if>
+          <div style="flex:1;min-height:0;min-width:0;overflow-y:auto;overflow-x:hidden;padding:14px">{{ paneBody }}</div>
+        </div>
+      </div>
+
+      <div style="flex:none;height:26px;display:flex;align-items:center;gap:14px;padding:0 20px;background:#1D1B20;border-top:1px solid #2B2930;font-size:11px;color:#938F99;min-width:0">
+        <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ statusText }}</span>
+        <div style="flex:1"></div>
+        <span style="flex:none">{{ languageLabel }}</span>
+        <span style="flex:none">{{ themeLabel }}</span>
+        <span style="flex:none;font-family:'Roboto Mono',monospace">7.2.0 r170000</span>
+      </div>
+    </div>
+  </div>
+
+  <sc-if value="{{ contextOpen }}" hint-placeholder-val="{{ false }}">
+    <div onClick="{{ closeContext }}" style="position:fixed;inset:0;z-index:35">
+      <div style="position:absolute;left:{{ contextX }}px;top:{{ contextY }}px;min-width:220px;padding:6px;background:#211F26;border:1px solid #36343B;border-radius:14px;box-shadow:0 14px 40px #000000bb;display:grid;gap:2px">
+        <sc-for list="{{ contextItems }}" as="ci" hint-placeholder-count="4">
+          <button onClick="{{ ci.run }}" style="text-align:left;padding:9px 12px;border-radius:9px;color:#E6E0E9;font-size:12.5px" style-hover="background:#36343B;color:#D0BCFF">{{ ci.label }}</button>
+        </sc-for>
+      </div>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{ overlayOpen }}" hint-placeholder-val="{{ false }}">
+    <div style="position:fixed;inset:0;z-index:40;display:grid;place-items:center;background:#00000099;backdrop-filter:blur(3px)">
+      <div style="width:min(760px,calc(100vw - 64px));max-height:calc(100vh - 90px);display:flex;flex-direction:column;background:#211F26;border:1px solid #36343B;border-radius:28px;box-shadow:0 24px 60px #000000aa;animation:mvmIn .2s cubic-bezier(.05,.7,.1,1);overflow:hidden">
+        <div style="flex:none;display:flex;align-items:flex-start;gap:12px;padding:22px 24px 12px">
+          <div style="flex:1;min-width:0">
+            <div style="font-size:10.5px;font-weight:700;letter-spacing:1.2px;text-transform:uppercase;color:#D0BCFF">{{ overlayEyebrow }}</div>
+            <div style="font-size:20px;font-weight:500;margin-top:3px">{{ overlayTitle }}</div>
+          </div>
+          <button onClick="{{ closeOverlay }}" style="width:34px;height:34px;flex:none;border-radius:17px;color:#CAC4D0" style-hover="background:#36343B">✕</button>
+        </div>
+        <div style="flex:1;min-height:0;overflow-y:auto;padding:0 24px 22px">{{ overlayBody }}</div>
+      </div>
+    </div>
+  </sc-if>
+
+  <div style="position:fixed;right:20px;bottom:20px;z-index:50;display:flex;flex-direction:column;gap:8px;width:330px">
+    <sc-for list="{{ toasts }}" as="t" hint-placeholder-count="0">
+      <div style="padding:12px 14px;border-radius:14px;background:#36343B;border-left:3px solid {{ t.accent }};box-shadow:0 8px 26px #000000aa;animation:mvmIn .2s ease">
+        <div style="font-size:12.5px;font-weight:600">{{ t.title }}</div>
+        <div style="font-size:11.5px;color:#CAC4D0;margin-top:2px">{{ t.detail }}</div>
+      </div>
+    </sc-for>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;brandName&quot;:{&quot;editor&quot;:&quot;text&quot;,&quot;default&quot;:&quot;Material Virtual Machine&quot;,&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;Branding&quot;},&quot;brandMark&quot;:{&quot;editor&quot;:&quot;text&quot;,&quot;default&quot;:&quot;M&quot;,&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;Branding&quot;}}">
+const T = {
+  primary: '#D0BCFF', onPrimary: '#381E72', primaryContainer: '#4F378B', onPrimaryContainer: '#EADDFF',
+  secondaryContainer: '#4A4458', onSecondaryContainer: '#E8DEF8', surfaceLow: '#1D1B20', surfaceHigh: '#2B2930',
+  surfaceHighest: '#36343B', onSurface: '#E6E0E9', onSurfaceVar: '#CAC4D0', outline: '#938F99',
+  outlineVar: '#49454F', error: '#F2B8B5', ok: '#7ED9A6', warn: '#F7C77A'
+};
+const I = (n) => 'icons/' + n;
+const h = React.createElement;
+
+/* Rail = UIToolType_* global tools, icons from UIToolsItem::icon() */
+const RAIL = [
+  { id: 'home', label: 'Home', icon: 'welcome_screen_24px.png', hint: 'Welcome screen' },
+  { id: 'machines', label: 'Machines', icon: 'machine_details_manager_24px.png', hint: 'Machine chooser and machine tools' },
+  { id: 'extensions', label: 'Extensions', icon: 'extension_pack_manager_24px.png', hint: 'Extension Pack Manager' },
+  { id: 'media', label: 'Media', icon: 'media_manager_24px.png', hint: 'Virtual Media Manager' },
+  { id: 'network', label: 'Network', icon: 'host_iface_manager_24px.png', hint: 'Network Manager' },
+  { id: 'cloud', label: 'Cloud', icon: 'cloud_profile_manager_24px.png', hint: 'Cloud Profile Manager' },
+  { id: 'resources', label: 'Resources', icon: 'resources_monitor_24px.png', hint: 'Resource monitor' }
+];
+const MTOOLS = [
+  { id: 'details', label: 'Details', icon: 'machine_details_manager_24px.png' },
+  { id: 'snapshots', label: 'Snapshots', icon: 'snapshot_manager_24px.png' },
+  { id: 'logs', label: 'Logs', icon: 'vm_show_logs_24px.png' },
+  { id: 'resourceUse', label: 'Resource Use', icon: 'performance_monitor_24px.png' },
+  { id: 'fileManager', label: 'File Manager', icon: 'file_manager_24px.png' }
+];
+/* DetailsElementType_* order and icons, from UIConverterBackendGlobal.cpp */
+const DETAIL_ICON = {
+  General: 'machine_16px.png', System: 'chipset_16px.png', Display: 'vrdp_16px.png', Storage: 'hd_16px.png',
+  Audio: 'sound_16px.png', Network: 'nw_16px.png', 'Serial ports': 'serial_port_16px.png', USB: 'usb_16px.png',
+  'Shared folders': 'sf_16px.png', 'User interface': 'interface_16px.png', Description: 'description_16px.png'
+};
+const STATE_COLOR = { Running: T.ok, Paused: T.warn, Saved: '#9FC7F0', 'Powered Off': T.outline, Aborted: T.error };
+
+const SEED = [
+  { id: 'win11', name: 'Win11-Dev', group: 'Development', os: 'Windows 11 (64-bit)', state: 'Running', ram: 8192, cpu: 6, execCap: 100, boot: 'Hard Disk, Optical', chipset: 'ICH9', tpm: 'v2.0', efi: true, secureBoot: true, accel: 'Nested Paging, Hyper-V Paravirtualization', vram: 128, screens: 1, scale: '100%', gfx: 'VBoxSVGA', vrde: 'Disabled', recording: 'Disabled', disk: '120 GB', audioDriver: 'Windows Audio Session', audioCtl: 'Intel HD Audio', audioIn: true, audioOut: true, net: "NAT", serial: 'Disabled', usb: 'USB 3.0 (xHCI)', filters: 0, folders: 2, visual: 'Normal', snapshots: 4, uptime: '2h 14m' },
+  { id: 'ubuntu', name: 'Ubuntu-24.04', group: 'Development', os: 'Ubuntu (64-bit)', state: 'Powered Off', ram: 4096, cpu: 4, execCap: 100, boot: 'Optical, Hard Disk', chipset: 'PIIX3', tpm: 'None', efi: false, secureBoot: false, accel: 'Nested Paging, KVM Paravirtualization', vram: 64, screens: 1, scale: '100%', gfx: 'VMSVGA', vrde: 'Disabled', recording: 'Disabled', disk: '60 GB', audioDriver: 'PulseAudio', audioCtl: 'Intel HD Audio', audioIn: false, audioOut: true, net: "Bridged Adapter, en0", serial: 'Disabled', usb: 'USB 2.0 (EHCI)', filters: 1, folders: 1, visual: 'Normal', snapshots: 2, uptime: '—' },
+  { id: 'debian', name: 'Debian-Build', group: 'Build farm', os: 'Debian (64-bit)', state: 'Saved', ram: 16384, cpu: 8, execCap: 90, boot: 'Hard Disk', chipset: 'ICH9', tpm: 'None', efi: true, secureBoot: false, accel: 'Nested Paging, Nested VT-x/AMD-V', vram: 128, screens: 2, scale: '125%', gfx: 'VMSVGA', vrde: 'Port 3389', recording: 'Disabled', disk: '240 GB', audioDriver: 'Default', audioCtl: 'ICH AC97', audioIn: false, audioOut: false, net: "Internal Network, 'buildnet'", serial: 'Port 1', usb: 'USB 3.0 (xHCI)', filters: 3, folders: 3, visual: 'Normal', snapshots: 7, uptime: '—' },
+  { id: 'win10', name: 'Win10-QA', group: 'Build farm', os: 'Windows 10 (64-bit)', state: 'Paused', ram: 8192, cpu: 4, execCap: 100, boot: 'Hard Disk, Optical, Network', chipset: 'PIIX3', tpm: 'None', efi: false, secureBoot: false, accel: 'Nested Paging, Hyper-V Paravirtualization', vram: 256, screens: 1, scale: '100%', gfx: 'VBoxSVGA', vrde: 'Disabled', recording: 'Enabled', disk: '100 GB', audioDriver: 'Windows DirectSound', audioCtl: 'Intel HD Audio', audioIn: true, audioOut: true, net: "NAT Network, 'qa-net'", serial: 'Disabled', usb: 'USB 1.1 (OHCI)', filters: 0, folders: 0, visual: 'Fullscreen', snapshots: 3, uptime: '41m' },
+  { id: 'ol9', name: 'OL9-Server', group: 'Servers', os: 'Oracle Linux 9 (64-bit)', state: 'Running', ram: 12288, cpu: 8, execCap: 100, boot: 'Hard Disk', chipset: 'ICH9', tpm: 'v1.2', efi: true, secureBoot: true, accel: 'Nested Paging, KVM Paravirtualization', vram: 32, screens: 1, scale: '100%', gfx: 'VMSVGA', vrde: 'Port 5000', recording: 'Disabled', disk: '400 GB', audioDriver: 'Default', audioCtl: 'ICH AC97', audioIn: false, audioOut: false, net: "Host-only Adapter, 'vboxnet0'", serial: 'Disabled', usb: 'USB 3.0 (xHCI)', filters: 2, folders: 4, visual: 'Headless', snapshots: 1, uptime: '9d 3h' },
+  { id: 'alpine', name: 'Sandbox-Alpine', group: 'Servers', os: 'Linux 2.6 / 3.x / 4.x (64-bit)', state: 'Powered Off', ram: 2048, cpu: 2, execCap: 100, boot: 'Optical, Hard Disk', chipset: 'PIIX3', tpm: 'None', efi: false, secureBoot: false, accel: 'Nested Paging', vram: 16, screens: 1, scale: '100%', gfx: 'VMSVGA', vrde: 'Disabled', recording: 'Disabled', disk: '20 GB', audioDriver: 'Default', audioCtl: 'ICH AC97', audioIn: false, audioOut: false, net: 'Not attached', serial: 'Disabled', usb: 'Disabled', filters: 0, folders: 0, visual: 'Normal', snapshots: 0, uptime: '—' }
+];
+
+class Component extends DCLogic {
+  state = {
+    machines: SEED.map((m) => Object.assign({}, m)),
+    tool: 'machines', machineTool: 'details', selected: 'win11', chooserQuery: '',
+    tabs: [{ id: 'machines', label: 'Machines', group: 'Workspace', pinned: true }],
+    overlay: null, toasts: [],
+    notifications: [
+      { id: 'n1', title: 'Snapshot created', detail: 'Win11-Dev · before-driver-update', at: '10:24', unread: true },
+      { id: 'n2', title: 'Extension pack verified', detail: 'Extension Pack 7.2.0 r170000', at: '09:58', unread: false }
+    ],
+    history: [
+      { id: 'h3', action: 'settings changed', detail: 'Win11-Dev · Base Memory 6144 → 8192 MB', at: '11:02' },
+      { id: 'h2', action: 'snapshot taken', detail: 'Win11-Dev · before-driver-update', at: '10:24' },
+      { id: 'h1', action: 'machine created', detail: 'Sandbox-Alpine', at: 'Yesterday 16:40' }
+    ],
+    snapshots: {
+      win11: [{ id: 's1', name: 'clean-install', at: '2026-08-01 09:12', size: '2.4 GB', depth: 0 }, { id: 's2', name: 'drivers', at: '2026-08-03 14:02', size: '3.1 GB', depth: 1 }, { id: 's3', name: 'before-driver-update', at: '2026-08-08 10:24', size: '4.0 GB', depth: 2 }],
+      ubuntu: [{ id: 's1', name: 'base', at: '2026-07-19 11:40', size: '1.8 GB', depth: 0 }],
+      debian: [{ id: 's1', name: 'toolchain', at: '2026-06-02 08:20', size: '5.6 GB', depth: 0 }],
+      win10: [{ id: 's1', name: 'qa-baseline', at: '2026-07-28 17:05', size: '3.3 GB', depth: 0 }],
+      ol9: [{ id: 's1', name: 'provisioned', at: '2026-05-14 10:00', size: '7.2 GB', depth: 0 }],
+      alpine: []
+    },
+    currentSnapshot: { win11: 's3', ubuntu: 's1', debian: 's1', win10: 's1', ol9: 's1' },
+    selectedSnapshot: 's3',
+    logQuery: '', logRegex: false, mediaQuery: '', netQuery: '', extQuery: '', cloudQuery: '',
+    detailsQuery: '', snapshotQuery: '', resourceQuery: '', notifyQuery: '', historyQuery: '', fmHostQuery: '', fmGuestQuery: '',
+    fmHostPath: 'C:\\Users\\you\\Downloads', fmGuestPath: '/home/user', fmSelectionHost: '', fmSelectionGuest: '',
+    regexTarget: '', regexPattern: '', regexFlags: 'iu', regexSample: 'Win11-Dev / Development', regexApplied: {},
+    paletteQuery: '', paletteIndex: 0, theme: 'dark', language: 'English', density: 'Comfortable',
+    appearance: { target: '', radius: 16, scale: 1, weight: 400, font: 'Roboto Flex', seed: '#6750A4' },
+    appearanceOverrides: {}, brandNameLive: null, brandMarkLive: null,
+    gate: { kind: '', keys: { left: false, right: false }, slide: 0 },
+    exportFormat: 'md', tabQueries: { current: '', groups: '', master: '', selected: '' },
+    closeContaining: '', closeNotContaining: '', includePinned: false, pendingClose: [],
+    context: null, snapshotName: ''
+  };
+
+  componentDidMount() {
+    this._key = (e) => {
+      if (e.ctrlKey && e.shiftKey && (e.key === 'F' || e.key === 'f')) { e.preventDefault(); this.setState({ overlay: 'palette', paletteQuery: '', paletteIndex: 0 }); }
+      if (e.key === 'Escape') this.setState({ overlay: null, context: null });
+    };
+    window.addEventListener('keydown', this._key);
+  }
+  componentWillUnmount() { window.removeEventListener('keydown', this._key); }
+
+  /* ------------ infrastructure ------------ */
+  toast(title, detail, accent) {
+    const id = Math.random().toString(16).slice(2);
+    this.setState((s) => ({ toasts: [...s.toasts, { id, title, detail, accent: accent || T.primary }] }));
+    setTimeout(() => this.setState((s) => ({ toasts: s.toasts.filter((t) => t.id !== id) })), 3600);
+  }
+  record(action, detail) {
+    this.setState((s) => ({ history: [{ id: Math.random().toString(16).slice(2), action, detail, at: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) }, ...s.history] }));
+  }
+  notifyCentre(title, detail) {
+    this.setState((s) => ({ notifications: [{ id: Math.random().toString(16).slice(2), title, detail, at: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }), unread: true }, ...s.notifications] }));
+  }
+  machine() { return this.state.machines.find((m) => m.id === this.state.selected) || this.state.machines[0]; }
+  updateMachine(id, patch) { this.setState((s) => ({ machines: s.machines.map((m) => m.id === id ? Object.assign({}, m, patch) : m) })); }
+  matches(text, query, key) {
+    if (!query) return true;
+    const applied = this.state.regexApplied[key];
+    if (applied) { try { return new RegExp(applied.pattern, applied.flags).test(text); } catch (e) { return false; } }
+    return String(text).toLowerCase().includes(query.toLowerCase());
+  }
+  openTool(id) {
+    this.setState((s) => {
+      const label = (RAIL.find((r) => r.id === id) || {}).label || id;
+      const tabs = s.tabs.some((t) => t.id === id) ? s.tabs : [...s.tabs, { id, label, group: 'Workspace', pinned: false }];
+      return { tool: id, tabs };
+    });
+  }
+  closeTab(id) {
+    this.setState((s) => {
+      const target = s.tabs.find((t) => t.id === id);
+      if (target && target.pinned) return s;
+      const tabs = s.tabs.filter((t) => t.id !== id);
+      const tool = tabs.some((t) => t.id === s.tool) ? s.tool : (tabs[0] ? tabs[0].id : 'home');
+      return { tabs, tool };
+    });
+    this.record('tab closed', id);
+  }
+
+  /* ------------ shared UI helpers ------------ */
+  btn(label, onClick, kind, disabled) {
+    const map = {
+      filled: { background: T.primary, color: T.onPrimary }, tonal: { background: T.secondaryContainer, color: T.onSecondaryContainer },
+      text: { background: 'transparent', color: T.primary }, danger: { background: '#93000A', color: '#FFDAD6' },
+      outlined: { background: 'transparent', color: T.onSurfaceVar, border: '1px solid ' + T.outlineVar }
+    };
+    return h('button', {
+      onClick: disabled ? undefined : onClick, disabled: Boolean(disabled),
+      style: Object.assign({ height: 36, padding: '0 16px', borderRadius: 18, fontSize: 12.5, fontWeight: 600, whiteSpace: 'nowrap', opacity: disabled ? .45 : 1, cursor: disabled ? 'not-allowed' : 'pointer' }, map[kind || 'tonal'])
+    }, label);
+  }
+  input(props) {
+    return h('input', Object.assign({}, props, { style: Object.assign({ width: '100%', height: 40, padding: '0 12px', borderRadius: 12, background: T.surfaceHigh, border: '1px solid ' + T.outlineVar, outline: 'none', fontSize: 12.5, color: T.onSurface }, props.style || {}) }));
+  }
+  select(value, options, onChange) {
+    return h('select', { value, onChange, style: { width: '100%', height: 40, padding: '0 10px', borderRadius: 12, background: T.surfaceHigh, border: '1px solid ' + T.outlineVar, outline: 'none', fontSize: 12.5, color: T.onSurface } },
+      options.map((o) => h('option', { key: o, value: o }, o)));
+  }
+  field(label, node) {
+    return h('label', { key: label, style: { display: 'grid', gap: 5, minWidth: 0 } }, h('span', { style: { fontSize: 11.5, fontWeight: 700, color: T.outline } }, label), node);
+  }
+  searchRow(value, onChange, placeholder, regexKey) {
+    return h('div', { style: { display: 'flex', gap: 6, marginBottom: 12, minWidth: 0 } },
+      h('div', { style: { flex: 1, minWidth: 0, display: 'flex', alignItems: 'center', gap: 8, height: 38, padding: '0 12px', borderRadius: 19, background: T.surfaceHigh } },
+        h('span', { style: { color: T.outline } }, '⌕'),
+        h('input', { value, onChange, placeholder, style: { flex: 1, minWidth: 0, background: 'none', border: 0, outline: 'none', fontSize: 12.5, color: T.onSurface } }),
+        this.state.regexApplied[regexKey] ? h('span', { style: { fontSize: 10, fontFamily: 'Roboto Mono, monospace', color: T.primary } }, '/' + this.state.regexApplied[regexKey].pattern + '/' + this.state.regexApplied[regexKey].flags) : null),
+      h('button', { onClick: () => this.setState({ overlay: 'regex', regexTarget: regexKey, regexPattern: (this.state.regexApplied[regexKey] || {}).pattern || '' }), title: 'Regex builder', style: { width: 38, height: 38, flex: 'none', borderRadius: 12, background: T.primaryContainer, color: T.onPrimaryContainer, fontFamily: 'Roboto Mono, monospace', fontWeight: 600 } }, '.*'));
+  }
+  table(columns, rows, empty) {
+    return h('div', { style: { display: 'grid', gridTemplateColumns: 'repeat(' + columns.length + ',minmax(0,1fr))', gap: 1, background: T.outlineVar, borderRadius: 14, overflow: 'hidden', fontSize: 12 } },
+      columns.map((c) => h('div', { key: 'h' + c, style: { background: T.surfaceHighest, padding: '10px 12px', fontWeight: 700, color: T.onSurfaceVar, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' } }, c)),
+      rows.length ? rows.flatMap((r, i) => r.map((cell, j) => h('div', { key: i + '-' + j, style: { background: T.surfaceHigh, padding: '10px 12px', minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis' } }, cell))) :
+        [h('div', { key: 'empty', style: { gridColumn: '1/-1', background: T.surfaceHigh, padding: '14px 12px', color: T.outline } }, empty || 'No rows match this search.')]);
+  }
+
+  /* ------------ machine tool panes ------------ */
+  detailRows() {
+    const m = this.machine();
+    const sys = [['Base Memory', m.ram + ' MB'], ['Processors', String(m.cpu)]];
+    if (m.execCap < 100) sys.push(['Execution Cap', m.execCap + '%']);
+    sys.push(['Boot Order', m.boot], ['Chipset Type', m.chipset]);
+    if (m.tpm !== 'None') sys.push(['TPM Type', m.tpm]);
+    if (m.efi) sys.push(['EFI', 'Enabled']);
+    if (m.secureBoot) sys.push(['Secure Boot', 'Enabled']);
+    sys.push(['Acceleration', m.accel]);
+    const disp = [['Video Memory', m.vram + ' MB'], ['Screens', String(m.screens)]];
+    if (m.scale !== '100%') disp.push(['Scale-factor', m.scale]);
+    disp.push(['Graphics Controller', m.gfx]);
+    disp.push(m.vrde === 'Disabled' ? ['Remote Desktop Server', 'Disabled'] : ['Remote Desktop Server Port', m.vrde.replace('Port ', '')]);
+    disp.push(['Recording', m.recording]);
+    return [
+      ['General', [['Name', m.name], ['Operating System', m.os], ['Settings File Location', 'C:\\Users\\you\\VirtualBox VMs\\' + m.name], ['Groups', m.group]]],
+      ['System', sys],
+      ['Display', disp],
+      ['Storage', [['Controller: SATA', m.name + '.vdi (Normal, ' + m.disk + ')'], ['Controller: IDE', 'Optical Drive: Empty']]],
+      ['Audio', m.audioDriver === 'Default' && !m.audioIn && !m.audioOut ? [['Disabled', '']] : [['Host Driver', m.audioDriver], ['Controller', m.audioCtl], ['Audio Input', m.audioIn ? 'Enabled' : 'Disabled'], ['Audio Output', m.audioOut ? 'Enabled' : 'Disabled']]],
+      ['Network', m.net === 'Not attached' ? [['Disabled', '']] : [['Adapter 1', m.net]]],
+      ['Serial ports', m.serial === 'Disabled' ? [['Disabled', '']] : [['Port 1', 'Host Pipe, \\\\.\\pipe\\' + m.name]]],
+      ['USB', m.usb === 'Disabled' ? [['Disabled', '']] : [['USB Controller', m.usb], ['Device Filters', m.filters + ' (' + m.filters + ' active)']]],
+      ['Shared folders', m.folders ? [['Shared Folders', String(m.folders)]] : [['None', '']]],
+      ['User interface', [['Visual State', m.visual], ['Menu-bar', 'Enabled'], ['Status-bar', 'Enabled'], ['Mini-toolbar', 'Enabled']]],
+      ['Description', [['None', '']]]
+    ];
+  }
+
+  detailsPane() {
+    const m = this.machine();
+    const dq = (this.state.detailsQuery || '').toLowerCase();
+    return h('div', { style: { minWidth: 0 } },
+      this.searchRow(this.state.detailsQuery || '', (e) => this.setState({ detailsQuery: e.target.value }), 'Search this machine’s details', 'details search'),
+      h('div', { style: { display: 'flex', gap: 14, alignItems: 'center', marginBottom: 14, flexWrap: 'wrap' } },
+        h('div', { style: { width: 190, height: 112, flex: 'none', borderRadius: 12, background: '#0F0D13', border: '1px solid ' + T.outlineVar, display: 'grid', placeItems: 'center', color: T.outline, fontSize: 11, fontFamily: 'Roboto Mono, monospace' } }, m.state === 'Running' ? 'preview · live' : 'preview · off'),
+        h('div', { style: { minWidth: 0 } },
+          h('div', { style: { fontSize: 18, fontWeight: 500 } }, m.name),
+          h('div', { style: { fontSize: 12, color: T.outline, margin: '3px 0 9px' } }, m.os + ' · ' + m.group),
+          h('div', { style: { display: 'flex', gap: 6, flexWrap: 'wrap' } },
+            [[m.state, STATE_COLOR[m.state]], [m.cpu + ' CPU', null], [m.ram + ' MB', null], [m.disk, null]].map(([label, c], i) =>
+              h('span', { key: i, style: { display: 'inline-flex', alignItems: 'center', height: 24, padding: '0 10px', borderRadius: 8, background: T.surfaceHighest, color: c || T.onSurfaceVar, fontSize: 11.5, fontWeight: 600 } }, label))))),
+      this.detailRows()
+        .map(([title, rows]) => [title, rows.filter(([k, v]) => this.matches(title + ' ' + k + ' ' + v, this.state.detailsQuery || '', 'details search'))])
+        .filter(([title, rows]) => rows.length)
+        .map(([title, rows]) => h('div', { key: title, style: { background: T.surfaceHigh, borderRadius: 16, padding: '12px 14px', marginBottom: 8 } },
+        h('div', { style: { display: 'flex', alignItems: 'center', gap: 8, marginBottom: 9 } },
+          h('img', { src: I(DETAIL_ICON[title]), alt: '', style: { width: 16, height: 16 } }),
+          h('div', { style: { fontSize: 12.5, fontWeight: 700, color: T.primary, flex: 1 } }, title),
+          h('button', { onClick: () => this.setState({ overlay: 'appearance', appearance: Object.assign({}, this.state.appearance, { target: 'Details element · ' + title }) }), title: 'Edit appearance', style: { width: 26, height: 26, borderRadius: 13, color: T.outline } }, '✎')),
+        h('div', { style: { display: 'grid', gridTemplateColumns: 'minmax(110px,190px) minmax(0,1fr)', gap: '6px 16px', fontSize: 12.5 } },
+          rows.flatMap(([k, v], i) => [
+            h('div', { key: 'k' + i, style: { color: T.outline, minWidth: 0, overflowWrap: 'anywhere' } }, k),
+            h('button', {
+              key: 'v' + i, onClick: () => this.setState({ overlay: 'editValue', regexTarget: title + ' · ' + k }),
+              title: 'Edit value…', style: { textAlign: 'left', color: T.onSurface, minWidth: 0, overflowWrap: 'anywhere', padding: 0 }
+            }, v)
+          ])))));
+  }
+
+  snapshotsPane() {
+    const m = this.machine();
+    const list = this.state.snapshots[m.id] || [];
+    const sel = this.state.selectedSnapshot;
+    const hasSel = list.some((s) => s.id === sel);
+    const visible = list.filter((x) => this.matches(x.name + ' ' + x.at, this.state.snapshotQuery || '', 'snapshot search'));
+    return h('div', null,
+      this.searchRow(this.state.snapshotQuery || '', (e) => this.setState({ snapshotQuery: e.target.value }), 'Search snapshots by name or date', 'snapshot search'),
+      h('div', { style: { display: 'flex', gap: 8, marginBottom: 12, flexWrap: 'wrap' } },
+        this.btn('Take…', () => this.setState({ overlay: 'takeSnapshot', snapshotName: 'Snapshot ' + (list.length + 1) }), 'filled'),
+        this.btn('Restore', () => hasSel && this.setState({ overlay: 'gate', gate: { kind: 'restore', keys: { left: false, right: false }, slide: 0 } }), 'tonal', !hasSel),
+        this.btn('Delete', () => hasSel && this.setState({ overlay: 'gate', gate: { kind: 'deleteSnapshot', keys: { left: false, right: false }, slide: 0 } }), 'outlined', !hasSel),
+        this.btn('Clone…', () => { window.location.href = 'Wizards.dc.html'; }, 'outlined', !hasSel)),
+      h('div', { style: { display: 'grid', gap: 4 } },
+        visible.length ? visible.map((s) => h('button', {
+          key: s.id, onClick: () => this.setState({ selectedSnapshot: s.id }),
+          style: { display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px', marginLeft: s.depth * 18, borderRadius: 12, background: sel === s.id ? T.secondaryContainer : T.surfaceHigh, textAlign: 'left' }
+        },
+          h('img', { src: I('snapshot_manager_24px.png'), alt: '', style: { width: 18, height: 18 } }),
+          h('span', { style: { flex: 1, minWidth: 0, fontSize: 12.5 } }, s.name),
+          this.state.currentSnapshot[m.id] === s.id ? h('span', { style: { fontSize: 10.5, color: T.primary, fontWeight: 700 } }, 'CURRENT') : null,
+          h('span', { style: { fontSize: 11, color: T.outline, whiteSpace: 'nowrap' } }, s.at + ' · ' + s.size))) :
+          h('div', { style: { padding: 14, borderRadius: 12, background: T.surfaceHigh, color: T.outline, fontSize: 12.5 } }, 'This machine has no snapshots yet.')),
+      h('div', { style: { marginTop: 12, padding: '10px 12px', borderRadius: 12, background: T.surfaceHigh, borderLeft: '3px solid ' + T.primary, fontSize: 12, color: T.onSurfaceVar } },
+        'Current State (changed) — restoring writes a new local revision, so the pre-restore state stays undoable from History.'));
+  }
+
+  logLines() {
+    const m = this.machine();
+    return [
+      '00:00:01.204 VirtualBox VM 7.2.0 r170000 win.amd64 release log',
+      '00:00:01.204 Log opened 2026-08-08T09:12:44.100Z',
+      '00:00:01.207 OS Product: Windows 11',
+      '00:00:01.312 Host RAM: 65217MB total, 49128MB available',
+      "00:00:01.512 Guest OS type: '" + m.os + "'",
+      '00:00:02.004 CPUM: Logical host processors: 16 present, ' + m.cpu + ' assigned',
+      '00:00:02.310 PGM: Host paging mode: AMD64 with NX',
+      '00:00:02.884 Display: Graphics controller ' + m.gfx + ', VRAM ' + m.vram + 'MB',
+      '00:00:03.118 GUI: UIMachineLogic: Machine session state changed to ' + m.state,
+      '00:00:04.507 NAT: Network attachment ' + m.net
+    ];
+  }
+  logsPane() {
+    const q = this.state.logQuery;
+    const lines = this.logLines().filter((l) => this.matches(l, q, 'log search'));
+    return h('div', null,
+      this.searchRow(q, (e) => this.setState({ logQuery: e.target.value }), 'Search this log', 'log search'),
+      h('div', { style: { display: 'flex', gap: 8, marginBottom: 10, flexWrap: 'wrap' } },
+        this.btn('Save…', () => { this.record('log saved', this.machine().name + ' VBox.log'); this.toast('Log saved', this.machine().name + '\\Logs\\VBox.log'); }, 'tonal'),
+        this.btn('Refresh', () => this.toast('Log reloaded', this.machine().name), 'outlined'),
+        this.btn('Bookmark line', () => this.toast('Bookmarked', 'Line ' + (lines.length || 1)), 'outlined')),
+      h('pre', { style: { margin: 0, padding: 14, borderRadius: 14, background: '#0F0D13', border: '1px solid ' + T.outlineVar, fontFamily: 'Roboto Mono, monospace', fontSize: 11.5, lineHeight: 1.75, color: '#C9C3D2', whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' } },
+        lines.length ? lines.join('\n') : 'No log line matches this search.'),
+      h('div', { style: { marginTop: 8, fontSize: 11.5, color: T.outline } }, lines.length + ' of ' + this.logLines().length + ' lines'));
+  }
+
+  resourcePane() {
+    const rows = this.state.machines.filter((m) => m.state === 'Running' || m.state === 'Paused')
+      .map((m, i) => [m.name, (12 + i * 9) + '%', Math.round(m.ram * 0.62) + ' MB', (1.2 + i).toFixed(1) + ' MB/s', (48 + i * 30) + ' KB/s'])
+      .filter((r) => this.matches(r.join(' '), this.state.resourceQuery || '', 'resource search'));
+    return h('div', null,
+      this.searchRow(this.state.resourceQuery || '', (e) => this.setState({ resourceQuery: e.target.value }), 'Search running machines', 'resource search'),
+      this.table(['Machine', 'CPU guest', 'RAM used', 'Disk I/O', 'Net rate'], rows, 'No machine is currently running.'),
+      h('div', { style: { marginTop: 10, fontSize: 11.5, color: T.outline } }, 'Sampled every second from the running sessions; paused machines report their last sample.'));
+  }
+
+  fileManagerPane() {
+    const host = { 'C:\\Users\\you\\Downloads': ['drivers/', 'iso/', 'guest-additions.iso', 'setup.log'], 'C:\\Users\\you': ['Downloads/', 'Documents/', 'VirtualBox VMs/'] };
+    const guest = { '/home/user': ['projects/', '.config/', 'notes.md', 'build.sh'], '/': ['home/', 'etc/', 'var/'] };
+    const pane = (side, path, entries, selection) => h('div', { style: { flex: 1, minWidth: 0, background: T.surfaceHigh, borderRadius: 14, padding: 12 } },
+      h('div', { style: { display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8 } },
+        h('button', { onClick: () => this.setState(side === 'host' ? { fmHostPath: 'C:\\Users\\you' } : { fmGuestPath: '/' }), style: { width: 26, height: 26, borderRadius: 8, background: T.surfaceHighest, color: T.onSurfaceVar } }, '↑'),
+        h('div', { style: { flex: 1, minWidth: 0, fontSize: 11.5, fontFamily: 'Roboto Mono, monospace', color: T.onSurfaceVar, overflow: 'hidden', textOverflow: 'ellipsis' } }, path)),
+      h('div', { style: { display: 'grid', gap: 2 } }, (entries || []).map((e) => h('button', {
+        key: e, onClick: () => {
+          if (e.endsWith('/')) this.setState(side === 'host' ? { fmHostPath: path + '\\' + e.slice(0, -1) } : { fmGuestPath: (path === '/' ? '' : path) + '/' + e.slice(0, -1) });
+          else this.setState(side === 'host' ? { fmSelectionHost: e } : { fmSelectionGuest: e });
+        },
+        style: { display: 'flex', gap: 8, alignItems: 'center', padding: '7px 9px', borderRadius: 9, background: selection === e ? T.secondaryContainer : T.surfaceHighest, fontSize: 12, textAlign: 'left' }
+      },
+        h('img', { src: I(e.endsWith('/') ? 'sf_16px.png' : 'description_16px.png'), alt: '', style: { width: 14, height: 14 } }), h('span', { style: { minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis' } }, e)))));
+    const s = this.state;
+    const filt = (arr, q, key) => (arr || []).filter((e) => this.matches(e, q, key));
+    return h('div', null,
+      h('div', { style: { display: 'flex', gap: 10 } },
+        h('div', { style: { flex: 1, minWidth: 0 } }, this.searchRow(s.fmHostQuery || '', (e) => this.setState({ fmHostQuery: e.target.value }), 'Search host files', 'host file search')),
+        h('div', { style: { flex: 1, minWidth: 0 } }, this.searchRow(s.fmGuestQuery || '', (e) => this.setState({ fmGuestQuery: e.target.value }), 'Search guest files', 'guest file search'))),
+      h('div', { style: { display: 'flex', gap: 10, alignItems: 'stretch' } },
+        pane('host', s.fmHostPath, filt(host[s.fmHostPath], s.fmHostQuery || '', 'host file search'), s.fmSelectionHost),
+        h('div', { style: { display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: 8 } },
+          this.btn('→', () => { if (!s.fmSelectionHost) return this.toast('Nothing selected', 'Pick a host file first', T.error); this.record('file copied to guest', s.fmSelectionHost); this.toast('Copied to guest', s.fmSelectionHost + ' → ' + s.fmGuestPath); }, 'filled'),
+          this.btn('←', () => { if (!s.fmSelectionGuest) return this.toast('Nothing selected', 'Pick a guest file first', T.error); this.record('file copied to host', s.fmSelectionGuest); this.toast('Copied to host', s.fmSelectionGuest + ' → ' + s.fmHostPath); }, 'filled')),
+        pane('guest', s.fmGuestPath, filt(guest[s.fmGuestPath], s.fmGuestQuery || '', 'guest file search'), s.fmSelectionGuest)),
+      h('div', { style: { marginTop: 10, fontSize: 11.5, color: T.outline } }, 'A guest session requires Guest Additions. Every transfer is recorded in local history.'));
+  }
+
+  /* ------------ global tool panes ------------ */
+  homePane() {
+    const tasks = [
+      ['Create', 'New virtual machine', 'vm_new_32px.png', 'Wizards.dc.html'],
+      ['Add', 'Add an existing machine', 'vm_new_32px.png', 'Wizards.dc.html'],
+      ['Import', 'Import a virtual appliance', 'media_manager_24px.png', 'Wizards.dc.html'],
+      ['Export', 'Export a virtual appliance', 'media_manager_24px.png', 'Wizards.dc.html'],
+      ['Configure', 'Global preferences', 'tools_menu_24px.png', 'Managers.dc.html']
+    ];
+    return h('div', null,
+      h('div', { style: { padding: '18px 20px', borderRadius: 18, background: T.surfaceHigh, marginBottom: 14 } },
+        h('div', { style: { fontSize: 20, fontWeight: 500 } }, 'Welcome to ' + (this.state.brandNameLive || this.props.brandName || 'Material Virtual Machine')),
+        h('div', { style: { fontSize: 12.5, color: T.onSurfaceVar, marginTop: 6, maxWidth: 640, lineHeight: 1.6 } },
+          'A Material 3 surface over the same engine: chooser, machine tools, settings, wizards, managers and runtime windows — plus tabs, palette, regex builders, appearance editing and local history.')),
+      h('div', { style: { display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(212px,1fr))', gap: 10 } },
+        tasks.map(([label, sub, icon, href]) => h('a', {
+          key: label, href,
+          style: { display: 'flex', gap: 12, alignItems: 'center', padding: '14px 16px', borderRadius: 16, background: T.surfaceHigh, textDecoration: 'none', color: T.onSurface }
+        },
+          h('span', { style: { width: 34, height: 34, flex: 'none', display: 'grid', placeItems: 'center', borderRadius: 11, background: T.primaryContainer } }, h('img', { src: I(icon), alt: '', style: { width: 20, height: 20 } })),
+          h('span', { style: { minWidth: 0 } },
+            h('span', { style: { display: 'block', fontSize: 13, fontWeight: 600 } }, label),
+            h('span', { style: { display: 'block', fontSize: 11.5, color: T.outline, marginTop: 2 } }, sub))))));
+  }
+
+  extensionsPane() {
+    const rows = [['Oracle VM VirtualBox Extension Pack', '7.2.0 r170000', 'Yes'], ['VNC', '7.2.0 r170000', 'Yes']]
+      .filter((r) => this.matches(r.join(' '), this.state.extQuery, 'Extensions search'));
+    return h('div', null,
+      this.searchRow(this.state.extQuery, (e) => this.setState({ extQuery: e.target.value }), 'Search extension packs', 'Extensions search'),
+      h('div', { style: { display: 'flex', gap: 8, marginBottom: 12 } },
+        this.btn('Install…', () => this.toast('Install pack', 'Choose a .vbox-extpack file'), 'filled'),
+        this.btn('Uninstall…', () => this.setState({ overlay: 'gate', gate: { kind: 'uninstallPack', keys: { left: false, right: false }, slide: 0 } }), 'outlined')),
+      this.table(['Package', 'Version', 'Usable'], rows));
+  }
+  mediaPane() {
+    const rows = [['Win11-Dev.vdi', 'Hard disk', '120 GB', '41.2 GB', 'Win11-Dev'], ['Ubuntu-24.04.vdi', 'Hard disk', '60 GB', '18.9 GB', 'Ubuntu-24.04'], ['Debian-Build.vdi', 'Hard disk', '240 GB', '96.4 GB', 'Debian-Build'], ['ubuntu-24.04.iso', 'Optical disk', '5.7 GB', '5.7 GB', '—']]
+      .filter((r) => this.matches(r.join(' '), this.state.mediaQuery, 'Media search'));
+    return h('div', null,
+      this.searchRow(this.state.mediaQuery, (e) => this.setState({ mediaQuery: e.target.value }), 'Search media', 'Media search'),
+      h('div', { style: { display: 'flex', gap: 8, marginBottom: 12, flexWrap: 'wrap' } },
+        this.btn('Create…', () => { window.location.href = 'Wizards.dc.html'; }, 'filled'),
+        this.btn('Copy…', () => this.toast('Copy disk', 'Copy Virtual Hard Disk wizard'), 'tonal'),
+        this.btn('Release', () => this.toast('Released', 'Medium detached from its machine'), 'outlined'),
+        this.btn('Remove…', () => this.setState({ overlay: 'gate', gate: { kind: 'removeMedium', keys: { left: false, right: false }, slide: 0 } }), 'outlined')),
+      this.table(['Name', 'Type', 'Virtual size', 'Actual size', 'Attached to'], rows));
+  }
+  networkPane() {
+    const rows = [['vboxnet0', 'Host-only', '192.168.56.1/24', 'Enabled'], ['qa-net', 'NAT Network', '10.0.2.0/24', 'Enabled'], ['buildnet', 'Internal', '—', '—']]
+      .filter((r) => this.matches(r.join(' '), this.state.netQuery, 'Network search'));
+    return h('div', null,
+      this.searchRow(this.state.netQuery, (e) => this.setState({ netQuery: e.target.value }), 'Search networks', 'Network search'),
+      h('div', { style: { display: 'flex', gap: 8, marginBottom: 12 } },
+        this.btn('Create', () => this.toast('Network created', 'New host-only network added'), 'filled'),
+        this.btn('Properties', () => { window.location.href = 'Managers.dc.html'; }, 'tonal'),
+        this.btn('Remove', () => this.setState({ overlay: 'gate', gate: { kind: 'removeNetwork', keys: { left: false, right: false }, slide: 0 } }), 'outlined')),
+      this.table(['Name', 'Type', 'IPv4 prefix', 'DHCP server'], rows));
+  }
+  cloudPane() {
+    const rows = [['dev-tenancy', 'Oracle Cloud Infrastructure', 'eu-frankfurt-1', '3']]
+      .filter((r) => this.matches(r.join(' '), this.state.cloudQuery, 'Cloud search'));
+    return h('div', null,
+      this.searchRow(this.state.cloudQuery, (e) => this.setState({ cloudQuery: e.target.value }), 'Search cloud profiles', 'Cloud search'),
+      h('div', { style: { display: 'flex', gap: 8, marginBottom: 12 } },
+        this.btn('Add profile', () => this.toast('Add profile', 'Reads the local cloud profile file'), 'filled'),
+        this.btn('Import profiles', () => this.toast('Imported', 'External profiles reloaded'), 'tonal')),
+      this.table(['Profile', 'Provider', 'Region', 'Machines'], rows),
+      h('div', { style: { marginTop: 10, fontSize: 11.5, color: T.outline } }, 'Credentials stay in the local profile file and are never shown in this surface.'));
+  }
+
+  paneBody() {
+    const s = this.state;
+    if (s.tool === 'home') return this.homePane();
+    if (s.tool === 'extensions') return this.extensionsPane();
+    if (s.tool === 'media') return this.mediaPane();
+    if (s.tool === 'network') return this.networkPane();
+    if (s.tool === 'cloud') return this.cloudPane();
+    if (s.tool === 'resources') return this.resourcePane();
+    if (s.machineTool === 'snapshots') return this.snapshotsPane();
+    if (s.machineTool === 'logs') return this.logsPane();
+    if (s.machineTool === 'resourceUse') return this.resourcePane();
+    if (s.machineTool === 'fileManager') return this.fileManagerPane();
+    return this.detailsPane();
+  }
+
+  /* ------------ overlays ------------ */
+  paletteBody() {
+    const q = this.state.paletteQuery.toLowerCase();
+    const cmds = [
+      ...RAIL.map((r) => ({ label: 'Go to ' + r.label, hint: 'Global tool', run: () => { this.openTool(r.id); this.setState({ overlay: null }); } })),
+      ...MTOOLS.map((t) => ({ label: 'Machine tool: ' + t.label, hint: 'Machine', run: () => this.setState({ tool: 'machines', machineTool: t.id, overlay: null }) })),
+      ...this.state.machines.map((m) => ({ label: 'Reveal machine: ' + m.name, hint: m.group + ' · ' + m.state, run: () => { this.setState({ tool: 'machines', selected: m.id, overlay: null }); this.toast('Revealed', m.name + ' focused in the chooser'); } })),
+      { label: 'Open VM Settings', hint: 'Dialog', run: () => { window.location.href = 'VM Settings.dc.html'; } },
+      { label: 'Open runtime window', hint: 'Window', run: () => { window.location.href = 'Runtime Window.dc.html'; } },
+      { label: 'Open wizards', hint: 'Wizards', run: () => { window.location.href = 'Wizards.dc.html'; } },
+      { label: 'Open managers and preferences', hint: 'Managers', run: () => { window.location.href = 'Managers.dc.html'; } },
+      { label: 'Open regex builder', hint: 'Search tool', run: () => this.setState({ overlay: 'regex', regexTarget: 'command palette' }) },
+      { label: 'Edit appearance of current pane', hint: 'Appearance', run: () => this.setState({ overlay: 'appearance', appearance: Object.assign({}, this.state.appearance, { target: 'Current pane' }) }) },
+      { label: 'Open tab manager', hint: 'Tabs', run: () => this.setState({ overlay: 'tabs' }) },
+      { label: 'Open notification centre', hint: 'Notices', run: () => this.setState({ overlay: 'notifications' }) },
+      { label: 'Open local history', hint: 'History', run: () => this.setState({ overlay: 'history' }) },
+      { label: 'Export current view', hint: 'Export', run: () => this.setState({ overlay: 'export' }) },
+      { label: 'Take snapshot of selected machine', hint: 'Machine', run: () => this.setState({ overlay: 'takeSnapshot', snapshotName: 'Snapshot ' + ((this.state.snapshots[this.state.selected] || []).length + 1) }) },
+      { label: 'Remove selected machine…', hint: 'Destructive', run: () => this.setState({ overlay: 'gate', gate: { kind: 'removeMachine', keys: { left: false, right: false }, slide: 0 } }) }
+    ].filter((c) => !q || (c.label + ' ' + c.hint).toLowerCase().includes(q));
+    return h('div', null,
+      h('div', { style: { display: 'flex', gap: 8, marginBottom: 12 } },
+        this.input({ autoFocus: true, placeholder: 'Search commands, machines, tools, settings', value: this.state.paletteQuery, onChange: (e) => this.setState({ paletteQuery: e.target.value }) }),
+        h('button', { onClick: () => this.setState({ overlay: 'regex', regexTarget: 'command palette' }), style: { width: 40, height: 40, flex: 'none', borderRadius: 12, background: T.primaryContainer, color: T.onPrimaryContainer, fontFamily: 'Roboto Mono, monospace', fontWeight: 600 } }, '.*')),
+      h('div', { style: { display: 'grid', gap: 4, maxHeight: 400, overflowY: 'auto' } },
+        cmds.length ? cmds.map((c, i) => h('button', { key: i, onClick: c.run, style: { display: 'flex', gap: 12, alignItems: 'center', padding: '11px 13px', borderRadius: 12, background: T.surfaceHigh, textAlign: 'left' } },
+          h('span', { style: { flex: 1, minWidth: 0, fontSize: 12.5 } }, c.label),
+          h('span', { style: { fontSize: 11, color: T.outline, whiteSpace: 'nowrap' } }, c.hint))) :
+          h('div', { style: { padding: 12, color: T.outline } }, 'No command matches this search.')));
+  }
+
+  regexBody() {
+    const s = this.state;
+    let ok = true, feedback = 'Plain text stays the default. Applying a pattern switches this one field to regex.';
+    try { if (s.regexPattern) new RegExp(s.regexPattern, s.regexFlags); } catch (e) { ok = false; feedback = e.message; }
+    let preview = '';
+    if (ok && s.regexPattern) { try { const mt = s.regexSample.match(new RegExp(s.regexPattern, s.regexFlags)); preview = mt ? 'Match: ' + mt[0] + (mt.length > 1 ? '  ·  groups: ' + mt.slice(1).join(', ') : '') : 'No match in the sample text.'; } catch (e) { preview = ''; } }
+    const constructs = [['Any', '.'], ['Digit', '\\d'], ['Word', '\\w'], ['Space', '\\s'], ['Start', '^'], ['End', '$'], ['Group', '()'], ['Class', '[]'], ['Or', '|'], ['0+', '*'], ['1+', '+'], ['Opt', '?'], ['{n,m}', '{1,3}'], ['Word bound', '\\b']];
+    return h('div', null,
+      h('div', { style: { fontSize: 12, color: T.outline, marginBottom: 12 } }, 'Target field: ' + (s.regexTarget || 'search')),
+      this.field('Pattern', this.input({ value: s.regexPattern, spellCheck: false, placeholder: '^Win\\d+', onChange: (e) => this.setState({ regexPattern: e.target.value }) })),
+      h('div', { style: { display: 'flex', gap: 6, flexWrap: 'wrap', margin: '10px 0 12px' } }, constructs.map(([label, token]) => h('button', {
+        key: token, onClick: () => this.setState((st) => ({ regexPattern: st.regexPattern + token })),
+        style: { height: 30, padding: '0 11px', borderRadius: 15, background: T.surfaceHigh, color: T.onSurfaceVar, fontSize: 11.5, fontWeight: 600 }
+      }, label + '  ' + token))),
+      h('div', { style: { display: 'grid', gridTemplateColumns: '1fr 2fr', gap: 10, marginBottom: 12 } },
+        this.field('Flags', this.input({ value: s.regexFlags, maxLength: 8, onChange: (e) => this.setState({ regexFlags: e.target.value }) })),
+        this.field('Sample text', this.input({ value: s.regexSample, onChange: (e) => this.setState({ regexSample: e.target.value }) }))),
+      h('div', { style: { padding: 11, borderRadius: 12, background: ok ? T.surfaceHigh : '#4E1B1B', color: ok ? T.onSurfaceVar : T.error, fontSize: 12 } }, feedback),
+      preview ? h('div', { style: { marginTop: 8, padding: 11, borderRadius: 12, background: '#0F0D13', fontFamily: 'Roboto Mono, monospace', fontSize: 11.5 } }, preview) : null,
+      h('div', { style: { display: 'flex', justifyContent: 'space-between', gap: 8, marginTop: 16 } },
+        this.btn('Clear pattern', () => { const next = Object.assign({}, s.regexApplied); delete next[s.regexTarget]; this.setState({ regexApplied: next, regexPattern: '', overlay: null }); this.toast('Plain text restored', s.regexTarget); }, 'text'),
+        h('div', { style: { display: 'flex', gap: 8 } },
+          this.btn('Cancel', () => this.setState({ overlay: null }), 'text'),
+          this.btn('Apply pattern', () => {
+            if (!ok || !s.regexPattern) return this.toast('Not applied', 'Enter a valid pattern first', T.error);
+            this.setState({ regexApplied: Object.assign({}, s.regexApplied, { [s.regexTarget]: { pattern: s.regexPattern, flags: s.regexFlags } }), overlay: null });
+            this.record('regex applied', s.regexTarget + ' · /' + s.regexPattern + '/' + s.regexFlags);
+            this.toast('Regex applied', s.regexTarget + ' now filters with /' + s.regexPattern + '/' + s.regexFlags);
+          }, 'filled'))));
+  }
+
+  tabsBody() {
+    const s = this.state;
+    const q = s.tabQueries;
+    const visible = s.tabs.filter((t) => this.matches(t.label, q.current, 'Current strip search') && this.matches(t.label, q.master, 'Master tab search') && this.matches(t.group, q.groups, 'Group name search'));
+    const previewSet = () => {
+      const containing = s.closeContaining.trim(), notContaining = s.closeNotContaining.trim();
+      if (!containing && !notContaining) { this.toast('Nothing to preview', 'Enter exactly one close query', T.error); return; }
+      if (containing && notContaining) { this.toast('Choose one', 'Use containing or not-containing, not both', T.error); return; }
+      const key = containing ? 'Close tabs containing text' : 'Close tabs NOT containing text';
+      const query = containing || notContaining;
+      const test = (label) => { const applied = s.regexApplied[key]; if (applied) { try { return new RegExp(applied.pattern, applied.flags).test(label); } catch (e) { return false; } } return label.toLowerCase().includes(query.toLowerCase()); };
+      const eligible = s.tabs.filter((t) => s.includePinned || !t.pinned);
+      const matched = eligible.filter((t) => test(t.label) === Boolean(containing));
+      this.setState({ pendingClose: matched.map((t) => t.id) });
+      this.toast('Preview ready', matched.length + ' tab(s) match · ' + (s.includePinned ? 'pinned included' : 'pinned protected'));
+    };
+    return h('div', null,
+      h('div', { style: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 14 } },
+        [['Current strip search', 'current'], ['Group name search', 'groups'], ['Master tab search', 'master'], ['Selected group search', 'selected']].map(([label, key]) =>
+          h('div', { key },
+            h('div', { style: { fontSize: 11.5, fontWeight: 700, color: T.outline, marginBottom: 5 } }, label),
+            h('div', { style: { display: 'flex', gap: 6 } },
+              this.input({ value: q[key], placeholder: 'Search', onChange: (e) => this.setState({ tabQueries: Object.assign({}, q, { [key]: e.target.value }) }) }),
+              h('button', { onClick: () => this.setState({ overlay: 'regex', regexTarget: label }), style: { width: 40, height: 40, flex: 'none', borderRadius: 12, background: T.primaryContainer, color: T.onPrimaryContainer, fontFamily: 'Roboto Mono, monospace', fontWeight: 600 } }, '.*'))))),
+      h('div', { style: { display: 'grid', gap: 6, marginBottom: 14 } },
+        visible.length ? visible.map((t) => h('div', { key: t.id, style: { display: 'grid', gridTemplateColumns: 'minmax(0,1fr) 130px auto auto', gap: 8, alignItems: 'center', padding: '9px 11px', borderRadius: 12, background: T.surfaceHigh } },
+          h('span', { style: { minWidth: 0 } }, h('b', { style: { fontSize: 12.5 } }, (t.pinned ? '● ' : '') + t.label), h('small', { style: { display: 'block', color: T.outline, fontSize: 11, marginTop: 2 } }, t.group)),
+          this.select(t.group, ['Workspace', 'Build farm', 'Reference'], (e) => this.setState({ tabs: s.tabs.map((x) => x.id === t.id ? Object.assign({}, x, { group: e.target.value }) : x) })),
+          this.btn(t.pinned ? 'Unpin' : 'Pin', () => this.setState({ tabs: s.tabs.map((x) => x.id === t.id ? Object.assign({}, x, { pinned: !x.pinned }) : x) }), 'text'),
+          this.btn('Close', () => this.closeTab(t.id), 'text', t.pinned))) :
+          h('div', { style: { padding: 12, borderRadius: 12, background: T.surfaceHigh, color: T.outline } }, 'No tab matches the active searches.')),
+      h('div', { style: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, paddingTop: 12, borderTop: '1px solid ' + T.outlineVar } },
+        [['Close tabs containing text', 'closeContaining'], ['Close tabs NOT containing text', 'closeNotContaining']].map(([label, key]) =>
+          h('div', { key },
+            h('div', { style: { fontSize: 11.5, fontWeight: 700, color: T.outline, marginBottom: 5 } }, label),
+            h('div', { style: { display: 'flex', gap: 6 } },
+              this.input({ value: s[key], placeholder: 'Visible label text', onChange: (e) => this.setState({ [key]: e.target.value }) }),
+              h('button', { onClick: () => this.setState({ overlay: 'regex', regexTarget: label }), style: { width: 40, height: 40, flex: 'none', borderRadius: 12, background: T.primaryContainer, color: T.onPrimaryContainer, fontFamily: 'Roboto Mono, monospace', fontWeight: 600 } }, '.*'))))),
+      h('label', { style: { display: 'flex', alignItems: 'center', gap: 8, margin: '12px 0', fontSize: 12 } },
+        h('input', { type: 'checkbox', checked: s.includePinned, onChange: (e) => this.setState({ includePinned: e.target.checked }) }), 'Include pinned tabs after preview'),
+      h('div', { style: { padding: 11, borderRadius: 12, background: T.surfaceHigh, color: T.onSurfaceVar, fontSize: 12 } },
+        s.pendingClose.length ? s.pendingClose.length + ' tab(s) staged: ' + s.tabs.filter((t) => s.pendingClose.includes(t.id)).map((t) => t.label).join(', ') : 'Enter exactly one close query, preview the matched set, then authorize.'),
+      h('div', { style: { display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 14 } },
+        this.btn('Preview close set', previewSet, 'tonal'),
+        this.btn('Authorize previewed close', () => {
+          if (!s.pendingClose.length) return this.toast('Blocked', 'Preview a non-empty set first', T.error);
+          const labels = s.tabs.filter((t) => s.pendingClose.includes(t.id)).map((t) => t.label).join(', ');
+          const tabs = s.tabs.filter((t) => !s.pendingClose.includes(t.id) || (t.pinned && !s.includePinned));
+          const tool = tabs.some((t) => t.id === s.tool) ? s.tool : (tabs[0] ? tabs[0].id : 'home');
+          this.setState({ tabs, tool, pendingClose: [] });
+          this.record('bulk tab close', labels); this.toast('Closed', labels);
+        }, 'filled', !s.pendingClose.length)));
+  }
+
+  appearanceBody() {
+    const a = this.state.appearance;
+    const set = (patch) => this.setState({ appearance: Object.assign({}, a, patch) });
+    return h('div', null,
+      h('div', { style: { fontSize: 12, color: T.outline, marginBottom: 12 } }, 'Target: ' + (a.target || 'selected element') + ' — anchored and persisted per element in extradata.'),
+      h('div', { style: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 } },
+        this.field('Seed color', h('div', { style: { display: 'flex', gap: 6 } }, ['#6750A4', '#0F4C8C', '#2F6B4F', '#8A5024'].map((c) => h('button', {
+          key: c, onClick: () => set({ seed: c }), style: { flex: 1, height: 40, borderRadius: 12, background: c, border: '2px solid ' + (a.seed === c ? T.primary : T.outlineVar) } })))),
+        this.field('Font family', this.select(a.font, ['Roboto Flex', 'Segoe UI', 'Consolas', 'Cascadia Code'], (e) => set({ font: e.target.value }))),
+        this.field('Corner radius · ' + a.radius + 'px', h('input', { type: 'range', min: 4, max: 32, value: a.radius, onChange: (e) => set({ radius: Number(e.target.value) }), style: { width: '100%' } })),
+        this.field('Font scale · ' + a.scale.toFixed(2), h('input', { type: 'range', min: 0.85, max: 1.35, step: 0.05, value: a.scale, onChange: (e) => set({ scale: Number(e.target.value) }), style: { width: '100%' } })),
+        this.field('Font weight · ' + a.weight, h('input', { type: 'range', min: 300, max: 700, step: 100, value: a.weight, onChange: (e) => set({ weight: Number(e.target.value) }), style: { width: '100%' } }))),
+      h('div', { style: { marginTop: 14, padding: 14, borderRadius: a.radius, background: T.surfaceHigh, fontFamily: a.font, fontWeight: a.weight, fontSize: 13 * a.scale, borderLeft: '4px solid ' + a.seed } }, 'Live preview of this element’s appearance.'),
+      h('div', { style: { display: 'flex', justifyContent: 'space-between', gap: 8, marginTop: 14, flexWrap: 'wrap' } },
+        h('div', { style: { display: 'flex', gap: 8 } },
+          this.btn('Save named theme', () => { this.record('theme saved', a.target || 'element'); this.toast('Theme saved', 'Available in Preferences → Appearance'); }, 'tonal'),
+          this.btn('Reset element', () => { const next = Object.assign({}, this.state.appearanceOverrides); delete next[a.target]; this.setState({ appearanceOverrides: next }); this.toast('Reset', 'Element returns to inherited appearance'); }, 'text')),
+        this.btn('Apply', () => {
+          this.setState({ appearanceOverrides: Object.assign({}, this.state.appearanceOverrides, { [a.target]: a }), overlay: null });
+          this.record('appearance applied', a.target || 'element'); this.toast('Appearance applied', a.target || 'element');
+        }, 'filled')));
+  }
+
+  gateCopy() {
+    const m = this.machine();
+    return {
+      removeMachine: ['Remove ' + m.name, 'This permanently removes ' + m.name + ' and its disk images.'],
+      deleteSnapshot: ['Delete snapshot', 'Deleting a snapshot merges its differencing image into the parent. This cannot be undone.'],
+      restore: ['Restore snapshot', 'Restoring discards the current machine state of ' + m.name + '.'],
+      uninstallPack: ['Uninstall extension pack', 'Removing the pack disables USB 3.0, RDP and disk encryption for every machine.'],
+      removeMedium: ['Remove medium', 'The disk image is detached and optionally deleted from disk.'],
+      removeNetwork: ['Remove network', 'Machines attached to this network lose connectivity.'],
+      discard: ['Discard saved state', 'The saved state of ' + m.name + ' is thrown away; the machine powers off.']
+    }[this.state.gate.kind] || ['Authorize action', 'This action changes local state.'];
+  }
+  gateBody() {
+    const g = this.state.gate;
+    const both = g.keys.left && g.keys.right;
+    const armed = both && g.slide >= 100;
+    const copy = this.gateCopy();
+    return h('div', null,
+      h('div', { style: { padding: 12, borderRadius: 12, background: '#4E1B1B', color: '#FFDAD6', fontSize: 12.5, marginBottom: 14 } }, copy[1]),
+      h('div', { style: { display: 'flex', gap: 10, marginBottom: 12 } }, ['left', 'right'].map((side) => h('button', {
+        key: side, onClick: () => this.setState({ gate: Object.assign({}, g, { keys: Object.assign({}, g.keys, { [side]: !g.keys[side] }) }) }),
+        style: { flex: 1, height: 54, borderRadius: 14, background: g.keys[side] ? T.primaryContainer : T.surfaceHigh, color: g.keys[side] ? T.onPrimaryContainer : T.onSurfaceVar, border: '1px solid ' + (g.keys[side] ? T.primary : T.outlineVar), fontSize: 12.5, fontWeight: 700 }
+      }, side === 'left' ? 'Hold key A' : 'Hold key L'))),
+      h('input', { type: 'range', min: 0, max: 100, value: g.slide, disabled: !both, onChange: (e) => this.setState({ gate: Object.assign({}, g, { slide: Number(e.target.value) }) }), style: { width: '100%', accentColor: '#FFB4AB' } }),
+      h('div', { style: { fontSize: 11.5, color: T.outline, marginTop: 6 } }, both ? 'Slide fully right to arm ' + copy[0].toLowerCase() + '.' : 'Both keys must be held before the slider unlocks.'),
+      h('div', { style: { display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 16 } },
+        this.btn('Emergency exit', () => this.setState({ overlay: null, gate: { kind: '', keys: { left: false, right: false }, slide: 0 } }), 'text'),
+        this.btn(copy[0], () => this.commitGate(), 'danger', !armed)));
+  }
+  commitGate() {
+    const kind = this.state.gate.kind;
+    const m = this.machine();
+    if (kind === 'removeMachine') {
+      const machines = this.state.machines.filter((x) => x.id !== m.id);
+      this.setState({ machines, selected: machines[0] ? machines[0].id : '' });
+      this.record('machine removed', m.name); this.notifyCentre('Machine removed', m.name + ' and its disks were deleted');
+    } else if (kind === 'deleteSnapshot') {
+      const list = (this.state.snapshots[m.id] || []).filter((x) => x.id !== this.state.selectedSnapshot);
+      this.setState({ snapshots: Object.assign({}, this.state.snapshots, { [m.id]: list }) });
+      this.updateMachine(m.id, { snapshots: list.length });
+      this.record('snapshot deleted', m.name);
+    } else if (kind === 'restore') {
+      this.setState({ currentSnapshot: Object.assign({}, this.state.currentSnapshot, { [m.id]: this.state.selectedSnapshot }) });
+      this.updateMachine(m.id, { state: 'Powered Off' });
+      this.record('snapshot restored', m.name + ' · recorded as a new revision');
+    } else if (kind === 'discard') {
+      this.updateMachine(m.id, { state: 'Powered Off' }); this.record('saved state discarded', m.name);
+    } else {
+      this.record(kind, m.name);
+    }
+    this.setState({ overlay: null, gate: { kind: '', keys: { left: false, right: false }, slide: 0 } });
+    this.toast('Authorized', this.gateCopy()[0] + ' completed', T.error);
+  }
+
+  notificationsBody() {
+    const list = this.state.notifications.filter((n) => this.matches(n.title + ' ' + n.detail, this.state.notifyQuery || '', 'notification search'));
+    return h('div', null,
+      this.searchRow(this.state.notifyQuery || '', (e) => this.setState({ notifyQuery: e.target.value }), 'Search notifications', 'notification search'),
+      h('div', { style: { display: 'grid', gap: 6 } },
+        list.length ? list.map((n) => h('div', { key: n.id, style: { padding: '11px 13px', borderRadius: 12, background: T.surfaceHigh } },
+          h('div', { style: { display: 'flex', gap: 10 } }, h('b', { style: { flex: 1, fontSize: 12.5 } }, n.title), h('span', { style: { fontSize: 11, color: T.outline } }, n.at)),
+          h('div', { style: { fontSize: 11.5, color: T.onSurfaceVar, marginTop: 3 } }, n.detail))) :
+          h('div', { style: { padding: 12, borderRadius: 12, background: T.surfaceHigh, color: T.outline } }, 'No local notifications.')),
+      h('div', { style: { display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 14 } },
+        this.btn('Clear history', () => { this.setState({ notifications: [] }); this.toast('Cleared', 'Local notification history removed'); }, 'text'),
+        this.btn('Close', () => this.setState({ overlay: null }), 'tonal')));
+  }
+  historyBody() {
+    const rows = this.state.history.filter((e) => this.matches(e.action + ' ' + e.detail + ' ' + e.at, this.state.historyQuery || '', 'history search'));
+    return h('div', null,
+      this.searchRow(this.state.historyQuery || '', (e) => this.setState({ historyQuery: e.target.value }), 'Search revisions by action, detail or time', 'history search'),
+      h('div', { style: { display: 'grid', gap: 6 } }, rows.map((e) => h('div', { key: e.id, style: { display: 'flex', alignItems: 'center', gap: 12, padding: '11px 13px', borderRadius: 12, background: T.surfaceHigh } },
+        h('span', { style: { flex: 1, minWidth: 0 } }, h('b', { style: { fontSize: 12.5 } }, e.action), h('small', { style: { display: 'block', color: T.outline, fontSize: 11, marginTop: 2 } }, e.detail + ' · ' + e.at)),
+        this.btn('Restore', () => { this.record('revision restored', e.action + ' · ' + e.detail); this.toast('Restored', 'Recorded as a new revision'); }, 'tonal')))),
+      h('div', { style: { marginTop: 12, fontSize: 11.5, color: T.outline } }, rows.length + ' of ' + this.state.history.length + ' revisions · append-only and Git-backed beside the app data; restoring never destroys the newer revision.'));
+  }
+  exportBody() {
+    const fmts = ['md', 'txt', 'json', 'jsonl', 'yaml', 'toml', 'xml', 'csv', 'tsv', 'html', 'sql', 'ts', 'py', 'go', 'rs', 'proto', 'schema.json'];
+    const m = this.machine();
+    const rows = this.detailRows();
+    const body = {
+      md: rows.map(([t, r]) => '## ' + t + '\n' + r.map(([k, v]) => '- ' + k + ': ' + v).join('\n')).join('\n\n'),
+      json: JSON.stringify(rows.reduce((acc, [t, r]) => { acc[t] = Object.fromEntries(r); return acc; }, {}), null, 2),
+      csv: 'section,key,value\n' + rows.flatMap(([t, r]) => r.map(([k, v]) => [t, k, v].join(','))).join('\n')
+    }[this.state.exportFormat] || rows.map(([t, r]) => t + ': ' + r.map(([k, v]) => k + '=' + v).join('; ')).join('\n');
+    return h('div', null,
+      h('div', { style: { display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 12 } }, fmts.map((f) => h('button', {
+        key: f, onClick: () => this.setState({ exportFormat: f }),
+        style: { height: 30, padding: '0 12px', borderRadius: 15, background: this.state.exportFormat === f ? T.primary : T.surfaceHigh, color: this.state.exportFormat === f ? T.onPrimary : T.onSurfaceVar, fontSize: 11.5, fontWeight: 600, fontFamily: 'Roboto Mono, monospace' }
+      }, f))),
+      h('pre', { style: { padding: 12, borderRadius: 12, background: '#0F0D13', fontFamily: 'Roboto Mono, monospace', fontSize: 11.5, color: '#C9C3D2', maxHeight: 240, overflow: 'auto', whiteSpace: 'pre-wrap' } }, body),
+      h('div', { style: { display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 14 } },
+        this.btn('Copy', () => { if (navigator.clipboard) navigator.clipboard.writeText(body); this.toast('Copied', 'View copied as ' + this.state.exportFormat); }, 'text'),
+        this.btn('Export file', () => { this.setState({ overlay: null }); this.record('view exported', m.name + '.' + this.state.exportFormat); this.toast('Exported', m.name + '.' + this.state.exportFormat); }, 'filled')));
+  }
+  takeSnapshotBody() {
+    const m = this.machine();
+    return h('div', null,
+      this.field('Snapshot name', this.input({ value: this.state.snapshotName, autoFocus: true, onChange: (e) => this.setState({ snapshotName: e.target.value }) })),
+      h('div', { style: { height: 10 } }),
+      this.field('Snapshot description', h('textarea', { rows: 4, placeholder: 'What changed before this point?', style: { width: '100%', padding: 12, borderRadius: 12, background: T.surfaceHigh, border: '1px solid ' + T.outlineVar, outline: 'none', fontSize: 12.5, color: T.onSurface, resize: 'vertical' } })),
+      h('div', { style: { display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 16 } },
+        this.btn('Cancel', () => this.setState({ overlay: null }), 'text'),
+        this.btn('Take snapshot', () => {
+          const name = this.state.snapshotName.trim();
+          if (!name) return this.toast('Name required', 'Give the snapshot a name first', T.error);
+          const list = this.state.snapshots[m.id] || [];
+          const item = { id: 's' + Date.now(), name, at: new Date().toISOString().slice(0, 16).replace('T', ' '), size: '1.0 GB', depth: list.length };
+          this.setState({ snapshots: Object.assign({}, this.state.snapshots, { [m.id]: [...list, item] }), currentSnapshot: Object.assign({}, this.state.currentSnapshot, { [m.id]: item.id }), selectedSnapshot: item.id, overlay: null, machineTool: 'snapshots' });
+          this.updateMachine(m.id, { snapshots: list.length + 1 });
+          this.record('snapshot taken', m.name + ' · ' + name); this.notifyCentre('Snapshot created', m.name + ' · ' + name); this.toast('Snapshot taken', name);
+        }, 'filled')));
+  }
+  editValueBody() {
+    return h('div', null,
+      h('div', { style: { fontSize: 12, color: T.outline, marginBottom: 10 } }, 'Editing: ' + this.state.regexTarget),
+      this.field('Value', this.input({ autoFocus: true, defaultValue: '' })),
+      h('div', { style: { display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 16 } },
+        this.btn('Copy value', () => this.toast('Copied', this.state.regexTarget), 'text'),
+        this.btn('Cancel', () => this.setState({ overlay: null }), 'text'),
+        this.btn('Save', () => { this.setState({ overlay: null }); this.record('details value edited', this.state.regexTarget); this.toast('Saved', this.state.regexTarget); }, 'filled')));
+  }
+  preferencesBody() {
+    const s = this.state;
+    return h('div', null,
+      h('div', { style: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 12 } },
+        this.field('Application name', this.input({ value: s.brandNameLive === null ? (this.props.brandName || 'Material Virtual Machine') : s.brandNameLive, onChange: (e) => this.setState({ brandNameLive: e.target.value }) })),
+        this.field('Wordmark letter', this.input({ maxLength: 2, value: s.brandMarkLive === null ? (this.props.brandMark || 'M') : s.brandMarkLive, onChange: (e) => this.setState({ brandMarkLive: e.target.value }) }))),
+      h('div', { style: { display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12 } },
+        this.field('Language mode', h('div', { style: { display: 'flex', gap: 6 } }, ['English', 'Cantonese', 'Bilingual'].map((l) => h('button', {
+          key: l, onClick: () => { this.setState({ language: l }); this.record('language changed', l); },
+          style: { flex: 1, height: 38, borderRadius: 19, background: s.language === l ? T.primary : T.surfaceHigh, color: s.language === l ? T.onPrimary : T.onSurfaceVar, fontSize: 11.5, fontWeight: 600 }
+        }, l)))),
+        this.field('Theme', h('div', { style: { display: 'flex', gap: 6 } }, ['dark', 'light', 'system'].map((l) => h('button', {
+          key: l, onClick: () => { this.setState({ theme: l }); this.record('theme changed', l); },
+          style: { flex: 1, height: 38, borderRadius: 19, background: s.theme === l ? T.primary : T.surfaceHigh, color: s.theme === l ? T.onPrimary : T.onSurfaceVar, fontSize: 11.5, fontWeight: 600, textTransform: 'capitalize' }
+        }, l)))),
+        this.field('Density', h('div', { style: { display: 'flex', gap: 6 } }, ['Comfortable', 'Compact'].map((l) => h('button', {
+          key: l, onClick: () => this.setState({ density: l }),
+          style: { flex: 1, height: 38, borderRadius: 19, background: s.density === l ? T.primary : T.surfaceHigh, color: s.density === l ? T.onPrimary : T.onSurfaceVar, fontSize: 11.5, fontWeight: 600 }
+        }, l))))),
+      h('div', { style: { marginTop: 14, fontSize: 11.5, color: T.outline } }, 'Everything here persists in VirtualBox extradata so it roams with VBoxSVC. Full preference pages live in ',
+        h('a', { href: 'Managers.dc.html' }, 'Managers → Preferences'), '.'),
+      h('div', { style: { display: 'flex', justifyContent: 'flex-end', marginTop: 14 } }, this.btn('Done', () => this.setState({ overlay: null }), 'filled')));
+  }
+
+  renderVals() {
+    const s = this.state;
+    const m = this.machine();
+    const filtered = s.machines.filter((x) => this.matches(x.name + ' ' + x.group + ' ' + x.os, s.chooserQuery, 'machine chooser search'));
+    const groups = [...new Set(filtered.map((x) => x.group))];
+    const chooserRows = [];
+    groups.forEach((g) => {
+      chooserRows.push({ name: g, sub: filtered.filter((x) => x.group === g).length + ' machines', iconCss: 'url("' + I('sf_16px.png') + '")', iconBg: T.surfaceHighest, bg: 'transparent', dot: 'transparent', weight: 700, select: () => {}, menu: (e) => e.preventDefault() });
+      filtered.filter((x) => x.group === g).forEach((x) => chooserRows.push({
+        name: x.name, sub: x.os, iconCss: 'url("' + I('machine_16px.png') + '")', iconBg: x.id === s.selected ? T.primaryContainer : T.surfaceHighest,
+        bg: x.id === s.selected ? T.secondaryContainer : 'transparent', dot: STATE_COLOR[x.state], weight: 500,
+        select: () => this.setState({ selected: x.id, selectedSnapshot: (s.snapshots[x.id] || [{}])[0] ? (s.currentSnapshot[x.id] || (s.snapshots[x.id][0] || {}).id) : '' }),
+        menu: (e) => { e.preventDefault(); this.setState({ selected: x.id, context: { x: e.clientX, y: e.clientY, machine: x.id } }); }
+      }));
+    });
+
+    const titles = {
+      palette: ['Keyboard route', 'Command palette'], regex: ['Search tool', 'Regex builder'],
+      tabs: ['Workspace navigation', 'Tabs, groups and safe closing'], appearance: ['Element appearance', 'Edit appearance'],
+      gate: ['Safety gate', this.gateCopy()[0]], notifications: ['Reviewable local notices', 'Notification centre'],
+      history: ['Append-only revisions', 'Local history'], export: ['Multi-format export', 'Export current view'],
+      preferences: ['Quick preferences', 'Preferences'], takeSnapshot: ['Machine state', 'Take snapshot'], editValue: ['Details element', 'Edit value']
+    };
+    const bodies = {
+      palette: () => this.paletteBody(), regex: () => this.regexBody(), tabs: () => this.tabsBody(), appearance: () => this.appearanceBody(),
+      gate: () => this.gateBody(), notifications: () => this.notificationsBody(), history: () => this.historyBody(),
+      export: () => this.exportBody(), preferences: () => this.preferencesBody(), takeSnapshot: () => this.takeSnapshotBody(), editValue: () => this.editValueBody()
+    };
+    const meta = titles[s.overlay] || ['', ''];
+    const isMachines = s.tool === 'machines';
+    const railLabel = (RAIL.find((r) => r.id === s.tool) || {}).label || 'Home';
+
+    const actions = isMachines ? [
+      { label: 'New', iconCss: 'url("icons/vm_new_32px.png")', hint: 'Create a virtual machine', bg: T.primary, fg: T.onPrimary, border: '0', run: () => { window.location.href = 'Wizards.dc.html'; } },
+      { label: 'Settings', iconCss: 'url("icons/vm_settings_32px.png")', hint: 'Open machine settings', bg: T.secondaryContainer, fg: T.onSecondaryContainer, border: '0', run: () => { window.location.href = 'VM Settings.dc.html'; } },
+      { label: m.state === 'Running' ? 'Pause' : 'Start', iconCss: 'url("icons/vm_start_32px.png")', hint: 'Start or pause the machine', bg: T.secondaryContainer, fg: T.onSecondaryContainer, border: '0', run: () => {
+          if (m.state === 'Running') { this.updateMachine(m.id, { state: 'Paused' }); this.record('machine paused', m.name); this.toast('Paused', m.name); }
+          else { this.updateMachine(m.id, { state: 'Running', uptime: '0m' }); this.record('machine started', m.name); this.notifyCentre('Machine started', m.name); this.toast('Starting', m.name + ' — opening the runtime window'); }
+        } },
+      { label: 'Discard', iconCss: 'url("icons/vm_discard_32px.png")', hint: 'Discard the saved state', bg: 'transparent', fg: T.onSurfaceVar, border: '1px solid ' + T.outlineVar, run: () => this.setState({ overlay: 'gate', gate: { kind: 'discard', keys: { left: false, right: false }, slide: 0 } }) }
+    ] : [
+      { label: 'Refresh', iconCss: 'url("icons/tools_menu_24px.png")', hint: 'Reload this surface', bg: T.secondaryContainer, fg: T.onSecondaryContainer, border: '0', run: () => this.toast('Refreshed', railLabel + ' reloaded') },
+      { label: 'Export', iconCss: 'url("icons/media_manager_24px.png")', hint: 'Export this view', bg: 'transparent', fg: T.onSurfaceVar, border: '1px solid ' + T.outlineVar, run: () => this.setState({ overlay: 'export' }) }
+    ];
+
+    return {
+      brandMark: s.brandMarkLive === null ? (this.props.brandMark ?? 'M') : s.brandMarkLive,
+      brandName: s.brandNameLive === null ? (this.props.brandName ?? 'Material Virtual Machine') : s.brandNameLive,
+      eyebrow: isMachines ? 'Machine tools' : 'Global tool',
+      pageTitle: isMachines ? (m ? m.name : 'No machine selected') : railLabel,
+      statusText: isMachines && m ? m.name + ' · ' + m.state + ' · uptime ' + m.uptime : railLabel + ' · read-only inventory',
+      languageLabel: s.language, themeLabel: s.theme === 'dark' ? 'Dark' : s.theme === 'light' ? 'Light' : 'System',
+      hasUnread: s.notifications.some((n) => n.unread),
+
+      railItems: RAIL.map((r) => ({
+        label: r.label, hint: r.hint, iconCss: 'url("' + I(r.icon) + '")',
+        pill: r.id === s.tool ? T.secondaryContainer : 'transparent',
+        fg: r.id === s.tool ? T.onSurface : T.onSurfaceVar, select: () => this.openTool(r.id)
+      })),
+      openTabs: s.tabs.map((t) => ({
+        label: t.label, title: t.label + ' · ' + t.group + (t.pinned ? ' · pinned' : ''),
+        bg: t.id === s.tool ? T.surfaceHighest : 'transparent', fg: t.id === s.tool ? T.onSurface : T.outline,
+        dot: t.pinned ? T.primary : T.outlineVar,
+        select: () => this.setState({ tool: t.id }),
+        close: (e) => { e.stopPropagation(); this.closeTab(t.id); },
+        menu: (e) => { e.preventDefault(); this.setState({ overlay: 'tabs' }); }
+      })),
+      newTab: () => this.setState({ overlay: 'palette', paletteQuery: '' }),
+      openTabManager: () => this.setState({ overlay: 'tabs' }),
+
+      showChooser: isMachines, showMachineTools: isMachines,
+      machineTools: MTOOLS.map((t) => ({
+        label: t.label, iconCss: 'url("' + I(t.icon) + '")', bg: t.id === s.machineTool ? T.primary : 'transparent',
+        fg: t.id === s.machineTool ? T.onPrimary : T.onSurfaceVar, select: () => this.setState({ machineTool: t.id })
+      })),
+      chooserQuery: s.chooserQuery,
+      setChooserQuery: (e) => this.setState({ chooserQuery: e.target.value }),
+      openRegexChooser: () => this.setState({ overlay: 'regex', regexTarget: 'machine chooser search' }),
+      chooserRows, chooserSummary: filtered.length + ' of ' + s.machines.length + ' machines · ' + groups.length + ' groups',
+
+      pageActions: actions,
+      paneBody: this.paneBody(),
+
+      openPalette: () => this.setState({ overlay: 'palette', paletteQuery: '' }),
+      openNotifications: () => this.setState({ overlay: 'notifications', notifications: s.notifications.map((n) => Object.assign({}, n, { unread: false })) }),
+      openPreferences: () => this.setState({ overlay: 'preferences' }),
+      openExport: () => this.setState({ overlay: 'export' }),
+      openAppearanceForPane: () => this.setState({ overlay: 'appearance', appearance: Object.assign({}, s.appearance, { target: isMachines ? 'Machine tools pane · ' + s.machineTool : railLabel + ' pane' }) }),
+      winMinimize: () => this.toast('Minimize', 'Window minimized to the taskbar'),
+      winMaximize: () => this.toast('Maximize', 'Window toggled between maximized and restored'),
+      winClose: () => this.toast('Close', 'Closing asks to save open work first'),
+
+      contextOpen: Boolean(s.context), contextX: s.context ? Math.min(s.context.x, window.innerWidth - 240) : 0,
+      contextY: s.context ? Math.min(s.context.y, window.innerHeight - 230) : 0,
+      closeContext: () => this.setState({ context: null }),
+      contextItems: s.context ? [
+        { label: 'Settings…', run: () => { window.location.href = 'VM Settings.dc.html'; } },
+        { label: 'Start', run: () => { this.updateMachine(s.context.machine, { state: 'Running' }); this.setState({ context: null }); this.toast('Starting', 'Machine session requested'); } },
+        { label: 'Take snapshot…', run: () => this.setState({ context: null, overlay: 'takeSnapshot', snapshotName: 'Snapshot ' + ((s.snapshots[s.context.machine] || []).length + 1) }) },
+        { label: 'Edit appearance…', run: () => this.setState({ context: null, overlay: 'appearance', appearance: Object.assign({}, s.appearance, { target: 'Chooser item · ' + s.context.machine }) }) },
+        { label: 'Remove…', run: () => this.setState({ context: null, overlay: 'gate', gate: { kind: 'removeMachine', keys: { left: false, right: false }, slide: 0 } }) }
+      ] : [],
+
+      overlayOpen: Boolean(s.overlay), overlayEyebrow: meta[0], overlayTitle: meta[1],
+      overlayBody: s.overlay ? bodies[s.overlay]() : null,
+      closeOverlay: () => this.setState({ overlay: null }),
+      toasts: s.toasts
+    };
+  }
+}
+</script>
+</body>
+</html>

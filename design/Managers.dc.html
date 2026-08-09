@@ -1,0 +1,805 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Roboto+Flex:opsz,wght@8..144,300..700&family=Roboto+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  html,body{margin:0;padding:0;background:#141218;color:#E6E0E9;font-family:"Roboto Flex","Segoe UI",system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+  *{box-sizing:border-box}
+  a{color:#D0BCFF;text-decoration:none}
+  a:hover{color:#EADDFF;text-decoration:underline}
+  button{font:inherit;color:inherit;border:0;background:none;cursor:pointer}
+  input,select,textarea{font:inherit;color:inherit}
+  input[type=range]{accent-color:#D0BCFF}
+  ::-webkit-scrollbar{width:10px;height:10px}
+  ::-webkit-scrollbar-thumb{background:#49454F;border-radius:8px}
+  @keyframes mvmIn{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:none}}
+</style>
+</helmet>
+
+<div style="height:100vh;display:flex;flex-direction:column;background:#141218;overflow:hidden;font-size:13px">
+
+  <div style="height:44px;flex:none;display:flex;align-items:center;gap:10px;padding:0 6px 0 12px;background:#1D1B20;border-bottom:1px solid #2B2930">
+    <div style="width:26px;height:26px;flex:none;display:grid;place-items:center;border-radius:8px;background:#D0BCFF;color:#381E72;font-weight:700;font-size:14px">{{ brandMark }}</div>
+    <div style="font-size:13px;font-weight:600;white-space:nowrap">{{ toolTitle }}</div>
+    <div style="flex:1;min-width:8px"></div>
+    <div style="flex:none;display:flex;gap:4px;font-size:11.5px">
+      <a href="Manager.dc.html" style="padding:5px 10px;border-radius:12px;background:#2B2930;color:#CAC4D0">Manager</a>
+      <a href="VM Settings.dc.html" style="padding:5px 10px;border-radius:12px;background:#2B2930;color:#CAC4D0">Settings</a>
+      <a href="Runtime Window.dc.html" style="padding:5px 10px;border-radius:12px;background:#2B2930;color:#CAC4D0">Runtime</a>
+      <a href="Wizards.dc.html" style="padding:5px 10px;border-radius:12px;background:#2B2930;color:#CAC4D0">Wizards</a>
+    </div>
+    <div style="flex:none;display:flex;gap:2px;margin-left:6px">
+      <button onClick="{{ winMinimize }}" style="width:38px;height:32px;border-radius:8px;color:#CAC4D0" style-hover="background:#2B2930">─</button>
+      <button onClick="{{ winMaximize }}" style="width:38px;height:32px;border-radius:8px;color:#CAC4D0" style-hover="background:#2B2930">▢</button>
+      <button onClick="{{ winClose }}" style="width:38px;height:32px;border-radius:8px;color:#CAC4D0" style-hover="background:#93000A;color:#FFDAD6">✕</button>
+    </div>
+  </div>
+
+  <div style="flex:none;display:flex;align-items:center;gap:6px;padding:12px 18px 8px;overflow-x:auto">
+    <sc-for list="{{ toolTabs }}" as="t" hint-placeholder-count="6">
+      <button onClick="{{ t.select }}" style="flex:none;height:34px;display:flex;align-items:center;gap:8px;padding:0 14px;border-radius:17px;background:{{ t.bg }};color:{{ t.fg }};font-size:12.5px;font-weight:600;white-space:nowrap" style-hover="filter:brightness(1.15)">
+        <span style="width:16px;height:16px;flex:none;background-image:{{ t.iconCss }};background-size:contain;background-repeat:no-repeat;background-position:center"></span><span>{{ t.label }}</span>
+      </button>
+    </sc-for>
+  </div>
+
+  <div style="flex:1;min-height:0;display:flex;gap:12px;padding:0 18px 12px;min-width:0">
+
+    <sc-if value="{{ showSubnav }}" hint-placeholder-val="{{ false }}">
+      <div style="width:196px;flex:none;min-width:0;display:flex;flex-direction:column;gap:2px;background:#1D1B20;border:1px solid #2B2930;border-radius:16px;padding:8px;overflow-y:auto">
+        <sc-for list="{{ subPages }}" as="p" hint-placeholder-count="7">
+          <button onClick="{{ p.select }}" style="display:flex;align-items:center;gap:10px;padding:9px 10px;border-radius:12px;background:{{ p.bg }};color:{{ p.fg }};text-align:left;min-width:0" style-hover="background:#2B2930">
+            <span style="width:17px;height:17px;flex:none;background-image:{{ p.iconCss }};background-size:contain;background-repeat:no-repeat;background-position:center"></span>
+            <span style="flex:1;min-width:0;font-size:12.5px;font-weight:600;overflow:hidden;text-overflow:ellipsis">{{ p.label }}</span>
+          </button>
+        </sc-for>
+      </div>
+    </sc-if>
+
+    <div style="flex:1;min-width:0;display:flex;flex-direction:column;background:#1D1B20;border:1px solid #2B2930;border-radius:16px;overflow:hidden">
+      <div style="flex:none;display:flex;align-items:center;gap:8px;padding:12px 14px;border-bottom:1px solid #2B2930;min-width:0">
+        <div style="flex:1;min-width:0;display:flex;align-items:center;gap:8px;height:36px;padding:0 12px;border-radius:18px;background:#2B2930">
+          <span style="color:#938F99">⌕</span>
+          <input value="{{ searchQuery }}" onInput="{{ setSearch }}" placeholder="{{ searchPlaceholder }}" style="flex:1;min-width:0;background:none;border:0;outline:none;font-size:12.5px" />
+          <span style="font-size:10px;font-family:'Roboto Mono',monospace;color:#D0BCFF;white-space:nowrap">{{ regexBadge }}</span>
+        </div>
+        <button onClick="{{ openRegex }}" title="Regex builder for this field" style="width:36px;height:36px;flex:none;border-radius:12px;background:#4F378B;color:#EADDFF;font-family:'Roboto Mono',monospace;font-weight:600" style-hover="filter:brightness(1.15)">.*</button>
+        <button onClick="{{ openAppearance }}" title="Edit appearance of this pane" style="width:36px;height:36px;flex:none;border-radius:12px;color:#CAC4D0" style-hover="background:#2B2930">✎</button>
+      </div>
+      <div style="flex:1;min-height:0;min-width:0;overflow-y:auto;overflow-x:hidden;padding:14px">{{ paneBody }}</div>
+    </div>
+  </div>
+
+  <div style="flex:none;display:flex;align-items:center;gap:10px;padding:0 18px 14px;min-width:0">
+    <div style="flex:1;min-width:0;font-size:11.5px;color:#938F99;overflow:hidden;text-overflow:ellipsis">{{ statusText }}</div>
+    <button onClick="{{ resetTool }}" style="flex:none;height:38px;padding:0 16px;border-radius:19px;color:#D0BCFF;font-size:12.5px;font-weight:600" style-hover="background:#2B2930">Reset</button>
+    <button onClick="{{ applyTool }}" style="flex:none;height:38px;padding:0 20px;border-radius:19px;background:#D0BCFF;color:#381E72;font-size:12.5px;font-weight:600" style-hover="filter:brightness(1.12)">{{ applyLabel }}</button>
+  </div>
+
+  <sc-if value="{{ overlayOpen }}" hint-placeholder-val="{{ false }}">
+    <div style="position:fixed;inset:0;z-index:40;display:grid;place-items:center;background:#00000099;backdrop-filter:blur(3px)">
+      <div style="width:min(660px,calc(100vw - 64px));max-height:calc(100vh - 90px);display:flex;flex-direction:column;background:#211F26;border:1px solid #36343B;border-radius:28px;box-shadow:0 24px 60px #000000aa;animation:mvmIn .2s cubic-bezier(.05,.7,.1,1);overflow:hidden">
+        <div style="flex:none;display:flex;align-items:flex-start;gap:12px;padding:22px 24px 12px">
+          <div style="flex:1;min-width:0">
+            <div style="font-size:10.5px;font-weight:700;letter-spacing:1.2px;text-transform:uppercase;color:#D0BCFF">{{ overlayEyebrow }}</div>
+            <div style="font-size:20px;font-weight:500;margin-top:3px">{{ overlayTitle }}</div>
+          </div>
+          <button onClick="{{ closeOverlay }}" style="width:34px;height:34px;flex:none;border-radius:17px;color:#CAC4D0" style-hover="background:#36343B">✕</button>
+        </div>
+        <div style="flex:1;min-height:0;overflow-y:auto;padding:0 24px 22px">{{ overlayBody }}</div>
+      </div>
+    </div>
+  </sc-if>
+
+  <div style="position:fixed;right:20px;bottom:20px;z-index:50;display:flex;flex-direction:column;gap:8px;width:330px">
+    <sc-for list="{{ toasts }}" as="t" hint-placeholder-count="0">
+      <div style="padding:12px 14px;border-radius:14px;background:#36343B;border-left:3px solid {{ t.accent }};box-shadow:0 8px 26px #000000aa;animation:mvmIn .2s ease">
+        <div style="font-size:12.5px;font-weight:600">{{ t.title }}</div>
+        <div style="font-size:11.5px;color:#CAC4D0;margin-top:2px">{{ t.detail }}</div>
+      </div>
+    </sc-for>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;brandMark&quot;:{&quot;editor&quot;:&quot;text&quot;,&quot;default&quot;:&quot;M&quot;,&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;Branding&quot;}}">
+const T = {
+  primary: '#D0BCFF', onPrimary: '#381E72', primaryContainer: '#4F378B', onPrimaryContainer: '#EADDFF',
+  secondaryContainer: '#4A4458', onSecondaryContainer: '#E8DEF8', surfaceHigh: '#2B2930', surfaceHighest: '#36343B',
+  onSurface: '#E6E0E9', onSurfaceVar: '#CAC4D0', outline: '#938F99', outlineVar: '#49454F', error: '#F2B8B5', ok: '#7ED9A6'
+};
+const I = (n) => 'icons/' + n;
+const h = React.createElement;
+
+const TOOLS = [
+  { id: 'media', label: 'Virtual Media Manager', icon: 'media_manager_24px.png' },
+  { id: 'network', label: 'Network Manager', icon: 'host_iface_manager_24px.png' },
+  { id: 'extensions', label: 'Extension Pack Manager', icon: 'extension_pack_manager_24px.png' },
+  { id: 'cloud', label: 'Cloud Profile Manager', icon: 'cloud_profile_manager_24px.png' },
+  { id: 'logs', label: 'Log Viewer', icon: 'vm_show_logs_24px.png' },
+  { id: 'activity', label: 'VM Activity Overview', icon: 'performance_monitor_24px.png' },
+  { id: 'prefs', label: 'Preferences', icon: 'tools_menu_24px.png' }
+];
+/* GlobalSettingsPageType_* from UIAdvancedSettingsDialogSpecific.cpp */
+const PREF_PAGES = [
+  { id: 'general', label: 'General', icon: 'machine_16px.png' },
+  { id: 'input', label: 'Input', icon: 'interface_16px.png' },
+  { id: 'shortcuts', label: 'Shortcuts', icon: 'interface_16px.png' },
+  { id: 'update', label: 'Update', icon: 'tools_menu_24px.png' },
+  { id: 'language', label: 'Language', icon: 'description_16px.png' },
+  { id: 'display', label: 'Display', icon: 'vrdp_16px.png' },
+  { id: 'proxy', label: 'Proxy', icon: 'nw_16px.png' },
+  { id: 'interface', label: 'Interface', icon: 'interface_16px.png' },
+  { id: 'appearance', label: 'Appearance', icon: 'vrdp_16px.png' },
+  { id: 'tabs', label: 'Tabs & Groups', icon: 'sf_16px.png' },
+  { id: 'search', label: 'Search & Regex', icon: 'description_16px.png' },
+  { id: 'notifications', label: 'Notifications', icon: 'tools_menu_24px.png' },
+  { id: 'history', label: 'History', icon: 'snapshot_manager_24px.png' },
+  { id: 'defaults', label: 'Machine Defaults', icon: 'chipset_16px.png' },
+  { id: 'storage', label: 'Storage', icon: 'hd_16px.png' },
+  { id: 'networkdef', label: 'Network Defaults', icon: 'nw_16px.png' },
+  { id: 'privacy', label: 'Privacy & Security', icon: 'usb_16px.png' },
+  { id: 'advanced', label: 'Advanced', icon: 'performance_monitor_24px.png' }
+];
+
+const PREF_KEYWORDS = {
+  general: 'default machine folder vrdp authentication library host screensaver',
+  input: 'host key combination auto capture keyboard shortcuts',
+  shortcuts: 'shortcuts keybindings rebind manager runtime conflicts',
+  update: 'check for updates period branch stable pre-release unsigned restart',
+  language: 'interface language english cantonese deutsch francais japanese translation',
+  display: 'maximum guest screen size hint width height font scaling',
+  proxy: 'proxy auto-detect direct connection manual url',
+  interface: 'language mode playful cantonese bilingual narrator window chrome title bar rail drawer tab strip status bar branding application name wordmark theme density seed named themes',
+  appearance: 'theme color density corner radius font family weight seed motion easing reduce elevation ripple per-element overrides named themes',
+  tabs: 'tab strip new tab minimum width restore tabs confirm bulk close pinned groups decoration collapse close tools inverse regex',
+  search: 'default match mode plain text regex flags timeout result limit builder highlight command palette shortcut grouping teleport stale saved searches',
+  notifications: 'toast duration position keep centre sound categories machine state snapshot storage media network extension packs updates destructive guest control',
+  history: 'revisions retention repository location record restore append-only compact export verify integrity',
+  defaults: 'new machine defaults base memory processors disk size graphics controller chipset pointing device efi audio optical unattended',
+  storage: 'disk images default format allocation dynamic fixed snapshot folder low disk warning host io cache solid-state delete disk files',
+  networkdef: 'new adapter defaults attached nat bridged host-only internal adapter type promiscuous host-only prefix cable mac clone',
+  privacy: 'destructive-action gate two keys slider type machine name scope snapshots extension packs secrets passwords redact paths telemetry',
+  advanced: 'experimental machine settings nested virtualization developer diagnostics logging level keep log files reset preferences'
+};
+
+class Component extends DCLogic {
+  state = {
+    tool: 'media', prefPage: 'general', searchQuery: '', prefSearch: {}, regexApplied: {}, overlay: null, toasts: [],
+    regexPattern: '', regexFlags: 'iu', regexSample: 'Win11-Dev.vdi',
+    appearance: { target: '', radius: 16, scale: 1, font: 'Roboto Flex', seed: '#6750A4' },
+    media: [
+      { id: 'm1', name: 'Win11-Dev.vdi', kind: 'Hard disk', virtual: '120 GB', actual: '41.2 GB', format: 'VDI', type: 'Normal', attached: 'Win11-Dev', encrypted: false },
+      { id: 'm2', name: 'Ubuntu-24.04.vdi', kind: 'Hard disk', virtual: '60 GB', actual: '18.9 GB', format: 'VDI', type: 'Normal', attached: 'Ubuntu-24.04', encrypted: false },
+      { id: 'm3', name: 'Debian-Build.vdi', kind: 'Hard disk', virtual: '240 GB', actual: '96.4 GB', format: 'VDI', type: 'Immutable', attached: 'Debian-Build', encrypted: true },
+      { id: 'm4', name: 'ubuntu-24.04.iso', kind: 'Optical disk', virtual: '5.7 GB', actual: '5.7 GB', format: 'ISO', type: 'Read-only', attached: '—', encrypted: false }
+    ],
+    selectedMedium: 'm1',
+    networks: [
+      { id: 'n1', name: 'vboxnet0', kind: 'Host-only', ipv4: '192.168.56.1', mask: '255.255.255.0', dhcp: true, dhcpFrom: '192.168.56.101', dhcpTo: '192.168.56.254' },
+      { id: 'n2', name: 'qa-net', kind: 'NAT Network', ipv4: '10.0.2.0/24', mask: '', dhcp: true, dhcpFrom: '10.0.2.10', dhcpTo: '10.0.2.200' },
+      { id: 'n3', name: 'buildnet', kind: 'Internal', ipv4: '', mask: '', dhcp: false, dhcpFrom: '', dhcpTo: '' }
+    ],
+    selectedNetwork: 'n1',
+    packs: [
+      { id: 'p1', name: 'Oracle VM VirtualBox Extension Pack', version: '7.2.0 r170000', usable: true, description: 'USB 2.0/3.0, VRDP, disk encryption, NVMe and PXE boot for Intel cards.' },
+      { id: 'p2', name: 'VNC', version: '7.2.0 r170000', usable: true, description: 'VNC remote display server as an alternative to VRDP.' }
+    ],
+    selectedPack: 'p1',
+    profiles: [{ id: 'c1', name: 'dev-tenancy', provider: 'Oracle Cloud Infrastructure', region: 'eu-frankfurt-1', machines: 3 }],
+    selectedProfile: 'c1',
+    logMachine: 'Win11-Dev', logQuery: '',
+    prefs: {
+      defaultFolder: 'C:\\Users\\you\\VirtualBox VMs', vrdpLibrary: 'VBoxAuth', hostScreensaver: false,
+      hostKey: 'Right Ctrl', autoCapture: true,
+      checkUpdates: true, updatePeriod: 'Once per week', updateBranch: 'Stable release versions',
+      language: 'English (built-in)', maxGuestSize: 'Automatic', maxWidth: 1920, maxHeight: 1200, fontScale: 100,
+      proxyMode: 'Auto-detect host proxy settings', proxyUrl: '',
+      colorTheme: 'Dark', accent: '#6750A4', density: 'Comfortable', notificationCenterKeep: true, appName: 'Material Virtual Machine', wordmark: 'M'
+    }
+  };
+
+  toast(title, detail, accent) {
+    const id = Math.random().toString(16).slice(2);
+    this.setState((s) => ({ toasts: [...s.toasts, { id, title, detail, accent: accent || T.primary }] }));
+    setTimeout(() => this.setState((s) => ({ toasts: s.toasts.filter((t) => t.id !== id) })), 3200);
+  }
+  setPref(patch) { this.setState((s) => ({ prefs: Object.assign({}, s.prefs, patch) })); }
+  match(text) {
+    const q = this.state.searchQuery;
+    if (!q) return true;
+    const applied = this.state.regexApplied[this.state.tool];
+    if (applied) { try { return new RegExp(applied.pattern, applied.flags).test(text); } catch (e) { return false; } }
+    return String(text).toLowerCase().includes(q.toLowerCase());
+  }
+
+  /* ---------- controls ---------- */
+  card(title, children) {
+    return h('div', { key: title, style: { background: T.surfaceHigh, borderRadius: 16, padding: '14px 16px', marginBottom: 10, minWidth: 0 } },
+      h('div', { style: { fontSize: 12.5, fontWeight: 700, color: T.primary, marginBottom: 12 } }, title), children);
+  }
+  grid(children, cols) { return h('div', { style: { display: 'grid', gridTemplateColumns: 'repeat(' + (cols || 2) + ',minmax(0,1fr))', gap: 12, minWidth: 0 } }, children); }
+  field(label, node, hint) {
+    return h('label', { key: label, style: { display: 'grid', gap: 5, minWidth: 0 } },
+      h('span', { style: { fontSize: 11.5, fontWeight: 700, color: T.outline } }, label), node,
+      hint ? h('span', { style: { fontSize: 10.5, color: T.outline } }, hint) : null);
+  }
+  text(value, onChange, props) {
+    return h('input', Object.assign({ value, onChange }, props || {}, { style: { width: '100%', height: 40, padding: '0 12px', borderRadius: 12, background: T.surfaceHighest, border: '1px solid ' + T.outlineVar, outline: 'none', fontSize: 12.5, color: T.onSurface } }));
+  }
+  combo(value, options, onChange) {
+    return h('select', { value, onChange, style: { width: '100%', height: 40, padding: '0 10px', borderRadius: 12, background: T.surfaceHighest, border: '1px solid ' + T.outlineVar, outline: 'none', fontSize: 12.5, color: T.onSurface } }, options.map((o) => h('option', { key: o, value: o }, o)));
+  }
+  check(label, checked, onChange, hint) {
+    return h('label', { key: label, style: { display: 'flex', alignItems: 'flex-start', gap: 9, padding: '7px 0', fontSize: 12.5, cursor: 'pointer' } },
+      h('input', { type: 'checkbox', checked, onChange, style: { width: 16, height: 16, marginTop: 1, accentColor: T.primary } }),
+      h('span', null, label, hint ? h('span', { style: { display: 'block', fontSize: 10.5, color: T.outline, marginTop: 2 } }, hint) : null));
+  }
+  btn(label, onClick, kind, disabled) {
+    const map = { filled: { background: T.primary, color: T.onPrimary }, tonal: { background: T.secondaryContainer, color: T.onSecondaryContainer }, text: { background: 'transparent', color: T.primary }, outlined: { background: 'transparent', color: T.onSurfaceVar, border: '1px solid ' + T.outlineVar } };
+    return h('button', { key: label, onClick: disabled ? undefined : onClick, disabled: Boolean(disabled), style: Object.assign({ height: 34, padding: '0 14px', borderRadius: 17, fontSize: 12, fontWeight: 600, whiteSpace: 'nowrap', opacity: disabled ? .45 : 1 }, map[kind || 'tonal']) }, label);
+  }
+  list(items, selectedId, onSelect, render) {
+    return h('div', { style: { display: 'grid', gap: 4, marginBottom: 10 } }, items.length ? items.map((it) => h('button', {
+      key: it.id, onClick: () => onSelect(it.id),
+      style: { display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px', borderRadius: 12, background: selectedId === it.id ? T.secondaryContainer : T.surfaceHigh, textAlign: 'left', minWidth: 0 }
+    }, render(it))) : [h('div', { key: 'e', style: { padding: 14, borderRadius: 12, background: T.surfaceHigh, color: T.outline, fontSize: 12.5 } }, 'Nothing matches this search.')]);
+  }
+
+  /* ---------- tool panes ---------- */
+  mediaPane() {
+    const s = this.state;
+    const rows = s.media.filter((m) => this.match(m.name + ' ' + m.kind + ' ' + m.attached + ' ' + m.type));
+    const sel = s.media.find((m) => m.id === s.selectedMedium);
+    const upd = (patch) => this.setState({ media: s.media.map((m) => m.id === sel.id ? Object.assign({}, m, patch) : m) });
+    return h('div', null,
+      h('div', { style: { display: 'flex', gap: 8, marginBottom: 12, flexWrap: 'wrap' } },
+        this.btn('Create…', () => { window.location.href = 'Wizards.dc.html'; }, 'filled'),
+        this.btn('Copy…', () => sel && this.setState({ media: [...s.media, Object.assign({}, sel, { id: 'm' + Date.now(), name: sel.name.replace(/(\.\w+)$/, '_copy$1'), attached: '—' })] }) && this.toast('Copied', sel.name), 'tonal', !sel),
+        this.btn('Move…', () => sel && this.toast('Moved', sel.name + ' relocated'), 'tonal', !sel),
+        this.btn('Release', () => { if (!sel) return; upd({ attached: '—' }); this.toast('Released', sel.name + ' detached from its machine'); }, 'outlined', !sel),
+        this.btn('Remove', () => { if (!sel) return; this.setState({ media: s.media.filter((m) => m.id !== sel.id), selectedMedium: '' }); this.toast('Removed', sel.name, T.error); }, 'outlined', !sel),
+        this.btn('Refresh', () => this.toast('Refreshed', 'Media inventory reloaded'), 'text')),
+      this.list(rows, s.selectedMedium, (id) => this.setState({ selectedMedium: id }), (it) => [
+        h('img', { key: 'i', src: I('hd_16px.png'), alt: '', style: { width: 16, height: 16 } }),
+        h('span', { key: 'n', style: { flex: 1, minWidth: 0 } },
+          h('b', { style: { fontSize: 12.5 } }, it.name),
+          h('small', { style: { display: 'block', fontSize: 11, color: T.outline } }, it.kind + ' · ' + it.type + ' · attached to ' + it.attached)),
+        h('span', { key: 's', style: { fontSize: 11, color: T.outline, whiteSpace: 'nowrap' } }, it.actual + ' / ' + it.virtual)
+      ]),
+      sel ? this.card('Attributes · ' + sel.name, h('div', null,
+        this.grid([
+          this.field('Type', this.combo(sel.type, ['Normal', 'Immutable', 'Writethrough', 'Shareable', 'Multi-attach', 'Read-only'], (e) => upd({ type: e.target.value }))),
+          this.field('Format', this.combo(sel.format, ['VDI', 'VMDK', 'VHD', 'ISO'], (e) => upd({ format: e.target.value }))),
+          this.field('Location', this.text('C:\\Users\\you\\VirtualBox VMs\\' + sel.name, () => {}, { readOnly: true })),
+          this.field('Description', this.text(sel.description || '', (e) => upd({ description: e.target.value }), { placeholder: 'Optional' }))
+        ]),
+        h('div', { style: { marginTop: 8 } }, this.check('Encrypted with AES-XTS256', sel.encrypted, (e) => upd({ encrypted: e.target.checked }))))) : null);
+  }
+
+  networkPane() {
+    const s = this.state;
+    const rows = s.networks.filter((n) => this.match(n.name + ' ' + n.kind + ' ' + n.ipv4));
+    const sel = s.networks.find((n) => n.id === s.selectedNetwork);
+    const upd = (patch) => this.setState({ networks: s.networks.map((n) => n.id === sel.id ? Object.assign({}, n, patch) : n) });
+    return h('div', null,
+      h('div', { style: { display: 'flex', gap: 8, marginBottom: 12, flexWrap: 'wrap' } },
+        this.btn('Create', () => { const id = 'n' + Date.now(); this.setState({ networks: [...s.networks, { id, name: 'vboxnet' + s.networks.length, kind: 'Host-only', ipv4: '192.168.5' + s.networks.length + '.1', mask: '255.255.255.0', dhcp: true, dhcpFrom: '', dhcpTo: '' }], selectedNetwork: id }); this.toast('Network created', 'A new host-only network was added'); }, 'filled'),
+        this.btn('Remove', () => { if (!sel) return; this.setState({ networks: s.networks.filter((n) => n.id !== sel.id), selectedNetwork: '' }); this.toast('Removed', sel.name, T.error); }, 'outlined', !sel),
+        this.btn('Refresh', () => this.toast('Refreshed', 'Host network inventory reloaded'), 'text')),
+      this.list(rows, s.selectedNetwork, (id) => this.setState({ selectedNetwork: id }), (it) => [
+        h('img', { key: 'i', src: I('nw_16px.png'), alt: '', style: { width: 16, height: 16 } }),
+        h('span', { key: 'n', style: { flex: 1, minWidth: 0 } },
+          h('b', { style: { fontSize: 12.5 } }, it.name),
+          h('small', { style: { display: 'block', fontSize: 11, color: T.outline } }, it.kind + (it.ipv4 ? ' · ' + it.ipv4 : ''))),
+        h('span', { key: 'd', style: { fontSize: 11, color: it.dhcp ? T.primary : T.outline } }, it.dhcp ? 'DHCP' : 'no DHCP')
+      ]),
+      sel ? this.card('Adapter · ' + sel.name, h('div', null,
+        this.grid([
+          this.field('Name', this.text(sel.name, (e) => upd({ name: e.target.value }))),
+          this.field('Type', this.combo(sel.kind, ['Host-only', 'NAT Network', 'Internal', 'Cloud Network'], (e) => upd({ kind: e.target.value }))),
+          this.field('IPv4 Address', this.text(sel.ipv4, (e) => upd({ ipv4: e.target.value }))),
+          this.field('IPv4 Network Mask', this.text(sel.mask, (e) => upd({ mask: e.target.value })))
+        ]),
+        h('div', { style: { marginTop: 8 } }, this.check('Enable DHCP Server', sel.dhcp, (e) => upd({ dhcp: e.target.checked }))),
+        sel.dhcp ? this.grid([
+          this.field('Lower Address Bound', this.text(sel.dhcpFrom, (e) => upd({ dhcpFrom: e.target.value }))),
+          this.field('Upper Address Bound', this.text(sel.dhcpTo, (e) => upd({ dhcpTo: e.target.value })))
+        ]) : null)) : null);
+  }
+
+  extensionsPane() {
+    const s = this.state;
+    const rows = s.packs.filter((p) => this.match(p.name + ' ' + p.version));
+    const sel = s.packs.find((p) => p.id === s.selectedPack);
+    return h('div', null,
+      h('div', { style: { display: 'flex', gap: 8, marginBottom: 12 } },
+        this.btn('Install…', () => this.toast('Install', 'Choose a .vbox-extpack file to install'), 'filled'),
+        this.btn('Uninstall…', () => { if (!sel) return; this.setState({ overlay: 'confirmUninstall' }); }, 'outlined', !sel)),
+      this.list(rows, s.selectedPack, (id) => this.setState({ selectedPack: id }), (it) => [
+        h('img', { key: 'i', src: I('extension_pack_manager_24px.png'), alt: '', style: { width: 18, height: 18 } }),
+        h('span', { key: 'n', style: { flex: 1, minWidth: 0 } },
+          h('b', { style: { fontSize: 12.5 } }, it.name),
+          h('small', { style: { display: 'block', fontSize: 11, color: T.outline } }, it.version)),
+        h('span', { key: 'u', style: { fontSize: 11, color: it.usable ? T.ok : T.error } }, it.usable ? 'usable' : 'unusable')
+      ]),
+      sel ? this.card('Description', h('div', { style: { fontSize: 12.5, color: T.onSurfaceVar, lineHeight: 1.6 } }, sel.description)) : null);
+  }
+
+  cloudPane() {
+    const s = this.state;
+    const rows = s.profiles.filter((p) => this.match(p.name + ' ' + p.provider + ' ' + p.region));
+    const sel = s.profiles.find((p) => p.id === s.selectedProfile);
+    const upd = (patch) => this.setState({ profiles: s.profiles.map((p) => p.id === sel.id ? Object.assign({}, p, patch) : p) });
+    return h('div', null,
+      h('div', { style: { display: 'flex', gap: 8, marginBottom: 12, flexWrap: 'wrap' } },
+        this.btn('Add profile', () => { const id = 'c' + Date.now(); this.setState({ profiles: [...s.profiles, { id, name: 'new-profile', provider: 'Oracle Cloud Infrastructure', region: 'us-ashburn-1', machines: 0 }], selectedProfile: id }); }, 'filled'),
+        this.btn('Import profiles', () => this.toast('Imported', 'External profiles reloaded from the config file'), 'tonal'),
+        this.btn('Remove', () => { if (!sel) return; this.setState({ profiles: s.profiles.filter((p) => p.id !== sel.id) }); this.toast('Removed', sel.name, T.error); }, 'outlined', !sel),
+        this.btn('Try page', () => this.toast('Cloud console', 'Opens the provider console in the browser'), 'text')),
+      this.list(rows, s.selectedProfile, (id) => this.setState({ selectedProfile: id }), (it) => [
+        h('img', { key: 'i', src: I('cloud_profile_manager_24px.png'), alt: '', style: { width: 18, height: 18 } }),
+        h('span', { key: 'n', style: { flex: 1, minWidth: 0 } },
+          h('b', { style: { fontSize: 12.5 } }, it.name),
+          h('small', { style: { display: 'block', fontSize: 11, color: T.outline } }, it.provider + ' · ' + it.region)),
+        h('span', { key: 'm', style: { fontSize: 11, color: T.outline } }, it.machines + ' machines')
+      ]),
+      sel ? this.card('Properties · ' + sel.name, h('div', null,
+        this.grid([
+          this.field('Name', this.text(sel.name, (e) => upd({ name: e.target.value }))),
+          this.field('Region', this.combo(sel.region, ['eu-frankfurt-1', 'us-ashburn-1', 'ap-tokyo-1'], (e) => upd({ region: e.target.value })))
+        ]),
+        h('div', { style: { marginTop: 10, fontSize: 11.5, color: T.outline } }, 'Keys and fingerprints stay in the local profile file; this surface never displays a credential value.'))) : null);
+  }
+
+  logsPane() {
+    const s = this.state;
+    const lines = ['00:00:01.204 VirtualBox VM 7.2.0 r170000 win.amd64 release log', '00:00:01.312 Host RAM: 65217MB total, 49128MB available', "00:00:01.512 Guest OS type: 'Windows 11 (64-bit)'", '00:00:02.310 PGM: Host paging mode: AMD64 with NX', '00:00:03.118 GUI: Machine session state changed to Running', '00:00:04.507 NAT: Network attachment NAT']
+      .filter((l) => this.match(l));
+    return h('div', null,
+      h('div', { style: { display: 'flex', gap: 8, marginBottom: 12, flexWrap: 'wrap' } },
+        h('div', { style: { minWidth: 200 } }, this.combo(s.logMachine, ['Win11-Dev', 'Ubuntu-24.04', 'Debian-Build', 'Win10-QA', 'OL9-Server'], (e) => this.setState({ logMachine: e.target.value }))),
+        this.btn('Save…', () => this.toast('Saved', s.logMachine + ' VBox.log written'), 'tonal'),
+        this.btn('Refresh', () => this.toast('Refreshed', s.logMachine + ' log reloaded'), 'outlined'),
+        this.btn('Bookmarks', () => this.toast('Bookmarks', 'No bookmarks in this log yet'), 'text')),
+      h('pre', { style: { margin: 0, padding: 14, borderRadius: 14, background: '#0F0D13', border: '1px solid ' + T.outlineVar, fontFamily: 'Roboto Mono, monospace', fontSize: 11.5, lineHeight: 1.75, color: '#C9C3D2', whiteSpace: 'pre-wrap' } }, lines.join('\n') || 'No line matches this search.'),
+      h('div', { style: { marginTop: 8, fontSize: 11.5, color: T.outline } }, lines.length + ' matching line(s) in ' + s.logMachine + ' · VBox.log'));
+  }
+
+  activityPane() {
+    const rows = [['Win11-Dev', 'Running', '21%', '5079 MB', '2.2 MB/s', '78 KB/s'], ['Win10-QA', 'Paused', '3%', '5079 MB', '0.0 MB/s', '0 KB/s'], ['OL9-Server', 'Running', '38%', '7618 MB', '4.1 MB/s', '212 KB/s']]
+      .filter((r) => this.match(r.join(' ')));
+    const cols = ['Machine', 'State', 'CPU guest', 'RAM used', 'Disk I/O', 'Net rate'];
+    return h('div', null,
+      h('div', { style: { display: 'grid', gridTemplateColumns: 'repeat(6,minmax(0,1fr))', gap: 1, background: T.outlineVar, borderRadius: 14, overflow: 'hidden', fontSize: 12 } },
+        cols.map((c) => h('div', { key: c, style: { background: T.surfaceHighest, padding: '10px 12px', fontWeight: 700, color: T.onSurfaceVar } }, c)),
+        rows.length ? rows.flatMap((r, i) => r.map((cell, j) => h('div', { key: i + '-' + j, style: { background: T.surfaceHigh, padding: '10px 12px' } }, cell))) :
+          [h('div', { key: 'e', style: { gridColumn: '1/-1', background: T.surfaceHigh, padding: 14, color: T.outline } }, 'No machine matches this search.')]),
+      h('div', { style: { marginTop: 10, fontSize: 11.5, color: T.outline } }, 'Host: 16 CPUs · 63.7 GB RAM · 41% used'));
+  }
+
+  prefQuery(page) { return (this.state.prefSearch || {})[page || this.state.prefPage] || ''; }
+  setPrefQuery(page, value) { this.setState((s) => ({ prefSearch: Object.assign({}, s.prefSearch, { [page]: value }) })); }
+  prefSearchRow(placeholder, key) {
+    const page = key || this.state.prefPage;
+    const v = this.prefQuery(page);
+    return h('div', { style: { display: 'flex', gap: 6, marginBottom: 12, minWidth: 0 } },
+      h('div', { style: { flex: 1, minWidth: 0, display: 'flex', alignItems: 'center', gap: 8, height: 36, padding: '0 12px', borderRadius: 18, background: T.surfaceHigh } },
+        h('span', { style: { color: T.outline } }, '⌕'),
+        h('input', { value: v, onChange: (e) => this.setPrefQuery(page, e.target.value), placeholder, style: { flex: 1, minWidth: 0, background: 'none', border: 0, outline: 'none', fontSize: 12.5, color: T.onSurface } }),
+        v ? h('button', { onClick: () => this.setPrefQuery(page, ''), style: { color: T.outline, fontSize: 12 } }, '✕') : null),
+      h('button', { onClick: () => this.setState({ overlay: 'regex' }), title: 'Regex builder for this field', style: { width: 36, height: 36, flex: 'none', borderRadius: 12, background: T.primaryContainer, color: T.onPrimaryContainer, fontFamily: 'Roboto Mono, monospace', fontWeight: 600 } }, '.*'));
+  }
+  prefFilter(children) {
+    const raw = this.prefQuery();
+    const q = raw.toLowerCase();
+    const list = (children || []).filter(Boolean);
+    if (!q) return list;
+    const keep = list.filter((c) => c && c.key && String(c.key).toLowerCase().includes(q));
+    return keep.length ? keep : [h('div', { key: 'none', style: { padding: 14, borderRadius: 12, background: T.surfaceHigh, color: T.outline, fontSize: 12.5 } },
+      'No section on this page matches “' + raw + '”.',
+      h('button', { onClick: () => this.setPrefQuery(this.state.prefPage, ''), style: { marginLeft: 8, color: T.primary, fontWeight: 600 } }, 'Clear search'))];
+  }
+
+  visiblePrefPages() {
+    if (this.state.tool !== 'prefs') return PREF_PAGES;
+    return PREF_PAGES.filter((p) => this.match(p.label + ' ' + (PREF_KEYWORDS[p.id] || '')));
+  }
+  prefsPane() {
+    const p = this.state.prefs;
+    const visible = this.visiblePrefPages();
+    if (!visible.length)
+      return h('div', { style: { padding: 16, borderRadius: 14, background: T.surfaceHigh, color: T.onSurfaceVar, fontSize: 12.5 } },
+        'No preference page matches “' + this.state.searchQuery + '”.',
+        h('button', { onClick: () => this.setState({ searchQuery: '' }), style: { marginLeft: 8, color: T.primary, fontWeight: 600 } }, 'Clear search'));
+    const page = visible.some((x) => x.id === this.state.prefPage) ? this.state.prefPage : visible[0].id;
+    const wrap = (placeholder, cards) => h('div', null, this.prefSearchRow(placeholder, page), this.prefFilter(cards));
+
+    if (page === 'shortcuts') return wrap('Search shortcuts by action or key', [
+      this.card('Manager shortcuts', h('div', { style: { display: 'grid', gap: 4 } },
+        [['New machine', 'Ctrl+N'], ['Add machine', 'Ctrl+A'], ['Machine settings', 'Ctrl+S'], ['Start machine', 'Ctrl+T'], ['Remove machine', 'Ctrl+R'], ['Refresh evidence', 'F5'], ['Command palette', 'Ctrl+Shift+F'], ['Tab manager', 'Ctrl+Shift+T'], ['Close tab', 'Ctrl+W'], ['Notification centre', 'Ctrl+Shift+N'], ['Local history', 'Ctrl+H'], ['Export view', 'Ctrl+E']].map(([a, k]) =>
+          h('div', { key: a, style: { display: 'flex', alignItems: 'center', gap: 10, padding: '9px 11px', borderRadius: 11, background: T.surfaceHighest } },
+            h('span', { style: { flex: 1, fontSize: 12.5 } }, a),
+            h('button', { onClick: () => this.toast('Rebind', 'Press the new combination for “' + a + '”'), style: { fontFamily: 'Roboto Mono, monospace', fontSize: 11, color: T.primary } }, k))))),
+      this.card('Runtime shortcuts', h('div', { style: { display: 'grid', gap: 4 } },
+        [['Take snapshot', 'Host+T'], ['Full-screen mode', 'Host+F'], ['Seamless mode', 'Host+L'], ['Scaled mode', 'Host+C'], ['Adjust window size', 'Host+A'], ['Insert Ctrl+Alt+Del', 'Host+Del'], ['Screenshot', 'Host+E'], ['Pause', 'Host+P'], ['Reset', 'Host+R'], ['ACPI shutdown', 'Host+H'], ['Close VM', 'Host+Q']].map(([a, k]) =>
+          h('div', { key: a, style: { display: 'flex', alignItems: 'center', gap: 10, padding: '9px 11px', borderRadius: 11, background: T.surfaceHighest } },
+            h('span', { style: { flex: 1, fontSize: 12.5 } }, a),
+            h('button', { onClick: () => this.toast('Rebind', 'Press the new combination for “' + a + '”'), style: { fontFamily: 'Roboto Mono, monospace', fontSize: 11, color: T.primary } }, k))))),
+      this.card('Conflicts', h('div', { style: { fontSize: 12.5, color: T.onSurfaceVar } }, 'No duplicate assignment detected. A conflicting bind is rejected at the moment it is pressed.'))
+    ]);
+
+    if (page === 'appearance') return wrap('Search appearance settings', [
+      this.card('Theme', h('div', null,
+        this.grid([
+          this.field('Color theme', this.combo(p.colorTheme, ['Dark', 'Light', 'Follow System', 'High contrast dark', 'High contrast light'], (e) => this.setPref({ colorTheme: e.target.value }))),
+          this.field('Density', this.combo(p.density, ['Comfortable', 'Compact'], (e) => this.setPref({ density: e.target.value }))),
+          this.field('Corner radius · ' + (p.radius || 16) + 'px', h('input', { type: 'range', min: 4, max: 32, value: p.radius || 16, onChange: (e) => this.setPref({ radius: Number(e.target.value) }), style: { width: '100%' } })),
+          this.field('Font family', this.combo(p.fontFamily || 'Roboto Flex', ['Roboto Flex', 'Segoe UI', 'Consolas', 'Cascadia Code', 'Noto Sans'], (e) => this.setPref({ fontFamily: e.target.value }))),
+          this.field('Font weight · ' + (p.fontWeight || 400), h('input', { type: 'range', min: 300, max: 700, step: 100, value: p.fontWeight || 400, onChange: (e) => this.setPref({ fontWeight: Number(e.target.value) }), style: { width: '100%' } })),
+          this.field('Seed color', h('div', { style: { display: 'flex', gap: 6 } }, ['#6750A4', '#0F4C8C', '#2F6B4F', '#8A5024', '#7D5260'].map((c) => h('button', { key: c, onClick: () => this.setPref({ accent: c }), style: { flex: 1, height: 40, borderRadius: 12, background: c, border: '2px solid ' + (p.accent === c ? T.primary : T.outlineVar) } }))))
+        ]))),
+      this.card('Motion and effects', h('div', null,
+        this.check('Emphasized easing on view transitions', p.motion !== false, (e) => this.setPref({ motion: e.target.checked })),
+        this.check('Reduce motion', Boolean(p.reduceMotion), (e) => this.setPref({ reduceMotion: e.target.checked }), 'Overrides every transition with an instant change.'),
+        this.check('Elevation shadows on cards and dialogs', p.elevation !== false, (e) => this.setPref({ elevation: e.target.checked })),
+        this.check('Ripple state layers on press', p.ripple !== false, (e) => this.setPref({ ripple: e.target.checked })))),
+      this.card('Per-element overrides', h('div', null,
+        h('div', { style: { fontSize: 12.5, color: T.onSurfaceVar, marginBottom: 10 } }, 'Shift+right-click any element to edit it directly. Overrides are stored per element key in extradata.'),
+        h('div', { style: { display: 'flex', gap: 8, flexWrap: 'wrap' } },
+          this.btn('Review overrides', () => this.toast('Overrides', '3 element overrides are stored'), 'tonal'),
+          this.btn('Clear all overrides', () => this.toast('Cleared', 'Every element returns to the inherited theme', T.error), 'outlined')))),
+      this.card('Named themes', h('div', { style: { display: 'flex', gap: 8, flexWrap: 'wrap' } },
+        this.btn('Save current as theme…', () => this.toast('Theme saved', 'Available to every appearance editor'), 'tonal'),
+        this.btn('Export themes', () => this.toast('Exported', 'themes.json written'), 'outlined'),
+        this.btn('Import themes', () => this.toast('Imported', 'Named themes merged'), 'outlined')))
+    ]);
+
+    if (page === 'tabs') return wrap('Search tab and group settings', [
+      this.card('Tab strip', h('div', null,
+        this.grid([
+          this.field('New tab opens', this.combo(p.newTabTarget || 'Command palette', ['Command palette', 'Home', 'Machines', 'Last used tool'], (e) => this.setPref({ newTabTarget: e.target.value }))),
+          this.field('Minimum tab width', this.combo(String(p.tabMinWidth || 120), ['90', '120', '160', '200'], (e) => this.setPref({ tabMinWidth: Number(e.target.value) })))
+        ]),
+        h('div', { style: { marginTop: 8 } },
+          this.check('Restore tabs and groups on launch', p.restoreTabs !== false, (e) => this.setPref({ restoreTabs: e.target.checked })),
+          this.check('Confirm before closing more than one tab', p.confirmBulkClose !== false, (e) => this.setPref({ confirmBulkClose: e.target.checked })),
+          this.check('Protect pinned tabs from bulk close', p.protectPinned !== false, (e) => this.setPref({ protectPinned: e.target.checked }))))),
+      this.card('Groups', h('div', null,
+        this.grid([
+          this.field('Default group name', this.text(p.defaultGroup || 'Workspace', (e) => this.setPref({ defaultGroup: e.target.value }))),
+          this.field('Group decoration', this.combo(p.groupDecoration || 'Color chip', ['Color chip', 'Underline', 'Filled header', 'None'], (e) => this.setPref({ groupDecoration: e.target.value })))
+        ]),
+        h('div', { style: { marginTop: 8 } },
+          this.check('Collapse groups automatically when inactive', Boolean(p.autoCollapse), (e) => this.setPref({ autoCollapse: e.target.checked })),
+          this.check('Shift+right-click opens the group appearance editor', p.groupShiftRight !== false, (e) => this.setPref({ groupShiftRight: e.target.checked }))))),
+      this.card('Close tools', h('div', null,
+        this.check('Always preview the match set before closing', p.previewBeforeClose !== false, (e) => this.setPref({ previewBeforeClose: e.target.checked })),
+        this.check('Allow the inverse “close tabs NOT containing” tool', p.allowInverseClose !== false, (e) => this.setPref({ allowInverseClose: e.target.checked })),
+        this.check('Offer regex as an opt-in mode on close queries', p.closeRegex !== false, (e) => this.setPref({ closeRegex: e.target.checked }))))
+    ]);
+
+    if (page === 'search') return wrap('Search the search settings', [
+      this.card('Default behaviour', h('div', null,
+        this.grid([
+          this.field('Default match mode', this.combo(p.searchMode || 'Plain text', ['Plain text', 'Regex', 'Remember per field'], (e) => this.setPref({ searchMode: e.target.value }))),
+          this.field('Default regex flags', this.text(p.regexFlags || 'iu', (e) => this.setPref({ regexFlags: e.target.value }))),
+          this.field('Match timeout', this.combo(String(p.regexTimeout || 300) + ' ms', ['100 ms', '300 ms', '1000 ms'], (e) => this.setPref({ regexTimeout: parseInt(e.target.value, 10) }))),
+          this.field('Result limit', this.combo(String(p.searchLimit || 500), ['100', '500', '2000', 'Unlimited'], (e) => this.setPref({ searchLimit: e.target.value })))
+        ]),
+        h('div', { style: { marginTop: 8 } },
+          this.check('Show the regex builder button on every search field', p.builderEverywhere !== false, (e) => this.setPref({ builderEverywhere: e.target.checked })),
+          this.check('Highlight matches inside results', p.highlightMatches !== false, (e) => this.setPref({ highlightMatches: e.target.checked })),
+          this.check('Keep the last pattern per field', p.rememberPatterns !== false, (e) => this.setPref({ rememberPatterns: e.target.checked }))))),
+      this.card('Command palette', h('div', null,
+        this.grid([
+          this.field('Palette shortcut', this.text(p.paletteShortcut || 'Ctrl+Shift+F', (e) => this.setPref({ paletteShortcut: e.target.value }))),
+          this.field('Result grouping', this.combo(p.paletteGrouping || 'By source', ['By source', 'Flat', 'Recently used first'], (e) => this.setPref({ paletteGrouping: e.target.value })))
+        ]),
+        h('div', { style: { marginTop: 8 } },
+          this.check('Include live setting controls in results', p.paletteControls !== false, (e) => this.setPref({ paletteControls: e.target.checked })),
+          this.check('Teleport to and flash the matched element', p.paletteTeleport !== false, (e) => this.setPref({ paletteTeleport: e.target.checked })),
+          this.check('Warn when results are stale', p.paletteStale !== false, (e) => this.setPref({ paletteStale: e.target.checked }))))),
+      this.card('Saved searches', h('div', { style: { display: 'grid', gap: 4 } },
+        ['Running machines', 'Disks over 100 GB', 'Failed CI logs'].map((sname) => h('div', { key: sname, style: { display: 'flex', alignItems: 'center', gap: 10, padding: '9px 11px', borderRadius: 11, background: T.surfaceHighest } },
+          h('span', { style: { flex: 1, fontSize: 12.5 } }, sname),
+          h('button', { onClick: () => this.toast('Applied', sname), style: { fontSize: 11.5, color: T.primary, fontWeight: 600 } }, 'Apply'),
+          h('button', { onClick: () => this.toast('Deleted', sname, T.error), style: { fontSize: 11.5, color: T.outline } }, 'Delete')))))
+    ]);
+
+    if (page === 'notifications') return wrap('Search notification settings', [
+      this.card('Delivery', h('div', null,
+        this.grid([
+          this.field('Toast duration', this.combo(String(p.toastMs || 3500) + ' ms', ['2000 ms', '3500 ms', '6000 ms', 'Until dismissed'], (e) => this.setPref({ toastMs: parseInt(e.target.value, 10) || 0 }))),
+          this.field('Toast position', this.combo(p.toastPos || 'Bottom right', ['Bottom right', 'Bottom left', 'Top right', 'Top left'], (e) => this.setPref({ toastPos: e.target.value }))),
+          this.field('Keep in centre', this.combo(String(p.keepCount || 200) + ' entries', ['50 entries', '200 entries', '1000 entries'], (e) => this.setPref({ keepCount: parseInt(e.target.value, 10) })))
+        ]),
+        h('div', { style: { marginTop: 8 } },
+          this.check('Keep notifications in the centre after dismissal', p.notificationCenterKeep, (e) => this.setPref({ notificationCenterKeep: e.target.checked })),
+          this.check('Play a sound for failures', Boolean(p.notifySound), (e) => this.setPref({ notifySound: e.target.checked }))))),
+      this.card('Categories', h('div', null,
+        [['Machine state changes', 'notifyState'], ['Snapshot operations', 'notifySnapshot'], ['Storage and media', 'notifyMedia'], ['Network changes', 'notifyNetwork'], ['Extension packs', 'notifyPacks'], ['Updates', 'notifyUpdates'], ['Destructive actions', 'notifyDestructive'], ['Guest control transfers', 'notifyGuest']]
+          .map(([label, key]) => this.check(label, p[key] !== false, (e) => this.setPref({ [key]: e.target.checked })))))
+    ]);
+
+    if (page === 'history') return wrap('Search history settings', [
+      this.card('Local revisions', h('div', null,
+        this.grid([
+          this.field('Keep revisions for', this.combo(p.historyRetention || '90 days', ['30 days', '90 days', '1 year', 'Forever'], (e) => this.setPref({ historyRetention: e.target.value }))),
+          this.field('Repository location', this.text(p.historyPath || 'C:\\Users\\you\\AppData\\Roaming\\MVM\\history', (e) => this.setPref({ historyPath: e.target.value })))
+        ]),
+        h('div', { style: { marginTop: 8 } },
+          this.check('Record every state-changing action', p.historyRecordAll !== false, (e) => this.setPref({ historyRecordAll: e.target.checked })),
+          this.check('Restore always creates a new revision', true, () => this.toast('Required', 'Append-only history cannot be disabled', T.error), 'This guarantee is not optional.'),
+          this.check('Include settings dialogs in history', p.historySettings !== false, (e) => this.setPref({ historySettings: e.target.checked }))))),
+      this.card('Maintenance', h('div', { style: { display: 'flex', gap: 8, flexWrap: 'wrap' } },
+        this.btn('Compact repository', () => this.toast('Compacted', 'History repository packed'), 'tonal'),
+        this.btn('Export history', () => this.toast('Exported', 'history.jsonl written'), 'outlined'),
+        this.btn('Verify integrity', () => this.toast('Verified', 'Every revision hash matches'), 'outlined')))
+    ]);
+
+    if (page === 'defaults') return wrap('Search machine defaults', [
+      this.card('New machine defaults', this.grid([
+        this.field('Base memory', this.combo(String(p.defMemory || 4096) + ' MB', ['1024 MB', '2048 MB', '4096 MB', '8192 MB'], (e) => this.setPref({ defMemory: parseInt(e.target.value, 10) }))),
+        this.field('Processors', this.combo(String(p.defCpus || 2), ['1', '2', '4', '8'], (e) => this.setPref({ defCpus: Number(e.target.value) }))),
+        this.field('Disk size', this.combo(String(p.defDisk || 50) + ' GB', ['20 GB', '50 GB', '100 GB', '250 GB'], (e) => this.setPref({ defDisk: parseInt(e.target.value, 10) }))),
+        this.field('Graphics controller', this.combo(p.defGfx || 'VBoxSVGA', ['VBoxVGA', 'VMSVGA', 'VBoxSVGA'], (e) => this.setPref({ defGfx: e.target.value }))),
+        this.field('Chipset', this.combo(p.defChipset || 'ICH9', ['PIIX3', 'ICH9'], (e) => this.setPref({ defChipset: e.target.value }))),
+        this.field('Pointing device', this.combo(p.defPointing || 'USB Tablet', ['PS/2 Mouse', 'USB Tablet', 'USB Multi-Touch Tablet'], (e) => this.setPref({ defPointing: e.target.value })))
+      ])),
+      this.card('Defaults toggles', h('div', null,
+        this.check('Enable EFI for new machines', Boolean(p.defEfi), (e) => this.setPref({ defEfi: e.target.checked })),
+        this.check('Enable audio for new machines', p.defAudio !== false, (e) => this.setPref({ defAudio: e.target.checked })),
+        this.check('Attach an optical drive by default', p.defOptical !== false, (e) => this.setPref({ defOptical: e.target.checked })),
+        this.check('Skip unattended installation by default', p.defSkipUnattended !== false, (e) => this.setPref({ defSkipUnattended: e.target.checked }))))
+    ]);
+
+    if (page === 'storage') return wrap('Search storage settings', [
+      this.card('Disk images', this.grid([
+        this.field('Default disk format', this.combo(p.diskFormat || 'VDI', ['VDI', 'VMDK', 'VHD'], (e) => this.setPref({ diskFormat: e.target.value }))),
+        this.field('Allocation', this.combo(p.diskAlloc || 'Dynamically allocated', ['Dynamically allocated', 'Fixed size'], (e) => this.setPref({ diskAlloc: e.target.value }))),
+        this.field('Snapshot folder', this.text(p.snapshotRoot || 'C:\\Users\\you\\VirtualBox VMs\\<machine>\\Snapshots', (e) => this.setPref({ snapshotRoot: e.target.value }))),
+        this.field('Low disk warning at', this.combo(String(p.diskWarn || 10) + '%', ['5%', '10%', '20%'], (e) => this.setPref({ diskWarn: parseInt(e.target.value, 10) })))
+      ])),
+      this.card('Behaviour', h('div', null,
+        this.check('Use host I/O cache on new controllers', p.hostIoCache !== false, (e) => this.setPref({ hostIoCache: e.target.checked })),
+        this.check('Mark new disks as solid-state', Boolean(p.ssdDefault), (e) => this.setPref({ ssdDefault: e.target.checked })),
+        this.check('Ask before deleting disk files with a machine', p.askDeleteDisks !== false, (e) => this.setPref({ askDeleteDisks: e.target.checked }))))
+    ]);
+
+    if (page === 'networkdef') return wrap('Search network defaults', [
+      this.card('New adapter defaults', this.grid([
+        this.field('Attached to', this.combo(p.netDefault || 'NAT', ['NAT', 'NAT Network', 'Bridged Adapter', 'Host-only Adapter', 'Internal Network', 'Not attached'], (e) => this.setPref({ netDefault: e.target.value }))),
+        this.field('Adapter type', this.combo(p.netType || 'Intel PRO/1000 MT Desktop', ['PCnet-FAST III', 'Intel PRO/1000 MT Desktop', 'Intel PRO/1000 MT Server', 'Paravirtualized Network (virtio-net)'], (e) => this.setPref({ netType: e.target.value }))),
+        this.field('Promiscuous mode', this.combo(p.netPromisc || 'Deny', ['Deny', 'Allow VMs', 'Allow All'], (e) => this.setPref({ netPromisc: e.target.value }))),
+        this.field('Host-only prefix', this.text(p.hostOnlyPrefix || '192.168.56.0/24', (e) => this.setPref({ hostOnlyPrefix: e.target.value })))
+      ])),
+      this.card('Behaviour', h('div', null,
+        this.check('Connect the cable on new adapters', p.cableDefault !== false, (e) => this.setPref({ cableDefault: e.target.checked })),
+        this.check('Generate a new MAC address on clone', p.macOnClone !== false, (e) => this.setPref({ macOnClone: e.target.checked }))))
+    ]);
+
+    if (page === 'privacy') return wrap('Search privacy and security settings', [
+      this.card('Destructive-action gate', h('div', null,
+        this.grid([
+          this.field('Gate style', this.combo(p.gateStyle || 'Two keys + slider', ['Two keys + slider', 'Type the machine name', 'Single confirmation'], (e) => this.setPref({ gateStyle: e.target.value }))),
+          this.field('Gate applies to', this.combo(p.gateScope || 'Every destructive action', ['Every destructive action', 'Machine and disk deletion only'], (e) => this.setPref({ gateScope: e.target.value })))
+        ]),
+        h('div', { style: { marginTop: 8 } },
+          this.check('Require the gate for snapshot deletion', p.gateSnapshots !== false, (e) => this.setPref({ gateSnapshots: e.target.checked })),
+          this.check('Require the gate for extension pack removal', p.gatePacks !== false, (e) => this.setPref({ gatePacks: e.target.checked }))))),
+      this.card('Secrets', h('div', null,
+        h('div', { style: { fontSize: 12.5, color: T.onSurfaceVar, lineHeight: 1.6, marginBottom: 8 } }, 'Credentials are never requested in chat, written into exports, or logged. Disk encryption passwords are held only for the lifetime of the dialog.'),
+        this.check('Clear entered passwords when a dialog closes', true, () => this.toast('Required', 'This protection cannot be disabled', T.error)),
+        this.check('Redact machine paths in exports', Boolean(p.redactPaths), (e) => this.setPref({ redactPaths: e.target.checked })))),
+      this.card('Telemetry', h('div', null,
+        this.check('Send anonymous usage statistics', Boolean(p.telemetry), (e) => this.setPref({ telemetry: e.target.checked }), 'Off by default and never includes machine names or paths.')))
+    ]);
+
+    if (page === 'advanced') return wrap('Search advanced settings', [
+      this.card('Experimental', h('div', null,
+        this.check('Show experimental machine settings', Boolean(p.expSettings), (e) => this.setPref({ expSettings: e.target.checked })),
+        this.check('Enable nested virtualization controls', Boolean(p.expNested), (e) => this.setPref({ expNested: e.target.checked })),
+        this.check('Show developer diagnostics in the status bar', Boolean(p.expDiag), (e) => this.setPref({ expDiag: e.target.checked })))),
+      this.card('Logging', this.grid([
+        this.field('GUI log level', this.combo(p.logLevel || 'Warnings', ['Errors', 'Warnings', 'Info', 'Debug'], (e) => this.setPref({ logLevel: e.target.value }))),
+        this.field('Keep log files', this.combo(String(p.logKeep || 3), ['1', '3', '10'], (e) => this.setPref({ logKeep: Number(e.target.value) })))
+      ])),
+      this.card('Reset', h('div', { style: { display: 'flex', gap: 8, flexWrap: 'wrap' } },
+        this.btn('Reset all preferences', () => this.toast('Reset', 'Every preference returned to its default', T.error), 'outlined'),
+        this.btn('Reset appearance only', () => this.toast('Reset', 'Appearance returned to the seed theme'), 'outlined'),
+        this.btn('Export preferences', () => this.toast('Exported', 'preferences.json written'), 'tonal')))
+    ]);
+
+    if (page === 'general') return wrap('Search general settings', [
+      this.card('General', this.grid([
+        this.field('Default Machine Folder', this.text(p.defaultFolder, (e) => this.setPref({ defaultFolder: e.target.value }))),
+        this.field('VRDP Authentication Library', this.text(p.vrdpLibrary, (e) => this.setPref({ vrdpLibrary: e.target.value })))
+      ], 1)),
+      this.card('Host screensaver', this.check('Host Screensaver Disabled when a VM runs', p.hostScreensaver, (e) => this.setPref({ hostScreensaver: e.target.checked })))
+    ]);
+    if (page === 'input') return wrap('Search input settings', [
+      this.card('Host key combination', h('div', null,
+        this.grid([this.field('Host Key', this.combo(p.hostKey, ['Right Ctrl', 'Left Ctrl', 'Right Alt', 'Right Win', 'Menu key'], (e) => this.setPref({ hostKey: e.target.value })))], 1),
+        h('div', { style: { marginTop: 8 } }, this.check('Auto Capture Keyboard', p.autoCapture, (e) => this.setPref({ autoCapture: e.target.checked }))))),
+      this.card('Shortcuts', h('div', { style: { display: 'grid', gap: 4 } },
+        [['Take snapshot', 'Host+T'], ['Full-screen mode', 'Host+F'], ['Seamless mode', 'Host+L'], ['Scaled mode', 'Host+C'], ['Command palette', 'Ctrl+Shift+F'], ['Close VM', 'Host+Q']].map(([label, keys]) =>
+          h('div', { key: label, style: { display: 'flex', alignItems: 'center', gap: 10, padding: '9px 11px', borderRadius: 11, background: T.surfaceHighest } },
+            h('span', { style: { flex: 1, fontSize: 12.5 } }, label),
+            h('span', { style: { fontFamily: 'Roboto Mono, monospace', fontSize: 11, color: T.primary } }, keys))))) ]);
+    if (page === 'update') return wrap('Search update settings', [ this.card('Update', h('div', null,
+      this.check('Check for Updates', p.checkUpdates, (e) => this.setPref({ checkUpdates: e.target.checked })),
+      p.checkUpdates ? this.grid([
+        this.field('Once per', this.combo(p.updatePeriod, ['Once per day', 'Once per week', 'Once per 2 weeks', 'Once per month'], (e) => this.setPref({ updatePeriod: e.target.value }))),
+        this.field('Branch', this.combo(p.updateBranch, ['Stable release versions', 'All new releases', 'All new releases and pre-releases'], (e) => this.setPref({ updateBranch: e.target.value })))
+      ]) : null,
+      h('div', { style: { marginTop: 10, fontSize: 11.5, color: T.outline } }, 'Updates are unsigned by policy and always require an explicit restart.'))) ]);
+    if (page === 'language') return wrap('Search languages', [ this.card('Interface language', h('div', null,
+      h('div', { style: { display: 'grid', gap: 4 } }, ['English (built-in)', '繁體中文 (香港)', 'Deutsch', 'Français', '日本語'].map((l) => h('button', {
+        key: l, onClick: () => this.setPref({ language: l }),
+        style: { display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px', borderRadius: 12, background: p.language === l ? T.secondaryContainer : T.surfaceHighest, textAlign: 'left', fontSize: 12.5 }
+      }, l))),
+      h('div', { style: { marginTop: 10, fontSize: 11.5, color: T.outline } }, 'Playful Cantonese and compact bilingual modes are additional app language modes, set in Interface.'))) ]);
+    if (page === 'display') return wrap('Search display settings', [
+      this.card('Maximum guest screen size', h('div', null,
+        this.grid([this.field('Policy', this.combo(p.maxGuestSize, ['Automatic', 'None', 'Hint'], (e) => this.setPref({ maxGuestSize: e.target.value })))], 1),
+        p.maxGuestSize === 'Hint' ? this.grid([
+          this.field('Width', this.text(String(p.maxWidth), (e) => this.setPref({ maxWidth: Number(e.target.value) || 0 }))),
+          this.field('Height', this.text(String(p.maxHeight), (e) => this.setPref({ maxHeight: Number(e.target.value) || 0 })))
+        ]) : null)),
+      this.card('Font scaling', h('div', null,
+        h('input', { type: 'range', min: 75, max: 200, value: p.fontScale, onChange: (e) => this.setPref({ fontScale: Number(e.target.value) }), style: { width: '100%' } }),
+        h('div', { style: { fontSize: 12, color: T.onSurfaceVar, marginTop: 4 } }, p.fontScale + '%'))) ]);
+    if (page === 'proxy') return wrap('Search proxy settings', [ this.card('Proxy', h('div', null,
+      h('div', { style: { display: 'grid', gap: 6 } }, ['Auto-detect host proxy settings', 'Direct connection to the Internet', 'Manual proxy configuration'].map((mode) => h('button', {
+        key: mode, onClick: () => this.setPref({ proxyMode: mode }),
+        style: { display: 'flex', alignItems: 'center', gap: 10, padding: '11px 13px', borderRadius: 12, background: p.proxyMode === mode ? T.secondaryContainer : T.surfaceHighest, textAlign: 'left', fontSize: 12.5 }
+      }, mode))),
+      p.proxyMode === 'Manual proxy configuration' ? h('div', { style: { marginTop: 10 } }, this.field('URL', this.text(p.proxyUrl, (e) => this.setPref({ proxyUrl: e.target.value }), { placeholder: 'http://user:pass@host:port' }))) : null)) ]);
+    return wrap('Search interface settings', [
+      this.card('Language mode', h('div', null,
+        this.grid([
+          this.field('App language mode', this.combo(p.langMode || 'English', ['English', 'Playful Cantonese', 'Compact bilingual'], (e) => this.setPref({ langMode: e.target.value }))),
+          this.field('Playfulness level', h('input', { type: 'range', min: 1, max: 5, value: p.funny || 2, onChange: (e) => this.setPref({ funny: Number(e.target.value) }), style: { width: '100%' } }))
+        ]),
+        h('div', { style: { marginTop: 8 } }, this.check('Optional narrator, off by default', Boolean(p.narrator), (e) => this.setPref({ narrator: e.target.checked }))))),
+      this.card('Window chrome', h('div', null,
+        this.grid([
+          this.field('Title bar', this.combo(p.titleBar || 'Frameless Material 3', ['Frameless Material 3', 'Native Windows'], (e) => this.setPref({ titleBar: e.target.value }))),
+          this.field('Rail behaviour', this.combo(p.railMode || 'Rail, drawer under 1000px', ['Always rail', 'Rail, drawer under 1000px', 'Always drawer'], (e) => this.setPref({ railMode: e.target.value })))
+        ]),
+        h('div', { style: { marginTop: 8 } },
+          this.check('Show the tab strip', p.showTabs !== false, (e) => this.setPref({ showTabs: e.target.checked })),
+          this.check('Show the status bar', p.showStatus !== false, (e) => this.setPref({ showStatus: e.target.checked }))))),
+      this.card('Branding', this.grid([
+        this.field('Application name', this.text(p.appName, (e) => this.setPref({ appName: e.target.value }))),
+        this.field('Wordmark letter', this.text(p.wordmark, (e) => this.setPref({ wordmark: e.target.value.slice(0, 2) })))
+      ])),
+      this.card('Theme', h('div', null,
+        this.grid([
+          this.field('Color theme', this.combo(p.colorTheme, ['Dark', 'Light', 'Follow System', 'High contrast'], (e) => this.setPref({ colorTheme: e.target.value }))),
+          this.field('Density', this.combo(p.density, ['Comfortable', 'Compact'], (e) => this.setPref({ density: e.target.value }))),
+          this.field('Seed color', h('div', { style: { display: 'flex', gap: 6 } }, ['#6750A4', '#0F4C8C', '#2F6B4F', '#8A5024'].map((c) => h('button', {
+            key: c, onClick: () => this.setPref({ accent: c }), style: { flex: 1, height: 40, borderRadius: 12, background: c, border: '2px solid ' + (p.accent === c ? T.primary : T.outlineVar) } }))))
+        ]),
+        h('div', { style: { marginTop: 8 } }, this.check('Keep notifications in the centre after dismissal', p.notificationCenterKeep, (e) => this.setPref({ notificationCenterKeep: e.target.checked }))))),
+      this.card('Named themes', h('div', { style: { display: 'flex', gap: 8, flexWrap: 'wrap' } },
+        this.btn('Save current as theme…', () => this.toast('Theme saved', 'Available to every element appearance editor'), 'tonal'),
+        this.btn('Export themes', () => this.toast('Exported', 'themes.json written'), 'outlined'),
+        this.btn('Import themes', () => this.toast('Imported', 'Named themes merged'), 'outlined')))
+    ]);
+  }
+
+  paneBody() {
+    const map = { media: 'mediaPane', network: 'networkPane', extensions: 'extensionsPane', cloud: 'cloudPane', logs: 'logsPane', activity: 'activityPane', prefs: 'prefsPane' };
+    return this[map[this.state.tool]]();
+  }
+
+  /* ---------- overlays ---------- */
+  regexBody() {
+    const s = this.state;
+    let ok = true, feedback = 'Plain text is the default. Applying a pattern switches this field to regex.';
+    try { if (s.regexPattern) new RegExp(s.regexPattern, s.regexFlags); } catch (e) { ok = false; feedback = e.message; }
+    let preview = '';
+    if (ok && s.regexPattern) { try { const mt = s.regexSample.match(new RegExp(s.regexPattern, s.regexFlags)); preview = mt ? 'Match: ' + mt[0] : 'No match in sample.'; } catch (e) {} }
+    const constructs = [['Any', '.'], ['Digit', '\\d'], ['Word', '\\w'], ['Space', '\\s'], ['Start', '^'], ['End', '$'], ['Group', '()'], ['Class', '[]'], ['Or', '|'], ['0+', '*'], ['1+', '+'], ['Opt', '?']];
+    return h('div', null,
+      this.field('Pattern', this.text(s.regexPattern, (e) => this.setState({ regexPattern: e.target.value }), { placeholder: '\\.vdi$', spellCheck: false })),
+      h('div', { style: { display: 'flex', gap: 6, flexWrap: 'wrap', margin: '10px 0' } }, constructs.map(([label, token]) => h('button', {
+        key: token, onClick: () => this.setState((st) => ({ regexPattern: st.regexPattern + token })),
+        style: { height: 30, padding: '0 11px', borderRadius: 15, background: T.surfaceHigh, color: T.onSurfaceVar, fontSize: 11.5, fontWeight: 600 }
+      }, label + '  ' + token))),
+      this.grid([
+        this.field('Flags', this.text(s.regexFlags, (e) => this.setState({ regexFlags: e.target.value }), { maxLength: 8 })),
+        this.field('Sample text', this.text(s.regexSample, (e) => this.setState({ regexSample: e.target.value })))
+      ]),
+      h('div', { style: { marginTop: 12, padding: 11, borderRadius: 12, background: ok ? T.surfaceHigh : '#4E1B1B', color: ok ? T.onSurfaceVar : T.error, fontSize: 12 } }, feedback),
+      preview ? h('div', { style: { marginTop: 8, padding: 11, borderRadius: 12, background: '#0F0D13', fontFamily: 'Roboto Mono, monospace', fontSize: 11.5 } }, preview) : null,
+      h('div', { style: { display: 'flex', justifyContent: 'space-between', marginTop: 14 } },
+        this.btn('Clear', () => { const next = Object.assign({}, s.regexApplied); delete next[s.tool]; this.setState({ regexApplied: next, regexPattern: '', overlay: null }); this.toast('Plain text restored', s.tool); }, 'text'),
+        this.btn('Apply pattern', () => {
+          if (!ok || !s.regexPattern) return this.toast('Not applied', 'Enter a valid pattern first', T.error);
+          this.setState({ regexApplied: Object.assign({}, s.regexApplied, { [s.tool]: { pattern: s.regexPattern, flags: s.regexFlags } }), overlay: null });
+          this.toast('Regex applied', '/' + s.regexPattern + '/' + s.regexFlags);
+        }, 'filled')));
+  }
+  appearanceBody() {
+    const a = this.state.appearance;
+    const set = (patch) => this.setState({ appearance: Object.assign({}, a, patch) });
+    return h('div', null,
+      h('div', { style: { fontSize: 12, color: T.outline, marginBottom: 12 } }, 'Target: ' + (a.target || 'current pane')),
+      this.grid([
+        this.field('Seed color', h('div', { style: { display: 'flex', gap: 6 } }, ['#6750A4', '#0F4C8C', '#2F6B4F', '#8A5024'].map((c) => h('button', { key: c, onClick: () => set({ seed: c }), style: { flex: 1, height: 40, borderRadius: 12, background: c, border: '2px solid ' + (a.seed === c ? T.primary : T.outlineVar) } })))),
+        this.field('Font family', this.combo(a.font, ['Roboto Flex', 'Segoe UI', 'Consolas'], (e) => set({ font: e.target.value }))),
+        this.field('Corner radius · ' + a.radius + 'px', h('input', { type: 'range', min: 4, max: 32, value: a.radius, onChange: (e) => set({ radius: Number(e.target.value) }), style: { width: '100%' } })),
+        this.field('Font scale · ' + a.scale.toFixed(2), h('input', { type: 'range', min: .85, max: 1.35, step: .05, value: a.scale, onChange: (e) => set({ scale: Number(e.target.value) }), style: { width: '100%' } }))
+      ]),
+      h('div', { style: { marginTop: 14, padding: 14, borderRadius: a.radius, background: T.surfaceHigh, fontFamily: a.font, fontSize: 13 * a.scale, borderLeft: '4px solid ' + a.seed } }, 'Live preview of this pane’s appearance.'),
+      h('div', { style: { display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 14 } },
+        this.btn('Reset', () => set({ radius: 16, scale: 1, font: 'Roboto Flex', seed: '#6750A4' }), 'text'),
+        this.btn('Apply', () => { this.setState({ overlay: null }); this.toast('Appearance applied', a.target || 'pane'); }, 'filled')));
+  }
+  confirmUninstallBody() {
+    const sel = this.state.packs.find((p) => p.id === this.state.selectedPack);
+    return h('div', null,
+      h('div', { style: { padding: 12, borderRadius: 12, background: '#4E1B1B', color: '#FFDAD6', fontSize: 12.5, marginBottom: 14 } },
+        'Uninstalling ' + (sel ? sel.name : 'this pack') + ' disables USB 3.0, VRDP and disk encryption for every machine that relies on it.'),
+      h('div', { style: { display: 'flex', justifyContent: 'flex-end', gap: 8 } },
+        this.btn('Cancel', () => this.setState({ overlay: null }), 'text'),
+        this.btn('Uninstall', () => { this.setState({ packs: this.state.packs.filter((p) => p.id !== this.state.selectedPack), overlay: null }); this.toast('Uninstalled', sel ? sel.name : 'Extension pack', T.error); }, 'filled')));
+  }
+
+  renderVals() {
+    const s = this.state;
+    const tool = TOOLS.find((t) => t.id === s.tool) || TOOLS[0];
+    const overlayMeta = { regex: ['Search tool', 'Regex builder'], appearance: ['Element appearance', 'Edit appearance'], confirmUninstall: ['Safety gate', 'Uninstall extension pack'] }[s.overlay] || ['', ''];
+    const bodies = { regex: () => this.regexBody(), appearance: () => this.appearanceBody(), confirmUninstall: () => this.confirmUninstallBody() };
+    const applied = s.regexApplied[s.tool];
+
+    return {
+      brandMark: this.props.brandMark ?? 'M',
+      toolTitle: tool.label,
+      toolTabs: TOOLS.map((t) => ({
+        label: t.label.replace(' Manager', '').replace('VM Activity Overview', 'Activity'), iconCss: 'url("' + I(t.icon) + '")',
+        bg: t.id === s.tool ? T.primary : T.surfaceHigh, fg: t.id === s.tool ? T.onPrimary : T.onSurfaceVar,
+        select: () => this.setState({ tool: t.id, searchQuery: '' })
+      })),
+      showSubnav: s.tool === 'prefs',
+      subPages: (s.tool === 'prefs' ? PREF_PAGES.filter((p) => this.match(p.label + ' ' + (PREF_KEYWORDS[p.id] || ''))) : PREF_PAGES).map((p) => ({
+        label: p.label, iconCss: 'url("' + I(p.icon) + '")',
+        bg: p.id === s.prefPage ? T.secondaryContainer : 'transparent',
+        fg: p.id === s.prefPage ? T.onSurface : T.onSurfaceVar,
+        select: () => this.setState({ prefPage: p.id })
+      })),
+      searchQuery: s.searchQuery,
+      setSearch: (e) => this.setState({ searchQuery: e.target.value }),
+      searchPlaceholder: s.tool === 'prefs' ? 'Search preference pages — the in-page field searches sections' : 'Search ' + tool.label.toLowerCase(),
+      regexBadge: applied ? '/' + applied.pattern + '/' + applied.flags : '',
+      openRegex: () => this.setState({ overlay: 'regex' }),
+      openAppearance: () => this.setState({ overlay: 'appearance', appearance: Object.assign({}, s.appearance, { target: tool.label }) }),
+      paneBody: this.paneBody(),
+      statusText: s.tool === 'prefs' ? this.visiblePrefPages().length + ' of ' + PREF_PAGES.length + ' preference pages · settings persist in VirtualBox extradata and roam with VBoxSVC.' : tool.label + ' · local inventory',
+      applyLabel: s.tool === 'prefs' ? 'Apply' : 'Close',
+      applyTool: () => { if (s.tool === 'prefs') this.toast('Applied', 'Global preferences written to extradata'); else window.location.href = 'Manager.dc.html'; },
+      resetTool: () => { this.setState({ searchQuery: '', regexApplied: {} }); this.toast('Reset', 'Search and filters cleared'); },
+      winMinimize: () => this.toast('Minimize', 'Window minimized'),
+      winMaximize: () => this.toast('Maximize', 'Window toggled maximized'),
+      winClose: () => { window.location.href = 'Manager.dc.html'; },
+      overlayOpen: Boolean(s.overlay), overlayEyebrow: overlayMeta[0], overlayTitle: overlayMeta[1],
+      overlayBody: s.overlay ? bodies[s.overlay]() : null,
+      closeOverlay: () => this.setState({ overlay: null }),
+      toasts: s.toasts
+    };
+  }
+}
+</script>
+</body>
+</html>

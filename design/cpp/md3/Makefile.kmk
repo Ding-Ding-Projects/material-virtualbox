@@ -1,0 +1,76 @@
+# $Id$
+## @file
+# Sub-Makefile for the Material 3 GUI layer.
+#
+
+#
+# Copyright (C) 2026 Material Virtual Machine contributors.
+# SPDX-License-Identifier: GPL-3.0-only
+#
+
+#
+# This fragment is included from
+# src/VBox/Frontends/VirtualBox/Makefile.kmk with:
+#
+#   include $(PATH_SUB_CURRENT)/src/md3/Makefile.kmk
+#
+# It adds the Material 3 layer to the existing VirtualBox target rather than
+# creating a new one, so the drop-in keeps a single binary and a single moc pass.
+#
+
+VirtualBox_SOURCES += \
+	src/md3/UIMd3Theme.cpp \
+	src/md3/UIMd3Widget.cpp \
+	src/md3/UIMd3Button.cpp \
+	src/md3/UIMd3SearchField.cpp \
+	src/md3/UIMd3RegexBuilder.cpp \
+	src/md3/UIMd3CommandPalette.cpp \
+	src/md3/UIMd3DestructiveGate.cpp \
+	src/md3/UIMd3History.cpp \
+	src/md3/UIMd3AppearanceEditor.cpp \
+	src/md3/UIMd3TabStrip.cpp \
+	src/md3/UIMd3TabManager.cpp \
+	src/md3/UIMd3NotificationCentre.cpp \
+	src/md3/UIMd3Export.cpp \
+	src/md3/UIMd3Language.cpp \
+	src/md3/UIMd3Style.cpp \
+	src/md3/UIMd3TitleBar.cpp \
+	src/md3/UIMd3NavigationRail.cpp \
+	src/md3/UIMd3ManagerWindow.cpp \
+	src/md3/UIMd3SettingsDialog.cpp \
+	src/md3/UIMd3RuntimeWindow.cpp \
+	src/md3/UIMd3Wizard.cpp \
+	src/md3/UIMd3ManagersWindow.cpp
+
+# Headers carrying Q_OBJECT must be listed so kBuild runs moc over them.
+VirtualBox_QT_MOCHDRS += \
+	src/md3/UIMd3Theme.h \
+	src/md3/UIMd3Widget.h \
+	src/md3/UIMd3Button.h \
+	src/md3/UIMd3SearchField.h \
+	src/md3/UIMd3RegexBuilder.h \
+	src/md3/UIMd3CommandPalette.h \
+	src/md3/UIMd3DestructiveGate.h \
+	src/md3/UIMd3History.h \
+	src/md3/UIMd3AppearanceEditor.h \
+	src/md3/UIMd3TabStrip.h \
+	src/md3/UIMd3TabManager.h \
+	src/md3/UIMd3NotificationCentre.h \
+	src/md3/UIMd3Language.h \
+	src/md3/UIMd3Style.h \
+	src/md3/UIMd3TitleBar.h \
+	src/md3/UIMd3NavigationRail.h \
+	src/md3/UIMd3ManagerWindow.h \
+	src/md3/UIMd3SettingsDialog.h \
+	src/md3/UIMd3RuntimeWindow.h \
+	src/md3/UIMd3Wizard.h \
+	src/md3/UIMd3ManagersWindow.h
+
+# The layer needs no new include paths beyond the frontend's own, and no new
+# external dependency: the tonal palette is generated in UIMd3Theme.cpp.
+VirtualBox_INCS += src/md3
+
+# Qt6 only, as agreed for this rewrite.
+VirtualBox_DEFS += VBOX_GUI_MATERIAL3
+
+# Fonts are resolved at runtime from the host; nothing is bundled here.
