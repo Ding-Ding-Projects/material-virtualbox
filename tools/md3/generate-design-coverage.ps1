@@ -12,6 +12,17 @@ $files = Get-ChildItem -LiteralPath $root -Recurse -File | Sort-Object FullName
 $rows = [System.Collections.Generic.List[string]]::new()
 $rows.Add('| Design ID | Archive path | SHA-256 | Source role | Required production disposition | Production path(s) | Behavior/test evidence | Status | Notes |')
 $rows.Add('|---|---|---|---|---|---|---|---|---|')
+$existingByPath = @{}
+if (Test-Path -LiteralPath $Output) {
+    foreach ($line in Get-Content -LiteralPath $Output) {
+        if ($line -notmatch '^\| ARCH-') { continue }
+        $parts = $line.Split('|')
+        if ($parts.Count -ge 10) {
+            $archivePath = $parts[2].Trim().Trim('`')
+            $existingByPath[$archivePath] = $parts
+        }
+    }
+}
 $manifestLines = [System.Collections.Generic.List[string]]::new()
 $sha256 = [System.Security.Cryptography.SHA256]::Create()
 $i = 0
@@ -30,7 +41,20 @@ foreach ($file in $files) {
     $role = if ($relative -match '^cpp/md3/') { 'C++ reference' } elseif ($relative -match '^icons/') { 'icon' } elseif ($relative -eq 'support.js') { 'shared prototype behavior' } elseif ($relative -eq 'HANDOFF.md') { 'handoff' } elseif ($relative -eq '.thumbnail') { 'preview metadata' } else { 'prototype' }
     $disposition = if ($role -eq 'icon') { 'map to qrc and production call site' } elseif ($role -eq 'preview metadata') { 'consume as archive evidence' } elseif ($role -eq 'handoff') { 'consume as implementation authority' } else { 'integrate or adapt into native Qt' }
     $path = if ($relative -match '^cpp/md3/') { 'src/VBox/Frontends/VirtualBox/src/md3/' } elseif ($role -eq 'icon') { 'src/VBox/Frontends/VirtualBox/src/md3/icons/ and qrc' } else { 'doc/md3/DesignCoverage.md' }
-    $rows.Add(('| ARCH-{0:D3} | `{1}` | `{2}` | {3} | {4} | `{5}` | build/test or screenshot coverage recorded per integration lane | In progress | Generated from the checked-in design archive. |' -f $i,$relative,$hash,$role,$disposition,$path))
+    $existing = $existingByPath[$relative]
+    if ($null -ne $existing) {
+        $role = $existing[4].Trim()
+        $disposition = $existing[5].Trim()
+        $path = $existing[6].Trim().Replace('`', '')
+        $evidence = $existing[7].Trim()
+        $status = $existing[8].Trim()
+        $notes = $existing[9].Trim()
+    } else {
+        $evidence = 'build/test or screenshot coverage recorded per integration lane'
+        $status = 'In progress'
+        $notes = 'Generated from the checked-in design archive.'
+    }
+    $rows.Add(('| ARCH-{0:D3} | `{1}` | `{2}` | {3} | {4} | `{5}` | {6} | {7} | {8} |' -f $i,$relative,$hash,$role,$disposition,$path,$evidence,$status,$notes))
     $manifestLines.Add(('{0}  {1}' -f $hash,$relative))
 }
 Set-Content -LiteralPath $Output -Value (($rows -join [Environment]::NewLine) + [Environment]::NewLine) -Encoding utf8
