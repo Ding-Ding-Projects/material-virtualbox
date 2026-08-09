@@ -734,6 +734,7 @@ endif
 # Headers containing definitions of classes that use the Q_OBJECT macro.
 #
 UICommon_QT_MOCHDRS = \
+	src/md3/UIMd3AppearanceEditor.h \
 	src/md3/UIMd3Button.h \
 	src/md3/UIMd3CommandPalette.h \
 	src/md3/UIMd3Widget.h \
@@ -1326,6 +1327,7 @@ endif
 # Sources.
 #
 UICommon_SOURCES = \
+	src/md3/UIMd3AppearanceEditor.cpp \
 	src/md3/UIMd3Button.cpp \
 	src/md3/UIMd3CommandPalette.cpp \
 	src/md3/UIMd3Widget.cpp \

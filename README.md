@@ -56,6 +56,12 @@ The shared Global Preferences appearance controls are documented in
 implemented against the existing `UIMd3Theme` persistence and remain subject
 to the native screenshot gate above.
 
+MD3 widgets with stable keys also expose a bounded per-element appearance
+editor from their context menu and <kbd>Shift</kbd>+right-click. The editor
+persists seed, typeface, corner radius, scale, and weight overrides and has a
+reset path; its live preview, named-theme actions, complete typography picker,
+and editor-local regex search remain tracked as open design-coverage work.
+
 The manager command palette is documented in
 [`doc/md3/CommandPalette.md`](doc/md3/CommandPalette.md). `Ctrl+Shift+F` is
 wired to live manager commands; its native capture remains pending the COM

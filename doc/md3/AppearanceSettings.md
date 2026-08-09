@@ -22,6 +22,17 @@ tooltip explaining its effect. A theme change emits `UIMd3Theme::sigThemeChanged
 so the manager header, navigation rail, palette, and other subscribed widgets
 refresh without restarting the application.
 
+## Element editor lane
+
+MD3 widgets with a stable appearance key now expose **Edit appearance…** from
+their context menu and from <kbd>Shift</kbd>+right-click. The bounded editor
+persists an element seed, typeface, corner radius, scale, and weight through
+`UIMd3Theme`, supports reset, and returns focus to the edited widget. This
+slice is intentionally marked in progress: the full archive contract still
+needs a live preview, named-theme actions, the complete typography surface,
+and the shared regex search field inside the editor. Those capabilities must
+land before this article can claim complete per-element customization.
+
 ## Persistence and safety
 
 Values are persisted by `UIMd3Theme` through the existing VirtualBox extra-data
@@ -37,6 +48,9 @@ The static contract is covered by the UICommon source/MOC ownership in
 requires a built Windows application and a headless capture of Global
 Preferences showing each scheme, valid and invalid seed input, font scale,
 compact density, brand reset, keyboard focus, and persistence after restart.
+The element editor additionally requires a real capture showing its context
+menu search, apply/reset behavior, and focus return; no design thumbnail or
+static HTML preview is accepted as a substitute.
 
 Suggested articles: [`SettingsSearch.md`](SettingsSearch.md),
 [`NavigationRail.md`](NavigationRail.md), and the repository

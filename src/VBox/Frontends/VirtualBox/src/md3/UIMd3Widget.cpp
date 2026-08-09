@@ -17,7 +17,13 @@
  */
 
 #include <QMouseEvent>
+#include <QContextMenuEvent>
+#include <QKeySequence>
+#include <QLineEdit>
+#include <QMenu>
+#include <QWidgetAction>
 
+#include "UIMd3AppearanceEditor.h"
 #include "UIMd3Widget.h"
 
 UIMd3Widget::UIMd3Widget(QWidget *pParent, const QString &strAppearanceKey)
@@ -55,9 +61,10 @@ QFont UIMd3Widget::effectiveFont(UIMd3TypeRole enmRole) const
         if (!appearance.strFont.isEmpty())
             result.setFamily(appearance.strFont);
         result.setPixelSize(qMax(9, qRound(result.pixelSize() * appearance.dScale)));
-        result.setWeight(static_cast<QFont::Weight>(qBound(static_cast<int>(QFont::Thin),
-                                                            appearance.iWeight,
-                                                            static_cast<int>(QFont::Black))));
+        if (appearance.iWeight >= static_cast<int>(QFont::Thin))
+            result.setWeight(static_cast<QFont::Weight>(qBound(static_cast<int>(QFont::Thin),
+                                                                appearance.iWeight,
+                                                                static_cast<int>(QFont::Black))));
     }
     return result;
 }
@@ -147,6 +154,38 @@ void UIMd3Widget::mouseReleaseEvent(QMouseEvent *pEvent)
     m_fPressed = false;
     update();
     QWidget::mouseReleaseEvent(pEvent);
+}
+
+void UIMd3Widget::contextMenuEvent(QContextMenuEvent *pEvent)
+{
+    if (m_strAppearanceKey.isEmpty())
+    {
+        QWidget::contextMenuEvent(pEvent);
+        return;
+    }
+
+    QMenu menu(this);
+    QLineEdit *pSearch = new QLineEdit(&menu);
+    pSearch->setPlaceholderText(tr("Search menu"));
+    pSearch->setAccessibleName(tr("Search appearance menu"));
+    QWidgetAction *pSearchAction = new QWidgetAction(&menu);
+    pSearchAction->setDefaultWidget(pSearch);
+    menu.addAction(pSearchAction);
+    pSearch->setFocus(Qt::OtherFocusReason);
+    QAction *pEdit = menu.addAction(tr("Edit appearance…"));
+    pEdit->setStatusTip(tr("Edit appearance for %1").arg(m_strAppearanceKey));
+    pEdit->setShortcut(QKeySequence(Qt::SHIFT | Qt::Key_F10));
+    connect(pSearch, &QLineEdit::textChanged, this, [pEdit](const QString &strText)
+    {
+        pEdit->setVisible(strText.trimmed().isEmpty()
+                          || pEdit->text().contains(strText, Qt::CaseInsensitive));
+    });
+    connect(pEdit, &QAction::triggered, this, [this]()
+    {
+        UIMd3AppearanceEditor::open(this, m_strAppearanceKey);
+    });
+    menu.exec(pEvent->globalPos());
+    pEvent->accept();
 }
 
 void UIMd3Widget::sltThemeChanged()

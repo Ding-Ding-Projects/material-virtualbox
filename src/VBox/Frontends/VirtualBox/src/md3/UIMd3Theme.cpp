@@ -167,14 +167,34 @@ UIMd3Appearance UIMd3Theme::appearance(const QString &strKey) const
 
 void UIMd3Theme::setAppearance(const QString &strKey, const UIMd3Appearance &appearance)
 {
-    m_appearances[strKey] = appearance;
+    const QString strTrimmedKey = strKey.trimmed();
+    if (strTrimmedKey.isEmpty())
+        return;
+    if (!appearance.fValid)
+    {
+        clearAppearance(strTrimmedKey);
+        return;
+    }
+
+    UIMd3Appearance sanitized = appearance;
+    sanitized.iRadius = qBound(0, sanitized.iRadius, static_cast<int>(UIMd3Shape::Full));
+    sanitized.dScale = qBound(0.50, sanitized.dScale, 2.00);
+    if (sanitized.iWeight < 0)
+        sanitized.iWeight = -1;
+    else
+        sanitized.iWeight = qBound(static_cast<int>(QFont::Thin), sanitized.iWeight,
+                                   static_cast<int>(QFont::Black));
+    if (!sanitized.strFont.isEmpty() && !QFontDatabase::families().contains(sanitized.strFont))
+        sanitized.strFont.clear();
+
+    m_appearances[strTrimmedKey] = sanitized;
     saveToExtraData();
     emit sigThemeChanged();
 }
 
 void UIMd3Theme::clearAppearance(const QString &strKey)
 {
-    if (m_appearances.remove(strKey) > 0)
+    if (m_appearances.remove(strKey))
     {
         saveToExtraData();
         emit sigThemeChanged();
@@ -236,8 +256,12 @@ void UIMd3Theme::loadFromExtraData()
     const QString strSeed = gEDataManager->extraDataString(g_pszKeySeed);
     if (!strSeed.isEmpty() && QColor(strSeed).isValid())
         m_seed = QColor(strSeed);
-    m_enmScheme     = (UIMd3Scheme)gEDataManager->extraDataString(g_pszKeyScheme).toInt();
-    m_dFontScale    = gEDataManager->extraDataString(g_pszKeyScale).toDouble();
+    m_enmScheme     = static_cast<UIMd3Scheme>(qBound(static_cast<int>(UIMd3Scheme_Dark),
+                                                       gEDataManager->extraDataString(g_pszKeyScheme).toInt(),
+                                                       static_cast<int>(UIMd3Scheme_HighContrastLight)));
+    bool fScaleOk = false;
+    const double dStoredScale = gEDataManager->extraDataString(g_pszKeyScale).toDouble(&fScaleOk);
+    m_dFontScale    = qBound(0.75, fScaleOk ? dStoredScale : 1.0, 2.0);
     m_fCompact      = gEDataManager->extraDataString(g_pszKeyCompact) == "true";
     const QString strFont = gEDataManager->extraDataString(g_pszKeyFont);
     if (!strFont.isEmpty())
@@ -257,10 +281,18 @@ void UIMd3Theme::loadFromExtraData()
         appearance.fValid   = true;
         appearance.seed     = QColor(entry.value("seed").toString());
         appearance.strFont  = entry.value("font").toString();
-        appearance.iRadius  = entry.value("radius").toInt(UIMd3Shape::Large);
-        appearance.dScale   = entry.value("scale").toDouble(1.0);
-        appearance.iWeight  = entry.value("weight").toInt(QFont::Normal);
-        m_appearances.insert(it.key(), appearance);
+        appearance.iRadius  = qBound(0, entry.value("radius").toInt(static_cast<int>(UIMd3Shape::Large)),
+                                      static_cast<int>(UIMd3Shape::Full));
+        const QJsonValue scaleValue = entry.value("scale");
+        appearance.dScale   = qBound(0.50, scaleValue.isDouble() ? scaleValue.toDouble() : 1.0, 2.00);
+        appearance.iWeight  = entry.value("weight").toInt(-1);
+        if (appearance.iWeight >= 0)
+            appearance.iWeight = qBound(static_cast<int>(QFont::Thin), appearance.iWeight,
+                                        static_cast<int>(QFont::Black));
+        if (!appearance.strFont.isEmpty() && !QFontDatabase::families().contains(appearance.strFont))
+            appearance.strFont.clear();
+        if (!it.key().trimmed().isEmpty())
+            m_appearances.insert(it.key().trimmed(), appearance);
     }
 
     /* Named themes: */

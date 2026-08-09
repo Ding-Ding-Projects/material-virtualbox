@@ -31,6 +31,8 @@
 #include "UIMd3Theme.h"
 #include "UIMd3Tokens.h"
 
+class QContextMenuEvent;
+
 /** Shared state and appearance plumbing for native Material 3 widgets. */
 class SHARED_LIBRARY_STUFF UIMd3Widget : public QWidget
 {
@@ -65,6 +67,7 @@ protected:
     virtual void leaveEvent(QEvent *pEvent) RT_OVERRIDE;
     virtual void mousePressEvent(QMouseEvent *pEvent) RT_OVERRIDE;
     virtual void mouseReleaseEvent(QMouseEvent *pEvent) RT_OVERRIDE;
+    virtual void contextMenuEvent(QContextMenuEvent *pEvent) RT_OVERRIDE;
 
     bool m_fHovered;
     bool m_fPressed;
