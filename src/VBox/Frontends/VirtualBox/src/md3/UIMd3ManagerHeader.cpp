@@ -20,6 +20,7 @@
 #include <QLabel>
 #include <QMainWindow>
 #include <QMenuBar>
+#include <QMouseEvent>
 #include <QPushButton>
 
 #include "UIMd3ManagerHeader.h"
@@ -28,6 +29,10 @@
 
 UIMd3ManagerHeader::UIMd3ManagerHeader(QMainWindow *pWindow, QWidget *pParent /* = 0 */)
     : QWidget(pParent)
+    , m_pWindow(pWindow)
+    , m_pTitle(0)
+    , m_pMaximize(0)
+    , m_fDragging(false)
 {
     if (UIMd3Language::instance())
     {
@@ -48,18 +53,20 @@ UIMd3ManagerHeader::UIMd3ManagerHeader(QMainWindow *pWindow, QWidget *pParent /*
     pLayout->setContentsMargins(20, 8, 12, 8);
     pLayout->setSpacing(8);
 
-    QLabel *pTitle = new QLabel(md3Theme().brandName(), this);
-    pTitle->setFont(md3Theme().font(UIMd3TypeRole_TitleLarge));
-    pTitle->setAccessibleName(tr("Application name"));
-    pLayout->addWidget(pTitle, 1);
-    connect(UIMd3Theme::instance(), &UIMd3Theme::sigThemeChanged, pTitle, [pTitle]()
+    m_pTitle = new QLabel(md3Theme().brandName(), this);
+    m_pTitle->setFont(md3Theme().font(UIMd3TypeRole_TitleLarge));
+    m_pTitle->setAccessibleName(tr("Application name"));
+    m_pTitle->setAttribute(Qt::WA_TransparentForMouseEvents);
+    pLayout->addWidget(m_pTitle, 1);
+    connect(UIMd3Theme::instance(), &UIMd3Theme::sigThemeChanged, m_pTitle, [this]()
     {
-        pTitle->setText(md3Theme().brandName());
+        m_pTitle->setText(md3Theme().brandName());
+        m_pTitle->setFont(md3Theme().font(UIMd3TypeRole_TitleLarge));
     });
     if (UIMd3Language::instance())
-        connect(UIMd3Language::instance(), &UIMd3Language::sigLanguageChanged, pTitle, [pTitle]()
+        connect(UIMd3Language::instance(), &UIMd3Language::sigLanguageChanged, m_pTitle, [this]()
         {
-            pTitle->setText(md3Theme().brandName());
+            m_pTitle->setText(md3Theme().brandName());
         });
 
     QPushButton *pMenu = new QPushButton(md3Text(QStringLiteral("md3.menu")), this);
@@ -78,8 +85,75 @@ UIMd3ManagerHeader::UIMd3ManagerHeader(QMainWindow *pWindow, QWidget *pParent /*
     connect(pMinimize, &QPushButton::clicked, pWindow, &QWidget::showMinimized);
     pLayout->addWidget(pMinimize);
 
+    UIMd3Language::instance()->registerText(QStringLiteral("md3.maximize"), QStringLiteral("Maximize"), QStringLiteral("放大"));
+    m_pMaximize = new QPushButton(this);
+    m_pMaximize->setAccessibleName(tr("Maximize or restore window"));
+    connect(m_pMaximize, &QPushButton::clicked, this, &UIMd3ManagerHeader::toggleMaximize);
+    pLayout->addWidget(m_pMaximize);
+    updateMaximizeLabel();
+
     QPushButton *pClose = new QPushButton(md3Text(QStringLiteral("md3.close")), this);
     pClose->setAccessibleName(tr("Close window"));
     connect(pClose, &QPushButton::clicked, pWindow, &QWidget::close);
     pLayout->addWidget(pClose);
+}
+
+void UIMd3ManagerHeader::toggleMaximize()
+{
+    if (!m_pWindow)
+        return;
+    if (m_pWindow->isMaximized())
+        m_pWindow->showNormal();
+    else
+        m_pWindow->showMaximized();
+    updateMaximizeLabel();
+}
+
+void UIMd3ManagerHeader::updateMaximizeLabel()
+{
+    if (!m_pMaximize || !m_pWindow)
+        return;
+    const bool fMaximized = m_pWindow->isMaximized();
+    m_pMaximize->setText(fMaximized ? tr("Restore") : tr("Maximize"));
+    m_pMaximize->setToolTip(fMaximized ? tr("Restore window") : tr("Maximize window"));
+}
+
+void UIMd3ManagerHeader::mousePressEvent(QMouseEvent *pEvent)
+{
+    if (pEvent->button() == Qt::LeftButton && m_pWindow && !m_pWindow->isMaximized())
+    {
+        m_fDragging = true;
+        m_dragOffset = pEvent->globalPosition().toPoint() - m_pWindow->frameGeometry().topLeft();
+        pEvent->accept();
+        return;
+    }
+    QWidget::mousePressEvent(pEvent);
+}
+
+void UIMd3ManagerHeader::mouseMoveEvent(QMouseEvent *pEvent)
+{
+    if (m_fDragging && m_pWindow && !m_pWindow->isMaximized())
+    {
+        m_pWindow->move(pEvent->globalPosition().toPoint() - m_dragOffset);
+        pEvent->accept();
+        return;
+    }
+    QWidget::mouseMoveEvent(pEvent);
+}
+
+void UIMd3ManagerHeader::mouseReleaseEvent(QMouseEvent *pEvent)
+{
+    m_fDragging = false;
+    QWidget::mouseReleaseEvent(pEvent);
+}
+
+void UIMd3ManagerHeader::mouseDoubleClickEvent(QMouseEvent *pEvent)
+{
+    if (pEvent->button() == Qt::LeftButton)
+    {
+        toggleMaximize();
+        pEvent->accept();
+        return;
+    }
+    QWidget::mouseDoubleClickEvent(pEvent);
 }
