@@ -100,6 +100,12 @@ protected:
         virtual bool eventFilter(QObject *pObject, QEvent *pEvent) RT_OVERRIDE;
 #endif
 
+#ifdef VBOX_WS_WIN
+        /** Supplies native hit-testing for snap layouts and edge resize. */
+        virtual bool nativeEvent(const QByteArray &strEventType, void *pMessage,
+                                 qintptr *pResult) RT_OVERRIDE;
+#endif
+
         /** Handles any Qt @a pEvent. */
         virtual bool event(QEvent *pEvent) RT_OVERRIDE;
         /** Handles show @a pEvent. */

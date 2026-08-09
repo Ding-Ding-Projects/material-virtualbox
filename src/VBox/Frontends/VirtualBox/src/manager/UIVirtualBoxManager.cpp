@@ -42,6 +42,10 @@
 #include <QStyle>
 #include <QVBoxLayout>
 #include <QWindow>
+#ifdef VBOX_WS_WIN
+# include <QCursor>
+# include <windows.h>
+#endif
 #ifndef VBOX_WS_WIN
 # include <QRegularExpression>
 #endif
@@ -652,6 +656,46 @@ bool UIVirtualBoxManager::eventFilter(QObject *pObject, QEvent *pEvent)
     return QIMainWindow::eventFilter(pObject, pEvent);
 }
 #endif /* VBOX_WS_MAC */
+
+#ifdef VBOX_WS_WIN
+bool UIVirtualBoxManager::nativeEvent(const QByteArray &strEventType, void *pMessage, qintptr *pResult)
+{
+    if (strEventType == "windows_generic_MSG" && pMessage && pResult && !isMaximized())
+    {
+        MSG *pMsg = static_cast<MSG *>(pMessage);
+        if (pMsg->message == WM_NCHITTEST)
+        {
+            const QPoint pos = QCursor::pos();
+            const QRect frame = frameGeometry();
+            const int iBorder = 8;
+            const bool fLeft = pos.x() >= frame.left() && pos.x() < frame.left() + iBorder;
+            const bool fRight = pos.x() <= frame.right() && pos.x() > frame.right() - iBorder;
+            const bool fTop = pos.y() >= frame.top() && pos.y() < frame.top() + iBorder;
+            const bool fBottom = pos.y() <= frame.bottom() && pos.y() > frame.bottom() - iBorder;
+
+            if (fTop && fLeft) *pResult = HTTOPLEFT;
+            else if (fTop && fRight) *pResult = HTTOPRIGHT;
+            else if (fBottom && fLeft) *pResult = HTBOTTOMLEFT;
+            else if (fBottom && fRight) *pResult = HTBOTTOMRIGHT;
+            else if (fLeft) *pResult = HTLEFT;
+            else if (fRight) *pResult = HTRIGHT;
+            else if (fTop) *pResult = HTTOP;
+            else if (fBottom) *pResult = HTBOTTOM;
+            else
+            {
+                QWidget *pHeader = findChild<QWidget *>(QStringLiteral("md3ManagerHeader"));
+                const QRect header = pHeader ? QRect(pHeader->mapToGlobal(QPoint(0, 0)), pHeader->size()) : QRect();
+                if (header.contains(pos))
+                    *pResult = HTCAPTION;
+                else
+                    return QIMainWindow::nativeEvent(strEventType, pMessage, pResult);
+            }
+            return true;
+        }
+    }
+    return QIMainWindow::nativeEvent(strEventType, pMessage, pResult);
+}
+#endif /* VBOX_WS_WIN */
 
 void UIVirtualBoxManager::sltRetranslateUI()
 {
