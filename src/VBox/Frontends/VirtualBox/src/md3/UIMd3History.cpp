@@ -36,7 +36,6 @@
 #include <QFileDialog>
 #include <QFileInfo>
 #include <QHBoxLayout>
-#include <QJsonArray>
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QLabel>
@@ -67,20 +66,24 @@ namespace
     const int g_iMaxDetailLength = 512;
     const int g_iMaxStateLength = 512 * 1024;
 
-    bool runGit(const QString &strWorkingDirectory, const QStringList &arguments)
-    {
-        QProcess git;
-        git.setWorkingDirectory(strWorkingDirectory);
-        git.start(QStringLiteral("git"), arguments);
-        if (!git.waitForStarted(1000) || !git.waitForFinished(3000))
-            return false;
-        return git.exitStatus() == QProcess::NormalExit && git.exitCode() == 0;
-    }
-
     QString md3HistoryText(const char *pszKey, const QString &strFallback)
     {
         UIMd3Language *pLanguage = UIMd3Language::instance();
         return pLanguage ? pLanguage->text(QString::fromLatin1(pszKey)) : strFallback;
+    }
+
+    bool decodeBase64(const QJsonValue &value, QByteArray &result)
+    {
+        if (value.isUndefined())
+        {
+            result.clear();
+            return true;
+        }
+        if (!value.isString())
+            return false;
+        const QByteArray encoded = value.toString().toLatin1();
+        result = QByteArray::fromBase64(encoded);
+        return result.toBase64() == encoded;
     }
 
     bool md3HistoryRevisionCanRestore(const UIMd3HistoryRevision &revision)
@@ -200,8 +203,26 @@ UIMd3History::UIMd3History()
 
     QDir repository(m_strRepositoryPath);
     if (!repository.exists(QStringLiteral(".git")))
-        runGit(m_strRepositoryPath, QStringList() << QStringLiteral("init") << QStringLiteral("--quiet"));
-    m_fGitBacked = QDir(m_strRepositoryPath).exists(QStringLiteral(".git"));
+    {
+        QProcess *pInit = new QProcess(this);
+        connect(pInit, &QProcess::errorOccurred, this, [this, pInit](QProcess::ProcessError)
+        {
+            m_fGitBacked = false;
+            pInit->deleteLater();
+        });
+        connect(pInit, QOverload<int, QProcess::ExitStatus>::of(&QProcess::finished),
+                this, [this, pInit](int iExitCode, QProcess::ExitStatus enmStatus)
+        {
+            m_fGitBacked = enmStatus == QProcess::NormalExit && iExitCode == 0
+                         && QDir(m_strRepositoryPath).exists(QStringLiteral(".git"));
+            pInit->deleteLater();
+        });
+        pInit->start(QStringLiteral("git"), QStringList()
+                     << QStringLiteral("-C") << m_strRepositoryPath
+                     << QStringLiteral("init") << QStringLiteral("--quiet"));
+    }
+    else
+        m_fGitBacked = true;
     load();
 }
 
@@ -240,7 +261,8 @@ void UIMd3History::load()
         revision.strAction = boundedString(object.value(QStringLiteral("action")).toString(), g_iMaxActionLength);
         revision.strDetail = boundedString(object.value(QStringLiteral("detail")).toString(), g_iMaxDetailLength);
         revision.when = QDateTime::fromString(object.value(QStringLiteral("at")).toString(), Qt::ISODateWithMs).toUTC();
-        revision.state = QByteArray::fromBase64(object.value(QStringLiteral("state")).toString().toLatin1());
+        if (!decodeBase64(object.value(QStringLiteral("state")), revision.state))
+            continue;
         const QString strExpectedHash = object.value(QStringLiteral("hash")).toString();
         const QString strActualHash = QString::fromLatin1(QCryptographicHash::hash(revision.state,
                                                                                    QCryptographicHash::Sha256).toHex());
@@ -258,7 +280,7 @@ bool UIMd3History::save() const
     if (m_strRepositoryPath.isEmpty())
         return false;
 
-    QJsonArray lines;
+    QByteArray data;
     for (int i = 0; i < m_revisions.size() && i < g_iMaxRevisions; ++i)
     {
         const UIMd3HistoryRevision &revision = m_revisions.at(i);
@@ -270,29 +292,25 @@ bool UIMd3History::save() const
         object.insert(QStringLiteral("state"), QString::fromLatin1(revision.state.toBase64()));
         object.insert(QStringLiteral("hash"), QString::fromLatin1(QCryptographicHash::hash(revision.state,
                                                                                              QCryptographicHash::Sha256).toHex()));
-        lines.append(object);
+        const QByteArray line = QJsonDocument(object).toJson(QJsonDocument::Compact) + '\n';
+        if (data.size() + line.size() > g_iMaxPayload)
+            return false;
+        data.append(line);
     }
-    const QByteArray data = QJsonDocument(lines).toJson(QJsonDocument::Compact);
-    if (data.size() > g_iMaxPayload)
-        return false;
 
     QSaveFile file(QDir(m_strRepositoryPath).filePath(QStringLiteral("revisions.jsonl")));
     if (!file.open(QIODevice::WriteOnly | QIODevice::Text))
         return false;
-    for (const QJsonValue &value : lines)
-    {
-        const QByteArray line = QJsonDocument(value.toObject()).toJson(QJsonDocument::Compact) + '\n';
-        if (file.write(line) != line.size())
-            return false;
-    }
-    return file.commit();
+    return file.write(data) == data.size() && file.commit();
 }
 
 QString UIMd3History::record(const QString &strAction,
                              const QString &strDetail,
                              const QByteArray &state)
 {
-    const QByteArray boundedState = state.left(g_iMaxStateLength);
+    if (state.size() > g_iMaxStateLength)
+        return QString();
+    const QByteArray boundedState = state;
     UIMd3HistoryRevision revision;
     revision.strId = QUuid::createUuid().toString(QUuid::WithoutBraces);
     revision.strAction = boundedString(strAction, g_iMaxActionLength);
@@ -487,8 +505,12 @@ bool UIMd3History::verifyIntegrity(QString &strError) const
                                                 g_iMaxDetailLength);
         const QDateTime when = QDateTime::fromString(object.value(QStringLiteral("at")).toString(),
                                                      Qt::ISODateWithMs);
-        const QByteArray state = QByteArray::fromBase64(object.value(QStringLiteral("state"))
-                                                         .toString().toLatin1());
+        QByteArray state;
+        if (!decodeBase64(object.value(QStringLiteral("state")), state))
+        {
+            strError = tr("Revision on line %1 contains invalid base64 state.").arg(iLine);
+            return false;
+        }
         const QString strExpectedHash = object.value(QStringLiteral("hash")).toString();
         const QString strActualHash = QString::fromLatin1(QCryptographicHash::hash(
             state, QCryptographicHash::Sha256).toHex());

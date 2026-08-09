@@ -67,9 +67,10 @@ jobs:
           if (-not (Test-Path doc/md3/NotificationCentre.md)) { throw 'Missing notification-center article' }
           $historyHeader = Get-Content src/VBox/Frontends/VirtualBox/src/md3/UIMd3History.h -Raw
           $historySource = Get-Content src/VBox/Frontends/VirtualBox/src/md3/UIMd3History.cpp -Raw
-          foreach ($pattern in @('class SHARED_LIBRARY_STUFF UIMd3History', 'record(', 'latestRevision', 'stateFor', 'filtered(', 'knownActions', 'verifyIntegrity', 'visibleCentreRows', 'matches(', 'sigRevisionRestoreRequested', 'sigRevisionRestoreCompleted', 'sltRestoreCentre', 'sltRestoreResult', 'Qt::UniqueConnection', 'QProcess', 'QSaveFile', 'QCryptographicHash', 'g_iMaxRevisions', 'md3.history.summary', 'md3.history.exported', 'md3.history.restore')) {
+          foreach ($pattern in @('class SHARED_LIBRARY_STUFF UIMd3History', 'record(', 'latestRevision', 'stateFor', 'filtered(', 'knownActions', 'verifyIntegrity', 'visibleCentreRows', 'matches(', 'sigRevisionRestoreRequested', 'sigRevisionRestoreCompleted', 'sltRestoreCentre', 'sltRestoreResult', 'Qt::UniqueConnection', 'QProcess', 'pInit', 'decodeBase64', 'QSaveFile', 'QCryptographicHash', 'g_iMaxRevisions', 'g_iMaxPayload', 'md3.history.summary', 'md3.history.exported', 'md3.history.restore')) {
             if (($historyHeader + $historySource) -notmatch [regex]::Escape($pattern)) { throw "History journal contract missing: $pattern" }
           }
+          if ($historySource -match 'waitForFinished') { throw 'History startup must not wait synchronously for optional Git.' }
           if ($historySource -match 'Restore notification state|Notification state restored from revision|notification-state revision') {
             throw 'History restore copy must remain truthful for notification and appearance/theme revisions.'
           }

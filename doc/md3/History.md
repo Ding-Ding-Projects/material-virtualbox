@@ -12,16 +12,17 @@ repository in user content.
 `revisions.jsonl` file. Each record has a UUID, UTC timestamp, bounded action,
 bounded detail, optional bounded state bytes, and a SHA-256 digest of those
 state bytes. A malformed line, duplicate identifier, invalid timestamp,
-oversized field, or digest mismatch is ignored without preventing the rest of
-the journal from loading.
+invalid base64 state, oversized field, or digest mismatch is ignored without
+preventing the rest of the journal from loading.
 
-When the local `git` executable is available, the service initializes the
-isolated folder as a repository and records each journal update with a local
-identity (`VirtualBox` / `virtualbox@localhost`). Git failures never fail the
-user operation: the atomic journal remains the source of truth and the
-service marks Git backing unavailable for later writes. The journal is not a
-transport and never touches the user's own repositories, credentials, remotes,
-or network configuration.
+When the local `git` executable is available, the service starts initialization
+of the isolated folder as a repository asynchronously and immediately loads
+the journal; startup never waits for optional Git. Later journal updates are
+recorded with a local identity (`VirtualBox` / `virtualbox@localhost`) when
+initialization succeeds. Git failures never fail the user operation: the
+atomic journal remains the source of truth and the service marks Git backing
+unavailable for later writes. The journal is not a transport and never touches
+the user's own repositories, credentials, remotes, or network configuration.
 
 The notification centre uses the journal for the destructive-history path:
 
@@ -60,9 +61,11 @@ surfaces supply safe restore adapters.
 The journal has no user-facing network or account configuration. The storage
 location follows `QStandardPaths::AppDataLocation`; the schema is private to
 the application and is versioned by its record shape. Payloads are capped at
-1 MiB, state at 512 KiB, actions at 128 characters, details at 512 characters,
-and the retained revision count at 1,024. Writes use `QSaveFile` and are
-replaced atomically.
+1 MiB including JSONL line endings, state at 512 KiB, actions at 128
+characters, details at 512 characters, and the retained revision count at
+1,024. Oversized state is rejected instead of truncated. Writes use
+`QSaveFile` and are replaced atomically. State base64 is decoded only when its
+canonical re-encoding matches the stored text.
 
 ## Failure modes and security
 
@@ -87,8 +90,9 @@ shortcut/command wiring is in
 `src/VBox/Frontends/VirtualBox/src/manager/UIVirtualBoxManager.cpp`. The
 UICommon target compiles the service and its MOC output; `main.cpp` creates it
 after UICommon/theme/language initialization and destroys it before UICommon.
-The source contract covers lifecycle, bounded JSON, SHA-256 validation, atomic
-writes, clear/restore revision names, the Git fallback, browser plain-text and
+The source contract covers lifecycle, bounded JSON, SHA-256 validation, strict
+base64 decoding, atomic writes, asynchronous optional-Git initialization,
+clear/restore revision names, the Git fallback, browser plain-text and
 regular-expression filters, action/date filtering, export, integrity
 verification, and the <kbd>Ctrl+H</kbd> route. Focused
 Windows builds of `UICommon`, `VirtualBox`, and `VirtualBoxVM` are the build
