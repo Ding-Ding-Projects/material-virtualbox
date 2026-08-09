@@ -134,8 +134,8 @@ void UIMd3NotificationCentre::create()
                                                      QStringLiteral("I understand these records will be removed."),
                                                      QStringLiteral("我明白呢啲紀錄會被移除。"));
             UIMd3Language::instance()->registerText(QStringLiteral("md3.notifications.clearAckUndo"),
-                                                     QStringLiteral("I understand this dialog does not provide an undo."),
-                                                     QStringLiteral("我明白呢個對話框冇提供復原。"));
+                                                     QStringLiteral("I understand this dialog does not make the action reversible."),
+                                                     QStringLiteral("我明白呢個對話框唔會令動作可以復原。"));
             UIMd3Language::instance()->registerText(QStringLiteral("md3.notifications.clearSlider"),
                                                      QStringLiteral("Slide fully to authorize"),
                                                      QStringLiteral("將滑桿推到底先可以授權"));
@@ -148,6 +148,9 @@ void UIMd3NotificationCentre::create()
             UIMd3Language::instance()->registerText(QStringLiteral("md3.notifications.clearAuthorize"),
                                                      QStringLiteral("Clear records"),
                                                      QStringLiteral("清除紀錄"));
+            UIMd3Language::instance()->registerText(QStringLiteral("md3.notifications.undoClear"),
+                                                     QStringLiteral("Undo last clear"),
+                                                     QStringLiteral("復原上次清除"));
             UIMd3Language::instance()->registerText(QStringLiteral("md3.notifications.empty"),
                                                      QStringLiteral("No local notifications"),
                                                      QStringLiteral("暫時冇通知"));
@@ -191,9 +194,13 @@ UIMd3NotificationCentre::UIMd3NotificationCentre()
     , m_pMarkSelectedReadButton(0)
     , m_pExportButton(0)
     , m_pClearButton(0)
+    , m_pUndoClearButton(0)
     , m_pSelectionSummary(0)
+    , m_fUndoAvailable(false)
 {
     load();
+    QList<UIMd3Notice> recovery;
+    m_fUndoAvailable = loadRecordsAtPath(undoStoragePath(), recovery);
 }
 
 UIMd3NotificationCentre::~UIMd3NotificationCentre()
@@ -220,42 +227,60 @@ QString UIMd3NotificationCentre::storagePath()
     return QDir(strLocation).filePath(QStringLiteral("md3-notifications.json"));
 }
 
+QString UIMd3NotificationCentre::undoStoragePath()
+{
+    const QString strLocation = QStandardPaths::writableLocation(QStandardPaths::AppDataLocation);
+    if (strLocation.isEmpty())
+        return QString();
+    return QDir(strLocation).filePath(QStringLiteral("md3-notifications-undo.json"));
+}
+
 void UIMd3NotificationCentre::load()
 {
     m_notices.clear();
+    loadRecordsAtPath(storagePath(), m_notices);
+}
 
-    const QString strPath = storagePath();
+void UIMd3NotificationCentre::save() const
+{
+    saveRecordsAtPath(storagePath(), m_notices);
+}
+
+bool UIMd3NotificationCentre::loadRecordsAtPath(const QString &strPath,
+                                                QList<UIMd3Notice> &records)
+{
+    records.clear();
     if (strPath.isEmpty())
-        return;
+        return false;
 
     QFile file(strPath);
     if (!file.exists() || file.size() <= 0 || file.size() > g_iMaxPayload)
-        return;
+        return false;
     if (!file.open(QIODevice::ReadOnly))
-        return;
+        return false;
 
     const QByteArray data = file.read(g_iMaxPayload + 1);
     if (data.isEmpty() || data.size() > g_iMaxPayload)
-        return;
+        return false;
 
     QJsonParseError parseError;
     const QJsonDocument document = QJsonDocument::fromJson(data, &parseError);
     if (parseError.error != QJsonParseError::NoError || !document.isObject())
-        return;
+        return false;
 
     const QJsonObject root = document.object();
     if (root.value(QStringLiteral("version")).toInt(-1) != g_iSchemaVersion)
-        return;
+        return false;
 
-    const QJsonArray records = root.value(QStringLiteral("notices")).toArray();
-    if (records.isEmpty())
-        return;
+    const QJsonArray recordsArray = root.value(QStringLiteral("notices")).toArray();
+    if (recordsArray.isEmpty())
+        return false;
 
     QSet<QString> seenIds;
-    const int iCount = qMin(records.size(), g_iMaxJsonArrayEntries);
-    for (int i = 0; i < iCount && m_notices.size() < g_iMaxNotices; ++i)
+    const int iCount = qMin(recordsArray.size(), g_iMaxJsonArrayEntries);
+    for (int i = 0; i < iCount && records.size() < g_iMaxNotices; ++i)
     {
-        const QJsonObject record = records.at(i).toObject();
+        const QJsonObject record = recordsArray.at(i).toObject();
         const QString strId = boundedString(record.value(QStringLiteral("id")).toString(), g_iMaxIdLength);
         const QString strTitle = boundedString(record.value(QStringLiteral("title")).toString(), g_iMaxTitleLength);
         const QString strDetail = boundedString(record.value(QStringLiteral("detail")).toString(), g_iMaxDetailLength);
@@ -272,25 +297,26 @@ void UIMd3NotificationCentre::load()
         notice.when = when.toUTC();
         notice.fError = record.value(QStringLiteral("error")).toBool(false);
         notice.fUnread = record.value(QStringLiteral("unread")).toBool(true);
-        m_notices << notice;
+        records << notice;
         seenIds.insert(strId);
     }
+    return !records.isEmpty();
 }
 
-void UIMd3NotificationCentre::save() const
+bool UIMd3NotificationCentre::saveRecordsAtPath(const QString &strPath,
+                                                 const QList<UIMd3Notice> &records)
 {
-    const QString strPath = storagePath();
     if (strPath.isEmpty())
-        return;
+        return false;
 
     const QFileInfo fileInfo(strPath);
     if (!QDir().mkpath(fileInfo.absolutePath()))
-        return;
+        return false;
 
-    QJsonArray records;
-    for (int i = 0; i < m_notices.size() && i < g_iMaxNotices; ++i)
+    QJsonArray recordsArray;
+    for (int i = 0; i < records.size() && i < g_iMaxNotices; ++i)
     {
-        const UIMd3Notice &notice = m_notices.at(i);
+        const UIMd3Notice &notice = records.at(i);
         QJsonObject record;
         record.insert(QStringLiteral("id"), notice.strId);
         record.insert(QStringLiteral("title"), notice.strTitle);
@@ -299,22 +325,42 @@ void UIMd3NotificationCentre::save() const
         record.insert(QStringLiteral("when"), notice.when.toUTC().toString(Qt::ISODateWithMs));
         record.insert(QStringLiteral("error"), notice.fError);
         record.insert(QStringLiteral("unread"), notice.fUnread);
-        records.append(record);
+        recordsArray.append(record);
     }
 
     QJsonObject root;
     root.insert(QStringLiteral("version"), g_iSchemaVersion);
-    root.insert(QStringLiteral("notices"), records);
+    root.insert(QStringLiteral("notices"), recordsArray);
 
     QSaveFile file(strPath);
     if (!file.open(QIODevice::WriteOnly))
-        return;
+        return false;
     const QByteArray data = QJsonDocument(root).toJson(QJsonDocument::Compact);
     if (data.size() > g_iMaxPayload)
-        return;
+        return false;
     if (file.write(data) != data.size())
-        return;
-    file.commit();
+        return false;
+    return file.commit();
+}
+
+void UIMd3NotificationCentre::saveUndoSnapshot()
+{
+    m_fUndoAvailable = saveRecordsAtPath(undoStoragePath(), m_notices);
+}
+
+bool UIMd3NotificationCentre::restoreUndoSnapshot()
+{
+    QList<UIMd3Notice> restored;
+    if (!m_fUndoAvailable || !loadRecordsAtPath(undoStoragePath(), restored))
+        return false;
+    m_notices = restored;
+    m_fUndoAvailable = false;
+    QFile::remove(undoStoragePath());
+    save();
+    emit sigChanged();
+    if (m_pDialog)
+        sltRefreshDialog();
+    return true;
 }
 
 QString UIMd3NotificationCentre::post(QWidget *pParent,
@@ -338,6 +384,11 @@ QString UIMd3NotificationCentre::post(QWidget *pParent,
     notice.fError = fError;
     notice.fUnread = true;
 
+    if (m_fUndoAvailable)
+    {
+        QFile::remove(undoStoragePath());
+        m_fUndoAvailable = false;
+    }
     m_notices.prepend(notice);
     while (m_notices.size() > g_iMaxNotices)
         m_notices.removeLast();
@@ -415,6 +466,8 @@ void UIMd3NotificationCentre::updateBulkActions()
         m_pExportButton->setEnabled(!visibleIds.isEmpty());
     if (m_pClearButton)
         m_pClearButton->setEnabled(!m_notices.isEmpty());
+    if (m_pUndoClearButton)
+        m_pUndoClearButton->setEnabled(m_fUndoAvailable);
 }
 
 void UIMd3NotificationCentre::sltSelectAllVisible()
@@ -706,6 +759,7 @@ void UIMd3NotificationCentre::sltRequestClear()
         pStatus->setText(md3NotificationText("md3.notifications.clearReady",
                                              tr("Ready to clear")));
         pStatus->setAccessibleName(pStatus->text());
+        saveUndoSnapshot();
         clear();
         dialog.accept();
     });
@@ -715,6 +769,14 @@ void UIMd3NotificationCentre::sltRequestClear()
     dialog.exec();
     if (m_pClearButton)
         m_pClearButton->setFocus(Qt::OtherFocusReason);
+}
+
+void UIMd3NotificationCentre::sltUndoClear()
+{
+    if (!restoreUndoSnapshot())
+        return;
+    if (m_pUndoClearButton)
+        m_pUndoClearButton->setFocus(Qt::OtherFocusReason);
 }
 
 void UIMd3NotificationCentre::clear()
@@ -798,6 +860,9 @@ void UIMd3NotificationCentre::showCentre(QWidget *pParent)
     m_pClearButton->setMinimumSize(QSize(48, md3Theme().controlHeight()));
     m_pClearButton->setProperty("destructive", true);
     pDestructiveLayout->addWidget(m_pClearButton);
+    m_pUndoClearButton = new QPushButton(m_pDialog);
+    m_pUndoClearButton->setMinimumSize(QSize(48, md3Theme().controlHeight()));
+    pDestructiveLayout->addWidget(m_pUndoClearButton);
     pDestructiveLayout->addStretch(1);
     pRootLayout->addLayout(pDestructiveLayout);
 
@@ -825,6 +890,8 @@ void UIMd3NotificationCentre::showCentre(QWidget *pParent)
             this, &UIMd3NotificationCentre::sltExportVisible);
     connect(m_pClearButton, &QPushButton::clicked,
             this, &UIMd3NotificationCentre::sltRequestClear);
+    connect(m_pUndoClearButton, &QPushButton::clicked,
+            this, &UIMd3NotificationCentre::sltUndoClear);
     connect(this, &UIMd3NotificationCentre::sigChanged,
             this, &UIMd3NotificationCentre::sltRefreshDialog);
     if (UIMd3Language::instance())
@@ -843,6 +910,7 @@ void UIMd3NotificationCentre::showCentre(QWidget *pParent)
         m_pMarkSelectedReadButton = 0;
         m_pExportButton = 0;
         m_pClearButton = 0;
+        m_pUndoClearButton = 0;
         m_pSelectionSummary = 0;
     });
 
@@ -911,6 +979,13 @@ void UIMd3NotificationCentre::sltRetranslateUI()
         m_pClearButton->setText(strClear);
         m_pClearButton->setAccessibleName(strClear);
         m_pClearButton->setToolTip(strClear);
+    }
+    if (m_pUndoClearButton)
+    {
+        const QString strUndo = md3NotificationText("md3.notifications.undoClear", tr("Undo last clear"));
+        m_pUndoClearButton->setText(strUndo);
+        m_pUndoClearButton->setAccessibleName(strUndo);
+        m_pUndoClearButton->setToolTip(tr("Restore the most recent recovery snapshot"));
     }
     sltRefreshDialog();
 }

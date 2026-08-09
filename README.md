@@ -94,7 +94,8 @@ an unread marker. The history rows now support filtered selection, inversion,
 selected-read updates, and bounded JSON export. **Clear history** uses an
 app-owned destructive gate with the exact record count, two acknowledgements,
 a full-range slider, animated progress, Emergency exit/Escape, and focus return;
-the local-Git revision/undo path, provider-authored rendering, bulk
+the review surface also offers one bounded **Undo last clear** recovery
+snapshot. Append-only local-Git history, provider-authored rendering, bulk
 dismiss/delete, and native capture remain open lanes. This is not a claim that
 the legacy notification surface has been fully replaced.
 

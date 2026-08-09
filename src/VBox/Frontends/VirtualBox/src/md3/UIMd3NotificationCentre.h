@@ -136,6 +136,8 @@ private slots:
     void sltExportVisible();
     /** Opens the app-owned super-confirmation before clearing all history. */
     void sltRequestClear();
+    /** Restores the most recent bounded pre-clear recovery snapshot. */
+    void sltUndoClear();
 
 private:
 
@@ -145,6 +147,16 @@ private:
     void save() const;
     /** Returns the application-data storage path. */
     static QString storagePath();
+    /** Returns the one-step recovery snapshot path. */
+    static QString undoStoragePath();
+    /** Loads and validates a bounded record file. */
+    static bool loadRecordsAtPath(const QString &strPath, QList<UIMd3Notice> &records);
+    /** Atomically writes a bounded record file. */
+    static bool saveRecordsAtPath(const QString &strPath, const QList<UIMd3Notice> &records);
+    /** Persists the current records before an authorized clear. */
+    void saveUndoSnapshot();
+    /** Restores and consumes the most recent pre-clear snapshot. */
+    bool restoreUndoSnapshot();
     /** Trims and bounds an untrusted persisted/user string. */
     static QString boundedString(const QString &strValue, int iMaximum);
     /** Returns IDs matching the active query, newest-first. */
@@ -164,7 +176,9 @@ private:
     QPushButton *m_pMarkSelectedReadButton;
     QPushButton *m_pExportButton;
     QPushButton *m_pClearButton;
+    QPushButton *m_pUndoClearButton;
     QLabel *m_pSelectionSummary;
+    bool m_fUndoAvailable;
     QSet<QString> m_selectedIds;
 };
 

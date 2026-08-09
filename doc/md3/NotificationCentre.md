@@ -73,19 +73,24 @@ the operation, and focus returns to **Clear history** after either cancellation
 or completion. Only the fully authorized path calls `clear()`; the ordinary
 review surface never clears records implicitly.
 
-The current model does not yet write an append-only local-Git history revision
-or provide a restore/undo command for a cleared record set. Transient toast
-presentation, bulk dismiss or delete, provider-authored markdown rendering,
-and full per-row accessibility roles remain later lanes. The absence of an undo
-is stated inside the gate so the user can make an informed destructive choice.
+After an authorized clear, the model keeps one bounded recovery snapshot in
+`md3-notifications-undo.json` and exposes **Undo last clear** in the review
+surface. The snapshot is validated with the same schema, field, count, and
+payload limits as live history; a failed snapshot never blocks the clear, and a
+successful restore consumes the snapshot and rewrites the live file atomically.
+This is a one-step recovery affordance, not yet the required append-only
+local-Git history revision. Transient toast presentation, bulk dismiss or
+delete, provider-authored markdown rendering, and full per-row accessibility
+roles remain later lanes.
 
 ## Configuration and localization
 
-The language service key is `md3.notifications.search`, with English
-`Search notifications` and Traditional Chinese/Cantonese `搜尋通知`. The
-placeholder and accessible name update when the language service changes mode.
-The query is local widget state; it is not written into VirtualBox extra data
-and is cleared when the center is recreated.
+The language service keys include `md3.notifications.search`,
+`md3.notifications.clear`, and `md3.notifications.undoClear`, with English
+and Traditional Chinese/Cantonese values registered beside the implementation.
+The placeholder, action labels, and accessible names update when the language
+service changes mode. The query is local widget state; it is not written into
+VirtualBox extra data and is cleared when the center is recreated.
 
 ## Failure modes and security
 
@@ -101,11 +106,13 @@ Patterns are evaluated by `UIMd3SearchField`, which bounds pattern length and
 uses Qt's regular-expression engine. The query stays in-process and is not
 persisted. The history file is written atomically beneath the app-data
 directory; persistence failure is non-blocking and is not reported as a false
-success. Export opens the native save picker, bounds the JSON payload, and
-fails closed if the destination cannot be written. Clear authorization is
-modal only because it is a destructive decision; the history model itself
-remains non-blocking. The missing local-Git revision/undo path is an explicit
-verification gap rather than a silently implied recovery guarantee.
+success. The recovery snapshot uses the same bounded atomic format beneath the
+app-data directory and is consumed after a successful restore. Export opens
+the native save picker, bounds the JSON payload, and fails closed if the
+destination cannot be written. Clear authorization is modal only because it is
+a destructive decision; the history model itself remains non-blocking. The
+missing append-only local-Git revision is an explicit verification gap rather
+than a silently implied guarantee.
 
 ## Verification
 
@@ -114,7 +121,7 @@ The implementation is in
 and
 `src/VBox/Frontends/VirtualBox/src/md3/UIMd3NotificationCentre.{h,cpp}`. The
 focused source contract checks the field wiring, the critical-item predicate,
-the bounded JSON model, selectable-row and export actions, lifecycle
+the bounded JSON model, selectable-row/export/restore actions, lifecycle
 creation/destruction, the two-acknowledgement/full-slider clear gate, focus
 return, and UICommon target ownership. UICommon and the root `VirtualBox`
 target are built through kBuild when the Windows toolchain is available; native
