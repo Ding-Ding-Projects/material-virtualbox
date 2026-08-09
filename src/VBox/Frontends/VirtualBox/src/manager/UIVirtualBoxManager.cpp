@@ -37,15 +37,17 @@
 #include <QMenuBar>
 #include <QProcess>
 #include <QPushButton>
+#include <QScreen>
 #include <QShortcut>
+#include <QSize>
 #include <QStandardPaths>
 #include <QStatusBar>
 #include <QStyle>
 #include <QVBoxLayout>
 #include <QWindow>
 #ifdef VBOX_WS_WIN
-# include <QCursor>
 # include <windows.h>
+# include <windowsx.h>
 #endif
 #ifndef VBOX_WS_WIN
 # include <QRegularExpression>
@@ -85,10 +87,11 @@
 #include "UIQObjectStuff.h"
 #include "UITranslationEventListener.h"
 #include "UIVirtualBoxManager.h"
-#include "UIMd3ManagerHeader.h"
+#include "UIMd3Button.h"
 #include "UIMd3CommandPalette.h"
 #include "UIMd3History.h"
 #include "UIMd3Language.h"
+#include "UIMd3ManagerHeader.h"
 #include "UIMd3Theme.h"
 #include "UIVirtualBoxWidget.h"
 #include "UIVirtualMachineItemCloud.h"
@@ -618,6 +621,9 @@ UIVirtualBoxManager::UIVirtualBoxManager()
     /* The Material header owns window movement and controls on Windows. */
     setWindowFlag(Qt::FramelessWindowHint, true);
 #endif
+    /* Keep the compact manager layout reachable at narrow logical sizes,
+     * including a 720p display at 200 percent scaling. */
+    setMinimumSize(QSize(640, 360));
 }
 
 UIVirtualBoxManager::~UIVirtualBoxManager()
@@ -665,41 +671,76 @@ bool UIVirtualBoxManager::eventFilter(QObject *pObject, QEvent *pEvent)
 #ifdef VBOX_WS_WIN
 bool UIVirtualBoxManager::nativeEvent(const QByteArray &strEventType, void *pMessage, qintptr *pResult)
 {
-    if (strEventType == "windows_generic_MSG" && pMessage && pResult && !isMaximized())
+    if (strEventType == "windows_generic_MSG" && pMessage && pResult)
     {
         MSG *pMsg = static_cast<MSG *>(pMessage);
+        if (   (   pMsg->message == WM_NCLBUTTONDOWN
+                || pMsg->message == WM_NCLBUTTONUP
+                || pMsg->message == WM_NCLBUTTONDBLCLK)
+            && pMsg->wParam == HTMAXBUTTON)
+        {
+            /* Returning HTMAXBUTTON from WM_NCHITTEST enables the native Snap
+             * Layout affordance, but this frameless window still owns the
+             * corresponding Qt action.  Consume the non-client sequence and
+             * activate exactly that action on release. */
+            if (pMsg->message == WM_NCLBUTTONUP)
+                if (UIMd3Button *pMaximize = findChild<UIMd3Button *>(
+                        QStringLiteral("md3MaximizeButton")))
+                    pMaximize->click();
+            *pResult = 0;
+            return true;
+        }
         if (pMsg->message == WM_NCHITTEST)
         {
-            const QPoint pos = QCursor::pos();
+            const QPoint pos(GET_X_LPARAM(pMsg->lParam), GET_Y_LPARAM(pMsg->lParam));
             const QRect frame = frameGeometry();
             const int iBorder = 8;
-            const bool fLeft = pos.x() >= frame.left() && pos.x() < frame.left() + iBorder;
-            const bool fRight = pos.x() <= frame.right() && pos.x() > frame.right() - iBorder;
-            const bool fTop = pos.y() >= frame.top() && pos.y() < frame.top() + iBorder;
-            const bool fBottom = pos.y() <= frame.bottom() && pos.y() > frame.bottom() - iBorder;
-
-            if (fTop && fLeft) *pResult = HTTOPLEFT;
-            else if (fTop && fRight) *pResult = HTTOPRIGHT;
-            else if (fBottom && fLeft) *pResult = HTBOTTOMLEFT;
-            else if (fBottom && fRight) *pResult = HTBOTTOMRIGHT;
-            else if (fLeft) *pResult = HTLEFT;
-            else if (fRight) *pResult = HTRIGHT;
-            else if (fTop) *pResult = HTTOP;
-            else if (fBottom) *pResult = HTBOTTOM;
-            else
+            if (!isMaximized())
             {
-                QWidget *pHeader = findChild<QWidget *>(QStringLiteral("md3ManagerHeader"));
-                const QRect header = pHeader ? QRect(pHeader->mapToGlobal(QPoint(0, 0)), pHeader->size()) : QRect();
-                if (header.contains(pos))
-                {
-                    QWidget *pTarget = QApplication::widgetAt(pos);
-                    if (pTarget && pTarget != pHeader && pTarget->window() == this)
-                        return QIMainWindow::nativeEvent(strEventType, pMessage, pResult);
-                    *pResult = HTCAPTION;
-                }
-                else
-                    return QIMainWindow::nativeEvent(strEventType, pMessage, pResult);
+                const bool fLeft = pos.x() >= frame.left() && pos.x() < frame.left() + iBorder;
+                const bool fRight = pos.x() <= frame.right() && pos.x() > frame.right() - iBorder;
+                const bool fTop = pos.y() >= frame.top() && pos.y() < frame.top() + iBorder;
+                const bool fBottom = pos.y() <= frame.bottom() && pos.y() > frame.bottom() - iBorder;
+
+                if (fTop && fLeft) *pResult = HTTOPLEFT;
+                else if (fTop && fRight) *pResult = HTTOPRIGHT;
+                else if (fBottom && fLeft) *pResult = HTBOTTOMLEFT;
+                else if (fBottom && fRight) *pResult = HTBOTTOMRIGHT;
+                else if (fLeft) *pResult = HTLEFT;
+                else if (fRight) *pResult = HTRIGHT;
+                else if (fTop) *pResult = HTTOP;
+                else if (fBottom) *pResult = HTBOTTOM;
+                else *pResult = HTNOWHERE;
+                if (*pResult != HTNOWHERE)
+                    return true;
             }
+
+            QWidget *pHeader = findChild<QWidget *>(QStringLiteral("md3ManagerHeader"));
+            const QRect header = pHeader
+                               ? QRect(pHeader->mapToGlobal(QPoint(0, 0)), pHeader->size())
+                               : QRect();
+            if (!header.contains(pos))
+                return QIMainWindow::nativeEvent(strEventType, pMessage, pResult);
+
+            QWidget *pMaximize = pHeader->findChild<QWidget *>(QStringLiteral("md3MaximizeButton"));
+            const QRect maximize = pMaximize && pMaximize->isVisible()
+                                   ? QRect(pMaximize->mapToGlobal(QPoint(0, 0)), pMaximize->size())
+                                   : QRect();
+            if (maximize.contains(pos))
+            {
+                /* HTMAXBUTTON lets Windows expose native Snap Layouts while
+                 * the Qt control remains the keyboard-accessible route. */
+                *pResult = HTMAXBUTTON;
+                return true;
+            }
+
+            QWidget *pTarget = QApplication::widgetAt(pos);
+            if (pTarget && pTarget != pHeader && pTarget->window() == this)
+                return QIMainWindow::nativeEvent(strEventType, pMessage, pResult);
+
+            /* Native caption handling preserves double-click maximize and
+             * drag-to-restore/system movement even from a maximized state. */
+            *pResult = HTCAPTION;
             return true;
         }
     }
@@ -2596,6 +2637,11 @@ void UIVirtualBoxManager::prepareMenuBar()
 
     /* Setup menu-bar policy: */
     menuBar()->setContextMenuPolicy(Qt::CustomContextMenu);
+#ifndef VBOX_WS_MAC
+    /* Keep the action-backed menu model, but do not stack legacy chrome above
+     * the frameless Material header.  The header exposes these menus on demand. */
+    menuBar()->hide();
+#endif
 }
 
 void UIVirtualBoxManager::prepareStatusBar()
@@ -3048,9 +3094,51 @@ void UIVirtualBoxManager::loadSettings()
     /* Load window geometry: */
     {
         const QRect geo = gEDataManager->selectorWindowGeometry(this);
-        LogRel2(("GUI: UIVirtualBoxManager: Restoring geometry to: Origin=%dx%d, Size=%dx%d\n",
+        QScreen *pScreen = QGuiApplication::screenAt(geo.center());
+        if (!pScreen)
+        {
+            int iBestIntersectionArea = 0;
+            foreach (QScreen *pCandidate, QGuiApplication::screens())
+            {
+                const QRect intersection = pCandidate->availableGeometry().intersected(geo);
+                const int iIntersectionArea = intersection.isValid()
+                                            ? intersection.width() * intersection.height()
+                                            : 0;
+                if (iIntersectionArea > iBestIntersectionArea)
+                {
+                    iBestIntersectionArea = iIntersectionArea;
+                    pScreen = pCandidate;
+                }
+            }
+        }
+        if (!pScreen)
+            pScreen = QGuiApplication::primaryScreen();
+
+        QRect restored = geo;
+        const QRect available = pScreen ? pScreen->availableGeometry() : QRect();
+        if (available.isValid())
+        {
+            /* Qt screen geometry is expressed in device-independent pixels,
+             * so clamping here remains correct at 125 through 200 percent. */
+            setMinimumSize(QSize(qMax(1, qMin(640, available.width())),
+                                 qMax(1, qMin(360, available.height()))));
+            if (!restored.isValid())
+            {
+                restored = QRect(QPoint(0, 0), QSize(960, 640));
+                restored.moveCenter(available.center());
+            }
+            restored.setSize(QSize(qBound(minimumWidth(), restored.width(), available.width()),
+                                   qBound(minimumHeight(), restored.height(), available.height())));
+            restored.moveLeft(qBound(available.left(), restored.left(),
+                                     available.right() - restored.width() + 1));
+            restored.moveTop(qBound(available.top(), restored.top(),
+                                    available.bottom() - restored.height() + 1));
+        }
+        LogRel2(("GUI: UIVirtualBoxManager: Restoring geometry to: Origin=%dx%d, Size=%dx%d"
+                 " (stored Origin=%dx%d, Size=%dx%d)\n",
+                 restored.x(), restored.y(), restored.width(), restored.height(),
                  geo.x(), geo.y(), geo.width(), geo.height()));
-        restoreGeometry(geo);
+        restoreGeometry(restored);
     }
 }
 

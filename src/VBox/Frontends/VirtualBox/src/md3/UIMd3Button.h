@@ -62,6 +62,8 @@ public:
     /** Keeps a row focusable while preventing activation (for unavailable commands). */
     void setActivationEnabled(bool fEnabled);
     bool isActivationEnabled() const { return m_fActivationEnabled; }
+    /** Activates the button when it is available. */
+    void click();
 
     virtual QSize sizeHint() const RT_OVERRIDE;
     virtual QSize minimumSizeHint() const RT_OVERRIDE;

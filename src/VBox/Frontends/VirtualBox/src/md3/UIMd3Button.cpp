@@ -16,12 +16,65 @@
  * SPDX-License-Identifier: GPL-3.0-only
  */
 
-#include <QKeyEvent>
+#include <QAccessible>
+#include <QAccessibleWidget>
 #include <QFontMetrics>
+#include <QKeyEvent>
+#include <QKeySequence>
 #include <QMouseEvent>
 #include <QPainter>
 
 #include "UIMd3Button.h"
+
+/** Accessible Button role and press action for the custom-painted Material button. */
+class UIAccessibilityInterfaceForUIMd3Button : public QAccessibleWidget
+{
+public:
+
+    static QAccessibleInterface *pFactory(const QString &strClassName, QObject *pObject)
+    {
+        if (pObject && strClassName == QLatin1String("UIMd3Button"))
+            return new UIAccessibilityInterfaceForUIMd3Button(qobject_cast<UIMd3Button*>(pObject));
+        return 0;
+    }
+
+    UIAccessibilityInterfaceForUIMd3Button(UIMd3Button *pButton)
+        : QAccessibleWidget(pButton, QAccessible::Button)
+    {
+        addControllingSignal(QStringLiteral("sigClicked()"));
+    }
+
+    virtual QStringList actionNames() const RT_OVERRIDE
+    {
+        return QStringList(QAccessibleActionInterface::pressAction());
+    }
+
+    virtual QAccessible::State state() const RT_OVERRIDE
+    {
+        QAccessible::State result = QAccessibleWidget::state();
+        if (button() && !button()->isActivationEnabled())
+            result.disabled = true;
+        return result;
+    }
+
+    virtual void doAction(const QString &strActionName) RT_OVERRIDE
+    {
+        if (strActionName == QAccessibleActionInterface::pressAction() && button())
+            button()->click();
+    }
+
+    virtual QStringList keyBindingsForAction(const QString &strActionName) const RT_OVERRIDE
+    {
+        if (strActionName != QAccessibleActionInterface::pressAction())
+            return QStringList();
+        return QStringList() << QKeySequence(Qt::Key_Space).toString(QKeySequence::NativeText)
+                             << QKeySequence(Qt::Key_Return).toString(QKeySequence::NativeText);
+    }
+
+private:
+
+    UIMd3Button *button() const { return qobject_cast<UIMd3Button*>(widget()); }
+};
 
 UIMd3Button::UIMd3Button(const QString &strText, UIMd3ButtonVariant enmVariant, QWidget *pParent)
     : UIMd3Widget(pParent, QStringLiteral("button/") + strText)
@@ -29,6 +82,12 @@ UIMd3Button::UIMd3Button(const QString &strText, UIMd3ButtonVariant enmVariant, 
     , m_enmVariant(enmVariant)
     , m_fActivationEnabled(true)
 {
+    static bool s_fAccessibilityFactoryInstalled = false;
+    if (!s_fAccessibilityFactoryInstalled)
+    {
+        QAccessible::installFactory(UIAccessibilityInterfaceForUIMd3Button::pFactory);
+        s_fAccessibilityFactoryInstalled = true;
+    }
     setFocusPolicy(Qt::StrongFocus);
     setCursor(Qt::PointingHandCursor);
     setSizePolicy(QSizePolicy::Minimum, QSizePolicy::Fixed);
@@ -37,11 +96,15 @@ UIMd3Button::UIMd3Button(const QString &strText, UIMd3ButtonVariant enmVariant, 
 
 void UIMd3Button::setText(const QString &strText)
 {
+    const bool fUsesGeneratedAppearanceKey = appearanceKey().startsWith(QStringLiteral("button/"));
     m_strText = strText;
     setAccessibleName(strText);
-    setAppearanceKey(QStringLiteral("button/") + strText);
+    if (fUsesGeneratedAppearanceKey)
+        setAppearanceKey(QStringLiteral("button/") + strText);
     updateGeometry();
     update();
+    QAccessibleEvent event(this, QAccessible::NameChanged);
+    QAccessible::updateAccessibility(&event);
 }
 
 void UIMd3Button::setIcon(const QIcon &icon)
@@ -73,6 +136,16 @@ void UIMd3Button::setActivationEnabled(bool fEnabled)
     m_fActivationEnabled = fEnabled;
     setCursor(fEnabled ? Qt::PointingHandCursor : Qt::ForbiddenCursor);
     update();
+    QAccessible::State changedState;
+    changedState.disabled = true;
+    QAccessibleStateChangeEvent event(this, changedState);
+    QAccessible::updateAccessibility(&event);
+}
+
+void UIMd3Button::click()
+{
+    if (isEnabled() && m_fActivationEnabled)
+        emit sigClicked();
 }
 
 UIMd3ColorRole UIMd3Button::containerRole() const
@@ -156,7 +229,9 @@ void UIMd3Button::paintEvent(QPaintEvent *)
     QRect content = body;
     if (!m_icon.isNull())
     {
-        const QRect iconRect(content.left() + 16, content.center().y() - 9, 18, 18);
+        const QRect iconRect = m_enmVariant == UIMd3ButtonVariant_Icon
+                             ? QRect(content.center().x() - 9, content.center().y() - 9, 18, 18)
+                             : QRect(content.left() + 16, content.center().y() - 9, 18, 18);
         m_icon.paint(&painter, iconRect, Qt::AlignCenter,
                      fInteractive ? QIcon::Normal : QIcon::Disabled);
         content.setLeft(iconRect.right() + 8);
@@ -171,7 +246,7 @@ void UIMd3Button::mouseReleaseEvent(QMouseEvent *pEvent)
     const bool fInside = rect().contains(pEvent->pos());
     UIMd3Widget::mouseReleaseEvent(pEvent);
     if (fInside && isEnabled() && m_fActivationEnabled && pEvent->button() == Qt::LeftButton)
-        emit sigClicked();
+        click();
 }
 
 void UIMd3Button::keyPressEvent(QKeyEvent *pEvent)
@@ -180,7 +255,7 @@ void UIMd3Button::keyPressEvent(QKeyEvent *pEvent)
                         pEvent->key() == Qt::Key_Return ||
                         pEvent->key() == Qt::Key_Enter))
     {
-        emit sigClicked();
+        click();
         pEvent->accept();
         return;
     }

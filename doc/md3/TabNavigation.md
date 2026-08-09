@@ -7,13 +7,21 @@ global-tools surface. It is implemented by
 
 ## Behaviour
 
-- The manager exposes Home, Machines, Media, Network, Cloud, Resources, and
-  Extensions as real selectable tabs. Selecting a tab delegates to the existing
+- The manager opens Home, Machines, Extensions, Media, Network, Cloud, and
+  Resources as real selectable workspace tabs when their rail destinations are
+  visited. Selecting a tab delegates to the existing
   `UIGlobalToolsWidget::setMenuToolType` path; the existing `UIToolType` model
   remains authoritative.
+- A new or legacy generated layout begins with one pinned available destination
+  instead of seven duplicate tabs. Migration applies only to the exact previous
+  seven-tab, unpinned, ungrouped shape; customized tab state is preserved.
 - Keyboard Left and Right move the active tab, while a pointer click selects a
   tab. The strip has a named `tab-strip` object and a visible active-state
-  treatment from the shared Material 3 theme.
+  treatment from the shared Material 3 theme. A dedicated transparent child
+  exposes a `PageTabList` containing only real `PageTab` controls with
+  selected/disabled state, focus, and press actions. New tab, Tab manager,
+  overflow, and independent 48-pixel close buttons remain accessible siblings
+  while the parent keeps the Material painting.
 - A keyboard-originated context-menu event (including <kbd>Shift+F10</kbd>)
   reuses the stable current tab when the event has no pointer hit, so the
   resulting menu exposes that tab's pin, move, close, and `Edit tab
@@ -25,24 +33,38 @@ global-tools surface. It is implemented by
   tab cannot bypass the underlying `UITools` policy.
 - Tab actions include a local search field, pin or unpin, close, and
   `Edit tab appearance…`. `Move… into group…` opens a real keyboard-operable
-  picker with its own bounded regex-capable search field, member counts, color
-  labels, a no-group target, and an inline create-group path. Shift+right-click
-  opens the appearance editor for the selected tab.
+  picker capped to the current screen, with scrolling, its own bounded
+  regex-capable search field, member counts, color labels, a no-group target,
+  and an inline create-group path. A hidden filtered result cannot be accepted.
+  Shift+right-click opens the appearance editor for the selected tab.
 - Right-clicking strip chrome opens the strip appearance editor and a searchable
   group-management menu. The menu keeps its local search field while exposing
   `Create group…`, bounded `Rename group…` editors, and
   `Edit group appearance…` actions keyed to each group's stable identifier;
   every one of those local menus uses the shared anchored regex builder.
-- When tabs overflow, the ellipsis is a real 48 px `QToolButton` with an
-  accessible name and keyboard focus; it opens the same searchable overflow
-  menu as the Down key path instead of silently clipping the remaining tabs.
+- The strip is 48 px high with tab bodies bounded to 120--210 px and a 48 px
+  inline close target. New tab, Tab manager, and overflow are real 48 px
+  `QToolButton` controls with accessible names and keyboard focus. The New tab
+  and Tab manager menus have independent regex-capable searches, and overflow
+  opens the same searchable list as the Down key path. Activating a hidden
+  overflow result advances a transient, non-persisted viewport until that tab
+  is fully visible. If a long pinned region would otherwise consume the strip,
+  the transient pinned and ordinary viewports retain at least one pinned tab
+  while revealing the selected ordinary tab. Only fully visible tabs
+  participate in pointer hit testing; the reserved trailing boundary prevents
+  a clipped sliver from disappearing from both the strip and overflow list.
 - Tab groups have stable identifiers, names, colors, collapsed state, and
   membership. Pinning, grouping, and the active tab persist through the
   existing VirtualBox extra-data store under `GUI/Md3/Tabs` for the current
-  manager surface.
+  manager surface. Activating a member of a collapsed group reveals only that
+  current tab without changing the group's persisted collapsed preference;
+  moving a tab into a collapsed group likewise leaves the group collapsed.
 - Close matching supports bounded plain-text and regular-expression predicates
   and protects pinned tabs unless the caller explicitly includes them. Empty
   queries produce no close set, preventing an accidental close-all operation.
+- Closing the active tab resolves the nearest enabled visible fallback before
+  saving, then emits one model update and one final current-tab notification;
+  no intermediate empty selection is persisted or announced.
 
 ## Failure modes and security
 
@@ -59,18 +81,24 @@ destinations before this model is reused there.
 ## Verification
 
 The MD3 validation workflow checks the tab-strip source and MOC header are
-wired into `UICommon`, and the native `VirtualBox` target has compiled the
-new translation unit and its Qt MOC output. Full tab management remains in
-progress: the four independent tab-discovery searches, drag reordering, group
-move/delete/reorder surfaces, bulk-close preview/confirmation, vertical
-docking, per-tab `QAccessible::PageTab` children, surface-scoped persistence,
-and runtime-window adoption still need
-their own production lanes. The current strip does provide an interactive
-overflow menu, group expand/collapse menu, visible focus ring, and
-restriction-aware enabled states.
+wired into `UICommon`. The uncommitted local `VirtualBox` result in the
+[manager-shell evidence table](ManagerShell.md#verification-and-remaining-work)
+compiled the translation unit and its Qt MOC output; it is not evidence
+attributed to a repository commit. Full tab management remains in
+progress: the four independent cross-window tab-discovery searches, drag
+  reordering, group delete/reorder surfaces, bulk-close preview/confirmation,
+  the full guided regex builder with capture output and copy/export, vertical
+  docking, surface-scoped persistence, and runtime-window adoption
+still need their own production lanes. The current
+strip does provide on-demand manager workspaces, an interactive overflow menu,
+group expand/collapse menu, visible focus ring, and restriction-aware enabled
+states, PageTab accessibility children, independent close buttons, and
+dedicated New tab and Tab manager actions. The compact navigation action exists
+below 1000 logical pixels; a fully dockable left-edge tab strip remains open.
 Native GUI capture is intentionally deferred in the current task; no design
 thumbnail or static HTML preview is treated as runtime evidence.
 
-Suggested articles: [Navigation rail](NavigationRail.md),
+Suggested articles: [Manager shell](ManagerShell.md),
+[Navigation rail](NavigationRail.md),
 [Settings search](SettingsSearch.md), [Appearance settings](AppearanceSettings.md),
 and the [design coverage ledger](DesignCoverage.md).

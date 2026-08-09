@@ -16,7 +16,9 @@ class QMainWindow;
 class QLabel;
 class UIMd3Button;
 class UIMd3NotificationCentre;
+class QEvent;
 class QMouseEvent;
+class QResizeEvent;
 
 /** Native manager header that keeps existing actions authoritative. */
 class UIMd3ManagerHeader : public QWidget
@@ -25,21 +27,31 @@ public:
     UIMd3ManagerHeader(QMainWindow *pWindow, QWidget *pParent = 0);
 
 protected:
+    bool eventFilter(QObject *pObject, QEvent *pEvent) override;
     void mouseDoubleClickEvent(QMouseEvent *pEvent) override;
     void mouseMoveEvent(QMouseEvent *pEvent) override;
     void mousePressEvent(QMouseEvent *pEvent) override;
     void mouseReleaseEvent(QMouseEvent *pEvent) override;
+    void resizeEvent(QResizeEvent *pEvent) override;
 
 private:
+    void showApplicationMenu();
     void toggleMaximize();
+    void updateBranding();
+    void updateIcons();
     void updateMaximizeLabel();
     void updateChromeText();
     void updateNotificationState();
+    void updateResponsiveLayout();
+    void updateTheme();
 
     QMainWindow  *m_pWindow;
+    QLabel       *m_pBrandMark;
     QLabel       *m_pTitle;
+    QLabel       *m_pSubtitle;
     QLabel       *m_pUnread;
     UIMd3Button  *m_pMenu;
+    UIMd3Button  *m_pPalette;
     UIMd3Button  *m_pMinimize;
     UIMd3Button  *m_pMaximize;
     UIMd3Button  *m_pClose;

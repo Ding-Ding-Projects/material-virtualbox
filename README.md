@@ -5,6 +5,11 @@ front end for VirtualBox. It keeps the VirtualBox engine, COM/XPCOM contracts,
 machine models, action pools, and kBuild targets intact while moving the
 application-owned presentation toward one coherent Qt 6 design system.
 
+**Documentation:** [Material Virtual Machine documentation](https://ding-ding-projects.github.io/material-virtualbox/)
+
+**Install status:** no verified installer is published yet. Build from source
+with the [canonical VirtualBox prerequisites and commands](#build-and-prerequisites).
+
 > **Implementation status:** the shared theme, style, language, persisted brand,
 > native manager title bar, manager navigation rail, manager tab strip, command
 > palette, appearance editor, shared settings search/regex field, and the
@@ -25,6 +30,9 @@ application-owned presentation toward one coherent Qt 6 design system.
 - [CI and Pages](#ci-and-pages)
 - [Contributing](#contributing)
 - [Security and license](#security-and-license)
+
+<details>
+<summary><strong>Design package, native evidence, and implemented surfaces</strong></summary>
 
 ## Design package
 
@@ -81,30 +89,57 @@ refresh, exact handler-owned focus, bounded accessible results, and focus return
 its native capture remains pending the COM registration gate.
 
 The frameless Windows manager title bar is documented in
-[`doc/md3/TitleBar.md`](doc/md3/TitleBar.md). Its real Menu, Minimize,
-Maximize/Restore, Close, and Notifications actions preserve the existing
-window/menu authority and refresh their labels, tooltips, and accessible names
-when the persisted language mode changes. Native snap, high-DPI, and bilingual
-captures remain part of the deferred runtime evidence matrix.
+[`doc/md3/TitleBar.md`](doc/md3/TitleBar.md). The 48-pixel header now presents a
+compact application mark/name, manager subtitle, command-palette pill,
+notification state, and icon window actions. Its real menu, window, palette,
+and notification paths preserve existing authority while the hidden legacy
+menu model opens on demand. Native snap, high-DPI, and bilingual captures remain
+part of the deferred runtime evidence matrix.
 
-The first implemented manager capture gate is the navigation rail: its buttons
-must select the existing `UIToolType` models, preserve expert-mode restrictions,
-show keyboard focus, and reflect the active theme. A capture that cannot show
-those live behaviors is not accepted as GUI proof.
+The complete production composition is documented in
+[`doc/md3/ManagerShell.md`](doc/md3/ManagerShell.md): a 48-pixel header,
+48-pixel on-demand workspace strip, 92-pixel desktop rail with a compact
+searchable navigation action below 1000 logical pixels, destination heading
+with contextual action pills, and padded Machines chooser/workspace cards. The
+serial Windows gate rebuilt and linked `UICommon` and `VirtualBox`, then
+confirmed `VirtualBoxVM` was already up to date against that shared library;
+real native capture remains a separate runtime gate.
+
+The manager's 92-pixel navigation rail uses stacked icon-and-label destinations
+in the prototype order. Its buttons must select the existing `UIToolType`
+models, preserve expert-mode restrictions, open workspace tabs on demand, show
+keyboard focus, and reflect the active theme. Up/Down traversal includes the
+fixed Preferences destination, unavailable items explain the unmet condition,
+and bundled icon masks are recolored for the active Material role and display
+scale. A capture that cannot show those live behaviors is not accepted as GUI
+proof. The underlying `UIToolsItem`
+names and accessibility descriptions use stable `md3.tool.*` keys through the
+persisted Material language service, refreshing on English/Cantonese/bilingual
+and funny-level changes through a unique language connection while retaining
+the existing Qt translation listener fallback.
 
 The manager tab strip is documented in
 [`doc/md3/TabNavigation.md`](doc/md3/TabNavigation.md). It delegates tab
-selection to the existing global-tools model, persists groups/pins/current
-selection through VirtualBox extra data for the manager surface, keeps
+selection to the existing global-tools model, opens visited destinations on
+demand, migrates only the exact legacy generated seven-tab layout to one pinned
+available destination, persists groups/pins/current selection through
+VirtualBox extra data for the manager surface, keeps
 empty bulk-close queries safe, and exposes a searchable Move… into group…
-picker with member counts and an inline create-group path; overflow now has a
-focusable 48 px More-tabs button. Strip chrome also offers bounded group
-creation and renaming plus a per-group Edit appearance… action while retaining
-the local search field. Keyboard context menus reuse the stable current tab so
+picker with member counts and an inline create-group path; the 48-pixel strip
+now reserves 48 px focusable New tab, Tab manager, More-tabs, and inline close
+targets. Overflow activation reveals the selected tab, active-tab close emits
+one final fallback state, and the group picker is screen-bounded and rejects
+hidden filtered results. A dedicated transparent child exposes only the real
+PageTab roles; the other accessible actions remain siblings. Strip chrome also
+offers bounded group creation and renaming plus a per-group Edit appearance…
+action while retaining the local search field. Keyboard context menus reuse
+the stable current tab so
 <kbd>Shift+F10</kbd> exposes real tab-management actions; pointer chrome keeps
-its strip-level menu. The four
-tab-discovery searches, surface-scoped persistence, full overflow/reordering
-UI, and runtime tab adoption remain open design-coverage lanes.
+its strip-level menu. Activating a member of a collapsed group temporarily
+reveals that tab without overwriting the group's collapsed preference. The four
+tab-discovery searches, the guided regex-construction/capture/copy surface,
+surface-scoped persistence, full overflow/reordering UI, and runtime tab
+adoption remain open design-coverage lanes.
 
 The existing notification center now has a Material 3 search field in its
 extended view. [`doc/md3/NotificationCentre.md`](doc/md3/NotificationCentre.md)
@@ -146,6 +181,11 @@ reproducible hash list in [`doc/md3/ArchiveManifest.sha256`](doc/md3/ArchiveMani
 Regenerate both with `pwsh -NoProfile -ExecutionPolicy Bypass -File
 tools/md3/generate-design-coverage.ps1` after changing the design package.
 
+</details>
+
+<details>
+<summary><strong>Architecture and target ownership</strong></summary>
+
 ## Architecture
 
 This is one VirtualBox frontend, not a parallel demo application.
@@ -179,6 +219,11 @@ bar, keyboard and screen-reader support, and preserved translations. The
 visual rewrite must not weaken hardening, authentication, destructive-action
 confirmation, or VM/session safety.
 
+</details>
+
+<details>
+<summary><strong>Build from source and local prerequisites</strong></summary>
+
 ## Build and prerequisites
 
 VirtualBox is a large native project. Follow the canonical
@@ -203,13 +248,30 @@ The build requires a compatible compiler, Qt 6 development files, kBuild
 `configure.py`. Do not copy generated output or machine-local settings into
 the source tree; use `LocalConfig.kmk` for local overrides.
 
-**Current checkout boundary:** this Windows checkout now has a verified native
-`VirtualBox` target build. The local build used the bundled kBuild executable,
-MSVC 14.44, Windows SDK 10.0.26100.0, Qt 6.8.3 plus the official `qtscxml`
-add-on, WDK headers, Mako, GNU Bison/Flex/M4, NASM, and `xsltproc`. The
-generated executable links and installs successfully. Full runtime manager
+**Current checkout boundary:** the evidence below is an **uncommitted local
+build**, not evidence attributed to a repository commit or a published release.
+It was built on a Windows x64 development host from baseline
+`42310d27d98985634ec0868f8e31fa4c27343d97` plus the working-tree manager-shell
+changes, using MSVC 14.44, Windows SDK 10.0.26100.0, Qt 6.8.3 with the official
+`qtscxml` add-on, and the bundled kBuild executable.
+
+| Target | Local result | Completed (UTC-04:00) | Installed artifact SHA-256 |
+| --- | --- | --- | --- |
+| `UICommon` | Exit 0, compiled and linked | 2026-08-09 13:17:03 | `3443A91C69E08E21B7130E3A667D9CEA8F2584FDBD6FDE686B2804AACD6E876C` |
+| `VirtualBox` | Exit 0, compiled and linked | 2026-08-09 13:12:21 | `6A5E7F04EA44454F929A0E798ED425B6F878C953C1FAAA47C70A719877AD04B4` |
+| `VirtualBoxVM` | Exit 0, target up to date against rebuilt `UICommon` | 2026-08-09 13:13:07 | `2A4E0398C304289090CD49DE0695E17915B8795BDB66168275B89C3E0DD47DD0` |
+
+The serial target commands used the repository's configured environment and
+checked `UICommon`, `VirtualBox`, and `VirtualBoxVM` separately. This proves the
+changed shared and manager translation units compiled and linked, and that the
+runtime target remained dependency-current on that host. Full runtime manager
 capture remains blocked by the checkout's unregistered `VirtualBoxClient` COM
 runtime (`REGDB_E_CLASSNOTREG`); no mock screenshot is counted as GUI proof.
+
+</details>
+
+<details>
+<summary><strong>Verification boundaries and remaining runtime gates</strong></summary>
 
 ## Verification boundaries
 
@@ -217,7 +279,7 @@ Static inspection and the native build prove the design package, the 69-entry
 ledger, the shared MD3 theme/style integration, and the compiled VirtualBox
 target. The following remain open:
 
-- compilation of `VirtualBoxVM` and the complete release packaging path;
+- the complete release packaging path;
 - Qt widget, accessibility, keyboard, localization, and persistence tests;
 - Windows frameless title-bar, DPI, snap-layout, and focus validation;
 - manager, settings, wizard, manager-tool, notification, and runtime screenshot
@@ -228,6 +290,11 @@ When the toolchain is available, run the narrowest relevant gates first, then
 the full GUI target. Validation Kit and runtime testcase commands are
 documented in [`AGENTS.md`](AGENTS.md); they are not represented as passed by
 this README.
+
+</details>
+
+<details>
+<summary><strong>Continuous integration and GitHub Pages</strong></summary>
 
 ## CI and Pages
 
@@ -242,6 +309,11 @@ When publication work is added, it must build from the intended commit, keep
 artifact and test evidence separate, publish only verified outputs, and expose
 the documentation site from the repository homepage. A green static check
 must not be described as a successful GUI build or release.
+
+</details>
+
+<details>
+<summary><strong>Contributing to the native frontend</strong></summary>
 
 ## Contributing
 
@@ -260,6 +332,11 @@ Do not assume the GitHub mirror contains newer internal fixes. Commits,
 branches, tags, and publication should follow the repository owner's explicit
 workflow.
 
+</details>
+
+<details>
+<summary><strong>Security reporting and license</strong></summary>
+
 ## Security and license
 
 Report vulnerabilities using the process in [`SECURITY.md`](SECURITY.md), not
@@ -268,3 +345,5 @@ in [`COPYING`](COPYING), with additional third-party license notices in
 [`THIRD_PARTY_LICENSES.txt`](THIRD_PARTY_LICENSES.txt).
 
 Copyright (C) 2025 Oracle and/or its affiliates.
+
+</details>

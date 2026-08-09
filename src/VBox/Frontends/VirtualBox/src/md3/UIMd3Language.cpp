@@ -87,6 +87,27 @@ UIMd3Language::UIMd3Language()
     registerText(QStringLiteral("md3.search.regex-builder-name"),
                  QStringLiteral("Open regex builder"),
                  QStringLiteral("開啟正則表達式建立器"));
+    registerText(QStringLiteral("md3.search.regex-active"),
+                 QStringLiteral("Regular-expression search is active with flags %1."),
+                 QStringLiteral("正則表達式搜尋已啟用，旗標係 %1。"));
+    registerText(QStringLiteral("md3.search.regex-active-no-flags"),
+                 QStringLiteral("Regular-expression search is active without flags."),
+                 QStringLiteral("正則表達式搜尋已啟用，冇使用旗標。"));
+    registerText(QStringLiteral("md3.manager.navigation-rail"),
+                 QStringLiteral("Navigation rail"),
+                 QStringLiteral("導覽列"));
+    registerText(QStringLiteral("md3.appearance.edit"),
+                 QStringLiteral("Edit appearance…"),
+                 QStringLiteral("編輯外觀…"));
+    registerText(QStringLiteral("md3.appearance.edit-for"),
+                 QStringLiteral("Edit appearance for %1"),
+                 QStringLiteral("編輯 %1 嘅外觀"));
+    registerText(QStringLiteral("md3.appearance.search-actions"),
+                 QStringLiteral("Search appearance actions"),
+                 QStringLiteral("搜尋外觀動作"));
+    registerText(QStringLiteral("md3.appearance.search-menu"),
+                 QStringLiteral("Search this appearance menu"),
+                 QStringLiteral("搜尋呢個外觀選單"));
 }
 
 UIMd3Language::~UIMd3Language() = default;

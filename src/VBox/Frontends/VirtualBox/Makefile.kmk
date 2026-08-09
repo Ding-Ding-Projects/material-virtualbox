@@ -1335,6 +1335,7 @@ UICommon_SOURCES = \
 	src/md3/UIMd3Button.cpp \
 	src/md3/UIMd3CommandPalette.cpp \
 	src/md3/UIMd3History.cpp \
+	src/md3/UIMd3MenuSearch.cpp \
 	src/md3/UIMd3NotificationCentre.cpp \
 	src/md3/UIMd3Wizard.cpp \
 	src/md3/UIMd3TabStrip.cpp \

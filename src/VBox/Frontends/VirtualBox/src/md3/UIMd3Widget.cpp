@@ -19,12 +19,21 @@
 #include <QMouseEvent>
 #include <QContextMenuEvent>
 #include <QKeySequence>
-#include <QLineEdit>
 #include <QMenu>
-#include <QWidgetAction>
 
 #include "UIMd3AppearanceEditor.h"
+#include "UIMd3Language.h"
+#include "UIMd3MenuSearch.h"
 #include "UIMd3Widget.h"
+
+static QString md3WidgetText(const char *pszKey, const QString &strFallback)
+{
+    if (!UIMd3Language::instance())
+        return strFallback;
+    const QString strKey = QString::fromLatin1(pszKey);
+    const QString strText = md3Text(strKey);
+    return strText == strKey || strText.isEmpty() ? strFallback : strText;
+}
 
 UIMd3Widget::UIMd3Widget(QWidget *pParent, const QString &strAppearanceKey)
     : QWidget(pParent)
@@ -165,25 +174,18 @@ void UIMd3Widget::contextMenuEvent(QContextMenuEvent *pEvent)
     }
 
     QMenu menu(this);
-    QLineEdit *pSearch = new QLineEdit(&menu);
-    pSearch->setPlaceholderText(tr("Search menu"));
-    pSearch->setAccessibleName(tr("Search appearance menu"));
-    QWidgetAction *pSearchAction = new QWidgetAction(&menu);
-    pSearchAction->setDefaultWidget(pSearch);
-    menu.addAction(pSearchAction);
-    pSearch->setFocus(Qt::OtherFocusReason);
-    QAction *pEdit = menu.addAction(tr("Edit appearance…"));
-    pEdit->setStatusTip(tr("Edit appearance for %1").arg(m_strAppearanceKey));
+    QAction *pEdit = menu.addAction(md3WidgetText("md3.appearance.edit", tr("Edit appearance…")));
+    pEdit->setStatusTip(md3WidgetText("md3.appearance.edit-for",
+                                     tr("Edit appearance for %1")).arg(m_strAppearanceKey));
     pEdit->setShortcut(QKeySequence(Qt::SHIFT | Qt::Key_F10));
-    connect(pSearch, &QLineEdit::textChanged, this, [pEdit](const QString &strText)
-    {
-        pEdit->setVisible(strText.trimmed().isEmpty()
-                          || pEdit->text().contains(strText, Qt::CaseInsensitive));
-    });
     connect(pEdit, &QAction::triggered, this, [this]()
     {
         UIMd3AppearanceEditor::open(this, m_strAppearanceKey);
     });
+    md3PrepareSearchableMenu(&menu,
+                             QStringLiteral("appearance-menu/%1").arg(m_strAppearanceKey),
+                             md3WidgetText("md3.appearance.search-actions", tr("Search appearance actions")),
+                             md3WidgetText("md3.appearance.search-menu", tr("Search this appearance menu")));
     menu.exec(pEvent->globalPos());
     pEvent->accept();
 }

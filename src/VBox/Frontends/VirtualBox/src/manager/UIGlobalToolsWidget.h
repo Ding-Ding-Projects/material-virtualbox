@@ -39,7 +39,11 @@
 
 /* Forward declarations: */
 class QGridLayout;
+class QHBoxLayout;
 class QIToolBar;
+class QLabel;
+class QResizeEvent;
+class QToolButton;
 class UIActionPool;
 class UIChooser;
 class UIMachineToolsWidget;
@@ -105,6 +109,11 @@ public:
         QString currentHelpKeyword() const;
     /** @} */
 
+protected:
+
+    /** Switches between the full rail and compact navigation affordance. */
+    virtual void resizeEvent(QResizeEvent *pEvent) RT_OVERRIDE;
+
 private slots:
 
     /** @name General stuff.
@@ -128,6 +137,8 @@ private slots:
       * @{ */
         /** Handles Chooser-pane navigation list change. */
         void sltHandleChooserPaneNavigationListChange();
+        /** Refreshes the destination heading after the selected machine changes. */
+        void sltHandleCurrentMachineLabelChange();
 
         /** Handles state change for cloud profile with certain @a strProviderShortName and @a strProfileName. */
         void sltHandleCloudProfileStateChange(const QString &strProviderShortName,
@@ -142,6 +153,10 @@ private slots:
         /** Handles signal about Tools-menu index change.
           * @param  enmType  Brings current tool type. */
         void sltHandleToolsMenuIndexChange(UIToolType enmType);
+        /** Refreshes the Material destination heading after language changes. */
+        void sltRetranslateUI();
+        /** Opens the compact searchable destination drawer. */
+        void sltShowNavigationDrawer();
 
         /** Handles signal requesting switch to Resources tool. */
         void sltSwitchToResourcesTool();
@@ -161,6 +176,14 @@ private:
         void prepareConnections();
         /** Loads settings. */
         void loadSettings();
+        /** Refreshes the destination heading for @a enmType. */
+        void updatePageHeader(UIToolType enmType);
+        /** Refreshes destination-header colors and typography. */
+        void updatePageHeaderTheme();
+        /** Applies the 1000-pixel rail-to-drawer breakpoint. */
+        void updateResponsiveNavigation();
+        /** Returns the localized reason why @a enmType is unavailable. */
+        QString disabledReason(UIToolType enmType) const;
 
         /** Cleanups connections. */
         void cleanupConnections();
@@ -187,6 +210,16 @@ private:
 
     /** Holds the grid-layout instance. */
     QGridLayout *m_pLayout;
+    /** Holds the destination-header layout. */
+    QHBoxLayout *m_pPageHeaderLayout;
+    /** Holds the destination-header widget. */
+    QWidget *m_pPageHeader;
+    /** Holds the destination eyebrow. */
+    QLabel *m_pPageEyebrow;
+    /** Holds the destination title. */
+    QLabel *m_pPageTitle;
+    /** Holds the compact navigation-drawer affordance. */
+    QToolButton *m_pNavigationDrawerButton;
 
     /** Holds the tools-menu instance. */
     UITools    *m_pMenu;

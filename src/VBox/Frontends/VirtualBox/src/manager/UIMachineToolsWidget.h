@@ -68,6 +68,8 @@ signals:
       * @{ */
         /** Notifies about Chooser-pane selection change. */
         void sigChooserPaneSelectionChange();
+        /** Notifies that the machine name shown in the destination heading changed. */
+        void sigCurrentMachineLabelChange();
         /** Notifies about Chooser-pane selection class change.
           * @note Every selection class change caused by selection change.
           *       But not every selection change causes class change. */

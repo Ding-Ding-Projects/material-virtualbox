@@ -16,7 +16,9 @@
 #include <QWidget>
 
 class QLineEdit;
+class QScrollArea;
 class QToolButton;
+class QVBoxLayout;
 class UIMd3RegexBuilder;
 
 /** Plain-text-first search field with independent regex state. */
@@ -64,11 +66,15 @@ private:
     void prepare();
     /** Converts flags to Qt options. */
     static QRegularExpression::PatternOptions patternOptions(const QString &strFlags);
+    /** Synchronizes visible and accessible regex-mode state. */
+    void updateRegexPresentation();
 
     QString m_strFieldId;
     QString m_strPlaceholder;
     QLineEdit *m_pEditor;
     QToolButton *m_pBuilderButton;
+    QVBoxLayout *m_pLayout;
+    QPointer<QScrollArea> m_pBuilderScrollArea;
     QPointer<UIMd3RegexBuilder> m_pBuilder;
     bool m_fRegexActive;
     QString m_strFlags;

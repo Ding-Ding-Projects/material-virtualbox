@@ -30,7 +30,7 @@ foreach ($file in $files) {
     $i++
     $relative = $file.FullName.Substring($root.Length + 1).Replace('\','/')
     $bytes = [System.IO.File]::ReadAllBytes($file.FullName)
-    # Git may materialize text files with CRLF on Deen No while the archive
+    # Git may materialize text files with CRLF on Windows while the archive
     # hashes are defined over LF bytes. Normalize only textual entries; binary
     # icons and preview metadata must remain byte-for-byte exact.
     if ($file.Extension -in @('.cpp','.h','.html','.js','.kmk','.md') -or $file.Name -eq 'HANDOFF.md') {

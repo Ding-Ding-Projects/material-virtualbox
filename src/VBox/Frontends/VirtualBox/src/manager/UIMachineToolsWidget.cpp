@@ -26,6 +26,7 @@
  */
 
 /* Qt includes: */
+#include <QColor>
 #include <QHBoxLayout>
 #include <QTimer>
 
@@ -37,6 +38,7 @@
 #include "UIExtraDataManager.h"
 #include "UIGlobalSession.h"
 #include "UIMachineToolsWidget.h"
+#include "UIMd3Theme.h"
 #include "UIToolPane.h"
 #include "UITools.h"
 #include "UITranslationEventListener.h"
@@ -287,6 +289,7 @@ void UIMachineToolsWidget::sltHandleChooserPaneSelectionChange()
 
     /* Let the parent know: */
     emit sigChooserPaneSelectionChange();
+    emit sigCurrentMachineLabelChange();
 
     /* Update tool restrictions for currently selected item: */
     UIVirtualMachineItem *pItem = currentItem();
@@ -301,6 +304,7 @@ void UIMachineToolsWidget::sltHandleChooserPaneSelectionInvalidated()
 {
     /* Recache current machine item information: */
     recacheCurrentMachineItemInformation(true /* fDontRaiseErrorPane */);
+    emit sigCurrentMachineLabelChange();
 }
 
 void UIMachineToolsWidget::sltHandleCloudMachineStateChange(const QUuid &uId)
@@ -408,17 +412,23 @@ void UIMachineToolsWidget::prepareWidgets()
     if (pLayout)
     {
         /* Configure layout: */
-        pLayout->setContentsMargins(0, 0, 0, 0);
+        pLayout->setContentsMargins(20, 12, 20, 14);
         pLayout->setSpacing(0);
 
         /* Create splitter: */
         m_pSplitter = new QISplitter;
         if (m_pSplitter)
         {
+            m_pSplitter->setChildrenCollapsible(false);
+            m_pSplitter->setHandleWidth(12);
             /* Create chooser-pane: */
             m_pPaneChooser = new UIChooser(this, actionPool());
             if (chooser())
             {
+                chooser()->setObjectName(QStringLiteral("md3MachineChooserCard"));
+                chooser()->setAttribute(Qt::WA_StyledBackground, true);
+                chooser()->setMinimumWidth(240);
+                chooser()->setMaximumWidth(360);
                 /* Add into splitter: */
                 m_pSplitter->addWidget(chooser());
             }
@@ -427,12 +437,14 @@ void UIMachineToolsWidget::prepareWidgets()
             QWidget *pWidget = new QWidget(this);
             if (pWidget)
             {
+                pWidget->setObjectName(QStringLiteral("md3MachineWorkspaceCard"));
+                pWidget->setAttribute(Qt::WA_StyledBackground, true);
                 /* Create container layout: */
                 QVBoxLayout *pSubLayout = new QVBoxLayout(pWidget);
                 if (pSubLayout)
                 {
                     /* Configure layout: */
-                    pSubLayout->setContentsMargins(0, 0, 0, 0);
+                    pSubLayout->setContentsMargins(10, 10, 10, 10);
                     pSubLayout->setSpacing(0);
 
                     /* Create tool-menu: */
@@ -457,8 +469,21 @@ void UIMachineToolsWidget::prepareWidgets()
             }
 
             /* Set the initial distribution. The right site is bigger. */
-            m_pSplitter->setStretchFactor(0, 2);
-            m_pSplitter->setStretchFactor(1, 3);
+            m_pSplitter->setStretchFactor(0, 0);
+            m_pSplitter->setStretchFactor(1, 1);
+
+            const auto updateMaterialCards = [this]()
+            {
+                setStyleSheet(QStringLiteral(
+                    "QWidget#md3MachineChooserCard, QWidget#md3MachineWorkspaceCard {"
+                    " background: %1; border: 1px solid %2; border-radius: 16px; }"
+                    "QSplitter::handle { background: transparent; }")
+                    .arg(md3(UIMd3ColorRole_SurfaceContainerLow).name(QColor::HexArgb))
+                    .arg(md3(UIMd3ColorRole_OutlineVariant).name(QColor::HexArgb)));
+            };
+            connect(&md3Theme(), &UIMd3Theme::sigThemeChanged,
+                    this, updateMaterialCards);
+            updateMaterialCards();
 
             /* Add into layout: */
             pLayout->addWidget(m_pSplitter);
@@ -522,9 +547,11 @@ void UIMachineToolsWidget::loadSettings()
         /* If both hints are zero, we have the 'default' case: */
         if (sizes.at(0) == 0 && sizes.at(1) == 0)
         {
-            sizes[0] = (int)(width() * .9 * (1.0 / 3));
-            sizes[1] = (int)(width() * .9 * (2.0 / 3));
+            sizes[0] = 274;
+            sizes[1] = qMax(480, width() - 286);
         }
+        else
+            sizes[0] = qBound(240, sizes.at(0), 360);
         m_pSplitter->setSizes(sizes);
     }
 }

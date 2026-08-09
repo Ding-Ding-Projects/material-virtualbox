@@ -29,18 +29,22 @@
 #endif
 
 #include <QColor>
+#include <QHash>
 #include <QList>
 #include <QString>
+#include <QStringList>
 
 #include "UILibraryDefs.h"
 #include "UIMd3Widget.h"
 
 class QContextMenuEvent;
+class QEvent;
 class QKeyEvent;
 class QMouseEvent;
 class QPaintEvent;
 class QResizeEvent;
 class QToolButton;
+class QWidget;
 
 struct UIMd3Tab
 {
@@ -57,6 +61,14 @@ struct UIMd3TabGroup
     QString strName;
     QColor  color;
     bool    fCollapsed;
+};
+
+/** A destination offered by the persistent new-tab control. */
+struct UIMd3TabChoice
+{
+    QString strId;
+    QString strLabel;
+    bool    fEnabled;
 };
 
 /** Shared browser-style tab model and native strip renderer. */
@@ -76,6 +88,11 @@ public:
     void openTab(const QString &strId, const QString &strLabel);
     void setTabLabel(const QString &strId, const QString &strLabel);
     void setTabEnabled(const QString &strId, bool fEnabled);
+    void setTabsEnabled(const QHash<QString, bool> &states);
+    void setAvailableTabs(const QList<UIMd3TabChoice> &choices);
+    bool migrateLegacyGeneratedLayout(const QStringList &expectedIds,
+                                      const QString &strInitialId,
+                                      const QString &strInitialLabel);
     bool closeTab(const QString &strId, bool fForce = false);
     QString currentTabId() const { return m_strCurrentId; }
     void setCurrentTabId(const QString &strId);
@@ -101,21 +118,44 @@ protected:
     virtual void keyPressEvent(QKeyEvent *pEvent) RT_OVERRIDE;
     virtual void mousePressEvent(QMouseEvent *pEvent) RT_OVERRIDE;
     virtual void contextMenuEvent(QContextMenuEvent *pEvent) RT_OVERRIDE;
+    virtual bool eventFilter(QObject *pObject, QEvent *pEvent) RT_OVERRIDE;
 
 private:
 
     QList<UIMd3Tab> displayTabs() const;
+    QList<UIMd3Tab> unpinnedDisplayTabs() const;
+    bool hasOverflow() const;
+    int tabContentRight() const;
+    int tabWidth(const UIMd3Tab &tab) const;
+    bool isTabFullyVisible(const QString &strId) const;
+    void normalizeViewport();
+    void ensureTabVisible(const QString &strId);
     QRect tabRect(const QString &strId) const;
+    QRect tabCloseRect(const QString &strId) const;
     QString tabAt(const QPoint &position) const;
     void showOverflowMenu();
+    void showNewTabMenu();
+    void showTabManagerMenu();
     void showGroupPicker(const QString &strTabId);
     void announceModelChanged();
     void updateOverflowButton();
+    void syncAccessibleTabButtons();
+    void retranslateUi();
+    void updateTheme();
 
     QList<UIMd3Tab>      m_tabs;
     QList<UIMd3TabGroup> m_groups;
+    QList<UIMd3TabChoice> m_availableTabs;
     QString              m_strCurrentId;
+    bool                 m_fRestoredLegacyPersistence;
+    int                  m_iFirstVisiblePinned;
+    int                  m_iFirstVisibleUnpinned;
+    QHash<QString, QToolButton*> m_tabButtons;
+    QHash<QString, QToolButton*> m_closeButtons;
+    QWidget             *m_pTabList;
     QToolButton         *m_pOverflowButton;
+    QToolButton         *m_pNewTabButton;
+    QToolButton         *m_pTabManagerButton;
 };
 
 #endif /* !FEQT_INCLUDED_SRC_md3_UIMd3TabStrip_h */

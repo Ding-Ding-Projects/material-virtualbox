@@ -44,11 +44,56 @@
 #include "UIToolsItem.h"
 #include "UIToolsModel.h"
 #include "UIToolsView.h"
+#include "UIMd3Language.h"
 #include "UITranslationEventListener.h"
 #include "UIVirtualBoxManager.h"
 
 /* Other VBox includes: */
 #include "iprt/assert.h"
+
+
+/** Registers the stable Material 3 language keys used by every manager tool item. */
+static void registerMd3ToolTexts()
+{
+    UIMd3Language *pLanguage = UIMd3Language::instance();
+    if (!pLanguage)
+        return;
+
+    pLanguage->registerText(QStringLiteral("md3.tool.toggle"),
+                            QStringLiteral("Show text"), QStringLiteral("顯示文字"));
+    pLanguage->registerText(QStringLiteral("md3.tool.home"),
+                            QStringLiteral("Home"), QStringLiteral("主頁"));
+    pLanguage->registerText(QStringLiteral("md3.tool.machines"),
+                            QStringLiteral("Machines"), QStringLiteral("虛擬機"));
+    pLanguage->registerText(QStringLiteral("md3.tool.extensions"),
+                            QStringLiteral("Extensions"), QStringLiteral("擴充功能"));
+    pLanguage->registerText(QStringLiteral("md3.tool.media"),
+                            QStringLiteral("Media"), QStringLiteral("媒體"));
+    pLanguage->registerText(QStringLiteral("md3.tool.network"),
+                            QStringLiteral("Network"), QStringLiteral("網絡"));
+    pLanguage->registerText(QStringLiteral("md3.tool.cloud"),
+                            QStringLiteral("Cloud"), QStringLiteral("雲端"));
+    pLanguage->registerText(QStringLiteral("md3.tool.resources"),
+                            QStringLiteral("Resources"), QStringLiteral("資源"));
+    pLanguage->registerText(QStringLiteral("md3.tool.details"),
+                            QStringLiteral("Details"), QStringLiteral("詳細資料"));
+    pLanguage->registerText(QStringLiteral("md3.tool.snapshots"),
+                            QStringLiteral("Snapshots"), QStringLiteral("快照"));
+    pLanguage->registerText(QStringLiteral("md3.tool.logs"),
+                            QStringLiteral("Logs"), QStringLiteral("記錄"));
+    pLanguage->registerText(QStringLiteral("md3.tool.resource-use"),
+                            QStringLiteral("Resource Use"), QStringLiteral("資源使用量"));
+    pLanguage->registerText(QStringLiteral("md3.tool.file-manager"),
+                            QStringLiteral("File Manager"), QStringLiteral("檔案管理員"));
+    pLanguage->registerText(QStringLiteral("md3.tool.description"),
+                            QStringLiteral("Tool item"), QStringLiteral("工具項目"));
+}
+
+/** Resolves an MD3 tool label while retaining the legacy Qt fallback. */
+static QString md3ToolText(const char *pszKey, const QString &strFallback)
+{
+    return UIMd3Language::instance() ? md3Text(QString::fromLatin1(pszKey)) : strFallback;
+}
 
 
 /** QAccessibleObject extension used as an accessibility interface for Tools-view items. */
@@ -563,30 +608,32 @@ void UIToolsItem::paint(QPainter *pPainter, const QStyleOptionGraphicsItem *pOpt
 
 void UIToolsItem::sltRetranslateUI()
 {
+    registerMd3ToolTexts();
+
     /* Translate item name: */
     switch (itemType())
     {
         // Aux
-        case UIToolType_Toggle:      setName(tr("Show text")); break;
+        case UIToolType_Toggle:      setName(md3ToolText("md3.tool.toggle", tr("Show text"))); break;
         // Global
-        case UIToolType_Home:        setName(tr("Home")); break;
-        case UIToolType_Machines:    setName(tr("Machines")); break;
-        case UIToolType_Extensions:  setName(tr("Extensions")); break;
-        case UIToolType_Media:       setName(tr("Media")); break;
-        case UIToolType_Network:     setName(tr("Network")); break;
-        case UIToolType_Cloud:       setName(tr("Cloud")); break;
-        case UIToolType_Resources:   setName(tr("Resources")); break;
+        case UIToolType_Home:        setName(md3ToolText("md3.tool.home", tr("Home"))); break;
+        case UIToolType_Machines:    setName(md3ToolText("md3.tool.machines", tr("Machines"))); break;
+        case UIToolType_Extensions:  setName(md3ToolText("md3.tool.extensions", tr("Extensions"))); break;
+        case UIToolType_Media:       setName(md3ToolText("md3.tool.media", tr("Media"))); break;
+        case UIToolType_Network:     setName(md3ToolText("md3.tool.network", tr("Network"))); break;
+        case UIToolType_Cloud:       setName(md3ToolText("md3.tool.cloud", tr("Cloud"))); break;
+        case UIToolType_Resources:   setName(md3ToolText("md3.tool.resources", tr("Resources"))); break;
         // Machine
-        case UIToolType_Details:     setName(tr("Details")); break;
-        case UIToolType_Snapshots:   setName(tr("Snapshots")); break;
-        case UIToolType_Logs:        setName(tr("Logs")); break;
-        case UIToolType_ResourceUse: setName(tr("Resource Use")); break;
-        case UIToolType_FileManager: setName(tr("File Manager")); break;
+        case UIToolType_Details:     setName(md3ToolText("md3.tool.details", tr("Details"))); break;
+        case UIToolType_Snapshots:   setName(md3ToolText("md3.tool.snapshots", tr("Snapshots"))); break;
+        case UIToolType_Logs:        setName(md3ToolText("md3.tool.logs", tr("Logs"))); break;
+        case UIToolType_ResourceUse: setName(md3ToolText("md3.tool.resource-use", tr("Resource Use"))); break;
+        case UIToolType_FileManager: setName(md3ToolText("md3.tool.file-manager", tr("File Manager"))); break;
         default: break;
     }
 
     /* Translate item description: */
-    m_strDescription = tr("Tool item");
+    m_strDescription = md3ToolText("md3.tool.description", tr("Tool item"));
 }
 
 void UIToolsItem::sltHandleWindowRemapped()
@@ -625,6 +672,9 @@ void UIToolsItem::prepare()
     sltRetranslateUI();
     connect(&translationEventListener(), &UITranslationEventListener::sigRetranslateUI,
             this, &UIToolsItem::sltRetranslateUI);
+    if (UIMd3Language::instance())
+        connect(UIMd3Language::instance(), &UIMd3Language::sigLanguageChanged,
+                this, &UIToolsItem::sltRetranslateUI, Qt::UniqueConnection);
 }
 
 void UIToolsItem::cleanup()

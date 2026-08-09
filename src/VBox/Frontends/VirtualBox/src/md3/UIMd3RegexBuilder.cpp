@@ -16,6 +16,23 @@
 /* GUI includes: */
 #include "UIMd3RegexBuilder.h"
 
+static bool md3ValidateRegexFlags(const QString &strFlags, QString *pstrNormalized = 0)
+{
+    QString strResult;
+    const QString strSupported = QStringLiteral("imsx");
+    for (const QChar ch : strFlags.toLower().left(16))
+    {
+        if (ch.isSpace())
+            continue;
+        if (!strSupported.contains(ch) || strResult.contains(ch))
+            return false;
+        strResult += ch;
+    }
+    if (pstrNormalized)
+        *pstrNormalized = strResult;
+    return true;
+}
+
 UIMd3RegexBuilder::UIMd3RegexBuilder(QWidget *pParent)
     : QDialog(pParent)
     , m_pPattern(0)
@@ -42,7 +59,8 @@ void UIMd3RegexBuilder::setPattern(const QString &strPattern, const QString &str
 QRegularExpression::PatternOptions UIMd3RegexBuilder::patternOptions() const
 {
     QRegularExpression::PatternOptions options = QRegularExpression::NoPatternOption;
-    const QString flags = m_pFlags ? m_pFlags->text().toLower() : QString();
+    QString flags;
+    md3ValidateRegexFlags(m_pFlags ? m_pFlags->text() : QString(), &flags);
     if (flags.contains('i')) options |= QRegularExpression::CaseInsensitiveOption;
     if (flags.contains('m')) options |= QRegularExpression::MultilineOption;
     if (flags.contains('s')) options |= QRegularExpression::DotMatchesEverythingOption;
@@ -57,6 +75,12 @@ void UIMd3RegexBuilder::sltUpdatePreview()
     if (!m_pRegexMode->isChecked())
     {
         m_pStatus->setText(tr("Plain-text mode: special characters are literal."));
+        return;
+    }
+
+    if (!md3ValidateRegexFlags(m_pFlags ? m_pFlags->text() : QString()))
+    {
+        m_pStatus->setText(tr("Invalid flags: use each of i, m, s, and x at most once."));
         return;
     }
 
@@ -82,10 +106,16 @@ void UIMd3RegexBuilder::sltAcceptPattern()
 {
     if (!m_pRegexMode || !m_pRegexMode->isChecked() || !m_pPattern)
         return;
+    QString strFlags;
+    if (!md3ValidateRegexFlags(m_pFlags ? m_pFlags->text() : QString(), &strFlags))
+    {
+        sltUpdatePreview();
+        return;
+    }
     const QRegularExpression regex(m_pPattern->text(), patternOptions());
     if (!regex.isValid())
         return;
-    emit sigPatternAccepted(m_pPattern->text(), m_pFlags ? m_pFlags->text() : QString());
+    emit sigPatternAccepted(m_pPattern->text(), strFlags);
     close();
 }
 

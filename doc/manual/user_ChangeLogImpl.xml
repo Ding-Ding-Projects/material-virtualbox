@@ -120,6 +120,39 @@ Rules for adding a changelog entry to make them look more uniform:
       </listitem>
 
       <listitem>
+        <para>GUI: Localized manager tool-item names and accessibility
+          descriptions through stable Material 3 language keys, refreshing
+          English, Cantonese, bilingual, and independent funny-level modes
+          without changing existing tool selection or translation behavior</para>
+      </listitem>
+
+      <listitem>
+        <para>GUI: Reworked the Material 3 manager into a responsive 48-pixel
+          header, 48-pixel on-demand workspace strip, 92-pixel desktop rail,
+          compact navigation menu, contextual action header, and padded machine
+          chooser and workspace cards while preserving existing models and actions</para>
+
+      </listitem>
+
+      <listitem>
+        <para>GUI: Added native snap hit testing with non-client maximize-click
+          forwarding, screen-bounded restored geometry, searchable application
+          and toolbar menus, accessible Material buttons and page tabs, and
+          dedicated New tab and Tab manager actions</para>
+      </listitem>
+
+      <listitem>
+        <para>GUI: Made menu regular-expression builders lifetime-safe and
+          scroll-bounded, synchronized visible pattern and flag state, rejected
+          unsupported flags, restored reused action visibility after filtering,
+          revealed selected pinned, ordinary overflow, and collapsed-group
+          tabs, made active-tab close state atomic, bounded group picking,
+          separated tab and action
+          accessibility roles, and added display-aware rail icons, unavailable
+          reasons, complete keyboard traversal, and 48-pixel toolbar targets</para>
+      </listitem>
+
+      <listitem>
         <para>GUI: Added a persisted per-element Material 3 appearance editor
           for stable-key widgets, with context-menu and Shift+right-click entry,
           seed, typeface, corner-radius, scale, weight, reset and focus return</para>
