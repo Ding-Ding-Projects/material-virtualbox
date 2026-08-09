@@ -6,6 +6,7 @@
 /* Qt includes: */
 #include <QApplication>
 #include <QButtonGroup>
+#include <QKeyEvent>
 #include <QIcon>
 #include <QStyle>
 #include <QToolButton>
@@ -37,6 +38,9 @@ UIMd3NavigationRail::UIMd3NavigationRail(QWidget *pParent)
     createButton(UIToolType_Resources, QApplication::style()->standardIcon(QStyle::SP_FileDialogContentsView));
     createButton(UIToolType_Extensions, QApplication::style()->standardIcon(QStyle::SP_FileDialogInfoView));
     pLayout->addStretch(1);
+
+    foreach (QAbstractButton *pButton, m_pButtonGroup->buttons())
+        pButton->installEventFilter(this);
 
     connect(m_pButtonGroup, static_cast<void (QButtonGroup::*)(QAbstractButton *)>(&QButtonGroup::buttonClicked),
             this, [this](QAbstractButton *pButton) {
@@ -111,6 +115,38 @@ void UIMd3NavigationRail::sltRetranslateUI()
     if (QToolButton *pButton = button(UIToolType_Cloud)) { pButton->setText(tr("Cloud")); pButton->setAccessibleName(tr("Cloud")); }
     if (QToolButton *pButton = button(UIToolType_Resources)) { pButton->setText(tr("Resources")); pButton->setAccessibleName(tr("Resources")); }
     if (QToolButton *pButton = button(UIToolType_Extensions)) { pButton->setText(tr("Extensions")); pButton->setAccessibleName(tr("Extensions")); }
+}
+
+bool UIMd3NavigationRail::eventFilter(QObject *pWatched, QEvent *pEvent)
+{
+    QToolButton *pCurrent = qobject_cast<QToolButton *>(pWatched);
+    if (pCurrent && pEvent->type() == QEvent::KeyPress)
+    {
+        QKeyEvent *pKeyEvent = static_cast<QKeyEvent *>(pEvent);
+        if (pKeyEvent->key() == Qt::Key_Up || pKeyEvent->key() == Qt::Key_Down)
+        {
+            const QList<QAbstractButton *> buttons = m_pButtonGroup->buttons();
+            int iIndex = buttons.indexOf(pCurrent);
+            const int iStep = pKeyEvent->key() == Qt::Key_Up ? -1 : 1;
+            for (int i = 0; i < buttons.size(); ++i)
+            {
+                iIndex = (iIndex + iStep + buttons.size()) % buttons.size();
+                if (buttons.at(iIndex)->isEnabled())
+                {
+                    QToolButton *pNext = qobject_cast<QToolButton *>(buttons.at(iIndex));
+                    if (pNext)
+                    {
+                        pNext->setChecked(true);
+                        pNext->setFocus(Qt::TabFocusReason);
+                        emit sigToolTypeSelected(static_cast<UIToolType>(pNext->property("UIToolType").toInt()));
+                    }
+                    pKeyEvent->accept();
+                    return true;
+                }
+            }
+        }
+    }
+    return QWidget::eventFilter(pWatched, pEvent);
 }
 
 void UIMd3NavigationRail::updatePalette()

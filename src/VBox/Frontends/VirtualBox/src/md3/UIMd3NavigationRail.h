@@ -47,6 +47,11 @@ private slots:
     /** Refreshes translated labels. */
     void sltRetranslateUI();
 
+protected:
+
+    /** Moves between enabled destinations with the vertical arrow keys. */
+    virtual bool eventFilter(QObject *pWatched, QEvent *pEvent) override;
+
 private:
 
     /** Creates one rail button for @a enmType. */
