@@ -80,6 +80,13 @@ Rules for adding a changelog entry to make them look more uniform:
     <itemizedlist>
 
       <listitem>
+        <para>GUI: Reworked Global Preferences and per-machine Settings into a
+          Material page rail and one-page content card, retaining cross-page
+          search while moving global language and appearance controls behind a
+          persisted collapsed disclosure</para>
+      </listitem>
+
+      <listitem>
         <para>GUI: Added token-aware Material 3 buttons for the manager title bar,
           including keyboard activation, accessible names, focus states and a
           48-pixel minimum interaction target</para>

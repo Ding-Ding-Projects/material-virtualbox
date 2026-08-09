@@ -27,16 +27,15 @@
 
 /* Qt includes: */
 #include <QApplication>
+#include <QCursor>
 #include <QLayout>
 #include <QPainter>
-#include <QPainterPath>
+#include <QWindow>
 
 /* GUI includes: */
 #include "QIListWidget.h"
-#include "UICommon.h"
-#include "UIDesktopWidgetWatchdog.h"
 #include "UIIconPool.h"
-#include "UIImageTools.h"
+#include "UIMd3Theme.h"
 #include "UISettingsPage.h"
 #include "UISettingsSelector.h"
 
@@ -230,9 +229,11 @@ private:
         setFocusPolicy(Qt::TabFocus);
 #endif
         setContextMenuPolicy(Qt::PreventContextMenu);
-        setVerticalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+        setVerticalScrollBarPolicy(Qt::ScrollBarAsNeeded);
         setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
         setSizePolicy(QSizePolicy::Minimum, QSizePolicy::MinimumExpanding);
+        setSpacing(2);
+        setUniformItemSizes(true);
     }
 };
 
@@ -392,105 +393,82 @@ void UISettingsSelectorListWidget::sltHandleItemPainted(QListWidgetItem *pItem, 
     if (pItem->isHidden())
         return;
 
-    /* Original rectangle: */
     const QRect origRect = m_pListWidget->visualItemRect(pItem);
-
-    /* Some common variables: */
     const QPalette pal = m_pListWidget->palette();
-    QRect itemRectangle = origRect;
-
-#ifndef VBOX_WS_MAC
-    /* Adjust rectangle to avoid painting artifacts: */
-    itemRectangle.setLeft(itemRectangle.left() + 2);
-    itemRectangle.setTop(itemRectangle.top() + 2);
-    itemRectangle.setRight(itemRectangle.right() - 2);
-    itemRectangle.setBottom(itemRectangle.bottom() - 2);
-
-    /* On non-macOS hosts we'll have to draw focus-frame ourselves: */
-    if (   m_pListWidget->currentItem() == pItem
-        && m_pListWidget->hasFocus())
+    const bool fSelected = m_pListWidget->currentItem() == pItem;
+    const bool fHovered = m_pListWidget->itemAt(
+        m_pListWidget->viewport()->mapFromGlobal(QCursor::pos())) == pItem;
+    const QRect itemRectangle = origRect.adjusted(4, 2, -4, -2);
+    const QColor colorSurface = UIMd3Theme::instance()
+                              ? md3Theme().color(UIMd3ColorRole_SurfaceContainerLow)
+                              : pal.color(QPalette::Window);
+    QColor colorBackground = fSelected && UIMd3Theme::instance()
+                           ? md3Theme().color(UIMd3ColorRole_SecondaryContainer)
+                           : fSelected ? pal.color(QPalette::Highlight) : colorSurface;
+    const QColor colorForeground = fSelected && UIMd3Theme::instance()
+                                 ? md3Theme().color(UIMd3ColorRole_OnSecondaryContainer)
+                                 : fSelected ? pal.color(QPalette::HighlightedText)
+                                             : UIMd3Theme::instance()
+                                             ? md3Theme().color(UIMd3ColorRole_OnSurfaceVariant)
+                                             : pal.color(QPalette::WindowText);
+    QColor colorState = Qt::transparent;
+    if (fHovered && !fSelected)
     {
-        QRect focusRect = origRect;
-        focusRect.setLeft(focusRect.left() + 1);
-        focusRect.setTop(focusRect.top() + 1);
-        focusRect.setRight(focusRect.right() - 1);
-        focusRect.setBottom(focusRect.bottom() - 1);
-        QStyleOptionFocusRect focusOption;
-        focusOption.initFrom(m_pListWidget);
-        focusOption.rect = focusRect;
-        focusOption.backgroundColor = pal.color(QPalette::Window);
-        QApplication::style()->drawPrimitive(QStyle::PE_FrameFocusRect, &focusOption, pPainter, m_pListWidget);
-    }
-#endif /* !VBOX_WS_MAC */
-
-    /* Draw background: */
-    QColor backColor;
-    if (m_pListWidget->currentItem() == pItem)
-    {
-        /* Prepare painter path: */
-        QPainterPath painterPath;
-        painterPath.lineTo(itemRectangle.width() - itemRectangle.height(), 0);
-        painterPath.lineTo(itemRectangle.width(),                          itemRectangle.height());
-        painterPath.lineTo(0,                                              itemRectangle.height());
-        painterPath.closeSubpath();
-        painterPath.translate(itemRectangle.topLeft());
-
-        /* Prepare painting gradient: */
-        backColor = pal.color(QPalette::Active, QPalette::Highlight);
-        const QColor bcTone1 = backColor.lighter(100);
-        const QColor bcTone2 = backColor.lighter(120);
-        QLinearGradient grad(itemRectangle.topLeft(), itemRectangle.bottomRight());
-        grad.setColorAt(0, bcTone1);
-        grad.setColorAt(1, bcTone2);
-
-        /* Paint fancy shape: */
-        pPainter->save();
-        pPainter->setClipPath(painterPath);
-        pPainter->setRenderHint(QPainter::Antialiasing);
-        pPainter->fillPath(painterPath, grad);
-        pPainter->strokePath(painterPath, uiCommon().isInDarkMode() ? backColor.lighter(120) : backColor.darker(110));
-        pPainter->restore();
-    }
-    else
-    {
-        /* Just init painting color: */
-        backColor = pal.color(QPalette::Active, QPalette::Window);
+        colorState = UIMd3Theme::instance()
+                   ? md3Theme().color(UIMd3ColorRole_OnSurface)
+                   : pal.color(QPalette::WindowText);
+        colorState.setAlpha(UIMd3StateLayer::Hover * 255 / 100);
     }
 
-    /* Some common variables: */
-    const int iMargin = QApplication::style()->pixelMetric(QStyle::PM_LayoutLeftMargin) / 1.5;
-    const int iIconSize = QApplication::style()->pixelMetric(QStyle::PM_SmallIconSize) * 1.5;
+    pPainter->save();
+    pPainter->setRenderHint(QPainter::Antialiasing);
+    pPainter->setPen(Qt::NoPen);
+    pPainter->setBrush(colorBackground);
+    pPainter->drawRoundedRect(itemRectangle, UIMd3Shape::Medium, UIMd3Shape::Medium);
+    if (colorState.alpha() > 0)
+    {
+        pPainter->setBrush(colorState);
+        pPainter->drawRoundedRect(itemRectangle, UIMd3Shape::Medium, UIMd3Shape::Medium);
+    }
 
-    /* Draw icon: */
-    const QRect itemPixmapRect(iMargin, iMargin, iIconSize, iIconSize);
+    if (fSelected && m_pListWidget->hasFocus())
+    {
+        const QColor colorFocus = UIMd3Theme::instance()
+                                ? md3Theme().color(UIMd3ColorRole_Primary)
+                                : pal.color(QPalette::Highlight);
+        pPainter->setBrush(Qt::NoBrush);
+        pPainter->setPen(QPen(colorFocus, 2));
+        pPainter->drawRoundedRect(itemRectangle.adjusted(1, 1, -1, -1),
+                                  UIMd3Shape::Medium - 1, UIMd3Shape::Medium - 1);
+    }
+
+    const int iIconSize = 20;
+    const int iMargin = 14;
+    const QRect itemPixmapRect(itemRectangle.left() + iMargin,
+                               itemRectangle.center().y() - iIconSize / 2,
+                               iIconSize, iIconSize);
     const QIcon itemIcon = pItem->icon();
     const qreal fDpr = m_pListWidget->window() && m_pListWidget->window()->windowHandle()
                      ? m_pListWidget->window()->windowHandle()->devicePixelRatio() : 1;
-    const QPixmap itemPixmap = itemIcon.pixmap(QSize(iIconSize, iIconSize), fDpr);
-    pPainter->save();
-    pPainter->translate(itemRectangle.topLeft());
-    pPainter->drawPixmap(itemPixmapRect, itemPixmap);
-    pPainter->restore();
+    const QPixmap sourcePixmap = itemIcon.pixmap(QSize(iIconSize, iIconSize), fDpr);
+    QPixmap tintedPixmap(sourcePixmap.size());
+    tintedPixmap.setDevicePixelRatio(sourcePixmap.devicePixelRatio());
+    tintedPixmap.fill(Qt::transparent);
+    QPainter iconPainter(&tintedPixmap);
+    iconPainter.drawPixmap(0, 0, sourcePixmap);
+    iconPainter.setCompositionMode(QPainter::CompositionMode_SourceIn);
+    iconPainter.fillRect(tintedPixmap.rect(), colorForeground);
+    iconPainter.end();
+    pPainter->drawPixmap(itemPixmapRect, tintedPixmap);
 
-    /* Draw name: */
-    const int iSpacing = qMax(QApplication::style()->pixelMetric(QStyle::PM_LayoutVerticalSpacing), 5) * 2;
-    const QFont listFont = m_pListWidget->font();
-    const QFontMetrics fm(listFont);
-    const QColor foreground = suitableForegroundColor(pal, backColor);
-    const QSize itemsSizeHint = pItem->sizeHint();
-    int iNamePointX = iMargin + iIconSize + iSpacing;
-    int iNamePointY = itemsSizeHint.height() / 2 + fm.ascent() / 2 - 1 /* base line */;
-#ifndef VBOX_WS_MAC
-    iNamePointX -= 2 /* left */;
-    iNamePointY -= 2 /* top */;
-#endif
-    const QPoint namePoint(iNamePointX, iNamePointY);
-    const QString strName = pItem->text();
-    pPainter->save();
-    pPainter->translate(itemRectangle.topLeft());
-    pPainter->setPen(foreground);
-    pPainter->setFont(listFont);
-    pPainter->drawText(namePoint, strName);
+    const QRect textRect(itemPixmapRect.right() + 10, itemRectangle.top(),
+                         qMax(0, itemRectangle.right() - itemPixmapRect.right() - 22),
+                         itemRectangle.height());
+    const QFontMetrics fm(m_pListWidget->font());
+    const QString strName = fm.elidedText(pItem->text(), Qt::ElideRight, textRect.width());
+    pPainter->setPen(colorForeground);
+    pPainter->setFont(m_pListWidget->font());
+    pPainter->drawText(textRect, Qt::AlignVCenter | Qt::AlignLeft, strName);
     pPainter->restore();
 }
 
@@ -546,7 +524,7 @@ QSize UISettingsSelectorListWidget::itemSizeHint(QListWidgetItem *pItem) const
 #endif
 
     /* Return item size-hint: */
-    return QSize(iMinimumWidth, iMinimumHeight);
+    return QSize(qMin(220, qMax(180, iMinimumWidth)), qMax(48, iMinimumHeight));
 }
 
 

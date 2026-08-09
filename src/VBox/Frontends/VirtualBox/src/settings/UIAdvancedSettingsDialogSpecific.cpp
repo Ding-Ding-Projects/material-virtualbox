@@ -85,7 +85,7 @@
 UIAdvancedSettingsDialogGlobal::UIAdvancedSettingsDialogGlobal(QWidget *pParent,
                                                                const QString &strCategory /* = QString() */,
                                                                const QString &strControl /* = QString() */)
-    : UIAdvancedSettingsDialog(pParent, strCategory, strControl)
+    : UIAdvancedSettingsDialog(pParent, Type_Global, strCategory, strControl)
 {
     prepare();
 }
@@ -302,7 +302,7 @@ UIAdvancedSettingsDialogMachine::UIAdvancedSettingsDialogMachine(QWidget *pParen
                                                                  UIActionPool *pActionPool,
                                                                  const QString &strCategory /* = QString() */,
                                                                  const QString &strControl /* = QString() */)
-    : UIAdvancedSettingsDialog(pParent, strCategory, strControl)
+    : UIAdvancedSettingsDialog(pParent, Type_Machine, strCategory, strControl)
     , m_uMachineId(uMachineId)
     , m_pActionPool(pActionPool)
 {

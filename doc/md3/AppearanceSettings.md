@@ -1,7 +1,10 @@
 # Material appearance settings
 
-Global Preferences now exposes the shared Material 3 appearance controls in
-the existing `UIAdvancedSettingsDialog` surface. The settings dialog remains
+Global Preferences now exposes the shared Material 3 appearance controls in a
+collapsed-by-default, persisted customization panel inside the existing
+`UIAdvancedSettingsDialog` surface. The single label/control column avoids the
+former multi-column collisions, while per-machine Settings omits this
+global-only panel. The settings dialog remains
 the owner of page selection, filtering, validation, serialization, and dirty
 state; these controls only call the process-wide `UIMd3Theme` service.
 
@@ -86,6 +89,7 @@ menu search, regex builder, live preview, named-theme save/apply status,
 transactional rejection, apply/reset behavior, and focus return; no design
 thumbnail or static HTML preview is accepted as a substitute.
 
-Suggested articles: [`SettingsSearch.md`](SettingsSearch.md),
+Suggested articles: [`SettingsShell.md`](SettingsShell.md),
+[`SettingsSearch.md`](SettingsSearch.md),
 [`NavigationRail.md`](NavigationRail.md), and the repository
 [build instructions](https://www.virtualbox.org/wiki/Build_instructions).

@@ -13,7 +13,7 @@ with the [canonical VirtualBox prerequisites and commands](#build-and-prerequisi
 > **Implementation status:** the shared theme, style, language, persisted brand,
 > native manager title bar, manager navigation rail, manager tab strip, command
 > palette, appearance editor, full guided shared regex builder, four-scope tab
-> manager, settings search field, and the
+> manager, single-page settings shell, settings search field, and the
 > notification-center search and keyboard-accessible notification rows are wired
 > into the existing VirtualBox frontend.
 > The shared style now gives stock Qt controls Material semantic colors, shape,
@@ -67,12 +67,16 @@ notification, and runtime captures from the rewritten build.
 The capture contract, required screenshot matrix, and current COM/service evidence
 are maintained in [`doc/md3/RuntimeCapture.md`](doc/md3/RuntimeCapture.md).
 
-The shared Global Preferences appearance controls (scheme, seed, density,
-font scale, installed font family, global/inherited font weight, and display
-brand) are documented in
-[`doc/md3/AppearanceSettings.md`](doc/md3/AppearanceSettings.md). They are
-implemented against the existing `UIMd3Theme` persistence and remain subject
-to the native screenshot gate above.
+Global Preferences and per-machine Settings now compose their existing page
+models inside a bounded Material selector, one selected page card, and a compact
+search/Basic/Expert header. An active query intentionally restores cross-page
+results. Global Preferences alone offers a collapsed, persisted language and
+appearance panel; Machine Settings no longer carries global controls. The shell
+is documented in [`doc/md3/SettingsShell.md`](doc/md3/SettingsShell.md), while
+the individual scheme, seed, density, typography, and display-brand controls
+remain documented in
+[`doc/md3/AppearanceSettings.md`](doc/md3/AppearanceSettings.md). Native visual
+evidence is still subject to the capture gate above.
 
 MD3 widgets with stable keys also expose a bounded per-element appearance
 editor from their context menu and <kbd>Shift</kbd>+right-click. The editor

@@ -11,6 +11,7 @@ This section records the native Qt implementation of the supplied Material Desig
 - [`ManagerShell.md`](ManagerShell.md) documents the responsive 48/48/92 desktop manager composition, compact navigation action below 1000 logical pixels, destination heading, on-demand workspaces, contextual actions, and padded machine cards.
 - [`NavigationRail.md`](NavigationRail.md) documents the first visible manager shell integration and its runtime capture gate.
 - [`SettingsSearch.md`](SettingsSearch.md) documents the shared settings search field and its anchored regex builder.
+- [`SettingsShell.md`](SettingsShell.md) documents the single-page Preferences/Machine Settings composition, cross-page search mode, and collapsed global-only customization panel.
 - [`RegexBuilder.md`](RegexBuilder.md) documents the shared full guided builder, PCRE2-compatible dialect and flags, bounded asynchronous match/capture preview, copy/JSON export, accessibility, and per-field ownership.
 - [`AppearanceSettings.md`](AppearanceSettings.md) documents the live Material scheme, seed, density, font-scale, display-brand controls, named-theme save/apply flow, and transactional per-element validation.
 - [`StockControlStyle.md`](StockControlStyle.md) documents the shared semantic palette, state layers, focus treatment, and minimum anatomy applied to stock Qt controls without replacing their existing behavior.

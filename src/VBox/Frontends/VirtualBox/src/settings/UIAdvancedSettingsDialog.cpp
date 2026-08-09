@@ -35,6 +35,7 @@
 #include <QComboBox>
 #include <QCoreApplication>
 #include <QGridLayout>
+#include <QHBoxLayout>
 #include <QLabel>
 #include <QLineEdit>
 #include <QFontDatabase>
@@ -46,6 +47,7 @@
 #include <QScrollArea>
 #include <QScrollBar>
 #include <QSignalBlocker>
+#include <QSizePolicy>
 #include <QSlider>
 #include <QSpinBox>
 #include <QStackedWidget>
@@ -64,7 +66,6 @@
 #include "UIDesktopWidgetWatchdog.h"
 #include "UIExtraDataManager.h"
 #include "UIIconPool.h"
-#include "UIImageTools.h"
 #include "UILoggingDefs.h"
 #include "UIModalWindowManager.h"
 #include "UINotificationCenter.h"
@@ -79,6 +80,10 @@
 #include "UIMd3SearchField.h"
 #include "UIMd3Language.h"
 #include "UIMd3Theme.h"
+
+
+/** Global extra-data key preserving customization-panel disclosure. */
+static const char *g_pszMd3SettingsCustomizationExpanded = "GUI/Md3/SettingsCustomizationExpanded";
 
 
 /** QCheckBox subclass used as mode checkbox. */
@@ -316,102 +321,60 @@ bool UIModeCheckBox::event(QEvent *pEvent)
 
 void UIModeCheckBox::paintEvent(QPaintEvent *pEvent)
 {
-    /* Prepare painter: */
     QPainter painter(this);
     painter.setRenderHint(QPainter::Antialiasing);
     painter.setRenderHint(QPainter::TextAntialiasing);
-    /* Avoid painting more than necessary: */
     painter.setClipRect(pEvent->rect());
 
-    /* Acquire useful properties: */
-    const QPalette pal = qApp->palette();
-    QRect contentRect = rect();
-#ifdef VBOX_WS_MAC
-    contentRect.setLeft(contentRect.left() + 2); /// @todo justify!
-    contentRect.setWidth(contentRect.width() - 10); /// @todo justify!
-#else /* !VBOX_WS_MAC */
-    /* On non-macOS hosts we'll have to give some space to focus-frame: */
-    contentRect.setLeft(contentRect.left() + 1);
-    contentRect.setTop(contentRect.top() + 1);
-#endif /* !VBOX_WS_MAC */
+    const QRectF contentRect = QRectF(rect()).adjusted(2, 2, -2, -2);
+    const qreal dRadius = contentRect.height() / 2.0;
+    const QRectF leftRect(contentRect.left(), contentRect.top(), contentRect.width() / 2.0, contentRect.height());
+    const QRectF rightRect(leftRect.right(), contentRect.top(), contentRect.width() - leftRect.width(), contentRect.height());
 
-#ifndef VBOX_WS_MAC
-    /* On non-macOS hosts we'll have to draw focus-frame ourselves: */
+    const QPalette pal = palette();
+    const QColor colorSurface = UIMd3Theme::instance()
+                              ? md3Theme().color(UIMd3ColorRole_SurfaceContainer)
+                              : pal.color(QPalette::Button);
+    const QColor colorSelected = UIMd3Theme::instance()
+                               ? md3Theme().color(UIMd3ColorRole_SecondaryContainer)
+                               : pal.color(QPalette::Highlight);
+    const QColor colorOnSurface = UIMd3Theme::instance()
+                                ? md3Theme().color(UIMd3ColorRole_OnSurfaceVariant)
+                                : pal.color(QPalette::ButtonText);
+    const QColor colorOnSelected = UIMd3Theme::instance()
+                                 ? md3Theme().color(UIMd3ColorRole_OnSecondaryContainer)
+                                 : pal.color(QPalette::HighlightedText);
+    const QColor colorOutline = UIMd3Theme::instance()
+                              ? md3Theme().color(UIMd3ColorRole_Outline)
+                              : pal.color(QPalette::Mid);
+
+    QPainterPath outerPath;
+    outerPath.addRoundedRect(contentRect, dRadius, dRadius);
+    painter.fillPath(outerPath, colorSurface);
+    painter.save();
+    painter.setClipPath(outerPath);
+    painter.fillRect(isChecked() ? rightRect : leftRect, colorSelected);
+    painter.restore();
+    painter.setPen(QPen(colorOutline, 1));
+    painter.drawPath(outerPath);
+
     if (hasFocus())
     {
-        QStyleOptionFocusRect option;
-        option.initFrom(this);
-        option.rect = rect();
-        style()->drawPrimitive(QStyle::PE_FrameFocusRect, &option, &painter, this);
+        const QColor colorFocus = UIMd3Theme::instance()
+                                ? md3Theme().color(UIMd3ColorRole_Primary)
+                                : pal.color(QPalette::Highlight);
+        painter.setPen(QPen(colorFocus, 2));
+        painter.drawRoundedRect(contentRect.adjusted(1, 1, -1, -1), dRadius - 1, dRadius - 1);
     }
-#endif /* !VBOX_WS_MAC */
 
-    /* Prepare left painter paths: */
-    QPainterPath painterPath1;
-    painterPath1.moveTo(contentRect.x(),                                contentRect.y());
-    painterPath1.lineTo(contentRect.width() / 2,                        contentRect.y());
-    painterPath1.lineTo(contentRect.width() / 2 - contentRect.height(), contentRect.height());
-    painterPath1.lineTo(contentRect.x(),                                contentRect.height());
-    painterPath1.closeSubpath();
-
-    /* Prepare right painter paths: */
-    QPainterPath painterPath2;
-    painterPath2.moveTo(contentRect.width() / 2,                        contentRect.y());
-    painterPath2.lineTo(contentRect.width(),                            contentRect.y());
-    painterPath2.lineTo(contentRect.width()     - contentRect.height(), contentRect.height());
-    painterPath2.lineTo(contentRect.width() / 2 - contentRect.height(), contentRect.height());
-    painterPath2.closeSubpath();
-
-    /* Prepare left painting gradient: */
-    const QColor backColor1 = pal.color(QPalette::Active, isChecked() ? QPalette::Window : QPalette::Highlight);
-    const QColor bcTone11 = backColor1.lighter(isChecked() ? 120 : 100);
-    const QColor bcTone12 = backColor1.lighter(isChecked() ? 140 : 120);
-    QLinearGradient grad1(painterPath1.boundingRect().topLeft(), painterPath1.boundingRect().bottomRight());
-    grad1.setColorAt(0, bcTone11);
-    grad1.setColorAt(1, bcTone12);
-
-    /* Prepare right painting gradient: */
-    const QColor backColor2 = pal.color(QPalette::Active, isChecked() ? QPalette::Highlight : QPalette::Window);
-    const QColor bcTone21 = backColor2.lighter(isChecked() ? 100 : 120);
-    const QColor bcTone22 = backColor2.lighter(isChecked() ? 120 : 140);
-    QLinearGradient grad2(painterPath2.boundingRect().topLeft(), painterPath2.boundingRect().bottomRight());
-    grad2.setColorAt(0, bcTone21);
-    grad2.setColorAt(1, bcTone22);
-
-    /* Paint fancy shape: */
-    painter.save();
-    painter.fillPath(painterPath1, grad1);
-    painter.strokePath(painterPath1, uiCommon().isInDarkMode() ? backColor1.lighter(120) : backColor1.darker(110));
-    painter.fillPath(painterPath2, grad2);
-    painter.strokePath(painterPath2, uiCommon().isInDarkMode() ? backColor2.lighter(120) : backColor2.darker(110));
-    painter.restore();
-
-    /* Prepare text stuff: */
-    const QFont fnt = font();
-    const QFontMetrics fm(fnt);
-    const QColor foreground1 = suitableForegroundColor(pal, backColor1);
-    const QColor foreground2 = suitableForegroundColor(pal, backColor2);
-    /* Calculate text1 position: */
-    const int iMaxSpace1 = contentRect.width() / 2 - 2 * fm.height();
-    const int iTextSize1 = fm.horizontalAdvance(m_strText1);
-    const int iIndent1 = iMaxSpace1 > iTextSize1 ? (iMaxSpace1 - iTextSize1) / 2 : 0;
-    const QPoint point1 = QPoint(contentRect.left() + 5 /* margin */ + iIndent1,
-                                 contentRect.height() / 2 + fm.ascent() / 2 - 1 /* base line */);
-    /* Calculate text2 position: */
-    const int iMaxSpace2 = contentRect.width() / 2 - 2 * fm.height();
-    const int iTextSize2 = fm.horizontalAdvance(m_strText2);
-    const int iIndent2 = iMaxSpace2 > iTextSize2 ? (iMaxSpace2 - iTextSize2) / 2 : 0;
-    const QPoint point2 = QPoint(contentRect.width() / 2 + iIndent2,
-                                 contentRect.height() / 2 + fm.ascent() / 2 - 1 /* base line */);
-
-    /* Paint text: */
-    painter.save();
-    painter.setFont(fnt);
-    painter.setPen(foreground1);
-    painter.drawText(point1, text1());
-    painter.setPen(foreground2);
-    painter.drawText(point2, text2());
-    painter.restore();
+    const QFontMetrics fm(font());
+    const QString strBasic = fm.elidedText(text1(), Qt::ElideRight, qMax(0, qRound(leftRect.width()) - 20));
+    const QString strExpert = fm.elidedText(text2(), Qt::ElideRight, qMax(0, qRound(rightRect.width()) - 20));
+    painter.setFont(font());
+    painter.setPen(isChecked() ? colorOnSurface : colorOnSelected);
+    painter.drawText(leftRect.adjusted(10, 0, -10, 0), Qt::AlignCenter, strBasic);
+    painter.setPen(isChecked() ? colorOnSelected : colorOnSurface);
+    painter.drawText(rightRect.adjusted(10, 0, -10, 0), Qt::AlignCenter, strExpert);
 }
 
 QSize UIModeCheckBox::minimumSizeHint() const
@@ -425,12 +388,7 @@ QSize UIModeCheckBox::minimumSizeHint() const
     iMaxLength = qMax(iMaxLength, fm.horizontalAdvance(m_strText2));
 
     /* Composing result: */
-    QSize result(  5               /* left margin */
-                 + iMaxLength + 2  /* padding */
-                 + 2 * fm.height() /* spacing */
-                 + iMaxLength + 2  /* padding */
-                 + 2 * fm.height() /* right marging */,
-                   2 * fm.height() /* vertical hint */);
+    QSize result(2 * (iMaxLength + 24), qMax(48, 2 * fm.height()));
     //printf("UIModeCheckBox::minimumSizeHint(%dx%d)\n",
     //       result.width(), result.height());
     return result;
@@ -809,12 +767,14 @@ void UIVerticalScrollArea::prepare()
 *********************************************************************************************************************************/
 
 UIAdvancedSettingsDialog::UIAdvancedSettingsDialog(QWidget *pParent,
+                                                   DialogType enmType,
                                                    const QString &strCategory,
                                                    const QString &strControl)
     : QMainWindow(pParent)
     , m_strCategory(strCategory)
     , m_strControl(strControl)
     , m_pSelector(0)
+    , m_enmDialogType(enmType)
     , m_enmConfigurationAccessLevel(ConfigurationAccessLevel_Null)
     , m_pSerializeProcess(0)
     , m_fPolished(false)
@@ -832,6 +792,8 @@ UIAdvancedSettingsDialog::UIAdvancedSettingsDialog(QWidget *pParent,
     , m_pLayoutMain(0)
     , m_pCheckBoxMode(0)
     , m_pEditorFilter(0)
+    , m_pMd3CustomizationButton(0)
+    , m_pMd3CustomizationPanel(0)
     , m_pLanguageMode(0)
     , m_pEnglishFunny(0)
     , m_pCantoneseFunny(0)
@@ -871,6 +833,21 @@ void UIAdvancedSettingsDialog::sltCategoryChanged(int cId)
     /* Cache current page ID for reusing: */
     m_iPageId = cId;
 
+    uiCommon().setHelpKeyword(m_pButtonBox->button(QDialogButtonBox::Help), m_pageHelpKeywords.value(cId));
+
+    /* Outside search, navigation behaves as a real page rail rather than a
+     * bookmark into one very long settings document. */
+    const bool fSearchActive = m_pEditorFilter
+                             && (   m_pEditorFilter->isRegexActive()
+                                 || !m_pEditorFilter->text().trimmed().isEmpty());
+    if (!fSearchActive)
+    {
+        updateMd3PageVisibility();
+        if (m_pScrollArea)
+            m_pScrollArea->requestVerticalScrollBarPosition(0);
+        return;
+    }
+
     /* Let's calculate required scroll-bar position: */
     int iPosition = 0;
     /* We'll have to take upper content's margin into account: */
@@ -888,7 +865,6 @@ void UIAdvancedSettingsDialog::sltCategoryChanged(int cId)
     /* Make sure corresponding page is visible: */
     m_pScrollArea->requestVerticalScrollBarPosition(iPosition);
 
-    uiCommon().setHelpKeyword(m_pButtonBox->button(QDialogButtonBox::Help), m_pageHelpKeywords.value(cId));
 }
 
 void UIAdvancedSettingsDialog::sltHandleSerializationStarted()
@@ -1056,6 +1032,25 @@ void UIAdvancedSettingsDialog::sltRetranslateUI()
     if (m_pEditorFilter)
         m_pEditorFilter->setPlaceholderText(tr("Search settings"));
 
+    if (m_pMd3CustomizationButton)
+    {
+        const QString strText = UIMd3Language::instance()
+                              ? md3Text(QStringLiteral("md3.settings.customization"))
+                              : tr("Appearance and language");
+        const QString strDescription = UIMd3Language::instance()
+                                     ? md3Text(QStringLiteral("md3.settings.customization.description"))
+                                     : tr("Show or hide global language and appearance controls");
+        m_pMd3CustomizationButton->setText(strText);
+        m_pMd3CustomizationButton->setAccessibleName(strText);
+        m_pMd3CustomizationButton->setToolTip(strDescription);
+        m_pMd3CustomizationButton->setAccessibleDescription(strDescription);
+    }
+    if (m_pMd3CustomizationPanel)
+        m_pMd3CustomizationPanel->setAccessibleName(
+            UIMd3Language::instance()
+            ? md3Text(QStringLiteral("md3.settings.customization.panel"))
+            : tr("Language and appearance customization"));
+
     if (m_pLanguageMode)
     {
         const int iCurrent = (int)md3Language().mode();
@@ -1130,6 +1125,38 @@ void UIAdvancedSettingsDialog::sltUpdateMd3AppearanceControls()
     {
         const QSignalBlocker blocker(m_pMd3Brand);
         m_pMd3Brand->setText(md3Theme().brandName());
+    }
+
+    if (m_pMd3CustomizationPanel)
+    {
+        QPalette palette = m_pMd3CustomizationPanel->palette();
+        palette.setColor(QPalette::Window, md3Theme().color(UIMd3ColorRole_SurfaceContainerLow));
+        palette.setColor(QPalette::WindowText, md3Theme().color(UIMd3ColorRole_OnSurface));
+        m_pMd3CustomizationPanel->setPalette(palette);
+    }
+}
+
+void UIAdvancedSettingsDialog::sltToggleMd3Customization(bool fExpanded)
+{
+    if (m_pMd3CustomizationPanel)
+        m_pMd3CustomizationPanel->setVisible(fExpanded);
+    if (m_pMd3CustomizationButton)
+    {
+        m_pMd3CustomizationButton->setArrowType(fExpanded ? Qt::DownArrow : Qt::RightArrow);
+        m_pMd3CustomizationButton->setAccessibleDescription(
+            fExpanded
+            ? tr("Global language and appearance controls are expanded")
+            : tr("Global language and appearance controls are collapsed"));
+    }
+
+    if (gEDataManager)
+    {
+        const QString strKey = QString::fromLatin1(g_pszMd3SettingsCustomizationExpanded);
+        const QString strValue = fExpanded ? QStringLiteral("true") : QStringLiteral("false");
+        const QString strCurrent = gEDataManager->extraDataString(strKey);
+        if (   strCurrent != strValue
+            && !(strCurrent.isEmpty() && !fExpanded))
+            gEDataManager->setExtraDataString(strKey, strValue, UIExtraDataManager::GlobalID, this);
     }
 }
 
@@ -1524,6 +1551,27 @@ void UIAdvancedSettingsDialog::sltApplyFilteringRules()
                           m_flags,
                           m_pEditorFilter->regex());
 
+    const bool fSearchActive =    m_pEditorFilter->isRegexActive()
+                               || !m_pEditorFilter->text().trimmed().isEmpty();
+    UISettingsPageFrame *pCurrentFrame = m_frames.value(m_iPageId, 0);
+    if (   !fSearchActive
+        && (!pCurrentFrame || pCurrentFrame->isHidden()))
+    {
+        m_iPageId = MachineSettingsPageType_Invalid;
+        foreach (int iId, m_frames.keys())
+        {
+            UISettingsPageFrame *pFrame = m_frames.value(iId, 0);
+            if (pFrame && !pFrame->isHidden())
+            {
+                m_iPageId = iId;
+                m_pSelector->selectById(iId, true /* silently */);
+                break;
+            }
+        }
+    }
+
+    updateMd3PageVisibility();
+
     /* Make sure current page chosen again: */
     /// @todo fix this WORKAROUND properly!
     // Why the heck simple call to
@@ -1546,6 +1594,11 @@ void UIAdvancedSettingsDialog::sltHandleFrameVisibilityChange(bool fVisible)
 
 void UIAdvancedSettingsDialog::sltHandleVerticalScrollAreaWheelEvent()
 {
+    if (   !m_pEditorFilter
+        || (   !m_pEditorFilter->isRegexActive()
+            && m_pEditorFilter->text().trimmed().isEmpty()))
+        return;
+
     /* Acquire layout info: */
     int iL = 0, iT = 0, iR = 0, iB = 0;
     if (   m_pScrollViewport
@@ -1575,6 +1628,21 @@ void UIAdvancedSettingsDialog::sltHandleVerticalScrollAreaWheelEvent()
     /* Silently update the selector with frame number we found: */
     if (iActualKey != -1)
         m_pSelector->selectById(iActualKey, true /* silently */);
+}
+
+void UIAdvancedSettingsDialog::updateMd3PageVisibility()
+{
+    if (!m_pEditorFilter)
+        return;
+
+    const bool fSearchActive =    m_pEditorFilter->isRegexActive()
+                               || !m_pEditorFilter->text().trimmed().isEmpty();
+    if (fSearchActive)
+        return;
+
+    foreach (int iId, m_frames.keys())
+        if (UISettingsPageFrame *pFrame = m_frames.value(iId, 0))
+            pFrame->setVisible(iId == m_iPageId);
 }
 
 void UIAdvancedSettingsDialog::sltUpdateDisabledWidgetsLookAndFeel()
@@ -1615,6 +1683,10 @@ void UIAdvancedSettingsDialog::prepare()
         m_pLayoutMain = new QGridLayout(centralWidget());
         if (m_pLayoutMain)
         {
+            m_pLayoutMain->setContentsMargins(18, 14, 18, 14);
+            m_pLayoutMain->setHorizontalSpacing(12);
+            m_pLayoutMain->setVerticalSpacing(10);
+
             /* Prepare widgets: */
             prepareSelector();
             prepareScrollArea();
@@ -1633,67 +1705,124 @@ void UIAdvancedSettingsDialog::prepare()
 
 void UIAdvancedSettingsDialog::prepareSelector()
 {
-    /* Make sure there is a serious spacing between selector and pages: */
-    m_pLayoutMain->setColumnMinimumWidth(1, 20);
-    m_pLayoutMain->setRowStretch(1, 1);
+    /* Keep a compact Material shell around the existing page and serializer model. */
+    m_pLayoutMain->setColumnMinimumWidth(1, 0);
+    m_pLayoutMain->setColumnStretch(0, 0);
     m_pLayoutMain->setColumnStretch(2, 1);
+    m_pLayoutMain->setRowStretch(2, 1);
+
+    QWidget *pHeaderPanel = new QWidget(centralWidget());
+    QHBoxLayout *pHeaderLayout = pHeaderPanel ? new QHBoxLayout(pHeaderPanel) : 0;
+    if (pHeaderLayout)
+    {
+        pHeaderLayout->setContentsMargins(0, 0, 0, 0);
+        pHeaderLayout->setSpacing(8);
+        m_pLayoutMain->addWidget(pHeaderPanel, 0, 0, 1, 3);
+    }
+
+    /* Prepare the plain-text-first search as the primary shell control. */
+    m_pEditorFilter = new UIMd3SearchField(QStringLiteral("settings"), tr("Search settings"), pHeaderPanel);
+    if (m_pEditorFilter)
+    {
+        connect(m_pEditorFilter, &UIMd3SearchField::sigFilterChanged,
+                this, &UIAdvancedSettingsDialog::sltApplyFilteringRules);
+        if (pHeaderLayout)
+            pHeaderLayout->addWidget(m_pEditorFilter, 1);
+    }
 
     /* Prepare mode checkbox: */
-    m_pCheckBoxMode = new UIModeCheckBox(centralWidget());
+    m_pCheckBoxMode = new UIModeCheckBox(pHeaderPanel);
     if (m_pCheckBoxMode)
     {
+        m_pCheckBoxMode->setAccessibleName(tr("Settings experience mode"));
+        m_pCheckBoxMode->setToolTip(tr("Switch between Basic and Expert settings without changing page data"));
         connect(m_pCheckBoxMode, &UIModeCheckBox::stateChanged,
                 this, &UIAdvancedSettingsDialog::sltHandleExperienceModeCheckBoxChanged);
         connect(gEDataManager, &UIExtraDataManager::sigSettingsExpertModeChange,
                 this, &UIAdvancedSettingsDialog::sltHandleExperienceModeChanged);
-        m_pLayoutMain->addWidget(m_pCheckBoxMode, 0, 0);
+        if (pHeaderLayout)
+            pHeaderLayout->addWidget(m_pCheckBoxMode, 0);
+    }
+
+    if (m_enmDialogType == Type_Global)
+    {
+        m_pMd3CustomizationButton = new QToolButton(pHeaderPanel);
+        if (m_pMd3CustomizationButton)
+        {
+            m_pMd3CustomizationButton->setCheckable(true);
+            m_pMd3CustomizationButton->setMinimumHeight(48);
+            m_pMd3CustomizationButton->setToolButtonStyle(Qt::ToolButtonTextBesideIcon);
+            connect(m_pMd3CustomizationButton, &QToolButton::toggled,
+                    this, &UIAdvancedSettingsDialog::sltToggleMd3Customization);
+            if (pHeaderLayout)
+                pHeaderLayout->addWidget(m_pMd3CustomizationButton, 0);
+        }
     }
 
     /* Prepare classical list-widget selector: */
     m_pSelector = new UISettingsSelectorListWidget(centralWidget());
     if (m_pSelector)
-        m_pLayoutMain->addWidget(m_pSelector->widget(), 1, 0);
-
-    /* Prepare filter editor: */
-    m_pEditorFilter = new UIMd3SearchField(QStringLiteral("settings"), tr("Search settings"), centralWidget());
-    if (m_pEditorFilter)
     {
-        connect(m_pEditorFilter, &UIMd3SearchField::sigFilterChanged,
-                this, &UIAdvancedSettingsDialog::sltApplyFilteringRules);
-        m_pLayoutMain->addWidget(m_pEditorFilter, 0, 2);
+        m_pSelector->widget()->setAccessibleName(tr("Settings pages"));
+        m_pSelector->widget()->setMinimumWidth(180);
+        m_pSelector->widget()->setMaximumWidth(240);
+        m_pLayoutMain->addWidget(m_pSelector->widget(), 2, 0);
     }
 
     /* Prepare persisted language, funny-level, and Material appearance controls. */
-    QWidget *pLanguagePanel = new QWidget(centralWidget());
+    QWidget *pLanguagePanel = m_enmDialogType == Type_Global ? new QWidget(centralWidget()) : 0;
     if (pLanguagePanel)
     {
+        m_pMd3CustomizationPanel = pLanguagePanel;
+        pLanguagePanel->setAccessibleName(tr("Language and appearance customization"));
+        pLanguagePanel->setAutoFillBackground(true);
         QVBoxLayout *pLanguageLayout = new QVBoxLayout(pLanguagePanel);
-        pLanguageLayout->setContentsMargins(0, 0, 0, 0);
-        pLanguageLayout->setSpacing(6);
-        QHBoxLayout *pLanguageControls = new QHBoxLayout;
-        pLanguageControls->setContentsMargins(0, 0, 0, 0);
-        pLanguageControls->setSpacing(6);
+        pLanguageLayout->setContentsMargins(16, 14, 16, 14);
+        pLanguageLayout->setSpacing(12);
+        QGridLayout *pCustomizationLayout = new QGridLayout;
+        pCustomizationLayout->setContentsMargins(0, 0, 0, 0);
+        pCustomizationLayout->setHorizontalSpacing(12);
+        pCustomizationLayout->setVerticalSpacing(8);
+        pCustomizationLayout->setColumnMinimumWidth(0, 132);
+        pCustomizationLayout->setColumnStretch(1, 1);
+
+        QLabel *pLanguageHeading = new QLabel(tr("Language and tone"), pLanguagePanel);
+        QFont headingFont = md3Theme().font(UIMd3TypeRole_TitleMedium);
+        headingFont.setBold(true);
+        pLanguageHeading->setFont(headingFont);
+        pCustomizationLayout->addWidget(pLanguageHeading, 0, 0, 1, 2);
+
+        QLabel *pLanguageModeLabel = new QLabel(tr("Language mode"), pLanguagePanel);
         m_pLanguageMode = new QComboBox(pLanguagePanel);
         m_pLanguageMode->setAccessibleName(tr("Language mode"));
-        pLanguageControls->addWidget(m_pLanguageMode);
+        m_pLanguageMode->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
+        pLanguageModeLabel->setBuddy(m_pLanguageMode);
+        pCustomizationLayout->addWidget(pLanguageModeLabel, 1, 0);
+        pCustomizationLayout->addWidget(m_pLanguageMode, 1, 1);
+
+        QLabel *pEnglishFunnyLabel = new QLabel(tr("English tone"), pLanguagePanel);
         m_pEnglishFunny = new QSlider(Qt::Horizontal, pLanguagePanel);
         m_pEnglishFunny->setRange(1, 5);
         m_pEnglishFunny->setValue(md3Language().playfulness());
         m_pEnglishFunny->setAccessibleName(tr("English funny level"));
         m_pEnglishFunny->setToolTip(tr("English funny level (1 serious, 5 playful)"));
-        pLanguageControls->addWidget(m_pEnglishFunny);
+        pEnglishFunnyLabel->setBuddy(m_pEnglishFunny);
+        pCustomizationLayout->addWidget(pEnglishFunnyLabel, 2, 0);
+        pCustomizationLayout->addWidget(m_pEnglishFunny, 2, 1);
+
+        QLabel *pCantoneseFunnyLabel = new QLabel(tr("Cantonese tone"), pLanguagePanel);
         m_pCantoneseFunny = new QSlider(Qt::Horizontal, pLanguagePanel);
         m_pCantoneseFunny->setRange(1, 5);
         m_pCantoneseFunny->setValue(md3Language().cantonesePlayfulness());
         m_pCantoneseFunny->setAccessibleName(tr("Cantonese funny level"));
         m_pCantoneseFunny->setToolTip(tr("Cantonese funny level (1 serious, 5 playful)"));
-        pLanguageControls->addWidget(m_pCantoneseFunny);
-        pLanguageLayout->addLayout(pLanguageControls);
+        pCantoneseFunnyLabel->setBuddy(m_pCantoneseFunny);
+        pCustomizationLayout->addWidget(pCantoneseFunnyLabel, 3, 0);
+        pCustomizationLayout->addWidget(m_pCantoneseFunny, 3, 1);
 
-        QGridLayout *pAppearanceLayout = new QGridLayout;
-        pAppearanceLayout->setContentsMargins(0, 0, 0, 0);
-        pAppearanceLayout->setHorizontalSpacing(6);
-        pAppearanceLayout->setVerticalSpacing(2);
+        QLabel *pAppearanceHeading = new QLabel(tr("Appearance"), pLanguagePanel);
+        pAppearanceHeading->setFont(headingFont);
+        pCustomizationLayout->addWidget(pAppearanceHeading, 4, 0, 1, 2);
 
         QLabel *pSchemeLabel = new QLabel(tr("Theme"), pLanguagePanel);
         m_pMd3Scheme = new QComboBox(pLanguagePanel);
@@ -1704,8 +1833,8 @@ void UIAdvancedSettingsDialog::prepareSelector()
         m_pMd3Scheme->addItem(tr("High-contrast dark"), UIMd3Scheme_HighContrastDark);
         m_pMd3Scheme->addItem(tr("High-contrast light"), UIMd3Scheme_HighContrastLight);
         pSchemeLabel->setBuddy(m_pMd3Scheme);
-        pAppearanceLayout->addWidget(pSchemeLabel, 0, 0);
-        pAppearanceLayout->addWidget(m_pMd3Scheme, 0, 1);
+        pCustomizationLayout->addWidget(pSchemeLabel, 5, 0);
+        pCustomizationLayout->addWidget(m_pMd3Scheme, 5, 1);
 
         QLabel *pSeedLabel = new QLabel(tr("Seed color"), pLanguagePanel);
         m_pMd3Seed = new QLineEdit(pLanguagePanel);
@@ -1713,8 +1842,8 @@ void UIAdvancedSettingsDialog::prepareSelector()
         m_pMd3Seed->setMaxLength(9);
         m_pMd3Seed->setPlaceholderText(QStringLiteral("#6750A4"));
         pSeedLabel->setBuddy(m_pMd3Seed);
-        pAppearanceLayout->addWidget(pSeedLabel, 0, 2);
-        pAppearanceLayout->addWidget(m_pMd3Seed, 0, 3);
+        pCustomizationLayout->addWidget(pSeedLabel, 6, 0);
+        pCustomizationLayout->addWidget(m_pMd3Seed, 6, 1);
 
         QLabel *pScaleLabel = new QLabel(tr("Font scale"), pLanguagePanel);
         m_pMd3FontScale = new QSlider(Qt::Horizontal, pLanguagePanel);
@@ -1724,8 +1853,8 @@ void UIAdvancedSettingsDialog::prepareSelector()
         m_pMd3FontScale->setAccessibleName(tr("Material font scale percent"));
         m_pMd3FontScale->setToolTip(tr("Material font scale, from 75% to 200%"));
         pScaleLabel->setBuddy(m_pMd3FontScale);
-        pAppearanceLayout->addWidget(pScaleLabel, 1, 0);
-        pAppearanceLayout->addWidget(m_pMd3FontScale, 1, 1);
+        pCustomizationLayout->addWidget(pScaleLabel, 7, 0);
+        pCustomizationLayout->addWidget(m_pMd3FontScale, 7, 1);
 
         QLabel *pFamilyLabel = new QLabel(tr("Font family"), pLanguagePanel);
         m_pMd3FontFamily = new QComboBox(pLanguagePanel);
@@ -1740,8 +1869,8 @@ void UIAdvancedSettingsDialog::prepareSelector()
             m_pMd3FontFamily->setItemData(iIndex, QFont(strFamily), Qt::FontRole);
         }
         pFamilyLabel->setBuddy(m_pMd3FontFamily);
-        pAppearanceLayout->addWidget(pFamilyLabel, 1, 2);
-        pAppearanceLayout->addWidget(m_pMd3FontFamily, 1, 3);
+        pCustomizationLayout->addWidget(pFamilyLabel, 8, 0);
+        pCustomizationLayout->addWidget(m_pMd3FontFamily, 8, 1);
 
         QLabel *pWeightLabel = new QLabel(tr("Font weight"), pLanguagePanel);
         m_pMd3FontWeight = new QComboBox(pLanguagePanel);
@@ -1758,28 +1887,32 @@ void UIAdvancedSettingsDialog::prepareSelector()
         m_pMd3FontWeight->addItem(tr("Extra bold"), static_cast<int>(QFont::ExtraBold));
         m_pMd3FontWeight->addItem(tr("Black"), static_cast<int>(QFont::Black));
         pWeightLabel->setBuddy(m_pMd3FontWeight);
-        pAppearanceLayout->addWidget(pWeightLabel, 2, 0);
-        pAppearanceLayout->addWidget(m_pMd3FontWeight, 2, 1);
+        pCustomizationLayout->addWidget(pWeightLabel, 9, 0);
+        pCustomizationLayout->addWidget(m_pMd3FontWeight, 9, 1);
 
         m_pMd3Compact = new QCheckBox(tr("Compact density"), pLanguagePanel);
         m_pMd3Compact->setAccessibleName(tr("Use compact Material density"));
         m_pMd3Compact->setToolTip(tr("Use smaller Material control spacing and heights"));
-        pAppearanceLayout->addWidget(m_pMd3Compact, 2, 2, 1, 2);
+        pCustomizationLayout->addWidget(m_pMd3Compact, 10, 1);
 
         QLabel *pBrandLabel = new QLabel(tr("Display brand"), pLanguagePanel);
         m_pMd3Brand = new QLineEdit(pLanguagePanel);
         m_pMd3Brand->setAccessibleName(tr("Display brand name"));
         m_pMd3Brand->setMaxLength(80);
         pBrandLabel->setBuddy(m_pMd3Brand);
-        pAppearanceLayout->addWidget(pBrandLabel, 3, 0);
-        pAppearanceLayout->addWidget(m_pMd3Brand, 3, 1);
         QPushButton *pResetBrand = new QPushButton(tr("Reset brand"), pLanguagePanel);
         pResetBrand->setAccessibleName(tr("Reset display brand to Material Virtual Machine"));
         pResetBrand->setToolTip(tr("Restore the shipped display brand without changing technical identity"));
-        pAppearanceLayout->addWidget(pResetBrand, 3, 2, 1, 2);
-        pLanguageLayout->addLayout(pAppearanceLayout);
+        QHBoxLayout *pBrandLayout = new QHBoxLayout;
+        pBrandLayout->setContentsMargins(0, 0, 0, 0);
+        pBrandLayout->setSpacing(8);
+        pBrandLayout->addWidget(m_pMd3Brand, 1);
+        pBrandLayout->addWidget(pResetBrand);
+        pCustomizationLayout->addWidget(pBrandLabel, 11, 0);
+        pCustomizationLayout->addLayout(pBrandLayout, 11, 1);
+        pLanguageLayout->addLayout(pCustomizationLayout);
 
-        m_pLayoutMain->addWidget(pLanguagePanel, 0, 1);
+        m_pLayoutMain->addWidget(pLanguagePanel, 1, 0, 1, 3);
         connect(m_pLanguageMode, qOverload<int>(&QComboBox::currentIndexChanged), this,
                 [](int iIndex) { md3Language().setMode((UIMd3LanguageMode)iIndex); });
         connect(m_pEnglishFunny, &QSlider::valueChanged, this,
@@ -1803,6 +1936,7 @@ void UIAdvancedSettingsDialog::prepareSelector()
                 QSignalBlocker blocker(m_pCantoneseFunny);
                 m_pCantoneseFunny->setValue(md3Language().cantonesePlayfulness());
             }
+            sltRetranslateUI();
         });
 
         connect(m_pMd3Scheme, qOverload<int>(&QComboBox::currentIndexChanged), this, [this](int iIndex)
@@ -1849,6 +1983,14 @@ void UIAdvancedSettingsDialog::prepareSelector()
         connect(&md3Theme(), &UIMd3Theme::sigThemeChanged,
                 this, &UIAdvancedSettingsDialog::sltUpdateMd3AppearanceControls);
         sltUpdateMd3AppearanceControls();
+
+        const bool fCustomizationExpanded = gEDataManager
+                                           && gEDataManager->extraDataString(
+                                                  QString::fromLatin1(g_pszMd3SettingsCustomizationExpanded))
+                                                  == QStringLiteral("true");
+        if (m_pMd3CustomizationButton)
+            m_pMd3CustomizationButton->setChecked(fCustomizationExpanded);
+        sltToggleMd3Customization(fCustomizationExpanded);
     }
 
     /* Configure selector created above: */
@@ -1887,7 +2029,7 @@ void UIAdvancedSettingsDialog::prepareScrollArea()
         }
 
         /* Add scroll-area into main layout: */
-        m_pLayoutMain->addWidget(m_pScrollArea, 1, 2);
+        m_pLayoutMain->addWidget(m_pScrollArea, 2, 2);
     }
 }
 
@@ -1937,7 +2079,7 @@ void UIAdvancedSettingsDialog::prepareButtonBox()
         }
 
         /* Add button-box into main layout: */
-        m_pLayoutMain->addWidget(m_pButtonBox, 2, 0, 1, 3);
+        m_pLayoutMain->addWidget(m_pButtonBox, 3, 0, 1, 3);
     }
 }
 

@@ -81,6 +81,29 @@ jobs:
             if (($styleHeader + $styleSource) -notmatch [regex]::Escape($pattern)) { throw "Stock-control Material style contract missing: $pattern" }
           }
           if (-not (Test-Path doc/md3/StockControlStyle.md)) { throw 'Missing stock-control style article' }
+          $settingsDialogHeader = Get-Content src/VBox/Frontends/VirtualBox/src/settings/UIAdvancedSettingsDialog.h -Raw
+          $settingsDialogSource = Get-Content src/VBox/Frontends/VirtualBox/src/settings/UIAdvancedSettingsDialog.cpp -Raw
+          $settingsSpecificSource = Get-Content src/VBox/Frontends/VirtualBox/src/settings/UIAdvancedSettingsDialogSpecific.cpp -Raw
+          $settingsSelectorSource = Get-Content src/VBox/Frontends/VirtualBox/src/settings/UISettingsSelector.cpp -Raw
+          $settingsPageSource = Get-Content src/VBox/Frontends/VirtualBox/src/settings/UISettingsPage.cpp -Raw
+          foreach ($pattern in @('enum DialogType { Type_Global, Type_Machine }', 'updateMd3PageVisibility', 'pCurrentFrame->isHidden()', 'm_pSelector->selectById(iId, true', 'GUI/Md3/SettingsCustomizationExpanded', 'm_enmDialogType == Type_Global', 'strCurrent.isEmpty() && !fExpanded', 'QGridLayout *pCustomizationLayout', 'setColumnMinimumWidth(0, 132)', 'UIMd3SearchField', 'setMinimumHeight(48)')) {
+            if (($settingsDialogHeader + $settingsDialogSource) -notmatch [regex]::Escape($pattern)) { throw "Material settings-shell contract missing: $pattern" }
+          }
+          $settingsCategoryHandler = [regex]::Match($settingsDialogSource, 'void UIAdvancedSettingsDialog::sltCategoryChanged\(int cId\).*?(?=void UIAdvancedSettingsDialog::)', [System.Text.RegularExpressions.RegexOptions]::Singleline).Value
+          if (   $settingsCategoryHandler.IndexOf('setHelpKeyword') -lt 0
+              -or $settingsCategoryHandler.IndexOf('setHelpKeyword') -gt $settingsCategoryHandler.IndexOf('if (!fSearchActive)')) {
+            throw 'Ordinary settings navigation must refresh Help before its early return'
+          }
+          foreach ($pattern in @('Type_Global', 'Type_Machine')) {
+            if ($settingsSpecificSource -notmatch [regex]::Escape($pattern)) { throw "Settings dialog ownership missing: $pattern" }
+          }
+          foreach ($pattern in @('ScrollBarAsNeeded', 'setUniformItemSizes(true)', 'UIMd3ColorRole_SecondaryContainer', 'UIMd3ColorRole_OnSecondaryContainer', 'qMax(48, iMinimumHeight)')) {
+            if ($settingsSelectorSource -notmatch [regex]::Escape($pattern)) { throw "Material settings selector contract missing: $pattern" }
+          }
+          foreach ($pattern in @('UIMd3ColorRole_SurfaceContainerLow', 'UIMd3ColorRole_OutlineVariant', 'UIMd3Shape::Large', 'UIMd3TypeRole_TitleLarge')) {
+            if ($settingsPageSource -notmatch [regex]::Escape($pattern)) { throw "Material settings page-card contract missing: $pattern" }
+          }
+          if (-not (Test-Path doc/md3/SettingsShell.md)) { throw 'Missing settings-shell article' }
           $managerHeaderSource = Get-Content src/VBox/Frontends/VirtualBox/src/md3/UIMd3ManagerHeader.cpp -Raw
           foreach ($pattern in @('setFixedHeight(48)', 'm_pBrandMark', 'm_pSubtitle', 'm_pPalette', 'setFixedSize(QSize(48, 48))', 'updateResponsiveLayout', 'WindowStateChange', 'startSystemMove', 'md3HeaderIcon', 'md3PrepareSearchableMenu', 'showCentre', 'showPalette')) {
             if ($managerHeaderSource -notmatch [regex]::Escape($pattern)) { throw "Responsive manager-header contract missing: $pattern" }

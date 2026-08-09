@@ -93,6 +93,15 @@ UIMd3Language::UIMd3Language()
     registerText(QStringLiteral("md3.search.regex-active-no-flags"),
                  QStringLiteral("Regular-expression search is active without flags."),
                  QStringLiteral("正則表達式搜尋已啟用，冇使用旗標。"));
+    registerText(QStringLiteral("md3.settings.customization"),
+                 QStringLiteral("Appearance and language"),
+                 QStringLiteral("外觀同語言"));
+    registerText(QStringLiteral("md3.settings.customization.description"),
+                 QStringLiteral("Show or hide global language and appearance controls"),
+                 QStringLiteral("顯示或者收起全域語言同外觀控制"));
+    registerText(QStringLiteral("md3.settings.customization.panel"),
+                 QStringLiteral("Language and appearance customization"),
+                 QStringLiteral("語言同外觀自訂"));
     registerText(QStringLiteral("md3.manager.navigation-rail"),
                  QStringLiteral("Navigation rail"),
                  QStringLiteral("導覽列"));

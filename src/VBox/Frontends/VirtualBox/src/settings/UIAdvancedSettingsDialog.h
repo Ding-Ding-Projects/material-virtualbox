@@ -47,6 +47,7 @@ class QProgressBar;
 class QShowEvent;
 class QStackedWidget;
 class QTimer;
+class QToolButton;
 class QIDialogButtonBox;
 class UIFilterEditor;
 class UIMd3SearchField;
@@ -83,9 +84,11 @@ public:
     enum DialogType { Type_Global, Type_Machine };
 
     /** Constructs settings dialog passing @a pParent to the base-class.
+      * @param  enmType      Brings the settings-dialog type.
       * @param  strCategory  Brings the name of category to be opened.
       * @param  strControl   Brings the name of control to be focused. */
     UIAdvancedSettingsDialog(QWidget *pParent,
+                             DialogType enmType,
                              const QString &strCategory,
                              const QString &strControl);
     /** Destructs settings dialog. */
@@ -230,6 +233,8 @@ private slots:
 
     /** Refreshes the live Material appearance controls from the shared theme. */
     void sltUpdateMd3AppearanceControls();
+    /** Expands or collapses the persisted global customization panel. */
+    void sltToggleMd3Customization(bool fExpanded);
 
 private:
 
@@ -243,6 +248,8 @@ private:
         void prepareScrollArea();
         /** Prepare button-box. */
         void prepareButtonBox();
+        /** Applies single-page navigation outside cross-page search. */
+        void updateMd3PageVisibility();
 
         /** Cleanups all. */
         void cleanup();
@@ -258,6 +265,9 @@ private:
     static void adjustLookAndFeelForDisabledWidget(QWidget *pWidget);
     /** Returns whether one of @a pWidget parents in hierarchy has mask assigned. */
     static bool isOneOfWidgetParentsHasMask(QWidget *pWidget);
+
+    /** Holds the settings-dialog type. */
+    DialogType  m_enmDialogType;
 
     /** Holds configuration access level. */
     ConfigurationAccessLevel  m_enmConfigurationAccessLevel;
@@ -316,6 +326,11 @@ private:
 
         /** Holds the filter editor instance. */
         UIMd3SearchField *m_pEditorFilter;
+
+        /** Holds the global customization disclosure control. */
+        QToolButton *m_pMd3CustomizationButton;
+        /** Holds the global customization panel. */
+        QWidget *m_pMd3CustomizationPanel;
 
         /** Holds the persisted language-mode selector. */
         QComboBox *m_pLanguageMode;
