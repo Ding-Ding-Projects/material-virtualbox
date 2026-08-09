@@ -3,6 +3,28 @@
  * VBox Qt GUI - Material 3 command palette.
  */
 
+/*
+ * Copyright (C) 2026 Oracle and/or its affiliates.
+ *
+ * This file is part of VirtualBox base platform packages, as
+ * available from https://www.virtualbox.org.
+ *
+ * This program is free software; you can redistribute it and/or modify it
+ * under the terms of the GNU General Public License as published by the Free
+ * Software Foundation, either version 3 of the License, or (at your option)
+ * any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, see <https://www.gnu.org/licenses>.
+ *
+ * SPDX-License-Identifier: GPL-3.0-only
+ */
+
 #ifndef FEQT_INCLUDED_SRC_md3_UIMd3CommandPalette_h
 #define FEQT_INCLUDED_SRC_md3_UIMd3CommandPalette_h
 #ifndef RT_WITHOUT_PRAGMA_ONCE
@@ -28,11 +50,16 @@ struct UIMd3Command
 {
     UIMd3Command() : pTarget(0) {}
     UIMd3Command(const QString &strTitle, const QString &strSource,
-                 const std::function<void()> &handler, QWidget *pTargetWidget = 0)
-        : strTitle(strTitle), strSource(strSource), handler(handler), pTarget(pTargetWidget) {}
+                 const std::function<void()> &handler, QWidget *pTargetWidget = 0,
+                 const QString &strCategory = QString())
+        : strTitle(strTitle), strSource(strSource), strCategory(strCategory),
+          handler(handler), pTarget(pTargetWidget) {}
 
     QString strTitle;
+    /** Stable owner identifier used for replacement and unregister. */
     QString strSource;
+    /** Localized owner/category shown to the user. */
+    QString strCategory;
     std::function<void()> handler;
     QPointer<QWidget> pTarget;
 };
@@ -61,6 +88,7 @@ private slots:
 private:
 
     UIMd3CommandPalette();
+    virtual ~UIMd3CommandPalette() RT_OVERRIDE RT_FINAL;
     void prepare();
     static void teleportTo(QWidget *pTarget);
     void restoreOriginFocus();

@@ -2642,25 +2642,31 @@ void UIVirtualBoxManager::prepareConnections()
         if (UIMd3History::instance())
             UIMd3History::instance()->showCentre(this);
     });
+    const QString strManagerSource = QStringLiteral("manager");
+    const QString strManagerCategory = tr("Manager");
     UIMd3CommandPalette::registerCommand(UIMd3Command(tr("Open global preferences"),
-                                                       tr("Manager"),
-                                                       [this]() { sltOpenPreferencesDialog(); }));
+                                                       strManagerSource,
+                                                       [this]() { sltOpenPreferencesDialog(); }, this,
+                                                       strManagerCategory));
     UIMd3CommandPalette::registerCommand(UIMd3Command(tr("Create a new virtual machine"),
-                                                       tr("Manager"),
-                                                       [this]() { sltOpenNewMachineWizard(); }));
+                                                       strManagerSource,
+                                                       [this]() { sltOpenNewMachineWizard(); }, this,
+                                                       strManagerCategory));
     UIMd3CommandPalette::registerCommand(UIMd3Command(tr("Open virtual media manager"),
-                                                       tr("Manager"),
-                                                       [this]() { sltOpenManagerWindow(UIToolType_Media); }));
+                                                       strManagerSource,
+                                                       [this]() { sltOpenManagerWindow(UIToolType_Media); }, this,
+                                                       strManagerCategory));
     UIMd3CommandPalette::registerCommand(UIMd3Command(tr("Import an appliance"),
-                                                       tr("Manager"),
-                                                       [this]() { sltOpenImportApplianceWizard(); }));
+                                                       strManagerSource,
+                                                       [this]() { sltOpenImportApplianceWizard(); }, this,
+                                                       strManagerCategory));
     UIMd3CommandPalette::registerCommand(UIMd3Command(tr("Open local history"),
-                                                       tr("Manager"),
+                                                       strManagerSource,
                                                        [this]()
                                                        {
                                                            if (UIMd3History::instance())
                                                                UIMd3History::instance()->showCentre(this);
-                                                       }));
+                                                       }, this, strManagerCategory));
 
 #ifdef VBOX_WS_NIX
     /* Desktop event handlers: */

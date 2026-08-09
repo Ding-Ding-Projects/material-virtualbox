@@ -59,6 +59,14 @@ jobs:
             if ($nativeWizard -notmatch [regex]::Escape($pattern)) { throw "Native wizard composition missing: $pattern" }
           }
           if (-not (Test-Path doc/md3/WizardShell.md)) { throw 'Missing wizard shell article' }
+          $paletteHeader = Get-Content src/VBox/Frontends/VirtualBox/src/md3/UIMd3CommandPalette.h -Raw
+          $paletteSource = Get-Content src/VBox/Frontends/VirtualBox/src/md3/UIMd3CommandPalette.cpp -Raw
+          foreach ($pattern in @('class SHARED_LIBRARY_STUFF UIMd3CommandPalette', 'registerCommand', 'unregisterSource', 'showPalette', 'UIMd3Button', 'UIMd3SearchField', 'matches(', 'Qt::Key_Escape', 'sigClicked', 'setAccessibleDescription', 'strCategory')) {
+            if (($paletteHeader + $paletteSource) -notmatch [regex]::Escape($pattern)) { throw "Command palette contract missing: $pattern" }
+          }
+          $managerSource = Get-Content src/VBox/Frontends/VirtualBox/src/manager/UIVirtualBoxManager.cpp -Raw
+          if (([regex]::Matches($managerSource, [regex]::Escape('QStringLiteral("manager")'))).Count -lt 2) { throw 'Command palette manager source id is not stable across registration and cleanup.' }
+          if (-not (Test-Path doc/md3/CommandPalette.md)) { throw 'Missing command-palette article' }
           $notificationHeader = Get-Content src/VBox/Frontends/VirtualBox/src/md3/UIMd3NotificationCentre.h -Raw
           $notificationSource = Get-Content src/VBox/Frontends/VirtualBox/src/md3/UIMd3NotificationCentre.cpp -Raw
           foreach ($pattern in @('class SHARED_LIBRARY_STUFF UIMd3NotificationCentre', 'UIMd3History', 'notification history cleared', 'notification history restored', 'sltRestoreHistoryRevision', 'currentState', 'post(', 'markAllRead', 'showCentre', 'g_iMaxPayload', 'QSaveFile', 'UIMd3SearchField', 'QCheckBox', 'sltSelectAllVisible', 'sltInvertVisibleSelection', 'sltExportVisible', 'visibleNoticeIds', 'm_selectedIds', 'sltRequestClear', 'sltUndoClear', 'undoStoragePath', 'saveRecordsAtPath', 'restoreUndoSnapshot', 'Undo last clear', 'QDialogButtonBox', 'QSlider', 'QProgressBar', 'Emergency exit', 'QAbstractAnimation::DeleteWhenStopped', 'clear()')) {

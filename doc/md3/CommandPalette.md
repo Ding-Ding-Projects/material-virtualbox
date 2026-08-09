@@ -7,7 +7,10 @@ handlers after their owning manager is destroyed.
 
 ## Behavior
 
-- The manager registers preferences, new-machine, media-manager, and appliance-import commands.
+- The manager registers preferences, new-machine, media-manager, appliance-import, and
+  local-history commands. Each registration uses the stable `manager` owner id;
+  the visible `Manager` category is localized separately, so language changes do
+  not strand cleanup or duplicate rows.
 - Plain-text matching remains the default through `UIMd3SearchField`; its anchored regex builder supplies the optional regex mode.
 - Results are keyboard-focusable MD3 buttons and activate with Enter or Space.
 - Escape closes the overlay and returns focus to the originating widget.
@@ -16,11 +19,12 @@ handlers after their owning manager is destroyed.
 
 ## Failure and safety behavior
 
-Commands with empty titles or sources are ignored. Duplicate title/source pairs
-replace their handler rather than accumulating stale rows. Manager commands are
-removed when `UIVirtualBoxManager` is destroyed, so a closed manager cannot be
-called through an old palette entry. Handler failures remain owned by the
-existing VirtualBox action and dialog paths.
+Commands with empty titles, sources, or handlers are ignored and bounded before
+they enter the registry. Duplicate title/source pairs replace their handler
+rather than accumulating stale rows. Manager commands are removed with the same
+stable owner id when `UIVirtualBoxManager` is destroyed, so a closed manager
+cannot be called through an old palette entry. Handler failures remain owned by
+the existing VirtualBox action and dialog paths.
 
 ## Verification
 

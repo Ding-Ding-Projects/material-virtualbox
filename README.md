@@ -70,8 +70,9 @@ design-coverage work.
 
 The manager command palette is documented in
 [`doc/md3/CommandPalette.md`](doc/md3/CommandPalette.md). `Ctrl+Shift+F` is
-wired to live manager commands; its native capture remains pending the COM
-registration gate.
+wired to live manager commands through a stable owner registry with bounded,
+accessible results and focus return; its native capture remains pending the
+COM registration gate.
 
 The first implemented manager capture gate is the navigation rail: its buttons
 must select the existing `UIToolType` models, preserve expert-mode restrictions,

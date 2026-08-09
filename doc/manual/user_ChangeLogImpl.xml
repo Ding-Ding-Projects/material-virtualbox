@@ -92,6 +92,12 @@ Rules for adding a changelog entry to make them look more uniform:
       </listitem>
 
       <listitem>
+        <para>GUI: Stabilized command-palette owner cleanup with bounded command
+          registrations, localized category labels, accessible result descriptions,
+          and handler validation</para>
+      </listitem>
+
+      <listitem>
         <para>GUI: Added a persisted per-element Material 3 appearance editor
           for stable-key widgets, with context-menu and Shift+right-click entry,
           seed, typeface, corner-radius, scale, weight, reset and focus return</para>

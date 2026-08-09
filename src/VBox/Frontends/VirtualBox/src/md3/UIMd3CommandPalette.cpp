@@ -3,6 +3,28 @@
  * VBox Qt GUI - Material 3 command palette.
  */
 
+/*
+ * Copyright (C) 2026 Oracle and/or its affiliates.
+ *
+ * This file is part of VirtualBox base platform packages, as
+ * available from https://www.virtualbox.org.
+ *
+ * This program is free software; you can redistribute it and/or modify it
+ * under the terms of the GNU General Public License as published by the Free
+ * Software Foundation, either version 3 of the License, or (at your option)
+ * any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, see <https://www.gnu.org/licenses>.
+ *
+ * SPDX-License-Identifier: GPL-3.0-only
+ */
+
 #include <QApplication>
 #include <QGraphicsDropShadowEffect>
 #include <QHideEvent>
@@ -30,19 +52,23 @@ UIMd3CommandPalette *UIMd3CommandPalette::instance()
 
 void UIMd3CommandPalette::registerCommand(const UIMd3Command &command)
 {
-    if (command.strTitle.trimmed().isEmpty() || command.strSource.trimmed().isEmpty())
+    UIMd3Command bounded = command;
+    bounded.strTitle = bounded.strTitle.trimmed().left(256);
+    bounded.strSource = bounded.strSource.trimmed().left(64);
+    bounded.strCategory = bounded.strCategory.trimmed().left(128);
+    if (bounded.strTitle.isEmpty() || bounded.strSource.isEmpty() || !bounded.handler)
         return;
     UIMd3CommandPalette *pPalette = instance();
     for (int i = 0; i < pPalette->m_commands.size(); ++i)
-        if (pPalette->m_commands.at(i).strTitle == command.strTitle
-            && pPalette->m_commands.at(i).strSource == command.strSource)
+        if (pPalette->m_commands.at(i).strTitle == bounded.strTitle
+            && pPalette->m_commands.at(i).strSource == bounded.strSource)
         {
-            pPalette->m_commands[i] = command;
+            pPalette->m_commands[i] = bounded;
             if (pPalette->isVisible())
                 pPalette->sltRefresh();
             return;
         }
-    pPalette->m_commands << command;
+    pPalette->m_commands << bounded;
     if (pPalette->isVisible())
         pPalette->sltRefresh();
 }
@@ -87,6 +113,12 @@ UIMd3CommandPalette::UIMd3CommandPalette()
     setModal(false);
     setAttribute(Qt::WA_DeleteOnClose, false);
     prepare();
+}
+
+UIMd3CommandPalette::~UIMd3CommandPalette()
+{
+    if (s_pInstance == this)
+        s_pInstance = 0;
 }
 
 void UIMd3CommandPalette::prepare()
@@ -137,8 +169,10 @@ void UIMd3CommandPalette::sltRefresh()
         if (!m_pSearchField->matches(command.strTitle + QLatin1Char(' ') + command.strSource))
             continue;
         UIMd3Button *pRow = new UIMd3Button(command.strTitle, UIMd3ButtonVariant_Tonal, this);
-        pRow->setToolTip(command.strSource);
-        pRow->setAccessibleName(tr("%1 — %2").arg(command.strTitle, command.strSource));
+        const QString strCategory = command.strCategory.isEmpty() ? command.strSource : command.strCategory;
+        pRow->setToolTip(strCategory);
+        pRow->setAccessibleName(tr("%1 — %2").arg(command.strTitle, strCategory));
+        pRow->setAccessibleDescription(tr("Activate %1 from %2.").arg(command.strTitle, strCategory));
         const UIMd3Command captured = command;
         connect(pRow, &UIMd3Button::sigClicked, this, [this, captured]()
         {
