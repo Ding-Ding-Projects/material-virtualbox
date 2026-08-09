@@ -16,6 +16,9 @@ with the [canonical VirtualBox prerequisites and commands](#build-and-prerequisi
 > manager, settings search field, and the
 > notification-center search and keyboard-accessible notification rows are wired
 > into the existing VirtualBox frontend.
+> The shared style now gives stock Qt controls Material semantic colors, shape,
+> state layers, focus treatment, disabled presentation, and bounded minimum
+> anatomy across manager, settings, wizard, and runtime-owned pages.
 > Wizard, tool, and runtime shells remain in progress; the local history
 > browser now restores validated notification and appearance/theme revisions
 > through their owning services.
@@ -152,6 +155,14 @@ syntax and `i`/`m`/`s`/`x` flags; local sample matches and capture groups;
 copy/atomic JSON export; independent visible state; one-worker generation
 control; a 300 ms UI deadline; bounded inputs/results; focus return; and
 screen-bounded or menu-inline scrolling.
+
+[`doc/md3/StockControlStyle.md`](doc/md3/StockControlStyle.md) documents the
+shared `QProxyStyle` bridge for the existing stock Qt controls. It applies the
+live semantic palette and typography to buttons, fields, choices, tabs, menus,
+lists, headers, sliders, scroll bars, progress, toolbars, status bars, and
+group-box frames while preserving their existing models, validation,
+accessibility roles, and action ownership. Dedicated VirtualBox-painted widgets
+remain separate rewrite lanes, and native visual proof remains deferred.
 
 The existing notification center now has a Material 3 search field in its
 extended view. [`doc/md3/NotificationCentre.md`](doc/md3/NotificationCentre.md)

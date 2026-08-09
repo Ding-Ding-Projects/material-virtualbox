@@ -161,6 +161,15 @@ Rules for adding a changelog entry to make them look more uniform:
       </listitem>
 
       <listitem>
+        <para>GUI: Applied the shared Material 3 semantic palette, typography,
+          shape, state layers, focus treatment, disabled presentation, and
+          bounded minimum anatomy to existing stock Qt buttons, fields,
+          choices, tabs, menus, views, headers, sliders, scroll bars, progress,
+          toolbars, status bars, and group-box frames without replacing their
+          existing models or validation</para>
+      </listitem>
+
+      <listitem>
         <para>GUI: Added a persisted per-element Material 3 appearance editor
           for stable-key widgets, with context-menu and Shift+right-click entry,
           seed, typeface, corner-radius, scale, weight, reset and focus return</para>

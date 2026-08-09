@@ -75,6 +75,12 @@ jobs:
           foreach ($pattern in @('UIMd3Language.h', 'UIMd3Language::instance()', 'registerMd3ToolTexts', 'md3ToolText', 'md3.tool.toggle', 'md3.tool.home', 'md3.tool.machines', 'md3.tool.extensions', 'md3.tool.media', 'md3.tool.network', 'md3.tool.cloud', 'md3.tool.resources', 'md3.tool.details', 'md3.tool.snapshots', 'md3.tool.logs', 'md3.tool.resource-use', 'md3.tool.file-manager', 'md3.tool.description', 'md3Text(', 'tr("Show text")', 'translationEventListener', 'sigLanguageChanged', 'Qt::UniqueConnection', 'setName', 'm_strDescription')) {
             if (($toolsItemHeader + $toolsItemSource) -notmatch [regex]::Escape($pattern)) { throw "Manager tool-language contract missing: $pattern" }
           }
+          $styleHeader = Get-Content src/VBox/Frontends/VirtualBox/src/md3/UIMd3Style.h -Raw
+          $styleSource = Get-Content src/VBox/Frontends/VirtualBox/src/md3/UIMd3Style.cpp -Raw
+          foreach ($pattern in @('polish(QApplication', 'polish(QPalette', 'polish(QWidget', 'sigThemeChanged', 'md3StyleStateColor', 'PE_PanelButtonCommand', 'PE_IndicatorCheckBox', 'PE_IndicatorRadioButton', 'PE_PanelItemViewItem', 'PE_PanelMenu', 'PE_FrameGroupBox', 'PE_PanelToolBar', 'PE_PanelStatusBar', 'CE_TabBarTabShape', 'CE_MenuItem', 'CE_HeaderSection', 'CE_ProgressBarContents', 'CC_ComboBox', 'CC_Slider', 'CC_SpinBox', 'CC_ScrollBar', 'CT_CheckBox', 'CT_MenuItem', 'CT_TabBarTab', 'CT_ItemViewItem', 'CT_HeaderSection', 'PM_ScrollBarSliderMin', 'SH_ScrollBar_Transient', 'qMax(48, md3Theme().controlHeight())')) {
+            if (($styleHeader + $styleSource) -notmatch [regex]::Escape($pattern)) { throw "Stock-control Material style contract missing: $pattern" }
+          }
+          if (-not (Test-Path doc/md3/StockControlStyle.md)) { throw 'Missing stock-control style article' }
           $managerHeaderSource = Get-Content src/VBox/Frontends/VirtualBox/src/md3/UIMd3ManagerHeader.cpp -Raw
           foreach ($pattern in @('setFixedHeight(48)', 'm_pBrandMark', 'm_pSubtitle', 'm_pPalette', 'setFixedSize(QSize(48, 48))', 'updateResponsiveLayout', 'WindowStateChange', 'startSystemMove', 'md3HeaderIcon', 'md3PrepareSearchableMenu', 'showCentre', 'showPalette')) {
             if ($managerHeaderSource -notmatch [regex]::Escape($pattern)) { throw "Responsive manager-header contract missing: $pattern" }
