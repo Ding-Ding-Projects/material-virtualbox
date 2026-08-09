@@ -1783,6 +1783,10 @@ class LibraryCheck(CheckBase):
                 if self.compareStringVersions(sCompilerVer, "14.1") < 1:
                     self.printError(f'MSVC compiler version too old ({sCompilerVer}), requires at least 15.7 (2017 Update 7)');
                     return False;
+                # The stock Qt 6 package uses the regular Qt6Core import
+                # library on Windows.  Without this entry the probe only
+                # checks headers and links an empty test, falsely disabling Qt.
+                self.asLibFiles = [ 'Qt6Core' ];
             #
             # Linux + Solaris
             #
@@ -2390,7 +2394,10 @@ class ToolCheck(CheckBase):
                 "14.0x": ( "VCC140", "Visual Studio 2015"),
                 "14.1x": ( "VCC141", "Visual Studio 2017"),
                 "14.2x": ( "VCC142", "Visual Studio 2019"),
-                "14.3x": ( "VCC143", "Visual Studio 2022")
+                "14.3x": ( "VCC143", "Visual Studio 2022"),
+                # Newer vswhere versions report the same VS 2022 toolset as
+                # 17.x; keep the kBuild stem identical to the 14.3x form.
+                "17.*": ( "VCC143", "Visual Studio 2022")
             };
 
             sVCPPVer    = '.'.join(sVCPPVer.split('.')[:2]); # Strip build #.
@@ -3979,7 +3986,9 @@ def main():
 
     g_oArgs.config_libs_path_python_c_api = g_oArgs.config_python_path;
     g_oArgs.config_c_compiler             = '' # Set later.
+    g_oArgs.config_c_compiler_ver         = '' # Set by the selected compiler probe.
     g_oArgs.config_cpp_compiler           = '' # Ditto.
+    g_oArgs.config_cpp_compiler_ver       = '' # Set by the selected compiler probe.
 
     #
     # Check build type / target / architecture.
