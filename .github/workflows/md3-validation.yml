@@ -90,8 +90,8 @@ jobs:
             if (($settingsDialogHeader + $settingsDialogSource) -notmatch [regex]::Escape($pattern)) { throw "Material settings-shell contract missing: $pattern" }
           }
           $settingsCategoryHandler = [regex]::Match($settingsDialogSource, 'void UIAdvancedSettingsDialog::sltCategoryChanged\(int cId\).*?(?=void UIAdvancedSettingsDialog::)', [System.Text.RegularExpressions.RegexOptions]::Singleline).Value
-          if (   $settingsCategoryHandler.IndexOf('setHelpKeyword') -lt 0
-              -or $settingsCategoryHandler.IndexOf('setHelpKeyword') -gt $settingsCategoryHandler.IndexOf('if (!fSearchActive)')) {
+          if (   $settingsCategoryHandler.IndexOf('setHelpKeyword') -lt 0 -or
+                 $settingsCategoryHandler.IndexOf('setHelpKeyword') -gt $settingsCategoryHandler.IndexOf('if (!fSearchActive)')) {
             throw 'Ordinary settings navigation must refresh Help before its early return'
           }
           foreach ($pattern in @('Type_Global', 'Type_Machine')) {
