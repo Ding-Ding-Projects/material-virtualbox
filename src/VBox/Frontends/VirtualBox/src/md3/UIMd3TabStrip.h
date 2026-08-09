@@ -45,6 +45,7 @@ class QPaintEvent;
 class QResizeEvent;
 class QToolButton;
 class QWidget;
+class UIMd3TabManager;
 
 struct UIMd3Tab
 {
@@ -83,7 +84,9 @@ signals:
 
 public:
 
-    explicit UIMd3TabStrip(QWidget *pParent = 0);
+    explicit UIMd3TabStrip(QWidget *pParent = 0,
+                           const QString &strPersistenceScope = QString());
+    virtual ~UIMd3TabStrip() RT_OVERRIDE;
 
     void openTab(const QString &strId, const QString &strLabel);
     void setTabLabel(const QString &strId, const QString &strLabel);
@@ -107,7 +110,8 @@ public:
     void togglePinned(const QString &strTabId);
 
     QList<UIMd3Tab> resolveCloseSet(const QString &strQuery, bool fInverse,
-                                    bool fRegex, bool fIncludePinned) const;
+                                    bool fRegex, bool fIncludePinned,
+                                    const QString &strRegexFlags = QString()) const;
     void save() const;
     void restore();
 
@@ -121,6 +125,8 @@ protected:
     virtual bool eventFilter(QObject *pObject, QEvent *pEvent) RT_OVERRIDE;
 
 private:
+
+    friend class UIMd3TabManager;
 
     QList<UIMd3Tab> displayTabs() const;
     QList<UIMd3Tab> unpinnedDisplayTabs() const;
@@ -136,6 +142,7 @@ private:
     void showOverflowMenu();
     void showNewTabMenu();
     void showTabManagerMenu();
+    void showTabActions(const QString &strId, const QPoint &globalPosition);
     void showGroupPicker(const QString &strTabId);
     void announceModelChanged();
     void updateOverflowButton();
@@ -147,6 +154,7 @@ private:
     QList<UIMd3TabGroup> m_groups;
     QList<UIMd3TabChoice> m_availableTabs;
     QString              m_strCurrentId;
+    QString              m_strPersistenceKey;
     bool                 m_fRestoredLegacyPersistence;
     int                  m_iFirstVisiblePinned;
     int                  m_iFirstVisibleUnpinned;

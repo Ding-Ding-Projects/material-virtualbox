@@ -3,6 +3,19 @@
  * VBox Qt GUI - Material 3 search field with an anchored regex builder.
  */
 
+/*
+ * Copyright (C) 2026 Oracle and/or its affiliates.
+ *
+ * This file is part of VirtualBox base platform packages, as
+ * available from https://www.virtualbox.org.
+ *
+ * This program is free software; you can redistribute it and/or modify it
+ * under the terms of the GNU General Public License as published by the Free
+ * Software Foundation, in version 3 of the License.
+ *
+ * SPDX-License-Identifier: GPL-3.0-only
+ */
+
 #ifndef FEQT_INCLUDED_SRC_md3_UIMd3SearchField_h
 #define FEQT_INCLUDED_SRC_md3_UIMd3SearchField_h
 #ifndef RT_WITHOUT_PRAGMA_ONCE
@@ -46,6 +59,8 @@ public:
     bool isRegexActive() const { return m_fRegexActive; }
     /** Returns the active regex, invalid when plain-text mode is active. */
     QRegularExpression regex() const { return m_regex; }
+    /** Returns the normalized active regex flags. */
+    QString regexFlags() const { return m_strFlags; }
     /** Applies a valid regex pattern and flags. */
     bool applyRegex(const QString &strPattern, const QString &strFlags);
     /** Returns to plain-text mode. */

@@ -3,6 +3,19 @@
  * VBox Qt GUI - Material 3 search field with an anchored regex builder.
  */
 
+/*
+ * Copyright (C) 2026 Oracle and/or its affiliates.
+ *
+ * This file is part of VirtualBox base platform packages, as
+ * available from https://www.virtualbox.org.
+ *
+ * This program is free software; you can redistribute it and/or modify it
+ * under the terms of the GNU General Public License as published by the Free
+ * Software Foundation, in version 3 of the License.
+ *
+ * SPDX-License-Identifier: GPL-3.0-only
+ */
+
 /* Qt includes: */
 #include <QApplication>
 #include <QHBoxLayout>
@@ -29,14 +42,21 @@ static QString md3SearchText(const QString &strKey, const QString &strFallback)
     return strText == strKey || strText.isEmpty() ? strFallback : strText;
 }
 
-static QString md3NormalizedRegexFlags(const QString &strFlags)
+static bool md3NormalizeRegexFlags(const QString &strFlags, QString &strResult)
 {
-    QString strResult;
+    strResult.clear();
+    if (strFlags.size() > 16)
+        return false;
     const QString strSupported = QStringLiteral("imsx");
-    for (const QChar ch : strFlags.toLower().left(16))
-        if (strSupported.contains(ch) && !strResult.contains(ch))
-            strResult += ch;
-    return strResult;
+    for (const QChar ch : strFlags.toLower())
+    {
+        if (ch.isSpace())
+            continue;
+        if (!strSupported.contains(ch) || strResult.contains(ch))
+            return false;
+        strResult += ch;
+    }
+    return true;
 }
 
 UIMd3SearchField::UIMd3SearchField(const QString &strFieldId, const QString &strPlaceholder, QWidget *pParent)
@@ -91,20 +111,21 @@ QRegularExpression::PatternOptions UIMd3SearchField::patternOptions(const QStrin
 
 bool UIMd3SearchField::applyRegex(const QString &strPattern, const QString &strFlags)
 {
-    const QString strBoundedPattern = strPattern.left(4096);
-    const QString strNormalizedFlags = md3NormalizedRegexFlags(strFlags);
-    if (strNormalizedFlags.size() != strFlags.toLower().remove(QLatin1Char(' ')).size())
+    if (strPattern.size() > 4096)
         return false;
-    const QRegularExpression candidate(strBoundedPattern, patternOptions(strNormalizedFlags));
+    QString strNormalizedFlags;
+    if (!md3NormalizeRegexFlags(strFlags, strNormalizedFlags))
+        return false;
+    const QRegularExpression candidate(strPattern, patternOptions(strNormalizedFlags));
     if (!candidate.isValid())
         return false;
     m_regex = candidate;
     m_strFlags = strNormalizedFlags;
     m_fRegexActive = true;
-    if (m_pEditor && m_pEditor->text() != strBoundedPattern)
+    if (m_pEditor && m_pEditor->text() != strPattern)
     {
         const QSignalBlocker blocker(m_pEditor);
-        m_pEditor->setText(strBoundedPattern);
+        m_pEditor->setText(strPattern);
     }
     updateRegexPresentation();
     emit sigFilterChanged();
@@ -227,7 +248,14 @@ void UIMd3SearchField::sltOpenBuilder()
         connect(UIMd3Language::instance(), &UIMd3Language::sigLanguageChanged,
                 pBuilder, [this]()
     {
-        if (m_pBuilder)
+        if (m_pBuilderScrollArea)
+        {
+            m_pBuilderScrollArea->hide();
+            m_pBuilderScrollArea->deleteLater();
+            m_pBuilderScrollArea = 0;
+            m_pBuilder = 0;
+        }
+        else if (m_pBuilder)
             m_pBuilder->close();
         if (m_pEditor)
             m_pEditor->setFocus(Qt::OtherFocusReason);

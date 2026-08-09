@@ -58,10 +58,22 @@
 #include "UIMd3AppearanceEditor.h"
 #include "UIMd3Language.h"
 #include "UIMd3SearchField.h"
+#include "UIMd3TabManager.h"
 #include "UIMd3TabStrip.h"
 #include "UIMd3Theme.h"
 
-static const char *g_pszTabsExtraData = "GUI/Md3/Tabs";
+static const char *g_pszLegacyTabsExtraData = "GUI/Md3/Tabs";
+static const char *g_pszTabsExtraDataPrefix = "GUI/Md3/Tabs/";
+
+static QString md3TabPersistenceKey(const QString &strScope)
+{
+    QString strBoundedScope = strScope.trimmed().left(64);
+    strBoundedScope.replace(QRegularExpression(QStringLiteral("[^A-Za-z0-9_.-]")),
+                            QStringLiteral("_"));
+    if (strBoundedScope.isEmpty())
+        strBoundedScope = QStringLiteral("default");
+    return QString::fromLatin1(g_pszTabsExtraDataPrefix) + strBoundedScope;
+}
 
 static void md3RegisterTabText()
 {
@@ -218,8 +230,9 @@ public:
     }
 };
 
-UIMd3TabStrip::UIMd3TabStrip(QWidget *pParent)
+UIMd3TabStrip::UIMd3TabStrip(QWidget *pParent, const QString &strPersistenceScope)
     : UIMd3Widget(pParent, QStringLiteral("tab-strip"))
+    , m_strPersistenceKey(md3TabPersistenceKey(strPersistenceScope))
     , m_fRestoredLegacyPersistence(false)
     , m_iFirstVisiblePinned(0)
     , m_iFirstVisibleUnpinned(0)
@@ -265,6 +278,7 @@ UIMd3TabStrip::UIMd3TabStrip(QWidget *pParent)
     m_pTabManagerButton->setToolButtonStyle(Qt::ToolButtonTextOnly);
     m_pTabManagerButton->setAutoRaise(true);
     m_pTabManagerButton->setFixedSize(QSize(48, 48));
+    m_pTabManagerButton->setShortcut(QKeySequence(QStringLiteral("Ctrl+Shift+T")));
     connect(m_pTabManagerButton, &QToolButton::clicked, this, &UIMd3TabStrip::showTabManagerMenu);
     connect(&md3Theme(), &UIMd3Theme::sigThemeChanged, this, [this]()
     {
@@ -277,6 +291,12 @@ UIMd3TabStrip::UIMd3TabStrip(QWidget *pParent)
     retranslateUi();
     updateTheme();
     updateOverflowButton();
+    UIMd3TabManager::registerStrip(this);
+}
+
+UIMd3TabStrip::~UIMd3TabStrip()
+{
+    UIMd3TabManager::unregisterStrip(this);
 }
 
 void UIMd3TabStrip::retranslateUi()
@@ -402,6 +422,8 @@ void UIMd3TabStrip::openTab(const QString &strId, const QString &strLabel)
             setCurrentTabId(strTrimmedId);
             return;
         }
+    if (m_tabs.size() >= 256)
+        return;
     UIMd3Tab tab;
     tab.strId = strTrimmedId;
     tab.strLabel = strLabel.trimmed().left(160);
@@ -496,6 +518,22 @@ void UIMd3TabStrip::setAvailableTabs(const QList<UIMd3TabChoice> &choices)
     m_availableTabs = boundedChoices;
     const QString strPreviousCurrentId = m_strCurrentId;
     bool fModelChanged = false;
+    if (!m_availableTabs.isEmpty())
+        for (int i = m_tabs.size() - 1; i >= 0; --i)
+        {
+            bool fKnown = false;
+            for (const UIMd3TabChoice &choice : m_availableTabs)
+                if (choice.strId == m_tabs.at(i).strId)
+                {
+                    fKnown = true;
+                    break;
+                }
+            if (!fKnown)
+            {
+                m_tabs.removeAt(i);
+                fModelChanged = true;
+            }
+        }
     for (UIMd3Tab &tab : m_tabs)
         for (const UIMd3TabChoice &choice : m_availableTabs)
             if (tab.strId == choice.strId)
@@ -646,7 +684,7 @@ void UIMd3TabStrip::setCurrentTabId(const QString &strId)
 QString UIMd3TabStrip::createGroup(const QString &strName)
 {
     const QString strTrimmedName = strName.trimmed().left(80);
-    if (strTrimmedName.isEmpty())
+    if (strTrimmedName.isEmpty() || m_groups.size() >= 128)
         return QString();
     UIMd3TabGroup group;
     group.strId = QUuid::createUuid().toString(QUuid::WithoutBraces);
@@ -716,7 +754,8 @@ void UIMd3TabStrip::togglePinned(const QString &strTabId)
 }
 
 QList<UIMd3Tab> UIMd3TabStrip::resolveCloseSet(const QString &strQuery, bool fInverse,
-                                               bool fRegex, bool fIncludePinned) const
+                                               bool fRegex, bool fIncludePinned,
+                                               const QString &strRegexFlags) const
 {
     QList<UIMd3Tab> result;
     const QString strBoundedQuery = strQuery.left(4096);
@@ -725,7 +764,22 @@ QList<UIMd3Tab> UIMd3TabStrip::resolveCloseSet(const QString &strQuery, bool fIn
     QRegularExpression expression;
     if (fRegex)
     {
-        expression = QRegularExpression(strBoundedQuery);
+        QString strNormalizedFlags;
+        const QString strSupportedFlags = QStringLiteral("imsx");
+        for (const QChar ch : strRegexFlags.toLower().left(16))
+        {
+            if (ch.isSpace())
+                continue;
+            if (!strSupportedFlags.contains(ch) || strNormalizedFlags.contains(ch))
+                return result;
+            strNormalizedFlags += ch;
+        }
+        QRegularExpression::PatternOptions options = QRegularExpression::NoPatternOption;
+        if (strNormalizedFlags.contains('i')) options |= QRegularExpression::CaseInsensitiveOption;
+        if (strNormalizedFlags.contains('m')) options |= QRegularExpression::MultilineOption;
+        if (strNormalizedFlags.contains('s')) options |= QRegularExpression::DotMatchesEverythingOption;
+        if (strNormalizedFlags.contains('x')) options |= QRegularExpression::ExtendedPatternSyntaxOption;
+        expression = QRegularExpression(strBoundedQuery, options);
         if (!expression.isValid())
             return result;
     }
@@ -772,8 +826,9 @@ void UIMd3TabStrip::save() const
         tabs.append(item);
     }
     root.insert(QStringLiteral("tabs"), tabs);
-    gEDataManager->setExtraDataString(g_pszTabsExtraData,
-                                      QString::fromUtf8(QJsonDocument(root).toJson(QJsonDocument::Compact)));
+    const QByteArray data = QJsonDocument(root).toJson(QJsonDocument::Compact);
+    if (data.size() <= 256 * 1024)
+        gEDataManager->setExtraDataString(m_strPersistenceKey, QString::fromUtf8(data));
 }
 
 void UIMd3TabStrip::restore()
@@ -782,11 +837,18 @@ void UIMd3TabStrip::restore()
     if (!gEDataManager)
         return;
     QJsonParseError error;
-    const QJsonDocument document = QJsonDocument::fromJson(
-        gEDataManager->extraDataString(g_pszTabsExtraData).toUtf8(), &error);
-    if (error.error != QJsonParseError::NoError || !document.isObject())
+    QString strSerialized = gEDataManager->extraDataString(m_strPersistenceKey);
+    bool fLoadedLegacyKey = false;
+    if (   strSerialized.isEmpty()
+        && m_strPersistenceKey == md3TabPersistenceKey(QStringLiteral("manager")))
+    {
+        strSerialized = gEDataManager->extraDataString(g_pszLegacyTabsExtraData);
+        fLoadedLegacyKey = !strSerialized.isEmpty();
+    }
+    if (strSerialized.toUtf8().size() > 256 * 1024)
         return;
-    if (document.toJson(QJsonDocument::Compact).size() > 256 * 1024)
+    const QJsonDocument document = QJsonDocument::fromJson(strSerialized.toUtf8(), &error);
+    if (error.error != QJsonParseError::NoError || !document.isObject())
         return;
     const QJsonObject root = document.object();
     const int iVersion = root.value(QStringLiteral("version")).toInt(1);
@@ -848,6 +910,8 @@ void UIMd3TabStrip::restore()
         m_strCurrentId.clear();
     if (m_strCurrentId.isEmpty() && !displayTabs().isEmpty())
         m_strCurrentId = displayTabs().first().strId;
+    if (fLoadedLegacyKey && !m_fRestoredLegacyPersistence)
+        save();
 }
 
 QRect UIMd3TabStrip::tabRect(const QString &strId) const
@@ -1406,48 +1470,66 @@ void UIMd3TabStrip::showNewTabMenu()
 
 void UIMd3TabStrip::showTabManagerMenu()
 {
+    UIMd3TabManager::manage(this, window());
+}
+
+void UIMd3TabStrip::showTabActions(const QString &strId, const QPoint &globalPosition)
+{
+    UIMd3Tab selected = {};
+    bool fSelected = false;
+    for (const UIMd3Tab &tab : m_tabs)
+        if (tab.strId == strId)
+        {
+            selected = tab;
+            fSelected = true;
+            break;
+        }
+    if (!fSelected)
+        return;
+
     QMenu menu(this);
-    menu.setAccessibleName(md3TabText("md3.tabs.manager", tr("Tab manager")));
-    UIMd3SearchField *pSearch = new UIMd3SearchField(QStringLiteral("tab-manager"),
-                                                     md3TabText("md3.tabs.search-all",
-                                                                tr("Search all open tabs")), &menu);
+    UIMd3SearchField *pSearch = new UIMd3SearchField(QStringLiteral("tab-actions"),
+                                                     md3TabText("md3.tabs.search-actions",
+                                                                tr("Search tab actions")), &menu);
     QWidgetAction *pSearchAction = new QWidgetAction(&menu);
     pSearchAction->setDefaultWidget(pSearch);
     menu.addAction(pSearchAction);
-    QHash<QAction *, QString> actionIds;
-    for (const UIMd3Tab &tab : m_tabs)
+    QAction *pPin = menu.addAction(selected.fPinned
+                                 ? md3TabText("md3.tabs.unpin", tr("Unpin tab"))
+                                 : md3TabText("md3.tabs.pin", tr("Pin tab")));
+    QAction *pMove = menu.addAction(md3TabText("md3.tabs.move-ellipsis", tr("Move… into group…")));
+    QAction *pClose = menu.addAction(md3TabText("md3.tabs.close", tr("Close tab")));
+    QAction *pEdit = menu.addAction(md3TabText("md3.tabs.edit-tab", tr("Edit tab appearance…")));
+    pClose->setShortcut(QKeySequence::Close);
+    menu.setAccessibleName(md3TabText("md3.tabs.actions", tr("Tab actions")));
+    if (selected.fPinned)
     {
-        QAction *pAction = menu.addAction(tab.strLabel);
-        pAction->setCheckable(true);
-        pAction->setChecked(tab.strId == m_strCurrentId);
-        pAction->setEnabled(tab.fEnabled);
-        pAction->setStatusTip(tab.fEnabled
-                            ? md3TabText("md3.tabs.activate-named",
-                                         tr("Activate workspace tab %1")).arg(tab.strLabel)
-                            : md3TabText("md3.tabs.unavailable",
-                                         tr("Tab %1 is unavailable under the current manager restrictions")).arg(tab.strLabel));
-        pAction->setWhatsThis(pAction->statusTip());
-        actionIds.insert(pAction, tab.strId);
+        pClose->setEnabled(false);
+        pClose->setStatusTip(md3TabText("md3.tabs.unpin-before-close",
+                                       tr("Unpin this tab before closing it")));
     }
-    if (actionIds.isEmpty())
-    {
-        QAction *pEmpty = menu.addAction(md3TabText("md3.tabs.none-open",
-                                                   tr("No workspace tabs are open")));
-        pEmpty->setEnabled(false);
-    }
+    pEdit->setStatusTip(md3TabText("md3.tabs.edit-tab-named",
+                                  tr("Edit appearance for %1")).arg(selected.strLabel));
+    pEdit->setWhatsThis(md3TabText("md3.tabs.edit-tab-help",
+                                  tr("Edit the appearance of tab %1")).arg(selected.strLabel));
+    pEdit->setShortcut(QKeySequence(Qt::SHIFT | Qt::Key_F10));
     connect(pSearch, &UIMd3SearchField::sigFilterChanged, &menu,
-            [pSearch, actionIds]() mutable
+            [pSearch, pPin, pMove, pClose, pEdit]()
     {
-        for (QAction *pAction : actionIds.keys())
-            pAction->setVisible(pSearch->matches(pAction->text()));
+        pPin->setVisible(pSearch->matches(pPin->text()));
+        pMove->setVisible(pSearch->matches(pMove->text()));
+        pClose->setVisible(pSearch->matches(pClose->text()));
+        pEdit->setVisible(pSearch->matches(pEdit->text()));
     });
-    for (QAction *pAction : actionIds.keys())
-        connect(pAction, &QAction::triggered, this, [this, pAction, actionIds]()
-        {
-            setCurrentTabId(actionIds.value(pAction));
-        });
+    connect(pPin, &QAction::triggered, this, [this, strId]() { togglePinned(strId); });
+    connect(pMove, &QAction::triggered, this, [this, strId]() { showGroupPicker(strId); });
+    connect(pClose, &QAction::triggered, this, [this, strId]() { closeTab(strId); });
+    connect(pEdit, &QAction::triggered, this, [this, strId]()
+    {
+        UIMd3AppearanceEditor::open(this, QStringLiteral("tab/") + strId);
+    });
     pSearch->setFocus(Qt::OtherFocusReason);
-    menu.exec(m_pTabManagerButton->mapToGlobal(QPoint(0, m_pTabManagerButton->height())));
+    menu.exec(globalPosition);
 }
 
 void UIMd3TabStrip::showGroupPicker(const QString &strTabId)
@@ -1808,17 +1890,24 @@ void UIMd3TabStrip::contextMenuEvent(QContextMenuEvent *pEvent)
             if (dialog.exec() == QDialog::Accepted)
                 createGroup(dialog.textValue().trimmed().left(80));
         });
+        QAction *pManager = menu.addAction(md3TabText("md3.tabs.manager", tr("Tab manager")));
+        pManager->setShortcut(QKeySequence(QStringLiteral("Ctrl+Shift+T")));
+        pManager->setStatusTip(md3TabText("md3.tabs.manager-description",
+                                         tr("Search and activate every open workspace tab")));
+        pManager->setWhatsThis(pManager->statusTip());
+        connect(pManager, &QAction::triggered, this, &UIMd3TabStrip::showTabManagerMenu);
         QAction *pEdit = menu.addAction(md3TabText("md3.tabs.edit-strip", tr("Edit appearance…")));
         pEdit->setStatusTip(md3TabText("md3.tabs.edit-strip-description",
                                       tr("Edit appearance for the tab strip")));
         pEdit->setWhatsThis(pEdit->statusTip());
         pEdit->setShortcut(QKeySequence(Qt::SHIFT | Qt::Key_F10));
         connect(pSearch, &UIMd3SearchField::sigFilterChanged, &menu,
-                [pSearch, pCreateGroup, groupActions, pEdit]() mutable
+                [pSearch, pCreateGroup, groupActions, pManager, pEdit]() mutable
         {
             pCreateGroup->setVisible(pSearch->matches(pCreateGroup->text()));
             for (QAction *pGroupAction : groupActions)
                 pGroupAction->setVisible(pSearch->matches(pGroupAction->text()));
+            pManager->setVisible(pSearch->matches(pManager->text()));
             pEdit->setVisible(pSearch->matches(pEdit->text()));
         });
         connect(pEdit, &QAction::triggered, this, [this]()
@@ -1830,61 +1919,10 @@ void UIMd3TabStrip::contextMenuEvent(QContextMenuEvent *pEvent)
         pEvent->accept();
         return;
     }
-    UIMd3Tab selected = {};
-    bool fSelected = false;
-    for (const UIMd3Tab &tab : m_tabs)
-        if (tab.strId == strId) { selected = tab; fSelected = true; break; }
-    if (!fSelected)
-    {
-        pEvent->ignore();
-        return;
-    }
-    QMenu menu(this);
-    UIMd3SearchField *pSearch = new UIMd3SearchField(QStringLiteral("tab-actions"),
-                                                     md3TabText("md3.tabs.search-actions",
-                                                                tr("Search tab actions")), &menu);
-    QWidgetAction *pSearchAction = new QWidgetAction(&menu);
-    pSearchAction->setDefaultWidget(pSearch);
-    menu.addAction(pSearchAction);
-    QAction *pPin = menu.addAction(selected.fPinned
-                                 ? md3TabText("md3.tabs.unpin", tr("Unpin tab"))
-                                 : md3TabText("md3.tabs.pin", tr("Pin tab")));
-    QAction *pMove = menu.addAction(md3TabText("md3.tabs.move-ellipsis", tr("Move… into group…")));
-    QAction *pClose = menu.addAction(md3TabText("md3.tabs.close", tr("Close tab")));
-    QAction *pEdit = menu.addAction(md3TabText("md3.tabs.edit-tab", tr("Edit tab appearance…")));
-    pClose->setShortcut(QKeySequence::Close);
-    menu.setAccessibleName(md3TabText("md3.tabs.actions", tr("Tab actions")));
-    if (selected.fPinned)
-    {
-        pClose->setEnabled(false);
-        pClose->setStatusTip(md3TabText("md3.tabs.unpin-before-close",
-                                       tr("Unpin this tab before closing it")));
-    }
-    pEdit->setStatusTip(md3TabText("md3.tabs.edit-tab-named",
-                                  tr("Edit appearance for %1")).arg(selected.strLabel));
-    pEdit->setWhatsThis(md3TabText("md3.tabs.edit-tab-help",
-                                  tr("Edit the appearance of tab %1")).arg(selected.strLabel));
-    pEdit->setShortcut(QKeySequence(Qt::SHIFT | Qt::Key_F10));
-    connect(pSearch, &UIMd3SearchField::sigFilterChanged, this,
-            [pSearch, pPin, pMove, pClose, pEdit]()
-    {
-        pPin->setVisible(pSearch->matches(pPin->text()));
-        pMove->setVisible(pSearch->matches(pMove->text()));
-        pClose->setVisible(pSearch->matches(pClose->text()));
-        pEdit->setVisible(pSearch->matches(pEdit->text()));
-    });
-    connect(pPin, &QAction::triggered, this, [this, strId]() { togglePinned(strId); });
-    connect(pMove, &QAction::triggered, this, [this, strId]() { showGroupPicker(strId); });
-    connect(pClose, &QAction::triggered, this, [this, strId]() { closeTab(strId); });
-    connect(pEdit, &QAction::triggered, this, [this, strId]()
-    {
-        UIMd3AppearanceEditor::open(this, QStringLiteral("tab/") + strId);
-    });
-    pSearch->setFocus(Qt::OtherFocusReason);
     const QRect focusRect = tabRect(strId);
     const QPoint menuPosition = fKeyboardContext && focusRect.isValid()
                               ? mapToGlobal(focusRect.center())
                               : pEvent->globalPos();
-    menu.exec(menuPosition);
+    showTabActions(strId, menuPosition);
     pEvent->accept();
 }

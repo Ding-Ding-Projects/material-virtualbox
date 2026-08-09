@@ -740,6 +740,7 @@ UICommon_QT_MOCHDRS = \
 	src/md3/UIMd3History.h \
 	src/md3/UIMd3NotificationCentre.h \
 	src/md3/UIMd3Wizard.h \
+	src/md3/UIMd3TabManager.h \
 	src/md3/UIMd3TabStrip.h \
 	src/md3/UIMd3Widget.h \
 	src/md3/UIMd3Tokens.h \
@@ -1338,6 +1339,7 @@ UICommon_SOURCES = \
 	src/md3/UIMd3MenuSearch.cpp \
 	src/md3/UIMd3NotificationCentre.cpp \
 	src/md3/UIMd3Wizard.cpp \
+	src/md3/UIMd3TabManager.cpp \
 	src/md3/UIMd3TabStrip.cpp \
 	src/md3/UIMd3Widget.cpp \
 	src/VBoxAboutDlg.cpp \

@@ -18,10 +18,10 @@
 
 /* Qt includes: */
 #include <QAction>
-#include <QHash>
 #include <QKeySequence>
 #include <QMenu>
 #include <QObject>
+#include <QPointer>
 #include <QWidgetAction>
 
 /* GUI includes: */
@@ -45,6 +45,24 @@ static QString md3MenuSearchCandidate(QAction *pAction)
     return strResult;
 }
 
+static void md3SynchronizeMenuProxy(QAction *pProxy, QAction *pOriginal)
+{
+    if (!pProxy || !pOriginal)
+        return;
+    pProxy->setText(pOriginal->text());
+    pProxy->setIcon(pOriginal->icon());
+    pProxy->setIconText(pOriginal->iconText());
+    pProxy->setToolTip(pOriginal->toolTip());
+    pProxy->setStatusTip(pOriginal->statusTip());
+    pProxy->setWhatsThis(pOriginal->whatsThis());
+    pProxy->setShortcut(pOriginal->shortcut());
+    pProxy->setShortcutContext(pOriginal->shortcutContext());
+    pProxy->setCheckable(pOriginal->isCheckable());
+    pProxy->setChecked(pOriginal->isChecked());
+    pProxy->setEnabled(pOriginal->isEnabled());
+    pProxy->setMenu(pOriginal->menu());
+}
+
 void md3PrepareSearchableMenu(QMenu *pMenu,
                               const QString &strFieldId,
                               const QString &strPlaceholder,
@@ -53,11 +71,6 @@ void md3PrepareSearchableMenu(QMenu *pMenu,
     if (!pMenu)
         return;
 
-    const QList<QAction*> actions = pMenu->actions();
-    QHash<QAction*, bool> originalVisibility;
-    for (QAction *pAction : actions)
-        if (pAction)
-            originalVisibility.insert(pAction, pAction->isVisible());
     UIMd3SearchField *pSearch = new UIMd3SearchField(strFieldId, strPlaceholder, pMenu);
     pSearch->setAccessibleName(strAccessibleName);
     pSearch->setAccessibleDescription(pMenu->title().isEmpty()
@@ -65,21 +78,69 @@ void md3PrepareSearchableMenu(QMenu *pMenu,
                                       : pMenu->title());
     pSearch->setMinimumWidth(280);
 
+    const QList<QAction*> originalActions = pMenu->actions();
+    QList<QAction*> proxyActions;
+    for (QAction *pOriginal : originalActions)
+    {
+        if (!pOriginal)
+            continue;
+        QAction *pProxy = new QAction(pMenu);
+        pProxy->setSeparator(pOriginal->isSeparator());
+        md3SynchronizeMenuProxy(pProxy, pOriginal);
+        pProxy->setProperty("md3OriginalVisible", pOriginal->isVisible());
+        pProxy->setVisible(pOriginal->isVisible());
+        pMenu->insertAction(pOriginal, pProxy);
+        pMenu->removeAction(pOriginal);
+        proxyActions << pProxy;
+        const QPointer<QAction> original(pOriginal);
+        QObject::connect(pProxy, &QAction::triggered, pMenu,
+                         [original](bool)
+        {
+            if (!original || !original->isEnabled())
+                return;
+            original->trigger();
+        });
+        QObject::connect(pOriginal, &QAction::changed, pMenu,
+                         [pProxy, original, pSearch]()
+        {
+            if (original)
+            {
+                md3SynchronizeMenuProxy(pProxy, original);
+                const bool fBaseVisible = original->isVisible();
+                pProxy->setProperty("md3OriginalVisible", fBaseVisible);
+                const bool fQueryActive = pSearch->isRegexActive()
+                                       || !pSearch->text().isEmpty();
+                pProxy->setVisible(fBaseVisible
+                                && (pProxy->isSeparator()
+                                    ? !fQueryActive
+                                    : pSearch->matches(md3MenuSearchCandidate(pProxy))));
+            }
+        });
+    }
+
     QWidgetAction *pSearchAction = new QWidgetAction(pMenu);
     pSearchAction->setDefaultWidget(pSearch);
-    QAction *pBefore = actions.isEmpty() ? 0 : actions.first();
+    QAction *pBefore = proxyActions.isEmpty() ? 0 : proxyActions.first();
     pMenu->insertAction(pBefore, pSearchAction);
     QAction *pSeparator = pMenu->insertSeparator(pBefore);
 
     QObject::connect(pSearch, &UIMd3SearchField::sigFilterChanged, pMenu,
-                     [pSearch, actions, originalVisibility, pSeparator]()
+                     [pSearch, proxyActions, pSeparator]()
     {
         int cVisible = 0;
-        for (QAction *pAction : actions)
+        const bool fQueryActive = pSearch->isRegexActive()
+                               || !pSearch->text().isEmpty();
+        for (QAction *pAction : proxyActions)
         {
-            if (!pAction || pAction->isSeparator())
+            if (!pAction)
                 continue;
-            const bool fVisible = originalVisibility.value(pAction, false)
+            if (pAction->isSeparator())
+            {
+                pAction->setVisible(pAction->property("md3OriginalVisible").toBool()
+                                 && !fQueryActive);
+                continue;
+            }
+            const bool fVisible = pAction->property("md3OriginalVisible").toBool()
                                && pSearch->matches(md3MenuSearchCandidate(pAction));
             pAction->setVisible(fVisible);
             if (fVisible)
@@ -88,16 +149,5 @@ void md3PrepareSearchableMenu(QMenu *pMenu,
         if (pSeparator)
             pSeparator->setVisible(cVisible > 0);
     });
-    QObject::connect(pMenu, &QMenu::aboutToHide, pMenu,
-                     [actions, originalVisibility]()
-    {
-        /* Several callers intentionally reuse action-pool or menu-bar actions.
-         * Menu-local filtering must not leak visibility changes back to those
-         * authoritative surfaces after this popup closes. */
-        for (QAction *pAction : actions)
-            if (pAction)
-                pAction->setVisible(originalVisibility.value(pAction, false));
-    });
-
     pSearch->setFocus(Qt::PopupFocusReason);
 }

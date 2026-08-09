@@ -12,7 +12,8 @@ with the [canonical VirtualBox prerequisites and commands](#build-and-prerequisi
 
 > **Implementation status:** the shared theme, style, language, persisted brand,
 > native manager title bar, manager navigation rail, manager tab strip, command
-> palette, appearance editor, shared settings search/regex field, and the
+> palette, appearance editor, full guided shared regex builder, four-scope tab
+> manager, settings search field, and the
 > notification-center search and keyboard-accessible notification rows are wired
 > into the existing VirtualBox frontend.
 > Wizard, tool, and runtime shells remain in progress; the local history
@@ -122,9 +123,9 @@ The manager tab strip is documented in
 [`doc/md3/TabNavigation.md`](doc/md3/TabNavigation.md). It delegates tab
 selection to the existing global-tools model, opens visited destinations on
 demand, migrates only the exact legacy generated seven-tab layout to one pinned
-available destination, persists groups/pins/current selection through
-VirtualBox extra data for the manager surface, keeps
-empty bulk-close queries safe, and exposes a searchable Move… into group…
+available destination, persists groups/pins/current selection under a scoped
+VirtualBox extra-data key, keeps empty bulk-close queries safe, and exposes a
+searchable Move… into group…
 picker with member counts and an inline create-group path; the 48-pixel strip
 now reserves 48 px focusable New tab, Tab manager, More-tabs, and inline close
 targets. Overflow activation reveals the selected tab, active-tab close emits
@@ -136,10 +137,21 @@ action while retaining the local search field. Keyboard context menus reuse
 the stable current tab so
 <kbd>Shift+F10</kbd> exposes real tab-management actions; pointer chrome keeps
 its strip-level menu. Activating a member of a collapsed group temporarily
-reveals that tab without overwriting the group's collapsed preference. The four
-tab-discovery searches, the guided regex-construction/capture/copy surface,
-surface-scoped persistence, full overflow/reordering UI, and runtime tab
-adoption remain open design-coverage lanes.
+reveals that tab without overwriting the group's collapsed preference.
+<kbd>Ctrl+Shift+T</kbd> opens four independent discovery scopes (current strip,
+group names, every individual group, and every registered window), each with
+its own full guided regex builder. Separate containing and inverse bulk-close
+fields require a reviewable, pinned-safe preview and re-resolve the model before
+closing. Drag reordering, dockable strip orientations, complete group lifecycle,
+settings/runtime adoption, tab-state history, and native capture remain open.
+
+[`doc/md3/RegexBuilder.md`](doc/md3/RegexBuilder.md) documents the complete
+plain-text-first builder shared by every Material search field: guided literals,
+classes, anchors, groups, alternation and numeric quantifiers; raw PCRE2-compatible
+syntax and `i`/`m`/`s`/`x` flags; local sample matches and capture groups;
+copy/atomic JSON export; independent visible state; one-worker generation
+control; a 300 ms UI deadline; bounded inputs/results; focus return; and
+screen-bounded or menu-inline scrolling.
 
 The existing notification center now has a Material 3 search field in its
 extended view. [`doc/md3/NotificationCentre.md`](doc/md3/NotificationCentre.md)

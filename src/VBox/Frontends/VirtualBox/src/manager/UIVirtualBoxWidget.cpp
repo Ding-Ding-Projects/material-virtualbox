@@ -464,7 +464,7 @@ void UIVirtualBoxWidget::prepareWidgets()
                 pLanguage->registerText(QStringLiteral("md3.manager.search-toolbar"), QStringLiteral("Search toolbar actions"), QStringLiteral("搜尋工具列動作"));
                 pLanguage->registerText(QStringLiteral("md3.manager.search-toolbar-name"), QStringLiteral("Search this toolbar menu"), QStringLiteral("搜尋呢個工具列選單"));
             }
-            m_pTabStrip = new UIMd3TabStrip(this);
+            m_pTabStrip = new UIMd3TabStrip(this, QStringLiteral("manager"));
             if (m_pTabStrip)
             {
                 /* Older Material builds persisted one precise, generated

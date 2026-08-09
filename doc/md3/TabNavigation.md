@@ -1,103 +1,113 @@
 # Material 3 tab navigation
 
-The manager now has a native Qt browser-style tab strip above the existing
-global-tools surface. It is implemented by
-`src/VBox/Frontends/VirtualBox/src/md3/UIMd3TabStrip.{h,cpp}` and is owned by
-`UICommon`, so the same model can be reused by the manager and runtime targets.
+The manager has a native Qt browser-style workspace strip above the existing
+global-tools surface. `UIMd3TabStrip` and the four-scope `UIMd3TabManager` are
+owned by `UICommon`; selection still delegates to the existing
+`UIGlobalToolsWidget` and `UIToolType` authority.
 
-## Behaviour
+## Behavior
 
-- The manager opens Home, Machines, Extensions, Media, Network, Cloud, and
-  Resources as real selectable workspace tabs when their rail destinations are
-  visited. Selecting a tab delegates to the existing
-  `UIGlobalToolsWidget::setMenuToolType` path; the existing `UIToolType` model
-  remains authoritative.
-- A new or legacy generated layout begins with one pinned available destination
-  instead of seven duplicate tabs. Migration applies only to the exact previous
-  seven-tab, unpinned, ungrouped shape; customized tab state is preserved.
-- Keyboard Left and Right move the active tab, while a pointer click selects a
-  tab. The strip has a named `tab-strip` object and a visible active-state
-  treatment from the shared Material 3 theme. A dedicated transparent child
-  exposes a `PageTabList` containing only real `PageTab` controls with
-  selected/disabled state, focus, and press actions. New tab, Tab manager,
-  overflow, and independent 48-pixel close buttons remain accessible siblings
-  while the parent keeps the Material painting.
-- A keyboard-originated context-menu event (including <kbd>Shift+F10</kbd>)
-  reuses the stable current tab when the event has no pointer hit, so the
-  resulting menu exposes that tab's pin, move, close, and `Edit tab
-  appearance…` actions. A pointer context menu on strip chrome still opens
-  the strip-level group menu, and the tab action menu keeps its local search.
-- Labels are registered with the shared language service and update live for
-  English, playful Cantonese, and bilingual modes. The manager mirrors the
-  existing chooser and expert-mode restrictions into disabled tab states, so a
-  tab cannot bypass the underlying `UITools` policy.
-- Tab actions include a local search field, pin or unpin, close, and
-  `Edit tab appearance…`. `Move… into group…` opens a real keyboard-operable
-  picker capped to the current screen, with scrolling, its own bounded
-  regex-capable search field, member counts, color labels, a no-group target,
-  and an inline create-group path. A hidden filtered result cannot be accepted.
-  Shift+right-click opens the appearance editor for the selected tab.
-- Right-clicking strip chrome opens the strip appearance editor and a searchable
-  group-management menu. The menu keeps its local search field while exposing
-  `Create group…`, bounded `Rename group…` editors, and
-  `Edit group appearance…` actions keyed to each group's stable identifier;
-  every one of those local menus uses the shared anchored regex builder.
-- The strip is 48 px high with tab bodies bounded to 120--210 px and a 48 px
-  inline close target. New tab, Tab manager, and overflow are real 48 px
-  `QToolButton` controls with accessible names and keyboard focus. The New tab
-  and Tab manager menus have independent regex-capable searches, and overflow
-  opens the same searchable list as the Down key path. Activating a hidden
-  overflow result advances a transient, non-persisted viewport until that tab
-  is fully visible. If a long pinned region would otherwise consume the strip,
-  the transient pinned and ordinary viewports retain at least one pinned tab
-  while revealing the selected ordinary tab. Only fully visible tabs
-  participate in pointer hit testing; the reserved trailing boundary prevents
-  a clipped sliver from disappearing from both the strip and overflow list.
-- Tab groups have stable identifiers, names, colors, collapsed state, and
-  membership. Pinning, grouping, and the active tab persist through the
-  existing VirtualBox extra-data store under `GUI/Md3/Tabs` for the current
-  manager surface. Activating a member of a collapsed group reveals only that
-  current tab without changing the group's persisted collapsed preference;
-  moving a tab into a collapsed group likewise leaves the group collapsed.
-- Close matching supports bounded plain-text and regular-expression predicates
-  and protects pinned tabs unless the caller explicitly includes them. Empty
-  queries produce no close set, preventing an accidental close-all operation.
-- Closing the active tab resolves the nearest enabled visible fallback before
-  saving, then emits one model update and one final current-tab notification;
-  no intermediate empty selection is persisted or announced.
+- Home, Machines, Extensions, Media, Network, Cloud, and Resources open as
+  real workspace tabs when visited. A new or precisely recognized legacy
+  generated layout begins with one pinned available destination instead of
+  seven duplicate tabs. Customized order, pins, groups, and selection are not
+  mistaken for that migration shape.
+- Pointer activation and Left/Right navigation select only available tabs.
+  The 48-pixel strip paints 120--210-pixel tab bodies while transparent native
+  controls expose one `PageTabList`, real `PageTab` children with press actions
+  and selected/disabled state, visible focus, and independent 48-pixel close,
+  New tab, overflow, and Tab manager buttons.
+- Overflow never silently clips a tab. It has a focusable searchable action;
+  activating a result advances transient pinned/unpinned viewports until the
+  selected tab is fully visible. Only fully visible tab geometry accepts a
+  pointer hit. Those viewports are intentionally not persisted.
+- Normal tab context menus retain searchable pin/unpin, move, close, and
+  **Edit tab appearance…** actions. <kbd>Shift+F10</kbd> targets the stable
+  current tab when no pointer position exists, and Shift+right-click opens the
+  anchored appearance editor directly. Context-menu shortcut labels are taken
+  from the actual action bindings.
+- Groups have bounded stable identifiers, names, colors, collapsed state, and
+  membership. The screen-bounded **Move… into group…** picker lists real member
+  counts, has its own search and full regex builder, rejects hidden results,
+  supports creating a named group, and returns focus. Strip chrome exposes
+  searchable create, rename, collapse/expand, and group-appearance actions.
+  Activating or moving the current member of a collapsed group reveals only
+  that member without rewriting the saved collapsed preference.
+- Labels and accessible copy use stable Material language keys and update for
+  English, Cantonese, bilingual, and independent funny-level changes. Live
+  chooser and expert-mode restrictions remain authoritative; unavailable tabs
+  cannot be activated through the strip, overflow, or manager.
 
-## Failure modes and security
+## Four discovery searches
+
+<kbd>Ctrl+Shift+T</kbd> opens a screen-bounded modeless tab manager with four
+independent plain-text-first search scopes:
+
+1. the current tab strip;
+2. tab groups by visible name;
+3. a separate search field owned by every individual group, including the
+   ungrouped top level; and
+4. a master list of all registered application windows and strips.
+
+Every field owns its own adjacent full regular-expression builder and state.
+Results identify the visible label, owning window, group, pin state, current
+state, and availability. Activation raises the exact owning window, selects and
+reveals the exact destination, and keeps a collapsed group's stored preference.
+The result menu reuses the real tab actions without discarding the active query.
+
+## Bulk close
+
+The manager provides separate **Close tabs containing text** and **Close tabs
+not containing text** fields. Both default to case-insensitive plain text, own
+their own full regex builder, reject an empty or invalid query, and use the same
+bounded predicate and flags. Pinned tabs remain excluded unless the user
+explicitly includes them.
+
+Before closing, the surface lists every affected tab and the exact count. Any
+query, regex mode, flag, include-pinned choice, or tab-model change invalidates
+the review. The identifiers are resolved again immediately before **Close
+reviewed tabs** runs, and skipped state changes are reported honestly. Manager
+workspace tabs are reopenable views and do not own machine or document data;
+closing one performs no COM operation and does not delete backend state.
+
+## Persistence, failure modes, and security
+
+Order, pins, groups, collapsed state, membership, and current selection use a
+versioned document below `GUI/Md3/Tabs/<surface>`. The manager owns the
+`manager` scope and performs a compatible fallback read of the former global
+key. Version 2 data is copied forward after validation. The owning bounded
+destination catalog removes unknown restored tabs so a
+stale identifier cannot remain as a dead destination.
+
+Malformed or unsupported JSON is ignored. Raw persisted input is capped at
+256 KiB before parsing; groups and tabs are capped at 128 and 256 entries;
+identifiers, labels, group names, query patterns, and flags are bounded;
+duplicates and orphan group references are removed; invalid colors fall back
+to the active theme. Availability is never persisted because it belongs to
+current manager restrictions. Runtime adoption must provide a different stable
+scope and destination catalog.
 
 The strip never owns machine, storage, network, cloud, or COM operations. It
-only emits a destination selection and delegates the action to existing
-VirtualBox models. Malformed persisted JSON is ignored; invalid group colors
-fall back to the shared theme role; the persisted document is capped at 256 KiB,
-groups and tabs are capped at 128 and 256 entries, and labels, identifiers, and
-query patterns are bounded before they reach the model or regex engine.
-The current persistence key is global to the GUI profile rather than scoped per
-window or surface; runtime adoption must add a surface-scoped key and reconcile
-destinations before this model is reused there.
+changes only navigation state and delegates destination activation to existing
+VirtualBox models.
 
-## Verification
+## Verification and remaining work
 
-The MD3 validation workflow checks the tab-strip source and MOC header are
-wired into `UICommon`. The commit-attributed local `VirtualBox` result in the
-[manager-shell evidence table](ManagerShell.md#verification-and-remaining-work)
-compiled the translation unit and its Qt MOC output. Full tab management remains in
-progress: the four independent cross-window tab-discovery searches, drag
-  reordering, group delete/reorder surfaces, bulk-close preview/confirmation,
-  the full guided regex builder with capture output and copy/export, vertical
-  docking, surface-scoped persistence, and runtime-window adoption
-still need their own production lanes. The current
-strip does provide on-demand manager workspaces, an interactive overflow menu,
-group expand/collapse menu, visible focus ring, and restriction-aware enabled
-states, PageTab accessibility children, independent close buttons, and
-dedicated New tab and Tab manager actions. The compact navigation action exists
-below 1000 logical pixels; a fully dockable left-edge tab strip remains open.
-Native GUI capture is intentionally deferred in the current task; no design
-thumbnail or static HTML preview is treated as runtime evidence.
+The Material 3 validation workflow checks source/MOC/UICommon ownership, the
+four hand-written search-scope identifiers, independent per-group fields,
+regex flags, review/re-resolution behavior, scoped persistence, accessibility
+actions, width/target bounds, and overflow reveal. Local Windows builds compile
+and link `UICommon`, `VirtualBox`, and `VirtualBoxVM` against the same tree.
+
+Remaining work includes drag reordering; group delete, reorder, and direct color
+surfaces; dockable left/right/top/bottom strip orientations; settings and
+runtime adoption; tab-state history/undo; and focused native keyboard,
+screen-reader, narrow-layout, and high-DPI capture. Native capture is explicitly
+deferred in the current task, and no design thumbnail or HTML prototype is
+treated as runtime evidence.
 
 Suggested articles: [Manager shell](ManagerShell.md),
 [Navigation rail](NavigationRail.md),
+[Regular-expression builder](RegexBuilder.md),
 [Settings search](SettingsSearch.md), [Appearance settings](AppearanceSettings.md),
 and the [design coverage ledger](DesignCoverage.md).

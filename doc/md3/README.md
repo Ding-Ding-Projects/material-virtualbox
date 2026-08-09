@@ -11,6 +11,7 @@ This section records the native Qt implementation of the supplied Material Desig
 - [`ManagerShell.md`](ManagerShell.md) documents the responsive 48/48/92 desktop manager composition, compact navigation action below 1000 logical pixels, destination heading, on-demand workspaces, contextual actions, and padded machine cards.
 - [`NavigationRail.md`](NavigationRail.md) documents the first visible manager shell integration and its runtime capture gate.
 - [`SettingsSearch.md`](SettingsSearch.md) documents the shared settings search field and its anchored regex builder.
+- [`RegexBuilder.md`](RegexBuilder.md) documents the shared full guided builder, PCRE2-compatible dialect and flags, bounded asynchronous match/capture preview, copy/JSON export, accessibility, and per-field ownership.
 - [`AppearanceSettings.md`](AppearanceSettings.md) documents the live Material scheme, seed, density, font-scale, display-brand controls, named-theme save/apply flow, and transactional per-element validation.
 - [`CommandPalette.md`](CommandPalette.md) documents the `Ctrl+Shift+F` registry-backed command palette and focus-return behavior.
 - [`NotificationCentre.md`](NotificationCentre.md) documents the existing center's plain-text/bounded-regex filtering, persistent bounded history, selectable rows, filtered JSON export, the two-acknowledgement/full-slider Clear history gate, and one-step Undo last clear recovery backed by the shared local history journal.
@@ -18,10 +19,10 @@ This section records the native Qt implementation of the supplied Material Desig
 - [`WizardShell.md`](WizardShell.md) documents the embedded Material 3 shell around the existing native wizard pages, including localized step-state descriptions, the named page stack, and accessible native actions.
 - [`TitleBar.md`](TitleBar.md) documents the frameless manager header, native Windows hit-testing, and language-aware window-control labels.
 - [`TabNavigation.md`](TabNavigation.md) records the manager tab-strip behavior,
-  including searchable group create/rename, per-group appearance actions, and
-  keyboard context-menu targeting, `PageTab` accessibility children, dedicated
-  New tab/Tab manager actions, plus its remaining docking, grouping, and runtime
-  gaps.
+  including four independent tab-discovery searches, reviewable pinned-safe
+  bulk close, scoped persistence, searchable group actions, keyboard context
+  targeting, `PageTab` accessibility children, dedicated New tab/Tab manager
+  actions, and the remaining docking, reordering, history, and runtime gaps.
 - [`RuntimeCapture.md`](RuntimeCapture.md) records the genuine native screenshot contract and the current COM/service blocker.
 
 Build and runtime evidence must name the exact target, commit, host, Qt version, and whether the result is source-only, built, headless, or release-verified. Missing `svn`, `kmk`, or `scm` tools are reported as environment blockers rather than inferred passes.

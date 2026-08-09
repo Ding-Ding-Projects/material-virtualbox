@@ -153,6 +153,14 @@ Rules for adding a changelog entry to make them look more uniform:
       </listitem>
 
       <listitem>
+        <para>GUI: Completed the shared guided regular-expression builder with
+          bounded asynchronous match and capture previews, numeric quantifier
+          controls, copy and JSON export, and added a four-scope tab manager with
+          independent current-strip, group, and all-window searches plus
+          reviewable pinned-safe bulk close</para>
+      </listitem>
+
+      <listitem>
         <para>GUI: Added a persisted per-element Material 3 appearance editor
           for stable-key widgets, with context-menu and Shift+right-click entry,
           seed, typeface, corner-radius, scale, weight, reset and focus return</para>
