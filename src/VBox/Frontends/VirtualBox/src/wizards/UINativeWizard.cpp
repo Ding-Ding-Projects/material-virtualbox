@@ -200,12 +200,17 @@ int UINativeWizard::addPage(UINativeWizardPage *pPage)
 
 void UINativeWizard::sltRetranslateUI()
 {
+    setAccessibleName(windowTitle().isEmpty() ? tr("Wizard") : windowTitle());
+    setAccessibleDescription(tr("Wizard dialog with step navigation and validation actions."));
+
     /* Translate Help button: */
     QPushButton *pButtonHelp = wizardButton(WizardButtonType_Help);
     if (pButtonHelp)
     {
         pButtonHelp->setText(tr("&Help"));
         pButtonHelp->setToolTip(tr("Open corresponding Help topic."));
+        pButtonHelp->setAccessibleName(tr("Help"));
+        pButtonHelp->setAccessibleDescription(tr("Open the corresponding help topic for this wizard."));
         pButtonHelp->setShortcut(UIShortcutPool::standardSequence(QKeySequence::HelpContents));
     }
 
@@ -214,6 +219,8 @@ void UINativeWizard::sltRetranslateUI()
     AssertMsgReturnVoid(pButtonBack, ("No Back wizard button found!\n"));
     pButtonBack->setText(tr("&Back"));
     pButtonBack->setToolTip(tr("Go to previous wizard page."));
+    pButtonBack->setAccessibleName(tr("Back"));
+    pButtonBack->setAccessibleDescription(tr("Go to the previous wizard page."));
 
     /* Translate Next button: */
     QPushButton *pButtonNext = wizardButton(WizardButtonType_Next);
@@ -222,11 +229,15 @@ void UINativeWizard::sltRetranslateUI()
     {
         pButtonNext->setText(tr("&Next"));
         pButtonNext->setToolTip(tr("Go to next wizard page."));
+        pButtonNext->setAccessibleName(tr("Next"));
+        pButtonNext->setAccessibleDescription(tr("Go to the next wizard page after validation."));
     }
     else
     {
         pButtonNext->setText(tr("&Finish"));
         pButtonNext->setToolTip(tr("Commit all wizard data."));
+        pButtonNext->setAccessibleName(tr("Finish"));
+        pButtonNext->setAccessibleDescription(tr("Validate and commit all wizard data."));
     }
 
     /* Translate Cancel button: */
@@ -234,6 +245,8 @@ void UINativeWizard::sltRetranslateUI()
     AssertMsgReturnVoid(pButtonCancel, ("No Cancel wizard button found!\n"));
     pButtonCancel->setText(tr("&Cancel"));
     pButtonCancel->setToolTip(tr("Cancel wizard execution."));
+    pButtonCancel->setAccessibleName(tr("Cancel"));
+    pButtonCancel->setAccessibleDescription(tr("Cancel this wizard without committing its data."));
 
     if (m_pWidgetStack && m_pWidgetStack->count())
     {
@@ -326,6 +339,7 @@ void UINativeWizard::sltCurrentIndexChanged(int iIndex /* = -1 */)
     UINativeWizardPage *pPage = qobject_cast<UINativeWizardPage*>(m_pWidgetStack->widget(iIndex));
     AssertPtrReturnVoid(pPage);
     m_pLabelPageTitle->setText(pPage->title());
+    m_pWidgetStack->setAccessibleDescription(tr("Current wizard page: %1").arg(pPage->title()));
     updateMd3Shell();
     if (iIndex > m_iLastIndex)
         pPage->initializePage();
@@ -340,7 +354,16 @@ void UINativeWizard::sltCurrentIndexChanged(int iIndex /* = -1 */)
     /* Disable/enable Next button: */
     QPushButton *pButtonNext = wizardButton(WizardButtonType_Next);
     AssertMsgReturnVoid(pButtonNext, ("No Next wizard button found!\n"));
-    pButtonNext->setEnabled(pPage->isComplete());
+    const bool fPageComplete = pPage->isComplete();
+    const bool fLastPage = isLastVisiblePage(iIndex);
+    pButtonNext->setEnabled(fPageComplete);
+    pButtonNext->setAccessibleName(fLastPage ? tr("Finish") : tr("Next"));
+    if (!fPageComplete)
+        pButtonNext->setAccessibleDescription(tr("Complete the current wizard page before continuing."));
+    else if (fLastPage)
+        pButtonNext->setAccessibleDescription(tr("Validate and commit all wizard data."));
+    else
+        pButtonNext->setAccessibleDescription(tr("Go to the next wizard page after validation."));
 
     /* Update last index: */
     m_iLastIndex = iIndex;
@@ -357,7 +380,16 @@ void UINativeWizard::sltCompleteChanged()
     UINativeWizardPage *pPage = qobject_cast<UINativeWizardPage*>(pSender);
     QPushButton *pButtonNext = wizardButton(WizardButtonType_Next);
     AssertMsgReturnVoid(pButtonNext, ("No Next wizard button found!\n"));
-    pButtonNext->setEnabled(pPage->isComplete());
+    const bool fPageComplete = pPage->isComplete();
+    const bool fLastPage = isLastVisiblePage(m_pWidgetStack->currentIndex());
+    pButtonNext->setEnabled(fPageComplete);
+    pButtonNext->setAccessibleName(fLastPage ? tr("Finish") : tr("Next"));
+    if (!fPageComplete)
+        pButtonNext->setAccessibleDescription(tr("Complete the current wizard page before continuing."));
+    else if (fLastPage)
+        pButtonNext->setAccessibleDescription(tr("Validate and commit all wizard data."));
+    else
+        pButtonNext->setAccessibleDescription(tr("Go to the next wizard page after validation."));
 }
 
 void UINativeWizard::sltPrevious()
@@ -484,6 +516,10 @@ void UINativeWizard::prepare()
                         m_pWidgetStack = new QStackedWidget(pFrame);
                         if (m_pWidgetStack)
                         {
+                            m_pWidgetStack->setObjectName(QStringLiteral("wizardPageStack"));
+                            m_pWidgetStack->setAccessibleName(tr("Wizard pages"));
+                            m_pWidgetStack->setAccessibleDescription(tr("Current wizard page content."));
+                            m_pWidgetStack->setFocusPolicy(Qt::NoFocus);
                             connect(m_pWidgetStack, &QStackedWidget::currentChanged, this, &UINativeWizard::sltCurrentIndexChanged);
                             pLayoutFrame->addWidget(m_pWidgetStack);
                         }
@@ -501,6 +537,10 @@ void UINativeWizard::prepare()
                 m_pWidgetStack = new QStackedWidget(this);
                 if (m_pWidgetStack)
                 {
+                    m_pWidgetStack->setObjectName(QStringLiteral("wizardPageStack"));
+                    m_pWidgetStack->setAccessibleName(tr("Wizard pages"));
+                    m_pWidgetStack->setAccessibleDescription(tr("Current wizard page content."));
+                    m_pWidgetStack->setFocusPolicy(Qt::NoFocus);
                     connect(m_pWidgetStack, &QStackedWidget::currentChanged, this, &UINativeWizard::sltCurrentIndexChanged);
                     if (m_pMd3Shell)
                         m_pMd3Shell->setContentWidget(m_pWidgetStack);

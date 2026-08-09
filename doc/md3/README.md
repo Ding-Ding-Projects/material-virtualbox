@@ -14,7 +14,7 @@ This section records the native Qt implementation of the supplied Material Desig
 - [`CommandPalette.md`](CommandPalette.md) documents the `Ctrl+Shift+F` registry-backed command palette and focus-return behavior.
 - [`NotificationCentre.md`](NotificationCentre.md) documents the existing center's plain-text/bounded-regex filtering, persistent bounded history, selectable rows, filtered JSON export, the two-acknowledgement/full-slider Clear history gate, and one-step Undo last clear recovery backed by the shared local history journal.
 - [`History.md`](History.md) documents the isolated append-only local journal, SHA-256 state validation, Git best-effort backing, notification and appearance/theme revisions, and the modeless <kbd>Ctrl+H</kbd>/command-palette browser with action/date filters, regex search, JSONL export, integrity verification, and validated owner-routed restore adapters.
-- [`WizardShell.md`](WizardShell.md) documents the embedded Material 3 shell around the existing native wizard pages.
+- [`WizardShell.md`](WizardShell.md) documents the embedded Material 3 shell around the existing native wizard pages, including localized step-state descriptions, the named page stack, and accessible native actions.
 - [`TabNavigation.md`](TabNavigation.md) records the manager tab-strip behavior,
   including searchable group create/rename and per-group appearance actions,
   plus its remaining accessibility, grouping, and runtime gaps.

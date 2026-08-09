@@ -127,6 +127,13 @@ Rules for adding a changelog entry to make them look more uniform:
       </listitem>
 
       <listitem>
+        <para>GUI: Added localized accessibility semantics to the Material 3
+          wizard shell and native page stack, including current/completed/upcoming
+          step descriptions, live page context, and truthful Help, Back, Next,
+          Finish, and Cancel action announcements</para>
+      </listitem>
+
+      <listitem>
         <para>GUI: Added bounded persistent Material 3 notification history for
           non-blocking messages, with local plain-text/regular-expression search,
           unread tracking, atomic application-data storage, and legacy blocking

@@ -38,6 +38,7 @@ UIMd3Wizard::UIMd3Wizard(QWidget *pParent)
 {
     setObjectName(QStringLiteral("md3WizardShell"));
     setAttribute(Qt::WA_StyledBackground, true);
+    setFocusPolicy(Qt::NoFocus);
     setAccessibleName(tr("Wizard"));
     setAccessibleDescription(tr("Material 3 wizard with page progress and the active page content."));
 
@@ -49,6 +50,7 @@ UIMd3Wizard::UIMd3Wizard(QWidget *pParent)
     m_pPageTitle = new QLabel(this);
     m_pPageTitle->setWordWrap(true);
     m_pPageTitle->setAccessibleName(tr("Current wizard page"));
+    m_pPageTitle->setAccessibleDescription(tr("Title of the active wizard page."));
     if (UIMd3Theme::instance())
         m_pPageTitle->setFont(md3Theme().font(UIMd3TypeRole_HeadlineSmall));
     m_pLayout->addWidget(m_pPageTitle);
@@ -56,6 +58,7 @@ UIMd3Wizard::UIMd3Wizard(QWidget *pParent)
     m_pStepSummary = new QLabel(this);
     m_pStepSummary->setWordWrap(true);
     m_pStepSummary->setAccessibleName(tr("Wizard progress"));
+    m_pStepSummary->setAccessibleDescription(tr("Progress through the wizard steps."));
     if (UIMd3Theme::instance())
         m_pStepSummary->setFont(md3Theme().font(UIMd3TypeRole_BodyMedium));
     m_pLayout->addWidget(m_pStepSummary);
@@ -119,6 +122,8 @@ void UIMd3Wizard::setStepTitles(const QStringList &titles)
         pStep->setMinimumHeight(UIMd3Theme::instance() ? md3Theme().controlHeight() : 40);
         pStep->setText(m_stepTitles.at(i));
         pStep->setAccessibleName(tr("Wizard step %1: %2").arg(i + 1).arg(m_stepTitles.at(i)));
+        pStep->setAccessibleDescription(tr("Wizard step %1 of %2. Upcoming step.")
+                                         .arg(i + 1).arg(m_stepTitles.size()));
         m_steps << pStep;
         pStepLayout->addWidget(pStep, 1);
         if (i + 1 < m_stepTitles.size())
@@ -137,13 +142,20 @@ void UIMd3Wizard::setCurrentStep(int iIndex)
     m_iCurrentStep = iIndex;
     const int cSteps = m_stepTitles.size();
     if (m_pStepSummary)
-        m_pStepSummary->setText(cSteps > 0 && iIndex >= 0 && iIndex < cSteps
-                                ? tr("Step %1 of %2").arg(iIndex + 1).arg(cSteps)
-                                : QString());
+    {
+        const QString strSummary = cSteps > 0 && iIndex >= 0 && iIndex < cSteps
+                                  ? tr("Step %1 of %2").arg(iIndex + 1).arg(cSteps)
+                                  : QString();
+        m_pStepSummary->setText(strSummary);
+        m_pStepSummary->setAccessibleDescription(strSummary.isEmpty()
+                                                  ? tr("Wizard progress is unavailable.")
+                                                  : tr("Current wizard progress: %1").arg(strSummary));
+    }
     for (int i = 0; i < m_steps.size(); ++i)
     {
         QLabel *pStep = m_steps.at(i);
         const bool fCurrent = i == iIndex;
+        const bool fComplete = i < iIndex;
         QPalette pal = pStep->palette();
         if (UIMd3Theme::instance())
         {
@@ -157,6 +169,12 @@ void UIMd3Wizard::setCurrentStep(int iIndex)
         pStep->setFont(UIMd3Theme::instance()
                        ? md3Theme().font(fCurrent ? UIMd3TypeRole_LabelLarge : UIMd3TypeRole_LabelMedium)
                        : font());
+        pStep->setAccessibleDescription(tr("Wizard step %1 of %2. %3.")
+                                        .arg(i + 1)
+                                        .arg(cSteps)
+                                        .arg(fCurrent ? tr("Current step")
+                                                      : fComplete ? tr("Completed step")
+                                                                  : tr("Upcoming step")));
         pStep->setToolTip(m_stepTitles.value(i));
     }
     update();
@@ -174,6 +192,13 @@ void UIMd3Wizard::setStepComplete(int iIndex, bool fComplete)
                              .arg(iIndex + 1)
                              .arg(strTitle)
                              .arg(fComplete ? tr(", complete") : QString()));
+    pStep->setAccessibleDescription(tr("Wizard step %1 of %2. %3.")
+                                    .arg(iIndex + 1)
+                                    .arg(m_stepTitles.size())
+                                    .arg(iIndex == m_iCurrentStep
+                                         ? tr("Current step")
+                                         : fComplete ? tr("Completed step")
+                                                     : tr("Upcoming step")));
 }
 
 void UIMd3Wizard::sltThemeChanged()

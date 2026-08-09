@@ -51,11 +51,11 @@ jobs:
           }
           $wizardHeader = Get-Content src/VBox/Frontends/VirtualBox/src/md3/UIMd3Wizard.h -Raw
           $wizardSource = Get-Content src/VBox/Frontends/VirtualBox/src/md3/UIMd3Wizard.cpp -Raw
-          foreach ($pattern in @('class SHARED_LIBRARY_STUFF UIMd3Wizard', 'setStepTitles', 'setCurrentStep', 'setContentWidget')) {
+          foreach ($pattern in @('class SHARED_LIBRARY_STUFF UIMd3Wizard', 'setStepTitles', 'setCurrentStep', 'setContentWidget', 'setFocusPolicy(Qt::NoFocus)', 'setAccessibleName', 'setAccessibleDescription', 'Current wizard page', 'Wizard progress', 'Current step', 'Completed step', 'Upcoming step')) {
             if (($wizardHeader + $wizardSource) -notmatch [regex]::Escape($pattern)) { throw "Wizard shell contract missing: $pattern" }
           }
           $nativeWizard = Get-Content src/VBox/Frontends/VirtualBox/src/wizards/UINativeWizard.cpp -Raw
-          foreach ($pattern in @('UIMd3Wizard.h', 'new UIMd3Wizard', 'setContentWidget', 'setStepTitles')) {
+          foreach ($pattern in @('UIMd3Wizard.h', 'new UIMd3Wizard', 'setContentWidget', 'setStepTitles', 'wizardPageStack', 'Wizard pages', 'Current wizard page:', 'setAccessibleName', 'setAccessibleDescription', 'fPageComplete', 'fLastPage', 'Complete the current wizard page before continuing', 'Go to the previous wizard page', 'Go to the next wizard page after validation', 'Validate and commit all wizard data', 'Cancel this wizard without committing its data')) {
             if ($nativeWizard -notmatch [regex]::Escape($pattern)) { throw "Native wizard composition missing: $pattern" }
           }
           if (-not (Test-Path doc/md3/WizardShell.md)) { throw 'Missing wizard shell article' }

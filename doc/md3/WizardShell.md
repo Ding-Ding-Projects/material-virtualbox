@@ -20,7 +20,15 @@ validation, button API, or notification center.
   existing ownership and `QPushButton*` API.
 - A completed prior step is announced with a check mark, while the current
   step uses the active Material 3 container role. The shell itself has an
-  accessible name and progress description.
+  accessible name and progress description. Each step also exposes a
+  localized state description (current, completed, or upcoming) without
+  pretending that the decorative step labels are clickable.
+- The native page stack has the stable `wizardPageStack` object name, an
+  accessible `Wizard pages` name, and a live description naming the current
+  page. Back, Next/Finish, Cancel, and Help retain their existing handlers but
+  now expose localized accessible names and action descriptions; an incomplete
+  page explains why Next is unavailable, and the enabled path restores the
+  correct Next or Finish name and description when validation becomes true.
 
 ## Configuration and localization
 
@@ -43,10 +51,11 @@ in the existing page widgets and renderer paths.
 
 `UIMd3Wizard.{h,cpp}` is listed in `UICommon_QT_MOCHDRS` and
 `UICommon_SOURCES`. `UINativeWizard` composes the shell while retaining every
-existing page and button contract. The focused Windows `UICommon` kBuild
-target is the required compile gate; native wizard captures are deliberately
-deferred for the current task because the COM/SDS runtime boundary is not
-registered.
+existing page and button contract. Static source contracts cover the shell's
+step-state descriptions, the page-stack accessible name/description, and all
+native wizard action names. The focused Windows `UICommon` kBuild target is
+the required compile gate; native wizard captures are deliberately deferred
+for the current task because the COM/SDS runtime boundary is not registered.
 
 ## Open work
 
