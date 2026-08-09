@@ -794,7 +794,7 @@ void UIMd3TabStrip::contextMenuEvent(QContextMenuEvent *pEvent)
                                   .arg(group.strName));
             groupActions << pRename;
 
-            QAction *pAppearance = menu.addAction(tr("Edit group appearance: %1").arg(group.strName));
+            QAction *pAppearance = menu.addAction(tr("Edit group appearance…: %1").arg(group.strName));
             pAppearance->setStatusTip(tr("Edit appearance for tab group %1").arg(group.strName));
             pAppearance->setWhatsThis(tr("Edit the appearance of tab group %1").arg(group.strName));
             groupActions << pAppearance;
