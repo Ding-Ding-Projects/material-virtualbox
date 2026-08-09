@@ -127,6 +127,12 @@ Rules for adding a changelog entry to make them look more uniform:
       </listitem>
 
       <listitem>
+        <para>GUI: Updated the frameless Material 3 manager title bar to
+          refresh Menu, Minimize, Maximize/Restore, Close, and accessibility
+          labels when the persisted language mode changes</para>
+      </listitem>
+
+      <listitem>
         <para>GUI: Added an embedded Material 3 wizard shell with translated page
           titles, step progress, completion state, and the existing validation,
           notification, and button contracts preserved</para>

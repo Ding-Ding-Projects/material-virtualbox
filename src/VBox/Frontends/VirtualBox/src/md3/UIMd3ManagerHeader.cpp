@@ -35,7 +35,10 @@ UIMd3ManagerHeader::UIMd3ManagerHeader(QMainWindow *pWindow, QWidget *pParent /*
     , m_pWindow(pWindow)
     , m_pTitle(0)
     , m_pUnread(0)
+    , m_pMenu(0)
+    , m_pMinimize(0)
     , m_pMaximize(0)
+    , m_pClose(0)
     , m_pNotifications(0)
     , m_fDragging(false)
 {
@@ -112,33 +115,39 @@ UIMd3ManagerHeader::UIMd3ManagerHeader(QMainWindow *pWindow, QWidget *pParent /*
         });
     updateNotificationState();
 
-    UIMd3Button *pMenu = new UIMd3Button(md3Text(QStringLiteral("md3.menu")), UIMd3ButtonVariant_Text, this);
-    pMenu->setToolTip(tr("Show or hide the application menu"));
-    pMenu->setAccessibleName(tr("Show or hide the application menu"));
-    pMenu->setMinimumHeight(md3Theme().controlHeight());
-    connect(pMenu, &UIMd3Button::sigClicked, pWindow, [pWindow]()
+    m_pMenu = new UIMd3Button(md3Text(QStringLiteral("md3.menu")), UIMd3ButtonVariant_Text, this);
+    m_pMenu->setToolTip(tr("Show or hide the application menu"));
+    m_pMenu->setAccessibleName(tr("Show or hide the application menu"));
+    m_pMenu->setMinimumHeight(md3Theme().controlHeight());
+    connect(m_pMenu, &UIMd3Button::sigClicked, pWindow, [pWindow]()
     {
         if (pWindow->menuBar())
             pWindow->menuBar()->setVisible(!pWindow->menuBar()->isVisible());
     });
-    pLayout->addWidget(pMenu);
+    pLayout->addWidget(m_pMenu);
 
-    UIMd3Button *pMinimize = new UIMd3Button(md3Text(QStringLiteral("md3.minimize")), UIMd3ButtonVariant_Text, this);
-    pMinimize->setAccessibleName(tr("Minimize window"));
-    connect(pMinimize, &UIMd3Button::sigClicked, pWindow, &QWidget::showMinimized);
-    pLayout->addWidget(pMinimize);
+    m_pMinimize = new UIMd3Button(md3Text(QStringLiteral("md3.minimize")), UIMd3ButtonVariant_Text, this);
+    m_pMinimize->setAccessibleName(tr("Minimize window"));
+    connect(m_pMinimize, &UIMd3Button::sigClicked, pWindow, &QWidget::showMinimized);
+    pLayout->addWidget(m_pMinimize);
 
-    UIMd3Language::instance()->registerText(QStringLiteral("md3.maximize"), QStringLiteral("Maximize"), QStringLiteral("放大"));
+    if (UIMd3Language::instance())
+        UIMd3Language::instance()->registerText(QStringLiteral("md3.maximize"), QStringLiteral("Maximize"), QStringLiteral("放大"));
     m_pMaximize = new UIMd3Button(QString(), UIMd3ButtonVariant_Text, this);
     m_pMaximize->setAccessibleName(tr("Maximize or restore window"));
     connect(m_pMaximize, &UIMd3Button::sigClicked, this, &UIMd3ManagerHeader::toggleMaximize);
     pLayout->addWidget(m_pMaximize);
     updateMaximizeLabel();
 
-    UIMd3Button *pClose = new UIMd3Button(md3Text(QStringLiteral("md3.close")), UIMd3ButtonVariant_Danger, this);
-    pClose->setAccessibleName(tr("Close window"));
-    connect(pClose, &UIMd3Button::sigClicked, pWindow, &QWidget::close);
-    pLayout->addWidget(pClose);
+    m_pClose = new UIMd3Button(md3Text(QStringLiteral("md3.close")), UIMd3ButtonVariant_Danger, this);
+    m_pClose->setAccessibleName(tr("Close window"));
+    connect(m_pClose, &UIMd3Button::sigClicked, pWindow, &QWidget::close);
+    pLayout->addWidget(m_pClose);
+
+    if (UIMd3Language::instance())
+        connect(UIMd3Language::instance(), &UIMd3Language::sigLanguageChanged,
+                this, &UIMd3ManagerHeader::updateChromeText);
+    updateChromeText();
 }
 
 void UIMd3ManagerHeader::toggleMaximize()
@@ -159,6 +168,33 @@ void UIMd3ManagerHeader::updateMaximizeLabel()
     const bool fMaximized = m_pWindow->isMaximized();
     m_pMaximize->setText(fMaximized ? tr("Restore") : tr("Maximize"));
     m_pMaximize->setToolTip(fMaximized ? tr("Restore window") : tr("Maximize window"));
+}
+
+void UIMd3ManagerHeader::updateChromeText()
+{
+    if (m_pMenu)
+    {
+        const QString strMenu = md3Text(QStringLiteral("md3.menu"));
+        m_pMenu->setText(strMenu);
+        m_pMenu->setAccessibleName(tr("Show or hide the application menu"));
+        m_pMenu->setToolTip(tr("Show or hide the application menu"));
+    }
+    if (m_pMinimize)
+    {
+        const QString strMinimize = md3Text(QStringLiteral("md3.minimize"));
+        m_pMinimize->setText(strMinimize);
+        m_pMinimize->setAccessibleName(tr("Minimize window"));
+        m_pMinimize->setToolTip(tr("Minimize window"));
+    }
+    if (m_pMaximize)
+        updateMaximizeLabel();
+    if (m_pClose)
+    {
+        const QString strClose = md3Text(QStringLiteral("md3.close"));
+        m_pClose->setText(strClose);
+        m_pClose->setAccessibleName(tr("Close window"));
+        m_pClose->setToolTip(tr("Close window"));
+    }
 }
 
 void UIMd3ManagerHeader::updateNotificationState()

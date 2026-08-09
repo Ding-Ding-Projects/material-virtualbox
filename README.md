@@ -77,6 +77,13 @@ wired to live manager commands through a stable owner registry with bounded,
 accessible results and focus return; its native capture remains pending the
 COM registration gate.
 
+The frameless Windows manager title bar is documented in
+[`doc/md3/TitleBar.md`](doc/md3/TitleBar.md). Its real Menu, Minimize,
+Maximize/Restore, Close, and Notifications actions preserve the existing
+window/menu authority and refresh their labels, tooltips, and accessible names
+when the persisted language mode changes. Native snap, high-DPI, and bilingual
+captures remain part of the deferred runtime evidence matrix.
+
 The first implemented manager capture gate is the navigation rail: its buttons
 must select the existing `UIToolType` models, preserve expert-mode restrictions,
 show keyboard focus, and reflect the active theme. A capture that cannot show

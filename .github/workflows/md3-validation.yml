@@ -103,7 +103,7 @@ jobs:
           }
           $managerHeader = Get-Content src/VBox/Frontends/VirtualBox/src/md3/UIMd3ManagerHeader.h -Raw
           $managerSource = Get-Content src/VBox/Frontends/VirtualBox/src/md3/UIMd3ManagerHeader.cpp -Raw
-          foreach ($pattern in @('UIMd3NotificationCentre.h', 'showCentre', 'hasUnread', 'updateNotificationState')) {
+          foreach ($pattern in @('UIMd3NotificationCentre.h', 'showCentre', 'hasUnread', 'updateNotificationState', 'updateChromeText', 'sigLanguageChanged', 'm_pMenu', 'm_pMinimize', 'm_pMaximize', 'm_pClose')) {
             if (($managerHeader + $managerSource) -notmatch [regex]::Escape($pattern)) { throw "Manager notification action contract missing: $pattern" }
           }
           $managerSource = Get-Content src/VBox/Frontends/VirtualBox/src/manager/UIVirtualBoxManager.cpp -Raw

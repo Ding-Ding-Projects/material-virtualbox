@@ -33,12 +33,16 @@ protected:
 private:
     void toggleMaximize();
     void updateMaximizeLabel();
+    void updateChromeText();
     void updateNotificationState();
 
     QMainWindow  *m_pWindow;
     QLabel       *m_pTitle;
     QLabel       *m_pUnread;
+    UIMd3Button  *m_pMenu;
+    UIMd3Button  *m_pMinimize;
     UIMd3Button  *m_pMaximize;
+    UIMd3Button  *m_pClose;
     UIMd3Button  *m_pNotifications;
     bool          m_fDragging;
     QPoint        m_dragOffset;
