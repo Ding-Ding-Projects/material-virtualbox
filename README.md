@@ -272,16 +272,16 @@ The build requires a compatible compiler, Qt 6 development files, kBuild
 the source tree; use `LocalConfig.kmk` for local overrides.
 
 **Current verification boundary:** the evidence below was built from exact
-source commit [`f29c7eb994d69c0e4ce69c5220110674ed9e846f`](https://github.com/Ding-Ding-Projects/material-virtualbox/commit/f29c7eb994d69c0e4ce69c5220110674ed9e846f)
+source commit [`eb70fdf2047c4ceeb5ac9783ac41f640e582ec86`](https://github.com/Ding-Ding-Projects/material-virtualbox/commit/eb70fdf2047c4ceeb5ac9783ac41f640e582ec86)
 on a Windows x64 development host, using MSVC 14.44, Windows SDK
 10.0.26100.0, Qt 6.8.3 with the official `qtscxml` add-on, and the bundled
 kBuild executable. It is compile/link evidence, not a runtime or release claim.
 
 | Target | Local result | Completed (UTC-04:00) | Installed artifact SHA-256 |
 | --- | --- | --- | --- |
-| `UICommon` | Exit 0, compiled and linked | 2026-08-09 14:03:32 | `E206646A86D5BBF252477FF7565C1A09C4A9CC2AF57BCE54913293DD09A009A4` |
-| `VirtualBox` | Exit 0, target up to date against rebuilt `UICommon` | 2026-08-09 13:52:05 | `83CA5A686116217892359871722D7468ABD48F356ADA169D844E76D7E19C958B` |
-| `VirtualBoxVM` | Exit 0, target up to date against rebuilt `UICommon` | 2026-08-09 13:52:18 | `BD669EA84F3F1241893CDF66A157ED9DDE2BB9D29ED0DEC7C747E7F588514E3C` |
+| `UICommon` | Exit 0, compiled and linked | 2026-08-09 14:23:08 | `7C6F2ECD7C6A73A8667F76E05AB0D05C0200FF2C74E005B3C1014622E5507A80` |
+| `VirtualBox` | Exit 0, compiled and linked | 2026-08-09 14:23:28 | `27FF189DF9355F899BD7E2B1A370E7B3622DB51D9E6111FB51251F6569E2C27E` |
+| `VirtualBoxVM` | Exit 0, compiled and linked | 2026-08-09 14:23:46 | `D03DEB228A0BF99337EE001C26B772218B996610F4080AD8BDD2780029A1AC1E` |
 
 The serial target commands used the repository's configured environment and
 checked `UICommon`, `VirtualBox`, and `VirtualBoxVM` separately. This proves the
@@ -289,10 +289,10 @@ changed shared and manager translation units compiled and linked, and that the
 runtime target remained dependency-current on that host. Full runtime manager
 capture remains blocked by the checkout's unregistered `VirtualBoxClient` COM
 runtime (`REGDB_E_CLASSNOTREG`); no mock screenshot is counted as GUI proof.
-Exact-tip validation [run 31328160092](https://github.com/Ding-Ding-Projects/material-virtualbox/actions/runs/31328160092)
-and Pages [run 31328160088](https://github.com/Ding-Ding-Projects/material-virtualbox/actions/runs/31328160088)
-completed successfully; the deployed Home page and the raw `RegexBuilder.md`
-and `TabNavigation.md` articles returned HTTP 200 with the new content.
+Exact-tip validation [run 31328985330](https://github.com/Ding-Ding-Projects/material-virtualbox/actions/runs/31328985330)
+and Pages [run 31328985294](https://github.com/Ding-Ding-Projects/material-virtualbox/actions/runs/31328985294)
+completed successfully; the deployed Home page and raw
+`StockControlStyle.md` article returned HTTP 200 with the new content.
 
 </details>
 
