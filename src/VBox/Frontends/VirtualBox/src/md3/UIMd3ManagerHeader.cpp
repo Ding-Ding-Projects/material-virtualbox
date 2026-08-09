@@ -79,6 +79,7 @@ UIMd3ManagerHeader::UIMd3ManagerHeader(QMainWindow *pWindow, QWidget *pParent /*
         });
 
     m_pNotifications = new UIMd3Button(md3Text(QStringLiteral("md3.notifications.bell")), UIMd3ButtonVariant_Text, this);
+    m_pNotifications->setAppearanceKey(QStringLiteral("manager-header/notifications"));
     m_pNotifications->setToolTip(tr("Open notification history"));
     m_pNotifications->setAccessibleName(tr("Open notification history"));
     m_pNotifications->setMinimumHeight(md3Theme().controlHeight());
@@ -116,6 +117,7 @@ UIMd3ManagerHeader::UIMd3ManagerHeader(QMainWindow *pWindow, QWidget *pParent /*
     updateNotificationState();
 
     m_pMenu = new UIMd3Button(md3Text(QStringLiteral("md3.menu")), UIMd3ButtonVariant_Text, this);
+    m_pMenu->setAppearanceKey(QStringLiteral("manager-header/menu"));
     m_pMenu->setToolTip(tr("Show or hide the application menu"));
     m_pMenu->setAccessibleName(tr("Show or hide the application menu"));
     m_pMenu->setMinimumHeight(md3Theme().controlHeight());
@@ -127,6 +129,7 @@ UIMd3ManagerHeader::UIMd3ManagerHeader(QMainWindow *pWindow, QWidget *pParent /*
     pLayout->addWidget(m_pMenu);
 
     m_pMinimize = new UIMd3Button(md3Text(QStringLiteral("md3.minimize")), UIMd3ButtonVariant_Text, this);
+    m_pMinimize->setAppearanceKey(QStringLiteral("manager-header/minimize"));
     m_pMinimize->setAccessibleName(tr("Minimize window"));
     connect(m_pMinimize, &UIMd3Button::sigClicked, pWindow, &QWidget::showMinimized);
     pLayout->addWidget(m_pMinimize);
@@ -134,12 +137,14 @@ UIMd3ManagerHeader::UIMd3ManagerHeader(QMainWindow *pWindow, QWidget *pParent /*
     if (UIMd3Language::instance())
         UIMd3Language::instance()->registerText(QStringLiteral("md3.maximize"), QStringLiteral("Maximize"), QStringLiteral("放大"));
     m_pMaximize = new UIMd3Button(QString(), UIMd3ButtonVariant_Text, this);
+    m_pMaximize->setAppearanceKey(QStringLiteral("manager-header/maximize"));
     m_pMaximize->setAccessibleName(tr("Maximize or restore window"));
     connect(m_pMaximize, &UIMd3Button::sigClicked, this, &UIMd3ManagerHeader::toggleMaximize);
     pLayout->addWidget(m_pMaximize);
     updateMaximizeLabel();
 
     m_pClose = new UIMd3Button(md3Text(QStringLiteral("md3.close")), UIMd3ButtonVariant_Danger, this);
+    m_pClose->setAppearanceKey(QStringLiteral("manager-header/close"));
     m_pClose->setAccessibleName(tr("Close window"));
     connect(m_pClose, &UIMd3Button::sigClicked, pWindow, &QWidget::close);
     pLayout->addWidget(m_pClose);

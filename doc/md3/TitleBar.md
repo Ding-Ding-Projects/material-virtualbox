@@ -12,6 +12,8 @@ The header updates its display text, tooltip, and accessible name when the
 persisted English/Cantonese/bilingual mode changes, including the dynamic
 Maximize versus Restore state. Display-brand changes update the title label
 without changing VirtualBox's technical identifiers or data paths.
+Each button also has a stable appearance key, so a per-control customization
+does not drift when its localized label changes.
 
 Dragging is available from unused header space while the window is normal;
 double-click toggles maximize/restore. Child controls retain their own pointer,
