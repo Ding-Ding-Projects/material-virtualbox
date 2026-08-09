@@ -606,6 +606,10 @@ UIVirtualBoxManager::UIVirtualBoxManager()
 {
     s_pInstance = this;
     setAcceptDrops(true);
+#ifdef VBOX_WS_WIN
+    /* The Material header owns window movement and controls on Windows. */
+    setWindowFlag(Qt::FramelessWindowHint, true);
+#endif
 }
 
 UIVirtualBoxManager::~UIVirtualBoxManager()
