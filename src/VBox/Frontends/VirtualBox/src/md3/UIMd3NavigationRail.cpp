@@ -16,6 +16,12 @@
 #include "UIMd3NavigationRail.h"
 #include "UIMd3Theme.h"
 
+static QIcon md3RailIcon(const char *pszName, const QIcon &fallback)
+{
+    const QIcon icon(QStringLiteral(":/md3/icons/") + QString::fromLatin1(pszName));
+    return icon.isNull() ? fallback : icon;
+}
+
 UIMd3NavigationRail::UIMd3NavigationRail(QWidget *pParent)
     : QWidget(pParent)
     , m_pButtonGroup(new QButtonGroup(this))
@@ -30,13 +36,20 @@ UIMd3NavigationRail::UIMd3NavigationRail(QWidget *pParent)
     pLayout->setContentsMargins(12, 12, 12, 12);
     pLayout->setSpacing(8);
 
-    createButton(UIToolType_Home, QApplication::style()->standardIcon(QStyle::SP_DirHomeIcon));
-    createButton(UIToolType_Machines, QApplication::style()->standardIcon(QStyle::SP_ComputerIcon));
-    createButton(UIToolType_Media, QApplication::style()->standardIcon(QStyle::SP_DriveHDIcon));
-    createButton(UIToolType_Network, QApplication::style()->standardIcon(QStyle::SP_DriveNetIcon));
-    createButton(UIToolType_Cloud, QApplication::style()->standardIcon(QStyle::SP_DirOpenIcon));
-    createButton(UIToolType_Resources, QApplication::style()->standardIcon(QStyle::SP_FileDialogContentsView));
-    createButton(UIToolType_Extensions, QApplication::style()->standardIcon(QStyle::SP_FileDialogInfoView));
+    createButton(UIToolType_Home, md3RailIcon("welcome_screen_24px.png",
+                                               QApplication::style()->standardIcon(QStyle::SP_DirHomeIcon)));
+    createButton(UIToolType_Machines, md3RailIcon("machine_details_manager_24px.png",
+                                                   QApplication::style()->standardIcon(QStyle::SP_ComputerIcon)));
+    createButton(UIToolType_Media, md3RailIcon("media_manager_24px.png",
+                                                QApplication::style()->standardIcon(QStyle::SP_DriveHDIcon)));
+    createButton(UIToolType_Network, md3RailIcon("host_iface_manager_24px.png",
+                                                  QApplication::style()->standardIcon(QStyle::SP_DriveNetIcon)));
+    createButton(UIToolType_Cloud, md3RailIcon("cloud_profile_manager_24px.png",
+                                                QApplication::style()->standardIcon(QStyle::SP_DirOpenIcon)));
+    createButton(UIToolType_Resources, md3RailIcon("resources_monitor_24px.png",
+                                                    QApplication::style()->standardIcon(QStyle::SP_FileDialogContentsView)));
+    createButton(UIToolType_Extensions, md3RailIcon("extension_pack_manager_24px.png",
+                                                     QApplication::style()->standardIcon(QStyle::SP_FileDialogInfoView)));
     pLayout->addStretch(1);
 
     foreach (QAbstractButton *pButton, m_pButtonGroup->buttons())

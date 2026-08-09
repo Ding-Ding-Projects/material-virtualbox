@@ -1,0 +1,31 @@
+<RCC>
+    <qresource prefix="/md3">
+        <file alias="icons/chipset_16px.png">icons/chipset_16px.png</file>
+        <file alias="icons/cloud_profile_manager_24px.png">icons/cloud_profile_manager_24px.png</file>
+        <file alias="icons/description_16px.png">icons/description_16px.png</file>
+        <file alias="icons/extension_pack_manager_24px.png">icons/extension_pack_manager_24px.png</file>
+        <file alias="icons/file_manager_24px.png">icons/file_manager_24px.png</file>
+        <file alias="icons/hd_16px.png">icons/hd_16px.png</file>
+        <file alias="icons/host_iface_manager_24px.png">icons/host_iface_manager_24px.png</file>
+        <file alias="icons/interface_16px.png">icons/interface_16px.png</file>
+        <file alias="icons/machine_16px.png">icons/machine_16px.png</file>
+        <file alias="icons/machine_details_manager_24px.png">icons/machine_details_manager_24px.png</file>
+        <file alias="icons/media_manager_24px.png">icons/media_manager_24px.png</file>
+        <file alias="icons/nw_16px.png">icons/nw_16px.png</file>
+        <file alias="icons/performance_monitor_24px.png">icons/performance_monitor_24px.png</file>
+        <file alias="icons/resources_monitor_24px.png">icons/resources_monitor_24px.png</file>
+        <file alias="icons/serial_port_16px.png">icons/serial_port_16px.png</file>
+        <file alias="icons/sf_16px.png">icons/sf_16px.png</file>
+        <file alias="icons/snapshot_manager_24px.png">icons/snapshot_manager_24px.png</file>
+        <file alias="icons/sound_16px.png">icons/sound_16px.png</file>
+        <file alias="icons/tools_menu_24px.png">icons/tools_menu_24px.png</file>
+        <file alias="icons/usb_16px.png">icons/usb_16px.png</file>
+        <file alias="icons/vm_discard_32px.png">icons/vm_discard_32px.png</file>
+        <file alias="icons/vm_new_32px.png">icons/vm_new_32px.png</file>
+        <file alias="icons/vm_settings_32px.png">icons/vm_settings_32px.png</file>
+        <file alias="icons/vm_show_logs_24px.png">icons/vm_show_logs_24px.png</file>
+        <file alias="icons/vm_start_32px.png">icons/vm_start_32px.png</file>
+        <file alias="icons/vrdp_16px.png">icons/vrdp_16px.png</file>
+        <file alias="icons/welcome_screen_24px.png">icons/welcome_screen_24px.png</file>
+    </qresource>
+</RCC>

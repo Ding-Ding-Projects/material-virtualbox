@@ -96,6 +96,9 @@ This is one VirtualBox frontend, not a parallel demo application.
   notification, history, accessibility, and safe utility code in the
   `UICommon` boundary. Manager-only code belongs to `VirtualBox`; runtime-only
   chrome belongs to `VirtualBoxVM`.
+- **Bundled assets:** the manager rail consumes the checked-in MD3 icon set
+  through `src/md3/UIMd3Icons.qrc`, with a deterministic Qt standard-icon
+  fallback if an individual resource cannot be loaded.
 - **Persistence:** use VirtualBox extra data and existing settings APIs. Do
   not introduce a second preferences database.
 

@@ -1339,6 +1339,7 @@ UICommon_SOURCES = \
 	src/md3/UIMd3Style.cpp \
 	src/md3/UIMd3RegexBuilder.cpp \
 	src/md3/UIMd3SearchField.cpp \
+	src/md3/UIMd3Icons.qrc \
 	src/extensions/QIAdvancedSlider.cpp \
 	src/extensions/QIArrowButtonPress.cpp \
 	src/extensions/QIArrowButtonSwitch.cpp \

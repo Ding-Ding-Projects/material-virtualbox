@@ -104,6 +104,12 @@ Rules for adding a changelog entry to make them look more uniform:
       </listitem>
 
       <listitem>
+        <para>GUI: Bundled the Material 3 manager destination icons in a shared
+          Qt resource and mapped them to the existing model-backed navigation
+          rail with a deterministic standard-icon fallback</para>
+      </listitem>
+
+      <listitem>
         <para>Building the OSE Edition: Implemented a new configure.py script which
           unifies the ./configure (non-Windows) and configure.vbs (Windows) scripts
           Please adjust your building process accordingly, as the compatibility wrapper

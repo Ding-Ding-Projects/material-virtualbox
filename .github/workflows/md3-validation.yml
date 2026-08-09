@@ -28,7 +28,7 @@ jobs:
         shell: pwsh
         run: |
           $make = Get-Content src/VBox/Frontends/VirtualBox/Makefile.kmk -Raw
-          foreach ($path in @('src/md3/UIMd3AppearanceEditor.cpp','src/md3/UIMd3Theme.cpp','src/md3/UIMd3Style.cpp','src/md3/UIMd3Language.cpp','src/md3/UIMd3NavigationRail.cpp','src/md3/UIMd3RegexBuilder.cpp','src/md3/UIMd3SearchField.cpp','src/md3/UIMd3CommandPalette.cpp')) {
+          foreach ($path in @('src/md3/UIMd3AppearanceEditor.cpp','src/md3/UIMd3Theme.cpp','src/md3/UIMd3Style.cpp','src/md3/UIMd3Language.cpp','src/md3/UIMd3NavigationRail.cpp','src/md3/UIMd3RegexBuilder.cpp','src/md3/UIMd3SearchField.cpp','src/md3/UIMd3CommandPalette.cpp','src/md3/UIMd3Icons.qrc')) {
             if ($make -notmatch [regex]::Escape($path)) { throw "Missing kBuild source: $path" }
           }
           foreach ($path in @('src/md3/UIMd3AppearanceEditor.h','src/md3/UIMd3Tokens.h','src/md3/UIMd3Theme.h','src/md3/UIMd3Style.h','src/md3/UIMd3Language.h','src/md3/UIMd3NavigationRail.h','src/md3/UIMd3RegexBuilder.h','src/md3/UIMd3SearchField.h','src/md3/UIMd3CommandPalette.h')) {
@@ -36,6 +36,9 @@ jobs:
             if (-not (Test-Path "src/VBox/Frontends/VirtualBox/$path")) { throw "Missing production MD3 header: $path" }
           }
           if ($make -notmatch [regex]::Escape('./src/md3')) { throw 'Missing MD3 include directory' }
+          $qrc = Get-Content src/VBox/Frontends/VirtualBox/src/md3/UIMd3Icons.qrc -Raw
+          $iconCount = ([regex]::Matches($qrc, '<file ')).Count
+          if ($iconCount -ne 27) { throw "Expected 27 bundled MD3 icons, found $iconCount" }
           $makeLines = Get-Content src/VBox/Frontends/VirtualBox/Makefile.kmk
           $virtualBoxSourcesAt = ($makeLines | Select-String '^VirtualBox_SOURCES =').LineNumber
           $virtualBoxVMSourcesAt = ($makeLines | Select-String '^VirtualBoxVM_SOURCES =').LineNumber

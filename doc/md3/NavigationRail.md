@@ -25,6 +25,10 @@ in compact density), visible focus borders, accessible names, and a 176--224 px
 bounded width. Theme updates refresh the live colors and density without
 replacing the underlying tool widgets.
 
+The seven destinations use the bundled `src/md3/UIMd3Icons.qrc` resource,
+with a Qt standard-icon fallback when an asset cannot be loaded. The fallback
+does not create a second selection model or change the existing action path.
+
 ## Failure modes and security
 
 The rail never creates or destroys virtual machines and never performs COM
