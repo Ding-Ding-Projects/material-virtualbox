@@ -737,6 +737,7 @@ UICommon_QT_MOCHDRS = \
 	src/md3/UIMd3AppearanceEditor.h \
 	src/md3/UIMd3Button.h \
 	src/md3/UIMd3CommandPalette.h \
+	src/md3/UIMd3Wizard.h \
 	src/md3/UIMd3TabStrip.h \
 	src/md3/UIMd3Widget.h \
 	src/md3/UIMd3Tokens.h \
@@ -1331,6 +1332,7 @@ UICommon_SOURCES = \
 	src/md3/UIMd3AppearanceEditor.cpp \
 	src/md3/UIMd3Button.cpp \
 	src/md3/UIMd3CommandPalette.cpp \
+	src/md3/UIMd3Wizard.cpp \
 	src/md3/UIMd3TabStrip.cpp \
 	src/md3/UIMd3Widget.cpp \
 	src/VBoxAboutDlg.cpp \

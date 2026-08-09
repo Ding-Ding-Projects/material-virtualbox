@@ -115,6 +115,12 @@ Rules for adding a changelog entry to make them look more uniform:
       </listitem>
 
       <listitem>
+        <para>GUI: Added an embedded Material 3 wizard shell with translated page
+          titles, step progress, completion state, and the existing validation,
+          notification, and button contracts preserved</para>
+      </listitem>
+
+      <listitem>
         <para>Building the OSE Edition: Implemented a new configure.py script which
           unifies the ./configure (non-Windows) and configure.vbs (Windows) scripts
           Please adjust your building process accordingly, as the compatibility wrapper

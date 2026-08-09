@@ -13,6 +13,7 @@ This section records the native Qt implementation of the supplied Material Desig
 - [`AppearanceSettings.md`](AppearanceSettings.md) documents the live Material scheme, seed, density, font-scale, and display-brand controls.
 - [`CommandPalette.md`](CommandPalette.md) documents the `Ctrl+Shift+F` registry-backed command palette and focus-return behavior.
 - [`NotificationCentre.md`](NotificationCentre.md) documents the existing center's plain-text and bounded-regex notification filtering lane.
+- [`WizardShell.md`](WizardShell.md) documents the embedded Material 3 shell around the existing native wizard pages.
 - [`TabNavigation.md`](TabNavigation.md) records the manager tab-strip behavior and its remaining accessibility, grouping, and runtime gaps.
 - [`RuntimeCapture.md`](RuntimeCapture.md) records the genuine native screenshot contract and the current COM/service blocker.
 

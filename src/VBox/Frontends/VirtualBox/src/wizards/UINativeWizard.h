@@ -46,6 +46,7 @@ class QLabel;
 class QPushButton;
 class QStackedWidget;
 class QVBoxLayout;
+class UIMd3Wizard;
 class UINativeWizardPage;
 class UINotificationCenter;
 class UINotificationProgress;
@@ -184,6 +185,8 @@ private:
 
     /** Performs pages translation. */
     void retranslatePages();
+    /** Refreshes the Material 3 shell from the current native page stack. */
+    void updateMd3Shell();
 
     /** Resizes wizard to golden ratio. */
     void resizeToGoldenRatio();
@@ -222,6 +225,8 @@ private:
     QVBoxLayout                          *m_pLayoutRight;
     /** Holds the title label instance. */
     QLabel                               *m_pLabelPageTitle;
+    /** Holds the Material 3 presentation shell. */
+    UIMd3Wizard                           *m_pMd3Shell;
     /** Holds the widget-stack instance. */
     QStackedWidget                       *m_pWidgetStack;
     /** Holds button instance map. */

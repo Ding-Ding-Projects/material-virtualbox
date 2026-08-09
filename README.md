@@ -90,6 +90,13 @@ Reviewable history, bulk actions, provider-authored rendering, and the native
 capture remain open lanes; this is not a claim that the legacy notification
 surface has been fully replaced.
 
+The existing New VM, New virtual disk, clone, import, and export flows now
+compose an embedded Material 3 wizard shell around their real
+`UINativeWizardPage` stacks. [`doc/md3/WizardShell.md`](doc/md3/WizardShell.md)
+documents the translated page title, step summary, completion state, and
+preserved validation/progress contracts. Cross-wizard tabs, full validation
+summary details, and native runtime captures remain open.
+
 The handoff requires accounting for all 69 archive entries. The maintained
 ledger is [`doc/md3/DesignCoverage.md`](doc/md3/DesignCoverage.md), with its
 reproducible hash list in [`doc/md3/ArchiveManifest.sha256`](doc/md3/ArchiveManifest.sha256).

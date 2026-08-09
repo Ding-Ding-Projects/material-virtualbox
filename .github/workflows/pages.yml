@@ -25,6 +25,7 @@ jobs:
           New-Item -ItemType Directory -Force _site | Out-Null
           Copy-Item docs\* _site -Recurse -Force
           Copy-Item doc\md3\*.md _site -Force
+          Copy-Item doc\md3\ArchiveManifest.sha256 _site -Force
       - uses: actions/upload-pages-artifact@v3
         with:
           path: _site

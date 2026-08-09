@@ -44,6 +44,7 @@
 #include "UIExtraDataManager.h"
 #include "UIHelpBrowserDialog.h"
 #include "UIIconPool.h"
+#include "UIMd3Wizard.h"
 #include "UINativeWizard.h"
 #include "UINativeWizardPage.h"
 #include "UINotificationCenter.h"
@@ -104,6 +105,7 @@ UINativeWizard::UINativeWizard(QWidget *pParent,
     , m_pLabelPixmap(0)
     , m_pLayoutRight(0)
     , m_pLabelPageTitle(0)
+    , m_pMd3Shell(0)
     , m_pWidgetStack(0)
     , m_pNotificationCenter(0)
 {
@@ -232,6 +234,15 @@ void UINativeWizard::sltRetranslateUI()
     AssertMsgReturnVoid(pButtonCancel, ("No Cancel wizard button found!\n"));
     pButtonCancel->setText(tr("&Cancel"));
     pButtonCancel->setToolTip(tr("Cancel wizard execution."));
+
+    if (m_pWidgetStack && m_pWidgetStack->count())
+    {
+        retranslatePages();
+        UINativeWizardPage *pPage = qobject_cast<UINativeWizardPage*>(m_pWidgetStack->currentWidget());
+        if (pPage && m_pLabelPageTitle)
+            m_pLabelPageTitle->setText(pPage->title());
+        updateMd3Shell();
+    }
 }
 
 void UINativeWizard::keyPressEvent(QKeyEvent *pEvent)
@@ -315,6 +326,7 @@ void UINativeWizard::sltCurrentIndexChanged(int iIndex /* = -1 */)
     UINativeWizardPage *pPage = qobject_cast<UINativeWizardPage*>(m_pWidgetStack->widget(iIndex));
     AssertPtrReturnVoid(pPage);
     m_pLabelPageTitle->setText(pPage->title());
+    updateMd3Shell();
     if (iIndex > m_iLastIndex)
         pPage->initializePage();
 
@@ -449,22 +461,19 @@ void UINativeWizard::prepare()
             m_pLayoutRight = new QVBoxLayout;
             if (m_pLayoutRight)
             {
-                /* Prepare page title label: */
-                m_pLabelPageTitle = new QLabel(this);
-                if (m_pLabelPageTitle)
+                /* Prepare the Material 3 shell.  The existing page stack is
+                 * inserted below its title and stepper without changing the
+                 * UINativeWizardPage ownership or validation contract. */
+                m_pMd3Shell = new UIMd3Wizard(this);
+                if (m_pMd3Shell)
                 {
-                    /* Title should have big/fat font: */
-                    QFont labelFont = m_pLabelPageTitle->font();
-                    labelFont.setBold(true);
-                    labelFont.setPointSize(labelFont.pointSize() + 4);
-                    m_pLabelPageTitle->setFont(labelFont);
-
-                    m_pLayoutRight->addWidget(m_pLabelPageTitle);
+                    m_pLabelPageTitle = m_pMd3Shell->pageTitleLabel();
+                    m_pLayoutRight->addWidget(m_pMd3Shell, 1);
                 }
 
 #ifdef VBOX_WS_MAC
                 /* Prepare frame around widget-stack on macOS for nativity purposes: */
-                UIFrame *pFrame = new UIFrame(this);
+                UIFrame *pFrame = new UIFrame(m_pMd3Shell ? m_pMd3Shell : this);
                 if (pFrame)
                 {
                     /* Prepare frame layout: */
@@ -480,8 +489,12 @@ void UINativeWizard::prepare()
                         }
                     }
 
-                    /* Add to layout: */
-                    m_pLayoutRight->addWidget(pFrame);
+                    /* Add to the shell when available, retaining the native
+                     * frame only for the macOS page-stack treatment. */
+                    if (m_pMd3Shell)
+                        m_pMd3Shell->setContentWidget(pFrame);
+                    else
+                        m_pLayoutRight->addWidget(pFrame);
                 }
 #else /* !VBOX_WS_MAC */
                 /* Prepare widget-stack directly on other platforms: */
@@ -489,7 +502,10 @@ void UINativeWizard::prepare()
                 if (m_pWidgetStack)
                 {
                     connect(m_pWidgetStack, &QStackedWidget::currentChanged, this, &UINativeWizard::sltCurrentIndexChanged);
-                    m_pLayoutRight->addWidget(m_pWidgetStack);
+                    if (m_pMd3Shell)
+                        m_pMd3Shell->setContentWidget(m_pWidgetStack);
+                    else
+                        m_pLayoutRight->addWidget(m_pWidgetStack);
                 }
 #endif /* !VBOX_WS_MAC */
 
@@ -596,8 +612,6 @@ void UINativeWizard::init()
 
     /* Translate wizard: */
     sltRetranslateUI();
-    /* Translate wizard pages: */
-    retranslatePages();
 
     /* Resize wizard to 'golden ratio': */
     resizeToGoldenRatio();
@@ -611,6 +625,24 @@ void UINativeWizard::retranslatePages()
     /* Translate all the pages: */
     for (int i = 0; i < m_pWidgetStack->count(); ++i)
         qobject_cast<UINativeWizardPage*>(m_pWidgetStack->widget(i))->retranslate();
+}
+
+void UINativeWizard::updateMd3Shell()
+{
+    if (!m_pMd3Shell || !m_pWidgetStack)
+        return;
+
+    QStringList stepTitles;
+    for (int i = 0; i < m_pWidgetStack->count(); ++i)
+    {
+        UINativeWizardPage *pStepPage = qobject_cast<UINativeWizardPage*>(m_pWidgetStack->widget(i));
+        if (pStepPage)
+            stepTitles << pStepPage->title();
+    }
+    m_pMd3Shell->setStepTitles(stepTitles);
+    m_pMd3Shell->setCurrentStep(m_pWidgetStack->currentIndex());
+    for (int i = 0; i < stepTitles.size(); ++i)
+        m_pMd3Shell->setStepComplete(i, i < m_pWidgetStack->currentIndex());
 }
 
 void UINativeWizard::resizeToGoldenRatio()
