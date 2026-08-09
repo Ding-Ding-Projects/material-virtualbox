@@ -35,6 +35,13 @@
 #include "UILibraryDefs.h"
 #include "UIMd3Widget.h"
 
+class QContextMenuEvent;
+class QKeyEvent;
+class QMouseEvent;
+class QPaintEvent;
+class QResizeEvent;
+class QToolButton;
+
 struct UIMd3Tab
 {
     QString strId;
@@ -90,6 +97,7 @@ public:
 protected:
 
     virtual void paintEvent(QPaintEvent *pEvent) RT_OVERRIDE;
+    virtual void resizeEvent(QResizeEvent *pEvent) RT_OVERRIDE;
     virtual void keyPressEvent(QKeyEvent *pEvent) RT_OVERRIDE;
     virtual void mousePressEvent(QMouseEvent *pEvent) RT_OVERRIDE;
     virtual void contextMenuEvent(QContextMenuEvent *pEvent) RT_OVERRIDE;
@@ -102,10 +110,12 @@ private:
     void showOverflowMenu();
     void showGroupPicker(const QString &strTabId);
     void announceModelChanged();
+    void updateOverflowButton();
 
     QList<UIMd3Tab>      m_tabs;
     QList<UIMd3TabGroup> m_groups;
     QString              m_strCurrentId;
+    QToolButton         *m_pOverflowButton;
 };
 
 #endif /* !FEQT_INCLUDED_SRC_md3_UIMd3TabStrip_h */

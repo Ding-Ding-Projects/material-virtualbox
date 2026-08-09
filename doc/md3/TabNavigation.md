@@ -26,6 +26,9 @@ global-tools surface. It is implemented by
 - Right-clicking strip chrome opens the strip appearance editor and a searchable
   group expand/collapse menu; every one of those local menus uses the shared
   anchored regex builder.
+- When tabs overflow, the ellipsis is a real 48 px `QToolButton` with an
+  accessible name and keyboard focus; it opens the same searchable overflow
+  menu as the Down key path instead of silently clipping the remaining tabs.
 - Tab groups have stable identifiers, names, colors, collapsed state, and
   membership. Pinning, grouping, and the active tab persist through the
   existing VirtualBox extra-data store under `GUI/Md3/Tabs` for the current

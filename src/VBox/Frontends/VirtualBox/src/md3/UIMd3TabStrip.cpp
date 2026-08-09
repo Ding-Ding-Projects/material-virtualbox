@@ -43,6 +43,8 @@
 #include <QPalette>
 #include <QPushButton>
 #include <QRegularExpression>
+#include <QResizeEvent>
+#include <QToolButton>
 #include <QVBoxLayout>
 #include <QWidgetAction>
 #include <QUuid>
@@ -57,12 +59,22 @@ static const char *g_pszTabsExtraData = "GUI/Md3/Tabs";
 
 UIMd3TabStrip::UIMd3TabStrip(QWidget *pParent)
     : UIMd3Widget(pParent, QStringLiteral("tab-strip"))
+    , m_pOverflowButton(0)
 {
     setObjectName(QStringLiteral("md3TabStrip"));
     setAccessibleName(tr("Workspace tabs"));
     setFocusPolicy(Qt::StrongFocus);
     setMinimumHeight(md3Theme().controlHeight() + 16);
     setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
+    m_pOverflowButton = new QToolButton(this);
+    m_pOverflowButton->setText(QStringLiteral("…"));
+    m_pOverflowButton->setToolButtonStyle(Qt::ToolButtonTextOnly);
+    m_pOverflowButton->setAutoRaise(true);
+    m_pOverflowButton->setMinimumSize(QSize(48, 48));
+    m_pOverflowButton->setAccessibleName(tr("Show more tabs"));
+    m_pOverflowButton->setAccessibleDescription(tr("Open the searchable list of tabs that do not fit"));
+    m_pOverflowButton->setToolTip(tr("Show more tabs"));
+    connect(m_pOverflowButton, &QToolButton::clicked, this, &UIMd3TabStrip::showOverflowMenu);
     connect(&md3Theme(), &UIMd3Theme::sigThemeChanged, this, [this]()
     {
         setMinimumHeight(md3Theme().controlHeight() + 16);
@@ -70,6 +82,7 @@ UIMd3TabStrip::UIMd3TabStrip(QWidget *pParent)
     });
     restore();
     setAccessibleDescription(tr("Use Left and Right to change the selected tab."));
+    updateOverflowButton();
 }
 
 QList<UIMd3Tab> UIMd3TabStrip::displayTabs() const
@@ -108,6 +121,7 @@ void UIMd3TabStrip::announceModelChanged()
     emit sigModelChanged();
     updateGeometry();
     update();
+    updateOverflowButton();
 }
 
 void UIMd3TabStrip::openTab(const QString &strId, const QString &strLabel)
@@ -464,6 +478,27 @@ QString UIMd3TabStrip::tabAt(const QPoint &position) const
     return QString();
 }
 
+void UIMd3TabStrip::resizeEvent(QResizeEvent *pEvent)
+{
+    UIMd3Widget::resizeEvent(pEvent);
+    updateOverflowButton();
+}
+
+void UIMd3TabStrip::updateOverflowButton()
+{
+    if (!m_pOverflowButton)
+        return;
+    const QList<UIMd3Tab> aDisplayTabs = displayTabs();
+    const bool fOverflow = !aDisplayTabs.isEmpty()
+                        && tabRect(aDisplayTabs.last().strId).right() > width();
+    m_pOverflowButton->setVisible(fOverflow);
+    if (fOverflow)
+    {
+        m_pOverflowButton->setGeometry(width() - 48, 4, 48, qMax(48, height() - 8));
+        m_pOverflowButton->raise();
+    }
+}
+
 void UIMd3TabStrip::paintEvent(QPaintEvent *)
 {
     QPainter painter(this);
@@ -501,7 +536,8 @@ void UIMd3TabStrip::paintEvent(QPaintEvent *)
             paintFocusRing(painter, tabGeometry.adjusted(2, 2, -2, -2), UIMd3Shape::Medium);
         painter.setOpacity(1.0);
     }
-    if (!aDisplayTabs.isEmpty() && tabRect(aDisplayTabs.last().strId).right() > width())
+    if (!m_pOverflowButton->isVisible() && !aDisplayTabs.isEmpty()
+        && tabRect(aDisplayTabs.last().strId).right() > width())
     {
         painter.setPen(md3(UIMd3ColorRole_OnSurface));
         painter.drawText(QRect(width() - 40, 0, 32, height()), Qt::AlignCenter, QStringLiteral("…"));
