@@ -18,6 +18,7 @@
 
 #include "UIMd3AppearanceEditor.h"
 #include "UIMd3Button.h"
+#include "UIMd3SearchField.h"
 #include "UIMd3Theme.h"
 
 namespace
@@ -35,6 +36,9 @@ namespace
             , m_pScale(new QDoubleSpinBox(this))
             , m_pWeight(new QComboBox(this))
             , m_pPreview(new QLabel(this))
+            , m_pSearch(new UIMd3SearchField(QStringLiteral("appearance-editor"),
+                                              tr("Search appearance properties"), this))
+            , m_pForm(new QFormLayout)
         {
             setAttribute(Qt::WA_DeleteOnClose);
             setWindowTitle(tr("Edit appearance"));
@@ -73,12 +77,11 @@ namespace
             m_pPreview->setAlignment(Qt::AlignCenter);
             m_pPreview->setText(tr("Material 3 preview"));
 
-            QFormLayout *pForm = new QFormLayout;
-            pForm->addRow(tr("Seed"), m_pSeed);
-            pForm->addRow(tr("Typeface"), m_pFont);
-            pForm->addRow(tr("Radius"), m_pRadius);
-            pForm->addRow(tr("Scale"), m_pScale);
-            pForm->addRow(tr("Weight"), m_pWeight);
+            m_pForm->addRow(tr("Seed"), m_pSeed);
+            m_pForm->addRow(tr("Typeface"), m_pFont);
+            m_pForm->addRow(tr("Radius"), m_pRadius);
+            m_pForm->addRow(tr("Scale"), m_pScale);
+            m_pForm->addRow(tr("Weight"), m_pWeight);
 
             UIMd3Button *pReset = new UIMd3Button(tr("Reset element"), UIMd3ButtonVariant_Text, this);
             pReset->setAccessibleName(tr("Reset this element appearance"));
@@ -104,10 +107,14 @@ namespace
             QVBoxLayout *pLayout = new QVBoxLayout(this);
             pLayout->setContentsMargins(16, 16, 16, 16);
             pLayout->addWidget(new QLabel(tr("Changes apply to this element and persist across restarts."), this));
+            pLayout->addWidget(m_pSearch);
             pLayout->addWidget(m_pPreview);
-            pLayout->addLayout(pForm);
+            pLayout->addLayout(m_pForm);
             pLayout->addLayout(pActions);
             setLayout(pLayout);
+
+            connect(m_pSearch, &UIMd3SearchField::sigFilterChanged,
+                    this, [this]() { filterControls(); });
 
             connect(m_pSeed, &QLineEdit::textChanged, this, [this]() { preview(); });
             connect(m_pFont, &QComboBox::currentTextChanged, this, [this]() { preview(); });
@@ -131,6 +138,7 @@ namespace
             }
             resize(420, sizeHint().height());
             preview();
+            filterControls();
         }
 
     protected:
@@ -142,6 +150,22 @@ namespace
         }
 
     private:
+        void filterControls()
+        {
+            for (int i = 0; i < m_pForm->rowCount(); ++i)
+            {
+                QLabel *pLabel = qobject_cast<QLabel *>(m_pForm->itemAt(i, QFormLayout::LabelRole)
+                                                          ? m_pForm->itemAt(i, QFormLayout::LabelRole)->widget() : 0);
+                QWidget *pField = m_pForm->itemAt(i, QFormLayout::FieldRole)
+                                ? m_pForm->itemAt(i, QFormLayout::FieldRole)->widget() : 0;
+                const bool fVisible = !pLabel || m_pSearch->matches(pLabel->text());
+                if (pLabel)
+                    pLabel->setVisible(fVisible);
+                if (pField)
+                    pField->setVisible(fVisible);
+            }
+        }
+
         void preview()
         {
             const QColor seed(m_pSeed->text().trimmed());
@@ -191,6 +215,8 @@ namespace
         QDoubleSpinBox*m_pScale;
         QComboBox     *m_pWeight;
         QLabel        *m_pPreview;
+        UIMd3SearchField *m_pSearch;
+        QFormLayout  *m_pForm;
     };
 }
 
