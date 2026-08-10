@@ -15,6 +15,20 @@ validation, button API, or notification center.
 - The existing page `QStackedWidget` is inserted as the shell content. Basic
   and Expert mode visibility still belongs to `UINativeWizard`; hidden pages
   are not invented or made selectable by the shell.
+- The stepper is built from visible pages only, and the real stack index is
+  mapped to the visible step index. A wizard that hides pages in Basic mode
+  therefore reports “Step *n* of *m*” over the steps the user can actually
+  reach, instead of counting pages that will never be shown.
+- The current step is marked complete as soon as its real page reports
+  `isComplete()`, so the step row follows validation rather than navigation
+  alone. `sltCurrentIndexChanged()` refreshes the shell after the page is
+  initialized, and `sltCompleteChanged()` refreshes it when validity changes;
+  both are needed, because a page returned to with Back emits no
+  `completeChanged`.
+- `setStepTitles()` returns early when the submitted titles are unchanged.
+  Page changes and retranslation submit the same list repeatedly, and the
+  labels must keep their identity so assistive technology does not see the
+  whole step row destroyed and rebuilt on every navigation.
 - Back, Next/Finish, Cancel, Help, `validatePage()`, `isComplete()`, page
   initialization, `wizardWindow<T>()`, and notification progress retain their
   existing ownership and `QPushButton*` API.

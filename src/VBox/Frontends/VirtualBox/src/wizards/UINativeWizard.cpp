@@ -340,7 +340,6 @@ void UINativeWizard::sltCurrentIndexChanged(int iIndex /* = -1 */)
     AssertPtrReturnVoid(pPage);
     m_pLabelPageTitle->setText(pPage->title());
     m_pWidgetStack->setAccessibleDescription(tr("Current wizard page: %1").arg(pPage->title()));
-    updateMd3Shell();
     if (iIndex > m_iLastIndex)
         pPage->initializePage();
 
@@ -367,6 +366,12 @@ void UINativeWizard::sltCurrentIndexChanged(int iIndex /* = -1 */)
 
     /* Update last index: */
     m_iLastIndex = iIndex;
+
+    /* Refresh the step row last, once the page is initialized and the button state is
+     * settled.  sltCompleteChanged() cannot stand in for this: it only runs when a page
+     * emits completeChanged, which an already-initialized page returned to with Back
+     * never does. */
+    updateMd3Shell();
 }
 
 void UINativeWizard::sltCompleteChanged()
@@ -390,6 +395,10 @@ void UINativeWizard::sltCompleteChanged()
         pButtonNext->setAccessibleDescription(tr("Validate and commit all wizard data."));
     else
         pButtonNext->setAccessibleDescription(tr("Go to the next wizard page after validation."));
+
+    /* The step row shows whether the current page is complete, so it has to follow
+     * validity changes as well as navigation: */
+    updateMd3Shell();
 }
 
 void UINativeWizard::sltPrevious()
@@ -672,17 +681,38 @@ void UINativeWizard::updateMd3Shell()
     if (!m_pMd3Shell || !m_pWidgetStack)
         return;
 
+    /* Hidden pages are not steps.  Counting them puts the progress text out of step
+     * with what the user can actually reach: */
     QStringList stepTitles;
+    const int iCurrentPage = m_pWidgetStack->currentIndex();
+    int iCurrentStep = -1;
     for (int i = 0; i < m_pWidgetStack->count(); ++i)
     {
+        if (!isPageVisible(i))
+            continue;
         UINativeWizardPage *pStepPage = qobject_cast<UINativeWizardPage*>(m_pWidgetStack->widget(i));
-        if (pStepPage)
-            stepTitles << pStepPage->title();
+        if (!pStepPage)
+            continue;
+        if (i == iCurrentPage)
+            iCurrentStep = stepTitles.size();
+        stepTitles << pStepPage->title();
     }
     m_pMd3Shell->setStepTitles(stepTitles);
-    m_pMd3Shell->setCurrentStep(m_pWidgetStack->currentIndex());
-    for (int i = 0; i < stepTitles.size(); ++i)
-        m_pMd3Shell->setStepComplete(i, i < m_pWidgetStack->currentIndex());
+    m_pMd3Shell->setCurrentStep(iCurrentStep);
+
+    int iStepIndex = 0;
+    for (int i = 0; i < m_pWidgetStack->count(); ++i)
+    {
+        if (!isPageVisible(i))
+            continue;
+        UINativeWizardPage *pStepPage = qobject_cast<UINativeWizardPage*>(m_pWidgetStack->widget(i));
+        if (!pStepPage)
+            continue;
+        /* A passed page is complete; the current one is complete once it validates: */
+        const bool fComplete = i < iCurrentPage
+                            || (i == iCurrentPage && pStepPage->isComplete());
+        m_pMd3Shell->setStepComplete(iStepIndex++, fComplete);
+    }
 }
 
 void UINativeWizard::resizeToGoldenRatio()

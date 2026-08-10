@@ -107,6 +107,11 @@ void UIMd3Wizard::clearSteps()
 
 void UIMd3Wizard::setStepTitles(const QStringList &titles)
 {
+    /* Page changes can submit the same translated titles repeatedly.  Keep the
+     * existing labels so navigation does not destroy and rebuild the step row. */
+    if (m_stepTitles == titles && m_steps.size() == titles.size())
+        return;
+
     m_stepTitles = titles;
     clearSteps();
     QWidget *pStepRow = findChild<QWidget *>(QStringLiteral("md3WizardStepRow"));

@@ -61,7 +61,12 @@ pattern and supported flags remain visible in the originating field, and
 unknown or duplicate flags are rejected. Menu-hosted panels expand inside a
 scroll-bounded widget action rather than escaping the popup lifetime, and a
 menu filter restores the exact pre-existing visibility of every reused action
-when the popup closes.
+when the popup closes. Preparing a menu is idempotent — a menu already carrying
+a search field is left alone rather than given a second field and a second
+layer of proxies — and every proxy holds its original action through a
+`QPointer`, so an original destroyed while the menu lives retires its proxy
+instead of leaving a row that triggers nothing. The filter runs once at
+preparation time so separator visibility is correct before the first keystroke.
 The custom Material buttons expose an accessible Button role and press action;
 a dedicated tab-list child owns only `PageTab` controls, while New tab, Tab
 manager, overflow, and independent close buttons remain accessible sibling
