@@ -4,10 +4,12 @@ This section records the native Qt implementation of the supplied Material Desig
 
 ## Coverage and evidence
 
+- [`CodexHandoff.md`](CodexHandoff.md) is the standing implementation contract: ownership that stays with existing VirtualBox code, the precedence order when the prototype and the native contract disagree, the approved native deviations, and the definition of done. Read it before starting a surface.
 - [`DesignCoverage.md`](DesignCoverage.md) is the 69-entry design ledger.
 - [`ArchiveManifest.sha256`](ArchiveManifest.sha256) is generated from the checked-in archive files.
 - `tools/md3/generate-design-coverage.ps1` regenerates both files deterministically.
 - The implementation starts with the shared theme lifecycle and persistence bridge, then composes manager, settings, wizard, tool, and runtime surfaces around their existing models and action pools.
+- [`TonalPalette.md`](TonalPalette.md) documents the HCT/CAM16 palette generation, the core-palette chroma rules, gamut handling, and the compiled tonal-palette testcase.
 - [`ManagerShell.md`](ManagerShell.md) documents the responsive 48/48/92 desktop manager composition, compact navigation action below 1000 logical pixels, destination heading, on-demand workspaces, contextual actions, and padded machine cards.
 - [`NavigationRail.md`](NavigationRail.md) documents the first visible manager shell integration and its runtime capture gate.
 - [`SettingsSearch.md`](SettingsSearch.md) documents the shared settings search field and its anchored regex builder.
