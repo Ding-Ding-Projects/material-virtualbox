@@ -107,6 +107,21 @@ The placeholder, action labels, and accessible names update when the language
 service changes mode. The query is local widget state; it is not written into
 VirtualBox extra data and is cleared when the center is recreated.
 
+## Refresh and connection ownership
+
+`sigChanged` is the single path that rebuilds the notification rows. Mutating
+operations — post, mark all read, mark selected read, restore a history
+revision, restore the undo snapshot, clear — emit it and stop there rather than
+also calling `sltRefreshDialog()` directly, so one change rebuilds the list
+once. `sltRefreshDialog()` returns immediately when no dialog exists, which is
+what makes the direct calls unnecessary rather than merely redundant.
+
+The dialog is rebuilt each time the centre is reopened, but the centre
+singleton, the language service and the theme outlive it. Those persistent
+connections therefore use `Qt::UniqueConnection`, so reopening the centre
+cannot accumulate duplicate connections that would rebuild the rows once per
+past reopen. Opening the centre refreshes once, through `sltRetranslateUI()`.
+
 ## Failure modes and security
 
 The search is a view filter only. It does not revoke, dismiss, delete, or alter

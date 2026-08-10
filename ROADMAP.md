@@ -11,19 +11,24 @@ CI, documentation, and capture evidence exists.
    Activities, and related existing manager models in responsive Material
    surfaces with local search, bulk actions, export, accessibility, and truthful
    empty/error states.
-2. **Theme correctness** — replace the current HSL tone approximation with a
-   reviewed HCT-compatible implementation, fixed reference vectors, contrast
-   checks, and light/dark/high-contrast regeneration coverage.
-3. **Runtime chrome** — compose native Material controls around
+2. **Runtime chrome** — compose native Material controls around
    `UIMachineWindow` and `UIMachineView` without changing guest rendering,
    input capture, session state, multi-monitor ownership, or fullscreen and
    seamless semantics.
-4. **Surface completion** — close remaining settings, wizard, notification,
+3. **Surface completion** — close remaining settings, wizard, notification,
    history, command-palette, tabs, appearance, language, export, bulk-action,
    and accessibility gaps recorded in the 69-entry design ledger.
-5. **Native evidence** — build and launch the real application, capture every
+4. **Native evidence** — build and launch the real application, capture every
    required state at supported display scales and language modes, and keep the
    captures tied to exact commits and artifacts.
+
+## Implemented foundations
+
+- **Theme correctness** — seed palettes are generated through the native
+  HCT/CAM16 implementation instead of the former HSL stand-in. The compiled
+  reference-vector testcase covers 127 checks, contrast pairs, gamut handling,
+  and realised tone error; [`doc/md3/TonalPalette.md`](doc/md3/TonalPalette.md)
+  records the implementation and verification boundary.
 
 ## Release readiness
 

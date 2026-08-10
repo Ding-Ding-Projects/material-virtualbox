@@ -63,12 +63,15 @@ static void md3SynchronizeMenuProxy(QAction *pProxy, QAction *pOriginal)
     pProxy->setMenu(pOriginal->menu());
 }
 
+/** Applies the current query to @a proxyActions and hides the leading separator when
+  * nothing matches. Proxies whose original action has gone are simply skipped. */
 static void md3ApplyMenuSearchFilter(UIMd3SearchField *pSearch,
                                      const QList<QPointer<QAction> > &proxyActions,
                                      QAction *pSeparator)
 {
     if (!pSearch)
         return;
+
     int cVisible = 0;
     const bool fQueryActive = pSearch->isRegexActive()
                            || !pSearch->text().isEmpty();
@@ -98,6 +101,8 @@ void md3PrepareSearchableMenu(QMenu *pMenu,
                               const QString &strPlaceholder,
                               const QString &strAccessibleName)
 {
+    /* Preparing the same menu twice would add a second search field and proxy every
+     * proxy, so the menu remembers that it has already been prepared: */
     if (!pMenu || pMenu->property("md3SearchPrepared").toBool())
         return;
     pMenu->setProperty("md3SearchPrepared", true);
@@ -141,12 +146,14 @@ void md3PrepareSearchableMenu(QMenu *pMenu,
     QAction *pBefore = proxyActions.isEmpty() ? 0 : proxyActions.first().data();
     pMenu->insertAction(pBefore, pSearchAction);
     QAction *pSeparator = pMenu->insertSeparator(pBefore);
+
     const QPointer<UIMd3SearchField> search(pSearch);
     const QPointer<QAction> separator(pSeparator);
     const auto refreshFilter = [search, proxyActions, separator]()
     {
         md3ApplyMenuSearchFilter(search.data(), proxyActions, separator.data());
     };
+
     for (int i = 0; i < originalGuards.size(); ++i)
     {
         const QPointer<QAction> original = originalGuards.at(i);
@@ -162,6 +169,8 @@ void md3PrepareSearchableMenu(QMenu *pMenu,
             proxy->setProperty("md3OriginalVisible", original->isVisible());
             refreshFilter();
         });
+        /* An original action can outlive neither its owner nor this menu: retire the
+         * proxy with it so a stale row cannot be triggered. */
         QObject::connect(original.data(), &QObject::destroyed, pMenu,
                          [proxy, refreshFilter]()
         {
@@ -173,8 +182,10 @@ void md3PrepareSearchableMenu(QMenu *pMenu,
             refreshFilter();
         });
     }
+
     QObject::connect(pSearch, &UIMd3SearchField::sigFilterChanged,
                      pMenu, refreshFilter);
+    /* Run once so separator visibility is right before the first keystroke: */
     refreshFilter();
     pSearch->setFocus(Qt::PopupFocusReason);
 }

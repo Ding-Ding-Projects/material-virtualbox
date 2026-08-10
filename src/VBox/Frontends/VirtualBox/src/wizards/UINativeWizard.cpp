@@ -440,6 +440,12 @@ void UINativeWizard::sltCurrentIndexChanged(int iIndex /* = -1 */)
 
     /* Update last index: */
     m_iLastIndex = iIndex;
+
+    /* Refresh the step row last, once the page is initialized and the button state is
+     * settled.  sltCompleteChanged() cannot stand in for this: it only runs when a page
+     * emits completeChanged, which an already-initialized page returned to with Back
+     * never does. */
+    updateMd3Shell();
 }
 
 void UINativeWizard::sltCompleteChanged()
@@ -468,6 +474,9 @@ void UINativeWizard::sltCompleteChanged()
     else
         pButtonNext->setAccessibleDescription(nativeWizardText("md3.wizard.next-description",
                                                                 tr("Go to the next wizard page after validation.")));
+
+    /* The step row shows whether the current page is complete, so it has to follow
+     * validity changes as well as navigation: */
     updateMd3Shell();
 }
 
@@ -804,6 +813,8 @@ void UINativeWizard::updateMd3Shell()
     if (!m_pMd3Shell || !m_pWidgetStack)
         return;
 
+    /* Hidden pages are not steps.  Counting them puts the progress text out of step
+     * with what the user can actually reach: */
     QStringList stepTitles;
     const int iCurrentPage = m_pWidgetStack->currentIndex();
     int iCurrentStep = -1;
@@ -820,6 +831,7 @@ void UINativeWizard::updateMd3Shell()
     }
     m_pMd3Shell->setStepTitles(stepTitles);
     m_pMd3Shell->setCurrentStep(iCurrentStep);
+
     int iStepIndex = 0;
     for (int i = 0; i < m_pWidgetStack->count(); ++i)
     {
@@ -828,6 +840,7 @@ void UINativeWizard::updateMd3Shell()
         UINativeWizardPage *pStepPage = qobject_cast<UINativeWizardPage*>(m_pWidgetStack->widget(i));
         if (!pStepPage)
             continue;
+        /* A passed page is complete; the current one is complete once it validates: */
         const bool fComplete = i < iCurrentPage
                             || (i == iCurrentPage && pStepPage->isComplete());
         m_pMd3Shell->setStepComplete(iStepIndex++, fComplete);

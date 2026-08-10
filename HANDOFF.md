@@ -10,6 +10,8 @@ serializers, validation, guest-display ownership, or session lifecycle.
 - The shared theme, stock-control style, language service, full regex/search
   infrastructure, appearance editor, command palette, local history, and
   notification history are owned by `UICommon`.
+- Theme palettes are derived through the native HCT/CAM16 implementation and
+  compiled reference-vector testcase; the former HSL approximation is removed.
 - The manager has a native frameless header, responsive navigation rail,
   on-demand workspace tabs, compact navigation, and contextual destination
   heading while preserving the existing tool and chooser models.
@@ -19,9 +21,8 @@ serializers, validation, guest-display ownership, or session lifecycle.
   hidden Basic/Expert pages, scroll internally on compact Windows desktops, and
   retain the real page stack and native action handlers.
 - The design ledger still marks every incomplete archive row `In progress`.
-  Manager-tool completion, strict HCT color generation, runtime chrome, native
-  interaction evidence, installer/release work, and final accessibility proof
-  remain open.
+  Manager-tool completion, runtime chrome, native interaction evidence,
+  installer/release work, and final accessibility proof remain open.
 
 ## Verification and blockers
 
@@ -42,6 +43,5 @@ rows remain open.
 Continue from [`doc/md3/CodexHandoff.md`](doc/md3/CodexHandoff.md), reconcile
 each lane against [`doc/md3/DesignCoverage.md`](doc/md3/DesignCoverage.md), and
 keep target ownership and existing VirtualBox behavior authoritative. The next
-broad lane is the manager tools, followed by strict HCT theme generation and
-runtime chrome. Do not close the design objective from static or prototype
-evidence.
+broad lane is the manager tools, followed by runtime chrome. Do not close the
+design objective from static or prototype evidence.

@@ -25,6 +25,16 @@ validation, button API, or notification center.
   and the legacy fixed watermark column is omitted. The dialog is bounded to
   the available working area, so compact and high-scale desktops scroll page
   content instead of forcing the whole wizard off-screen.
+- The current step is marked complete as soon as its real page reports
+  `isComplete()`, so the step row follows validation rather than navigation
+  alone. `sltCurrentIndexChanged()` refreshes the shell after the page is
+  initialized, and `sltCompleteChanged()` refreshes it when validity changes;
+  both are needed, because a page returned to with Back emits no
+  `completeChanged`.
+- `setStepTitles()` returns early when the submitted titles are unchanged.
+  Page changes and retranslation submit the same list repeatedly, and the
+  labels must keep their identity so assistive technology does not see the
+  whole step row destroyed and rebuilt on every navigation.
 - Back, Next/Finish, Cancel, Help, `validatePage()`, `isComplete()`, page
   initialization, `wizardWindow<T>()`, and notification progress retain their
   existing ownership and `QPushButton*` API. Their existing row is integrated

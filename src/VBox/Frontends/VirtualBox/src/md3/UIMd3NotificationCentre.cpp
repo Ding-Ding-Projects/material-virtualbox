@@ -1025,6 +1025,9 @@ void UIMd3NotificationCentre::showCentre(QWidget *pParent)
             this, &UIMd3NotificationCentre::sltRequestClear);
     connect(m_pUndoClearButton, &QPushButton::clicked,
             this, &UIMd3NotificationCentre::sltUndoClear);
+    /* The dialog is rebuilt every time the centre is reopened, but the singleton,
+     * language and theme objects outlive it: without Qt::UniqueConnection each
+     * reopen would add another copy of the same connection. */
     connect(this, &UIMd3NotificationCentre::sigChanged,
             this, &UIMd3NotificationCentre::sltRefreshDialog,
             Qt::UniqueConnection);
@@ -1051,6 +1054,7 @@ void UIMd3NotificationCentre::showCentre(QWidget *pParent)
     });
 
     m_pDialog->resize(600, 560);
+    /* sltRetranslateUI() already ends in a refresh, so the rows are built once: */
     sltRetranslateUI();
     m_pDialog->show();
     m_pDialog->raise();

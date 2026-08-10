@@ -1346,6 +1346,7 @@ UICommon_SOURCES = \
 	src/VBoxLicenseViewer.cpp \
 	src/UITakeSnapshotDialog.cpp \
 	src/md3/UIMd3Language.cpp \
+	src/md3/UIMd3Hct.cpp \
 	src/md3/UIMd3Theme.cpp \
 	src/md3/UIMd3Style.cpp \
 	src/md3/UIMd3RegexBuilder.cpp \
@@ -2017,6 +2018,24 @@ ifdef VBOX_WITH_TESTCASES
  tstDarwinKeyboard_LIBS = \
  	$(LIB_RUNTIME)
  tstDarwinKeyboard_LIBS += $(PATH_STAGE_DLL)/UICommon$(VBOX_SUFF_DLL)
+endif
+
+
+#
+# Testcase for the Material 3 HCT tonal palette.
+#
+ifdef VBOX_WITH_TESTCASES
+ PROGRAMS += tstUIMd3Hct
+ tstUIMd3Hct_TEMPLATE = VBoxR3TstExe
+ tstUIMd3Hct_INCS = \
+	src/globals \
+	src/md3
+ tstUIMd3Hct_SOURCES = \
+	testcase/tstUIMd3Hct.cpp \
+	src/md3/UIMd3Hct.cpp
+ tstUIMd3Hct_DEFS = VBOX_GUI_LIBRARY
+ tstUIMd3Hct_LIBS = \
+	$(LIB_RUNTIME)
 endif
 
 

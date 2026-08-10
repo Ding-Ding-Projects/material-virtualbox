@@ -102,6 +102,12 @@ UIMd3Language-backed English/Cantonese/bilingual copy with independent funny-lev
 refresh, exact handler-owned focus, bounded accessible results, and focus return;
 its native capture remains pending the COM registration gate.
 
+Material colour roles are now generated from native HCT/CAM16 core palettes
+instead of the former HSL approximation. The compiled tonal-palette testcase
+covers 127 reference, gamut, contrast, and stability checks; implementation,
+failure bounds, and verification are documented in
+[`doc/md3/TonalPalette.md`](doc/md3/TonalPalette.md).
+
 The frameless Windows manager title bar is documented in
 [`doc/md3/TitleBar.md`](doc/md3/TitleBar.md). The 48-pixel header now presents a
 compact application mark/name, manager subtitle, command-palette pill,

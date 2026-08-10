@@ -34,6 +34,7 @@
 
 /* GUI includes: */
 #include "UIExtraDataManager.h"
+#include "UIMd3Hct.h"
 #include "UIMd3History.h"
 #include "UIMd3Theme.h"
 
@@ -906,20 +907,11 @@ UIMd3Scheme UIMd3Theme::effectiveScheme() const
     return UIMd3Scheme_Dark;
 }
 
-QColor UIMd3Theme::tone(const QColor &base, int iTone)
+QColor UIMd3Theme::paletteTone(double dHue, double dChroma, int iTone)
 {
-    /* Approximate the HCT tonal palette by holding hue and chroma while
-     * driving lightness to the requested tone. This keeps the palette
-     * perceptually close to the reference implementation without pulling
-     * an extra dependency into the frontend. */
-    float h = 0, s = 0, l = 0, a = 0;
-    base.getHslF(&h, &s, &l, &a);
-    const float dTarget = qBound(0.0f, iTone / 100.0f, 1.0f);
-    /* Chroma decays towards the extremes, exactly as the M3 palettes do: */
-    const float dChroma = s * (1.0f - qAbs(dTarget - 0.5f) * 0.7f);
-    QColor result;
-    result.setHslF(h, qBound(0.0f, dChroma, 1.0f), dTarget, a);
-    return result.toRgb();
+    int iRed = 0, iGreen = 0, iBlue = 0;
+    md3HctToRgb(dHue, dChroma, (double)iTone, &iRed, &iGreen, &iBlue);
+    return QColor(iRed, iGreen, iBlue);
 }
 
 void UIMd3Theme::regenerate()
@@ -927,69 +919,83 @@ void UIMd3Theme::regenerate()
     const bool fDark = effectiveScheme() == UIMd3Scheme_Dark || effectiveScheme() == UIMd3Scheme_HighContrastDark;
     const bool fContrast = effectiveScheme() == UIMd3Scheme_HighContrastDark || effectiveScheme() == UIMd3Scheme_HighContrastLight;
 
-    QColor primaryBase = m_seed;
-    QColor secondaryBase = QColor::fromHsvF(fmod(m_seed.hueF() + 0.02, 1.0), m_seed.saturationF() * 0.4, m_seed.valueF());
-    QColor tertiaryBase = QColor::fromHsvF(fmod(m_seed.hueF() + 0.16, 1.0), m_seed.saturationF() * 0.6, m_seed.valueF());
-    QColor neutralBase = QColor::fromHsvF(m_seed.hueF(), m_seed.saturationF() * 0.06, m_seed.valueF());
-    QColor errorBase = QColor("#B3261E");
+    /* Derive the Material 3 core palettes from the seed. Every palette keeps the seed
+     * hue and fixes its own chroma, so the whole scheme stays a single colour family
+     * while each role keeps its intended amount of colour. The tertiary palette is the
+     * one deliberate exception: it is rotated a fixed 60 degrees to give the scheme an
+     * accent that is related to the seed rather than a shade of it. Tones are CIE L*,
+     * so the tone numbers below are contrast decisions, not brightness guesses. */
+    const QColor seedColor = m_seed.toRgb();
+    const UIMd3Hct seedHct = md3HctFromRgb(seedColor.red(), seedColor.green(), seedColor.blue());
+    const double dHue = seedHct.dHue;
+    const double dPrimaryChroma = qMax(48.0, seedHct.dChroma);
+    const double dSecondaryChroma = 16.0;
+    const double dTertiaryChroma = 24.0;
+    const double dTertiaryHue = dHue + 60.0;
+    const double dNeutralChroma = 6.0;
+    const double dNeutralVariantChroma = 8.0;
+    /* The error family is fixed rather than seed-derived: a destructive action has to
+     * read as dangerous whatever the user themed the rest of the application to. */
+    const double dErrorHue = 25.0;
+    const double dErrorChroma = 84.0;
 
     if (fDark)
     {
-        m_colors[UIMd3ColorRole_Primary]                  = tone(primaryBase, fContrast ? 90 : 80);
-        m_colors[UIMd3ColorRole_OnPrimary]                = tone(primaryBase, 20);
-        m_colors[UIMd3ColorRole_PrimaryContainer]         = tone(primaryBase, 30);
-        m_colors[UIMd3ColorRole_OnPrimaryContainer]       = tone(primaryBase, 90);
-        m_colors[UIMd3ColorRole_Secondary]                = tone(secondaryBase, 80);
-        m_colors[UIMd3ColorRole_OnSecondary]              = tone(secondaryBase, 20);
-        m_colors[UIMd3ColorRole_SecondaryContainer]       = tone(secondaryBase, 30);
-        m_colors[UIMd3ColorRole_OnSecondaryContainer]     = tone(secondaryBase, 90);
-        m_colors[UIMd3ColorRole_Tertiary]                 = tone(tertiaryBase, 80);
-        m_colors[UIMd3ColorRole_OnTertiary]               = tone(tertiaryBase, 20);
-        m_colors[UIMd3ColorRole_TertiaryContainer]        = tone(tertiaryBase, 30);
-        m_colors[UIMd3ColorRole_OnTertiaryContainer]      = tone(tertiaryBase, 90);
-        m_colors[UIMd3ColorRole_Error]                    = tone(errorBase, 80);
-        m_colors[UIMd3ColorRole_OnError]                  = tone(errorBase, 20);
-        m_colors[UIMd3ColorRole_ErrorContainer]           = tone(errorBase, 30);
-        m_colors[UIMd3ColorRole_OnErrorContainer]         = tone(errorBase, 90);
-        m_colors[UIMd3ColorRole_Surface]                  = tone(neutralBase, 6);
-        m_colors[UIMd3ColorRole_OnSurface]                = tone(neutralBase, fContrast ? 100 : 90);
-        m_colors[UIMd3ColorRole_OnSurfaceVariant]         = tone(neutralBase, 80);
-        m_colors[UIMd3ColorRole_SurfaceContainerLowest]   = tone(neutralBase, 4);
-        m_colors[UIMd3ColorRole_SurfaceContainerLow]      = tone(neutralBase, 10);
-        m_colors[UIMd3ColorRole_SurfaceContainer]         = tone(neutralBase, 12);
-        m_colors[UIMd3ColorRole_SurfaceContainerHigh]     = tone(neutralBase, 17);
-        m_colors[UIMd3ColorRole_SurfaceContainerHighest]  = tone(neutralBase, 22);
-        m_colors[UIMd3ColorRole_Outline]                  = tone(neutralBase, fContrast ? 80 : 60);
-        m_colors[UIMd3ColorRole_OutlineVariant]           = tone(neutralBase, 30);
+        m_colors[UIMd3ColorRole_Primary]                  = paletteTone(dHue, dPrimaryChroma, fContrast ? 90 : 80);
+        m_colors[UIMd3ColorRole_OnPrimary]                = paletteTone(dHue, dPrimaryChroma, 20);
+        m_colors[UIMd3ColorRole_PrimaryContainer]         = paletteTone(dHue, dPrimaryChroma, 30);
+        m_colors[UIMd3ColorRole_OnPrimaryContainer]       = paletteTone(dHue, dPrimaryChroma, 90);
+        m_colors[UIMd3ColorRole_Secondary]                = paletteTone(dHue, dSecondaryChroma, 80);
+        m_colors[UIMd3ColorRole_OnSecondary]              = paletteTone(dHue, dSecondaryChroma, 20);
+        m_colors[UIMd3ColorRole_SecondaryContainer]       = paletteTone(dHue, dSecondaryChroma, 30);
+        m_colors[UIMd3ColorRole_OnSecondaryContainer]     = paletteTone(dHue, dSecondaryChroma, 90);
+        m_colors[UIMd3ColorRole_Tertiary]                 = paletteTone(dTertiaryHue, dTertiaryChroma, 80);
+        m_colors[UIMd3ColorRole_OnTertiary]               = paletteTone(dTertiaryHue, dTertiaryChroma, 20);
+        m_colors[UIMd3ColorRole_TertiaryContainer]        = paletteTone(dTertiaryHue, dTertiaryChroma, 30);
+        m_colors[UIMd3ColorRole_OnTertiaryContainer]      = paletteTone(dTertiaryHue, dTertiaryChroma, 90);
+        m_colors[UIMd3ColorRole_Error]                    = paletteTone(dErrorHue, dErrorChroma, 80);
+        m_colors[UIMd3ColorRole_OnError]                  = paletteTone(dErrorHue, dErrorChroma, 20);
+        m_colors[UIMd3ColorRole_ErrorContainer]           = paletteTone(dErrorHue, dErrorChroma, 30);
+        m_colors[UIMd3ColorRole_OnErrorContainer]         = paletteTone(dErrorHue, dErrorChroma, 90);
+        m_colors[UIMd3ColorRole_Surface]                  = paletteTone(dHue, dNeutralChroma, 6);
+        m_colors[UIMd3ColorRole_OnSurface]                = paletteTone(dHue, dNeutralChroma, fContrast ? 100 : 90);
+        m_colors[UIMd3ColorRole_OnSurfaceVariant]         = paletteTone(dHue, dNeutralVariantChroma, fContrast ? 90 : 80);
+        m_colors[UIMd3ColorRole_SurfaceContainerLowest]   = paletteTone(dHue, dNeutralChroma, 4);
+        m_colors[UIMd3ColorRole_SurfaceContainerLow]      = paletteTone(dHue, dNeutralChroma, 10);
+        m_colors[UIMd3ColorRole_SurfaceContainer]         = paletteTone(dHue, dNeutralChroma, 12);
+        m_colors[UIMd3ColorRole_SurfaceContainerHigh]     = paletteTone(dHue, dNeutralChroma, 17);
+        m_colors[UIMd3ColorRole_SurfaceContainerHighest]  = paletteTone(dHue, dNeutralChroma, 22);
+        m_colors[UIMd3ColorRole_Outline]                  = paletteTone(dHue, dNeutralVariantChroma, fContrast ? 80 : 60);
+        m_colors[UIMd3ColorRole_OutlineVariant]           = paletteTone(dHue, dNeutralVariantChroma, fContrast ? 60 : 30);
     }
     else
     {
-        m_colors[UIMd3ColorRole_Primary]                  = tone(primaryBase, fContrast ? 30 : 40);
-        m_colors[UIMd3ColorRole_OnPrimary]                = tone(primaryBase, 100);
-        m_colors[UIMd3ColorRole_PrimaryContainer]         = tone(primaryBase, 90);
-        m_colors[UIMd3ColorRole_OnPrimaryContainer]       = tone(primaryBase, 10);
-        m_colors[UIMd3ColorRole_Secondary]                = tone(secondaryBase, 40);
-        m_colors[UIMd3ColorRole_OnSecondary]              = tone(secondaryBase, 100);
-        m_colors[UIMd3ColorRole_SecondaryContainer]       = tone(secondaryBase, 90);
-        m_colors[UIMd3ColorRole_OnSecondaryContainer]     = tone(secondaryBase, 10);
-        m_colors[UIMd3ColorRole_Tertiary]                 = tone(tertiaryBase, 40);
-        m_colors[UIMd3ColorRole_OnTertiary]               = tone(tertiaryBase, 100);
-        m_colors[UIMd3ColorRole_TertiaryContainer]        = tone(tertiaryBase, 90);
-        m_colors[UIMd3ColorRole_OnTertiaryContainer]      = tone(tertiaryBase, 10);
-        m_colors[UIMd3ColorRole_Error]                    = tone(errorBase, 40);
-        m_colors[UIMd3ColorRole_OnError]                  = tone(errorBase, 100);
-        m_colors[UIMd3ColorRole_ErrorContainer]           = tone(errorBase, 90);
-        m_colors[UIMd3ColorRole_OnErrorContainer]         = tone(errorBase, 10);
-        m_colors[UIMd3ColorRole_Surface]                  = tone(neutralBase, 98);
-        m_colors[UIMd3ColorRole_OnSurface]                = tone(neutralBase, fContrast ? 0 : 10);
-        m_colors[UIMd3ColorRole_OnSurfaceVariant]         = tone(neutralBase, 30);
-        m_colors[UIMd3ColorRole_SurfaceContainerLowest]   = tone(neutralBase, 100);
-        m_colors[UIMd3ColorRole_SurfaceContainerLow]      = tone(neutralBase, 96);
-        m_colors[UIMd3ColorRole_SurfaceContainer]         = tone(neutralBase, 94);
-        m_colors[UIMd3ColorRole_SurfaceContainerHigh]     = tone(neutralBase, 92);
-        m_colors[UIMd3ColorRole_SurfaceContainerHighest]  = tone(neutralBase, 90);
-        m_colors[UIMd3ColorRole_Outline]                  = tone(neutralBase, fContrast ? 30 : 50);
-        m_colors[UIMd3ColorRole_OutlineVariant]           = tone(neutralBase, 80);
+        m_colors[UIMd3ColorRole_Primary]                  = paletteTone(dHue, dPrimaryChroma, fContrast ? 30 : 40);
+        m_colors[UIMd3ColorRole_OnPrimary]                = paletteTone(dHue, dPrimaryChroma, 100);
+        m_colors[UIMd3ColorRole_PrimaryContainer]         = paletteTone(dHue, dPrimaryChroma, 90);
+        m_colors[UIMd3ColorRole_OnPrimaryContainer]       = paletteTone(dHue, dPrimaryChroma, 10);
+        m_colors[UIMd3ColorRole_Secondary]                = paletteTone(dHue, dSecondaryChroma, 40);
+        m_colors[UIMd3ColorRole_OnSecondary]              = paletteTone(dHue, dSecondaryChroma, 100);
+        m_colors[UIMd3ColorRole_SecondaryContainer]       = paletteTone(dHue, dSecondaryChroma, 90);
+        m_colors[UIMd3ColorRole_OnSecondaryContainer]     = paletteTone(dHue, dSecondaryChroma, 10);
+        m_colors[UIMd3ColorRole_Tertiary]                 = paletteTone(dTertiaryHue, dTertiaryChroma, 40);
+        m_colors[UIMd3ColorRole_OnTertiary]               = paletteTone(dTertiaryHue, dTertiaryChroma, 100);
+        m_colors[UIMd3ColorRole_TertiaryContainer]        = paletteTone(dTertiaryHue, dTertiaryChroma, 90);
+        m_colors[UIMd3ColorRole_OnTertiaryContainer]      = paletteTone(dTertiaryHue, dTertiaryChroma, 10);
+        m_colors[UIMd3ColorRole_Error]                    = paletteTone(dErrorHue, dErrorChroma, 40);
+        m_colors[UIMd3ColorRole_OnError]                  = paletteTone(dErrorHue, dErrorChroma, 100);
+        m_colors[UIMd3ColorRole_ErrorContainer]           = paletteTone(dErrorHue, dErrorChroma, 90);
+        m_colors[UIMd3ColorRole_OnErrorContainer]         = paletteTone(dErrorHue, dErrorChroma, 10);
+        m_colors[UIMd3ColorRole_Surface]                  = paletteTone(dHue, dNeutralChroma, 98);
+        m_colors[UIMd3ColorRole_OnSurface]                = paletteTone(dHue, dNeutralChroma, fContrast ? 0 : 10);
+        m_colors[UIMd3ColorRole_OnSurfaceVariant]         = paletteTone(dHue, dNeutralVariantChroma, fContrast ? 10 : 30);
+        m_colors[UIMd3ColorRole_SurfaceContainerLowest]   = paletteTone(dHue, dNeutralChroma, 100);
+        m_colors[UIMd3ColorRole_SurfaceContainerLow]      = paletteTone(dHue, dNeutralChroma, 96);
+        m_colors[UIMd3ColorRole_SurfaceContainer]         = paletteTone(dHue, dNeutralChroma, 94);
+        m_colors[UIMd3ColorRole_SurfaceContainerHigh]     = paletteTone(dHue, dNeutralChroma, 92);
+        m_colors[UIMd3ColorRole_SurfaceContainerHighest]  = paletteTone(dHue, dNeutralChroma, 90);
+        m_colors[UIMd3ColorRole_Outline]                  = paletteTone(dHue, dNeutralVariantChroma, fContrast ? 30 : 50);
+        m_colors[UIMd3ColorRole_OutlineVariant]           = paletteTone(dHue, dNeutralVariantChroma, fContrast ? 50 : 80);
     }
     m_colors[UIMd3ColorRole_Scrim] = QColor(0, 0, 0, 153);
 
