@@ -225,6 +225,19 @@ Rules for adding a changelog entry to make them look more uniform:
       </listitem>
 
       <listitem>
+        <para>GUI: Reworked native wizards into a responsive Material 3 step rail
+          and bounded page card, with hidden-page reconciliation, compact rail
+          collapse, internal page scrolling, and the existing 48-pixel action row
+          integrated without replacing page validation or progress ownership</para>
+      </listitem>
+
+      <listitem>
+        <para>GUI: Made searchable-menu setup and modeless notification-history
+          signal wiring idempotent, preventing stale action callbacks and duplicate
+          list refreshes after menus or notification review surfaces are reopened</para>
+      </listitem>
+
+      <listitem>
         <para>GUI: Added bounded persistent Material 3 notification history for
           non-blocking messages, with local plain-text/regular-expression search,
           unread tracking, atomic application-data storage, and legacy blocking

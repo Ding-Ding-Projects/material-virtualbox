@@ -52,14 +52,17 @@ jobs:
           }
           $wizardHeader = Get-Content src/VBox/Frontends/VirtualBox/src/md3/UIMd3Wizard.h -Raw
           $wizardSource = Get-Content src/VBox/Frontends/VirtualBox/src/md3/UIMd3Wizard.cpp -Raw
-          foreach ($pattern in @('class SHARED_LIBRARY_STUFF UIMd3Wizard', 'setStepTitles', 'setCurrentStep', 'setContentWidget', 'setFocusPolicy(Qt::NoFocus)', 'setAccessibleName', 'setAccessibleDescription', 'Current wizard page', 'Wizard progress', 'Current step', 'Completed step', 'Upcoming step')) {
+          foreach ($pattern in @('class SHARED_LIBRARY_STUFF UIMd3Wizard', 'setStepTitles', 'setCurrentStep', 'setContentWidget', 'setActionWidget', 'setFocusPolicy(Qt::NoFocus)', 'setAccessibleName', 'setAccessibleDescription', 'Current wizard page', 'Wizard progress', 'Current step', 'Completed step', 'Upcoming step', 'md3WizardStepRail', 'md3WizardPageCard', 'g_iWizardCompactWidth', 'm_stepTitles == titles', 'md3.wizard.')) {
             if (($wizardHeader + $wizardSource) -notmatch [regex]::Escape($pattern)) { throw "Wizard shell contract missing: $pattern" }
           }
           $nativeWizard = Get-Content src/VBox/Frontends/VirtualBox/src/wizards/UINativeWizard.cpp -Raw
-          foreach ($pattern in @('UIMd3Wizard.h', 'new UIMd3Wizard', 'setContentWidget', 'setStepTitles', 'wizardPageStack', 'Wizard pages', 'Current wizard page:', 'setAccessibleName', 'setAccessibleDescription', 'fPageComplete', 'fLastPage', 'Complete the current wizard page before continuing', 'Go to the previous wizard page', 'Go to the next wizard page after validation', 'Validate and commit all wizard data', 'Cancel this wizard without committing its data')) {
+          foreach ($pattern in @('UIMd3Wizard.h', 'new UIMd3Wizard', 'setContentWidget', 'setActionWidget', 'setStepTitles', 'wizardPageStack', 'md3WizardPageScrollArea', 'QScrollArea', 'Wizard pages', 'Current wizard page:', 'setAccessibleName', 'setAccessibleDescription', 'fPageComplete', 'fLastPage', 'isPageVisible', 'pStepPage->isComplete()', 'setMinimumHeight(48)', 'Qt::UniqueConnection', 'Complete the current wizard page before continuing', 'Go to the previous wizard page', 'Go to the next wizard page after validation', 'Validate and commit all wizard data', 'Cancel this wizard without committing its data')) {
             if ($nativeWizard -notmatch [regex]::Escape($pattern)) { throw "Native wizard composition missing: $pattern" }
           }
           if (-not (Test-Path doc/md3/WizardShell.md)) { throw 'Missing wizard shell article' }
+          if (-not (Test-Path doc/md3/CodexHandoff.md)) { throw 'Missing native implementation handoff' }
+          if (-not (Test-Path HANDOFF.md)) { throw 'Missing repository handoff' }
+          if (-not (Test-Path ROADMAP.md)) { throw 'Missing implementation roadmap' }
           $paletteHeader = Get-Content src/VBox/Frontends/VirtualBox/src/md3/UIMd3CommandPalette.h -Raw
           $paletteSource = Get-Content src/VBox/Frontends/VirtualBox/src/md3/UIMd3CommandPalette.cpp -Raw
           foreach ($pattern in @('class SHARED_LIBRARY_STUFF UIMd3CommandPalette', 'registerCommand', 'unregisterSource', 'showPalette', 'UIMd3Button', 'UIMd3SearchField', 'focusProxy', 'matches(', 'Qt::Key_Escape', 'Qt::Key_Up', 'Qt::Key_Down', 'sigClicked', 'setAccessibleDescription', 'setEnabledState', 'setActivationEnabled', 'enabledPredicate', 'strDisabledReason', 'strId', 'QMap', 'availableGeometry', 'setMinimumSize', 'eventFilter', 'strCategory', 'registerMd3PaletteTexts', 'md3Text(')) {
@@ -142,7 +145,7 @@ jobs:
             if ($toolBarSource -notmatch [regex]::Escape($pattern)) { throw "Toolbar text-bearing style contract missing: $pattern" }
           }
           $menuSearchSource = Get-Content src/VBox/Frontends/VirtualBox/src/md3/UIMd3MenuSearch.cpp -Raw
-          foreach ($pattern in @('UIMd3SearchField', 'sigFilterChanged', 'matches(', 'QWidgetAction', 'QKeySequence::NativeText', 'md3SynchronizeMenuProxy', 'md3OriginalVisible', 'pMenu->removeAction(pOriginal)', 'original->trigger()', 'pProxy->setVisible')) {
+          foreach ($pattern in @('UIMd3SearchField', 'sigFilterChanged', 'matches(', 'QWidgetAction', 'QKeySequence::NativeText', 'md3SynchronizeMenuProxy', 'md3ApplyMenuSearchFilter', 'md3OriginalVisible', 'md3SearchPrepared', 'QPointer<QAction>', 'QObject::destroyed', 'refreshFilter()', 'pMenu->removeAction(pOriginal)', 'original->trigger()', 'pProxy->setVisible')) {
             if ($menuSearchSource -notmatch [regex]::Escape($pattern)) { throw "Searchable-menu contract missing: $pattern" }
           }
           if ($menuSearchSource -match [regex]::Escape('pOriginal->setVisible')) { throw 'Searchable menus must never mutate shared original action visibility.' }
@@ -164,8 +167,14 @@ jobs:
           }
           $notificationHeader = Get-Content src/VBox/Frontends/VirtualBox/src/md3/UIMd3NotificationCentre.h -Raw
           $notificationSource = Get-Content src/VBox/Frontends/VirtualBox/src/md3/UIMd3NotificationCentre.cpp -Raw
-          foreach ($pattern in @('class SHARED_LIBRARY_STUFF UIMd3NotificationCentre', 'UIMd3History', 'notification history cleared', 'notification history restored', 'sltRestoreHistoryRevision', 'currentState', 'post(', 'markAllRead', 'showCentre', 'g_iMaxPayload', 'QSaveFile', 'UIMd3SearchField', 'QCheckBox', 'sltSelectAllVisible', 'sltInvertVisibleSelection', 'sltExportVisible', 'visibleNoticeIds', 'm_selectedIds', 'sltRequestClear', 'sltUndoClear', 'undoStoragePath', 'saveRecordsAtPath', 'restoreUndoSnapshot', 'Undo last clear', 'QDialogButtonBox', 'QSlider', 'QProgressBar', 'Emergency exit', 'QAbstractAnimation::DeleteWhenStopped', 'clear()')) {
+          foreach ($pattern in @('class SHARED_LIBRARY_STUFF UIMd3NotificationCentre', 'UIMd3History', 'notification history cleared', 'notification history restored', 'sltRestoreHistoryRevision', 'currentState', 'post(', 'markAllRead', 'showCentre', 'g_iMaxPayload', 'QSaveFile', 'UIMd3SearchField', 'QCheckBox', 'sltSelectAllVisible', 'sltInvertVisibleSelection', 'sltExportVisible', 'visibleNoticeIds', 'm_selectedIds', 'sltRequestClear', 'sltUndoClear', 'undoStoragePath', 'saveRecordsAtPath', 'restoreUndoSnapshot', 'Undo last clear', 'QDialogButtonBox', 'QSlider', 'QProgressBar', 'Emergency exit', 'QAbstractAnimation::DeleteWhenStopped', 'does not make the action reversible', 'Qt::UniqueConnection', 'clear()')) {
             if (($notificationHeader + $notificationSource) -notmatch [regex]::Escape($pattern)) { throw "Notification history contract missing: $pattern" }
+          }
+          if ($notificationSource -match 'emit sigChanged\(\);\s*(?:if\s*\(m_pDialog\)\s*)?sltRefreshDialog\(\);') {
+            throw 'Notification mutations must refresh the modeless center through the single sigChanged connection.'
+          }
+          if ($notificationSource -match [regex]::Escape('does not provide an undo')) {
+            throw 'Notification clear copy must not imply that the separate recovery snapshot makes the clear reversible.'
           }
           if (-not (Test-Path doc/md3/NotificationCentre.md)) { throw 'Missing notification-center article' }
           $historyHeader = Get-Content src/VBox/Frontends/VirtualBox/src/md3/UIMd3History.h -Raw

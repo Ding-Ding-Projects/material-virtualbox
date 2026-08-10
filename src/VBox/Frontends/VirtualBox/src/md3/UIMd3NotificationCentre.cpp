@@ -439,8 +439,6 @@ bool UIMd3NotificationCentre::restoreUndoSnapshot()
         }
     }
     emit sigChanged();
-    if (m_pDialog)
-        sltRefreshDialog();
     return true;
 }
 
@@ -482,8 +480,6 @@ QString UIMd3NotificationCentre::post(QWidget *pParent,
             currentState());
     emit sigNoticePosted(notice.strId);
     emit sigChanged();
-    if (m_pDialog)
-        sltRefreshDialog();
     return notice.strId;
 }
 
@@ -515,8 +511,6 @@ void UIMd3NotificationCentre::markAllRead()
             QStringLiteral("Marked all notification records as read"),
             currentState());
     emit sigChanged();
-    if (m_pDialog)
-        sltRefreshDialog();
 }
 
 QStringList UIMd3NotificationCentre::visibleNoticeIds() const
@@ -603,7 +597,6 @@ void UIMd3NotificationCentre::sltMarkSelectedRead()
             QStringLiteral("Marked selected notification records as read"),
             currentState());
     emit sigChanged();
-    sltRefreshDialog();
 }
 
 void UIMd3NotificationCentre::sltExportVisible()
@@ -710,7 +703,7 @@ void UIMd3NotificationCentre::sltRequestClear()
 
     QCheckBox *pAcknowledgeUndo = new QCheckBox(
         md3NotificationText("md3.notifications.clearAckUndo",
-                            tr("I understand this dialog does not provide an undo.")),
+                            tr("I understand this dialog does not make the action reversible.")),
         &dialog);
     pAcknowledgeUndo->setObjectName(QStringLiteral("md3ClearAcknowledgeUndo"));
     pAcknowledgeUndo->setAccessibleName(pAcknowledgeUndo->text());
@@ -913,8 +906,6 @@ void UIMd3NotificationCentre::sltRestoreHistoryRevision(const QString &strRevisi
                                 state);
                     }
                     emit sigChanged();
-                    if (m_pDialog)
-                        sltRefreshDialog();
                 }
                 break;
             }
@@ -930,8 +921,6 @@ void UIMd3NotificationCentre::clear()
     m_notices.clear();
     save();
     emit sigChanged();
-    if (m_pDialog)
-        sltRefreshDialog();
 }
 
 void UIMd3NotificationCentre::showCentre(QWidget *pParent)
@@ -1037,12 +1026,15 @@ void UIMd3NotificationCentre::showCentre(QWidget *pParent)
     connect(m_pUndoClearButton, &QPushButton::clicked,
             this, &UIMd3NotificationCentre::sltUndoClear);
     connect(this, &UIMd3NotificationCentre::sigChanged,
-            this, &UIMd3NotificationCentre::sltRefreshDialog);
+            this, &UIMd3NotificationCentre::sltRefreshDialog,
+            Qt::UniqueConnection);
     if (UIMd3Language::instance())
         connect(UIMd3Language::instance(), &UIMd3Language::sigLanguageChanged,
-                this, &UIMd3NotificationCentre::sltRetranslateUI);
+                this, &UIMd3NotificationCentre::sltRetranslateUI,
+                Qt::UniqueConnection);
     connect(&md3Theme(), &UIMd3Theme::sigThemeChanged,
-            this, &UIMd3NotificationCentre::sltRefreshDialog);
+            this, &UIMd3NotificationCentre::sltRefreshDialog,
+            Qt::UniqueConnection);
     connect(m_pDialog, &QObject::destroyed, this, [this]()
     {
         m_pDialog = 0;
@@ -1060,7 +1052,6 @@ void UIMd3NotificationCentre::showCentre(QWidget *pParent)
 
     m_pDialog->resize(600, 560);
     sltRetranslateUI();
-    sltRefreshDialog();
     m_pDialog->show();
     m_pDialog->raise();
     m_pDialog->activateWindow();

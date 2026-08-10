@@ -7,6 +7,9 @@ application-owned presentation toward one coherent Qt 6 design system.
 
 **Documentation:** [Material Virtual Machine documentation](https://ding-ding-projects.github.io/material-virtualbox/)
 
+**Delivery map:** [roadmap](ROADMAP.md) · [current handoff](HANDOFF.md) ·
+[native implementation authority](doc/md3/CodexHandoff.md)
+
 **Install status:** no verified installer is published yet. Build from source
 with the [canonical VirtualBox prerequisites and commands](#build-and-prerequisites).
 
@@ -19,7 +22,9 @@ with the [canonical VirtualBox prerequisites and commands](#build-and-prerequisi
 > The shared style now gives stock Qt controls Material semantic colors, shape,
 > state layers, focus treatment, disabled presentation, and bounded minimum
 > anatomy across manager, settings, wizard, and runtime-owned pages.
-> Wizard, tool, and runtime shells remain in progress; the local history
+> The responsive wizard shell now composes the real page stack, visible-step
+> rail, bounded page card, and native action row; manager-tool and runtime shells
+> remain in progress. The local history
 > browser now restores validated notification and appearance/theme revisions
 > through their owning services.
 > Build and release claims below are deliberately bounded.
@@ -32,6 +37,7 @@ with the [canonical VirtualBox prerequisites and commands](#build-and-prerequisi
 - [Build and prerequisites](#build-and-prerequisites)
 - [Verification boundaries](#verification-boundaries)
 - [CI and Pages](#ci-and-pages)
+- [Roadmap and handoff](ROADMAP.md)
 - [Contributing](#contributing)
 - [Security and license](#security-and-license)
 
@@ -192,12 +198,17 @@ revisions. Surface-specific settings/runtime restore adapters, provider-authored
 rendering, bulk dismiss/delete, complete row selection/restore semantics, and
 native capture remain open lanes. This is
 not a claim that the legacy notification surface has been fully replaced.
+The modeless review surface now uses idempotent signal connections and one
+`sigChanged()` refresh path, avoiding callback multiplication after reopen and
+duplicate list rebuilds after model mutations.
 
 The existing New VM, New virtual disk, clone, import, and export flows now
 compose an embedded Material 3 wizard shell around their real
 `UINativeWizardPage` stacks. [`doc/md3/WizardShell.md`](doc/md3/WizardShell.md)
-documents the translated page title, step summary, completion state, localized
-current/completed/upcoming step descriptions, named page stack, and accessible
+documents the two-card desktop layout, compact rail collapse below 720 logical
+pixels, hidden-page reconciliation, bounded page scrolling, translated page
+title, step summary, completion state, localized current/completed/upcoming
+step descriptions, named page stack, and accessible 48-pixel
 Back/Next/Finish/Cancel/Help actions while preserving validation/progress
 contracts. Cross-wizard tabs, full validation summary details, runtime
 accessibility-tree captures, and native runtime captures remain open.

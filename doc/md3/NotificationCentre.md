@@ -144,11 +144,14 @@ focusable row disclosure, keyboard Enter/Return/Space handling, visible focus,
 accessible names/descriptions, the bounded JSON model, selectable-row/export/restore actions, the notification
 history restore adapter, the shared
 `UIMd3History` lifecycle and SHA-256 journal, the two-acknowledgement/full-
-slider clear gate, focus return, and UICommon target ownership. UICommon and
-the changed `UINotificationObjectItem.cpp` object was compiled through kBuild
-with the Windows toolchain. A full UICommon target run remains blocked by Qt
-6.8's `qnumeric.h` C4668 warning being promoted to an error in unrelated
-translation units; native captures are intentionally deferred for this lane.
+slider clear gate, focus return, and UICommon target ownership. The modeless
+review surface connects its persistent model, language, and theme signals only
+once; mutations emit `sigChanged()` and no longer perform a second direct
+refresh. This prevents repeated callbacks after reopen and redundant list
+rebuilds after each mutation. Local Windows x64 kBuild runs for `UICommon`,
+`VirtualBox`, and `VirtualBoxVM` all exited 0 on the exact source tree for this
+lane. Native captures remain blocked by the unregistered COM/SDS development
+runtime and are not replaced by design previews.
 
 ## Suggested articles
 
