@@ -160,7 +160,9 @@ jobs:
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
-          .\configure.ps1 --disable-hardening --disable-python_c_api --disable-win-ddk --disable-win-msi --disable-win-wix --with-kbuild-path="$PWD\kBuild\kBuild" --with-qt-path="$env:VBOX_CI_QT_ROOT" --with-sdk10="$env:VBOX_CI_WINDOWS_SDK_ROOT" --with-win-vcpkg-root="$env:VBOX_CI_VCPKG_ROOT"
+          $python = Get-Command python.exe -ErrorAction Stop
+          $pythonRoot = (Split-Path $python.Source -Parent) -replace '\\','/'
+          .\configure.ps1 --disable-hardening --disable-python_c_api --disable-win-ddk --disable-win-msi --disable-win-wix --with-kbuild-path="$PWD\kBuild\kBuild" --with-qt-path="$env:VBOX_CI_QT_ROOT" --with-sdk10="$env:VBOX_CI_WINDOWS_SDK_ROOT" --with-win-vcpkg-root="$env:VBOX_CI_VCPKG_ROOT" --with-python-path="$pythonRoot"
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           if (-not (Test-Path .\env.bat)) { throw 'configure.py did not generate env.bat.' }
 

@@ -1745,6 +1745,11 @@ class LibraryCheck(CheckBase):
                 sPath, _ = checkWhich(sBin);
 
             if sPath:
+                # kBuild invokes this value from a shell recipe.  Keep Windows
+                # paths in forward-slash form so backslashes are not consumed as
+                # escapes by the generated make shell.
+                if g_enmHostOS == BuildTarget.WINDOWS:
+                    sPath = sPath.replace('\\', '/');
                 g_oEnv.set(asDefs[0], sPath);
                 continue;
 
@@ -2352,30 +2357,36 @@ class ToolCheck(CheckBase):
             for sProgramPath in self.getWinProgramFiles():
                 sPath = os.path.join(sProgramPath, 'Microsoft Visual Studio', 'Installer', 'vswhere.exe');
                 if isFile(sPath):
-                    # Stupid vswhere can't handle multiple properties at once, so we have to deal with it
-                    # by calling it multiple times. Joy.
-                    asProps = [ 'installationVersion', 'installationPath', 'displayName' ];
-                    for sCurProp in asProps:
-                        asCmd = [ sPath,
-                                '-sort', # Sort newest version first.
-                                '-products', '*',
-                                '-requires', 'Microsoft.VisualStudio*',
-                                '-property', sCurProp,
-                                '-format', 'json' ];
-                        oProc = subprocess.run(asCmd, capture_output = True, check = False, universal_newlines = True);
-                        if oProc.returncode == 0 and oProc.stdout.strip():
-                            import json
-                            asList = json.loads(oProc.stdout);
-                            for curProd in asList:
-                                if sCurProp == 'installationVersion':
-                                    sVCPPVer = curProd.get('installationVersion', None);
-                                if sCurProp == 'installationPath':
-                                    sVCPPPath = curProd.get('installationPath', None);
-                                if sCurProp == 'displayName':
-                                    self.printVerbose(1, f"Found {curProd.get('displayName', '')} version {sVCPPVer} at '{sVCPPPath}'");
-
-                    if not g_fDebug:
-                        break;
+                    # Read each product as one record.  Querying installationVersion,
+                    # installationPath and displayName separately lets vswhere return
+                    # different product orders, pairing one product's version with
+                    # another product's path on hosted images with multiple installs.
+                    asCmd = [ sPath,
+                              '-sort', # Sort newest version first.
+                              '-products', '*',
+                              '-requires', 'Microsoft.VisualStudio*',
+                              '-format', 'json' ];
+                    oProc = subprocess.run(asCmd, capture_output = True, check = False, universal_newlines = True);
+                    if oProc.returncode == 0 and oProc.stdout.strip():
+                        import json
+                        for curProd in json.loads(oProc.stdout):
+                            sCandidatePath = curProd.get('installationPath', None);
+                            sCandidateVer = curProd.get('installationVersion', None);
+                            if not sCandidatePath or not sCandidateVer:
+                                continue;
+                            sCandidateMsvc = os.path.join(sCandidatePath, 'VC', 'Tools', 'MSVC');
+                            asCandidateTools = sorted(glob.glob(os.path.join(sCandidateMsvc, '*')), reverse = True);
+                            if not asCandidateTools:
+                                continue;
+                            sCandidateTool = asCandidateTools[0];
+                            if not isFile(os.path.join(sCandidateTool, 'bin', 'Hostx64', 'x64', 'cl.exe')) \
+                            or not isFile(os.path.join(sCandidateTool, 'lib', 'x64', 'libvcruntime.lib')):
+                                self.printVerbose(1, f"Skipping incomplete Visual C++ installation at '{sCandidatePath}'");
+                                continue;
+                            sVCPPVer = sCandidateVer;
+                            sVCPPPath = sCandidatePath;
+                            self.printVerbose(1, f"Selected {curProd.get('displayName', '')} version {sVCPPVer} at '{sVCPPPath}'");
+                            break;
 
                 if sVCPPVer:
                     break;
@@ -3717,6 +3728,10 @@ rem\n""");
     if g_oEnv['KBUILD_PATH']:
         oEnv.prependPath('PATH', os.path.join(g_oEnv['KBUILD_PATH'], 'bin', f'{enmBuildTarget}.{enmBuildArch}'));
     w.write('PATH');
+    # NASM is preferred over YASM, but this switch is a kBuild variable rather
+    # than a VBOX_* setting and therefore needs an explicit env-file entry.
+    if g_oEnv['DONT_USE_YASM'] is not None:
+        w.write('DONT_USE_YASM');
 
     w.save(); # Serialize all changes to disk.
 
@@ -3802,7 +3817,13 @@ def testMain():
                         print(f"Test {idx}: Unique found paths: {aPaths}");
                         aPaths = checkBase.findFilesGetPaths(aRes);
                         print(f"Test {idx}: Unique found files: {aPaths}");
-                        self.assertIn(aCurResFile['found_path'], curTst.asExpected);
+                        def normalizeTestPath(sPath):
+                            if sPath.startswith('/'):
+                                sPath = os.path.abspath(sPath);
+                            return os.path.normcase(os.path.normpath(sPath));
+                        sFoundPath = normalizeTestPath(aCurResFile['found_path']);
+                        asExpectedPaths = [ normalizeTestPath(sPath) for sPath in curTst.asExpected ];
+                        self.assertIn(sFoundPath, asExpectedPaths);
 
     oTstSuite = unittest.TestSuite();
     oTstSuite.addTests(unittest.TestLoader().loadTestsFromTestCase(tstGetVersionFromString));
@@ -4251,7 +4272,7 @@ def main():
         # Disable components which require Python. Most likely this will blow up the build, as Python is mandatory nowadays.
         lambda env: { 'VBOX_WITH_PYTHON': '' } if g_oArgs.config_tools_disable_python else {},
         # Python is mandatory nowadays.
-        lambda env: { 'VBOX_BLD_PYTHON': os.path.join(g_oArgs.config_python_path, 'python' + getExeSuff() ) } if g_oArgs.config_python_path else {},
+        lambda env: { 'VBOX_BLD_PYTHON': os.path.join(g_oArgs.config_python_path, 'python' + getExeSuff() ).replace('\\', '/') } if g_oArgs.config_python_path else {},
         # Assembler detection: configure what to avoid.
         lambda env: { 'DONT_USE_YASM': '1' } if g_oArgs.config_tools_disable_yasm else {},
         lambda env: { 'DONT_USE_NASM': '1' } if g_oArgs.config_tools_disable_nasm else {},
