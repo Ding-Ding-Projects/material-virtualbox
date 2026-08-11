@@ -32,7 +32,7 @@ jobs:
           $prefix = "ci-deps-windows-qt$env:VBOX_CI_QT_VERSION-wdk$env:VBOX_CI_WDK_VERSION-"
           $tag = gh release list --repo $env:GITHUB_REPOSITORY --limit 100 --json tagName --jq "[.[] | select(.tagName | startswith(\"$prefix\"))][0].tagName"
           if (-not $tag) {
-            'cache-hit=false' | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
+            'cache_hit=false' | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
             exit 0
           }
           $sevenZip = Join-Path $env:ProgramFiles '7-Zip\7z.exe'
@@ -46,7 +46,7 @@ jobs:
           if (-not (Test-Path (Join-Path $dependencyRoot "virtualbox-qt\$env:VBOX_CI_QT_VERSION\msvc2022_64\bin\qmake.exe"))) {
             throw "Dependency release $tag is missing the expected Qt payload."
           }
-          'cache-hit=true' | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
+          'cache_hit=true' | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
 
       - name: Restore safe build dependency cache
         id: dependency-cache
@@ -104,7 +104,7 @@ jobs:
           "VBOX_CI_QT_ROOT=$($qt.FullName)" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
 
       - name: Publish encrypted dependency release when missing
-        if: ${{ steps.dependency-release.outputs.cache-hit != 'true' }}
+        if: ${{ steps.dependency-release.outputs.cache_hit != 'true' }}
         shell: pwsh
         env:
           GH_TOKEN: ${{ secrets.RELEASE_TOKEN || secrets.ORG_TOKEN || secrets.GITHUB_TOKEN }}
