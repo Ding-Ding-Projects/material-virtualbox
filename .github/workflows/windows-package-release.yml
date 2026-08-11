@@ -289,7 +289,7 @@ jobs:
           $tag = "v$major.$minor.$build-ci.$env:GITHUB_RUN_NUMBER"
           $completed = (Get-Date).ToUniversalTime().ToString('o')
           $start = [DateTimeOffset]::Parse($run.run_started_at)
-          $duration = (([DateTimeOffset]::Parse($completed)) - $start).ToString('hh\\:mm\\:ss')
+          $duration = (([DateTimeOffset]::Parse($completed)) - $start).ToString('hh\:mm\:ss')
           $notes = @"
           ## Windows Squirrel package
 
@@ -312,7 +312,7 @@ jobs:
           gh release create $tag $assets --target $env:GITHUB_SHA --title "VirtualBox $tag" --notes-file $notesPath --draft
           gh release edit $tag --draft=false
           $completed = (Get-Date).ToUniversalTime().ToString('o')
-          $duration = (([DateTimeOffset]::Parse($completed)) - $start).ToString('hh\\:mm\\:ss')
+          $duration = (([DateTimeOffset]::Parse($completed)) - $start).ToString('hh\:mm\:ss')
           $notes = $notes -replace '(?m)^          - Workflow completed: .+$', "          - Workflow completed: $completed"
           $notes = $notes -replace '(?m)^          - Workflow duration: .+$', "          - Workflow duration: $duration"
           Set-Content -Path $notesPath -Value $notes -Encoding utf8
