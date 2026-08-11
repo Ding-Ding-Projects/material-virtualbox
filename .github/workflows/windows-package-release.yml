@@ -27,10 +27,13 @@ jobs:
 
           # The hosted image supplies Visual Studio Build Tools, Python, and .NET.
           # Install the remaining package inputs from their canonical publishers.
-          if (-not (Get-Command winget -ErrorAction SilentlyContinue)) {
-            throw 'WinGet is required to install the Windows Driver Kit.'
+          $wdkSetup = Join-Path $env:RUNNER_TEMP 'wdksetup.exe'
+          Invoke-WebRequest -UseBasicParsing -Uri 'https://download.microsoft.com/download/eb29e759-d7ad-4541-b60c-e9774ad8c593/KIT_BUNDLE_WDK_MEDIACREATION/wdksetup.exe' -OutFile $wdkSetup
+          $wdkInstall = Start-Process -FilePath $wdkSetup -ArgumentList '/quiet','/norestart' -Wait -PassThru -WindowStyle Hidden
+          if ($wdkInstall.ExitCode -ne 0) { throw "Windows Driver Kit installation failed with exit code $($wdkInstall.ExitCode)." }
+          if (-not (Test-Path 'C:\Program Files (x86)\Windows Kits\10\Include')) {
+            throw 'Windows Driver Kit installation did not create the expected Windows Kits include directory.'
           }
-          winget install --exact --id "Microsoft.WindowsWDK.$env:VBOX_CI_WDK_VERSION" --silent --accept-package-agreements --accept-source-agreements
           & .\kBuild\kBuild\bin\win.amd64\kmk.exe -C tools fetch
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           if (-not (Test-Path '.\tools\win.x86\wix\v4.0.5\tools\net472\x86\wix.exe')) {
