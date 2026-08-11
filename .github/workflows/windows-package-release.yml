@@ -104,13 +104,18 @@ jobs:
           "VBOX_CI_QT_ROOT=$($qt.FullName)" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
 
       - name: Publish encrypted dependency release when missing
-        if: ${{ steps.dependency_release.outputs.cache_hit != 'true' }}
         shell: pwsh
         env:
           GH_TOKEN: ${{ secrets.RELEASE_TOKEN || secrets.ORG_TOKEN || secrets.GITHUB_TOKEN }}
           DEPENDENCY_CACHE_PASSPHRASE: ${{ secrets.DEPENDENCY_CACHE_PASSPHRASE }}
         run: |
           $ErrorActionPreference = 'Stop'
+          $prefix = "ci-deps-windows-qt$env:VBOX_CI_QT_VERSION-wdk$env:VBOX_CI_WDK_VERSION-"
+          $existingTag = gh release list --repo $env:GITHUB_REPOSITORY --limit 100 --json tagName --jq "[.[] | select(.tagName | startswith(\"$prefix\"))][0].tagName"
+          if ($existingTag) {
+            Write-Host "Encrypted dependency release $existingTag already exists; skipping publication."
+            exit 0
+          }
           $sevenZip = Join-Path $env:ProgramFiles '7-Zip\7z.exe'
           if (-not (Test-Path $sevenZip)) { throw '7-Zip is required to publish the encrypted dependency release.' }
           $dependencyRoot = Join-Path $env:RUNNER_TEMP 'virtualbox-dependencies'
