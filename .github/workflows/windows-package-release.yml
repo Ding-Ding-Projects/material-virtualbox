@@ -112,6 +112,8 @@ jobs:
           if (-not $nasm) { throw 'NASM bootstrap did not provide nasm.exe.' }
           $nasmDirectory = (cmd /c "for %I in (`"$($nasm.DirectoryName)`") do @echo %~sI").Trim() -replace '\\','/'
           "PATH=$nasmDirectory;$env:PATH" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+          $env:PATH = "$nasmDirectory;$env:PATH"
+          if (-not (Get-Command nasm.exe -ErrorAction SilentlyContinue)) { throw 'NASM bootstrap path was not available to the current packaging step.' }
           $zipCommand = Get-Command zip.exe -ErrorAction SilentlyContinue
           if (-not $zipCommand) {
             $zipCandidates = @(
