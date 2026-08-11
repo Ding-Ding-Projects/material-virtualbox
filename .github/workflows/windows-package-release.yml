@@ -22,7 +22,7 @@ jobs:
           submodules: recursive
 
       - name: Restore encrypted dependency release
-        id: dependency-release
+        id: dependency_release
         shell: pwsh
         env:
           GH_TOKEN: ${{ secrets.RELEASE_TOKEN || secrets.ORG_TOKEN || secrets.GITHUB_TOKEN }}
@@ -104,7 +104,7 @@ jobs:
           "VBOX_CI_QT_ROOT=$($qt.FullName)" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
 
       - name: Publish encrypted dependency release when missing
-        if: ${{ steps.dependency-release.outputs.cache_hit != 'true' }}
+        if: ${{ steps.dependency_release.outputs.cache_hit != 'true' }}
         shell: pwsh
         env:
           GH_TOKEN: ${{ secrets.RELEASE_TOKEN || secrets.ORG_TOKEN || secrets.GITHUB_TOKEN }}
