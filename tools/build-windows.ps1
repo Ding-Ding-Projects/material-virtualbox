@@ -242,7 +242,6 @@ function Invoke-VirtualBoxBuild {
     )
     $env:VBOX_SIGNING_MODE = ''
     $env:VBOX_WITHOUT_HARDENING = '1'
-    $env:VBOX_WITHOUT_ADDITIONS = '1'
     $env:VBOX_OSE = '1'
     $env:VBOX_CI_QT_ROOT = $QtRoot
     $env:VBOX_CI_WINDOWS_SDK_ROOT = $SdkRoot
@@ -252,7 +251,7 @@ function Invoke-VirtualBoxBuild {
     $pythonRoot = (Split-Path -Parent $Python).Replace('\', '/')
     $env:Path = "$pythonRoot;$env:Path"
     $arguments = @(
-        '--disable-hardening', '--disable-python_c_api', '--disable-validationkit', '--disable-win-ddk',
+        '--disable-hardening', '--disable-python_c_api', '--disable-win-ddk',
         '--disable-win-msi', '--disable-win-wix',
         "--with-kbuild-path=$($repoRoot.Replace('\', '/'))/kBuild/kBuild",
         "--with-qt-path=$QtRoot", "--with-sdk10=$SdkRoot",
