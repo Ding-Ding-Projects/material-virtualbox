@@ -754,8 +754,11 @@ def compileAndRun(sName, asIncPaths, asLibPaths, asIncFiles, asLibFiles, \
     try:
         # Add the compiler's path to PATH.
         oProcEnv.prependPath('PATH', os.path.dirname(sCompiler));
-        # Try compiling the test source file.
-        oProc = subprocess.run(asCmd, env = oProcEnv.env, stdout = subprocess.PIPE, stderr = subprocess.STDOUT, check = False, timeout = 15);
+        # Try compiling the test source file.  Cold-started MSVC link checks on
+        # hosted Windows images can exceed fifteen seconds even when the
+        # compiler is healthy, so keep the probe bounded without rejecting a
+        # valid toolchain merely because its first link is slow.
+        oProc = subprocess.run(asCmd, env = oProcEnv.env, stdout = subprocess.PIPE, stderr = subprocess.STDOUT, check = False, timeout = 60);
         if oProc.returncode != 0:
             sStdOut = oProc.stdout.decode("utf-8", errors="ignore");
             if fLog:
