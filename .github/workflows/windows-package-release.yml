@@ -56,7 +56,14 @@ jobs:
             Add-Content -LiteralPath $env:GITHUB_OUTPUT -Value 'cache_hit=false' -Encoding utf8NoBOM
             exit 0
           }
-          if (-not (Test-Path (Join-Path $dependencyRoot 'tools\win.x86\nsis\v3.10-log-r1\makensis.exe'))) {
+          $cachedNsisRoot = Join-Path $dependencyRoot 'tools\win.x86\nsis\v3.10-log-r1'
+          $nsisCacheFiles = @(
+            (Join-Path $cachedNsisRoot 'makensis.exe'),
+            (Join-Path $cachedNsisRoot 'Include\nsProcess.nsh'),
+            (Join-Path $cachedNsisRoot 'Plugins\x86-unicode\nsProcess.dll'),
+            (Join-Path $cachedNsisRoot 'Plugins\x86-unicode\AccessControl.dll')
+          )
+          if (@($nsisCacheFiles | Where-Object { -not (Test-Path $_) }).Count -gt 0) {
             Write-Host "Dependency release $tag predates the NSIS cache; the cache will be refreshed after bootstrap."
             Add-Content -LiteralPath $env:GITHUB_OUTPUT -Value 'cache_hit=false' -Encoding utf8NoBOM
             exit 0
@@ -202,11 +209,11 @@ jobs:
           Write-Host "Using zip.exe from $($zipCommand.FullName)."
           $nsisTarget = Join-Path $PWD 'tools\win.x86\nsis\v3.10-log-r1'
           $nsisExecutable = Join-Path $nsisTarget 'makensis.exe'
+          $curl = Get-Command curl.exe -ErrorAction Stop
           if (-not (Test-Path $nsisExecutable)) {
             $nsisVersion = '3.10'
             $nsisZip = Join-Path $env:RUNNER_TEMP "nsis-$nsisVersion.zip"
             $nsisExtract = Join-Path $env:RUNNER_TEMP "nsis-$nsisVersion"
-            $curl = Get-Command curl.exe -ErrorAction Stop
             & $curl.Source -L --fail --silent --show-error --output $nsisZip 'https://downloads.sourceforge.net/project/nsis/NSIS%203/3.10/nsis-3.10.zip'
             if ($LASTEXITCODE -ne 0) { throw "NSIS download failed with exit code $LASTEXITCODE." }
             if ((Get-FileHash $nsisZip -Algorithm SHA256).Hash -ne 'FCDCE3229717A2A148E7CDA0AB5BDB667F39D8FB33EDE1DA8DABC336BD5AD110') { throw 'NSIS bootstrap hash did not match the canonical release asset.' }
@@ -219,7 +226,46 @@ jobs:
             New-Item -ItemType Directory -Force $nsisTarget | Out-Null
             Copy-Item (Join-Path $nsisSource '*') $nsisTarget -Recurse -Force
           }
-          if (-not (Test-Path $nsisExecutable)) { throw 'NSIS was not materialized under tools\win.x86\nsis\v3.10-log-r1.' }
+          $nsisPluginRoot = Join-Path $nsisTarget 'Plugins\x86-unicode'
+          $nsisInclude = Join-Path $nsisTarget 'Include'
+          $nsProcessInclude = Join-Path $nsisInclude 'nsProcess.nsh'
+          $nsProcessPlugin = Join-Path $nsisPluginRoot 'nsProcess.dll'
+          $accessControlPlugin = Join-Path $nsisPluginRoot 'AccessControl.dll'
+          if (-not (Test-Path $nsProcessInclude) -or -not (Test-Path $nsProcessPlugin)) {
+            $nsProcessZip = Join-Path $env:RUNNER_TEMP 'NsProcess-1.6.zip'
+            $nsProcessExtract = Join-Path $env:RUNNER_TEMP 'NsProcess-1.6'
+            & $curl.Source -L --fail --silent --show-error --output $nsProcessZip 'https://nsis.sourceforge.io/mediawiki/images/1/18/NsProcess.zip'
+            if ($LASTEXITCODE -ne 0) { throw "NsProcess 1.6 download failed with exit code $LASTEXITCODE." }
+            if ((Get-FileHash $nsProcessZip -Algorithm SHA256).Hash -ne 'FC19FC66A5219A233570FAFD5DAEB0C9B85387B379F6DF5AC8898159A57C5944') { throw 'NsProcess 1.6 bootstrap hash did not match the pinned upstream archive.' }
+            Remove-Item -LiteralPath $nsProcessExtract -Recurse -Force -ErrorAction SilentlyContinue
+            New-Item -ItemType Directory -Force $nsProcessExtract | Out-Null
+            & $sevenZip x $nsProcessZip "-o$nsProcessExtract" '-y'
+            if ($LASTEXITCODE -ne 0) { throw "NsProcess 1.6 archive extraction failed with exit code $LASTEXITCODE." }
+            $nsProcessSource = Join-Path $nsProcessExtract 'Include\nsProcess.nsh'
+            $nsProcessUnicode = Join-Path $nsProcessExtract 'Plugin\nsProcessW.dll'
+            if (-not (Test-Path $nsProcessSource) -or -not (Test-Path $nsProcessUnicode)) { throw 'NsProcess 1.6 archive did not provide the Unicode include and plugin.' }
+            New-Item -ItemType Directory -Force $nsisInclude | Out-Null
+            New-Item -ItemType Directory -Force $nsisPluginRoot | Out-Null
+            Copy-Item $nsProcessSource $nsProcessInclude -Force
+            Copy-Item $nsProcessUnicode $nsProcessPlugin -Force
+          }
+          if (-not (Test-Path $accessControlPlugin)) {
+            $accessControlZip = Join-Path $env:RUNNER_TEMP 'AccessControl-1.0.8.3.zip'
+            $accessControlExtract = Join-Path $env:RUNNER_TEMP 'AccessControl-1.0.8.3'
+            & $curl.Source -L --fail --silent --show-error --output $accessControlZip 'https://nsis.sourceforge.io/mediawiki/images/4/4a/AccessControl.zip'
+            if ($LASTEXITCODE -ne 0) { throw "AccessControl 1.0.8.3 download failed with exit code $LASTEXITCODE." }
+            if ((Get-FileHash $accessControlZip -Algorithm SHA256).Hash -ne '9AA60F9C5C023FDA2808AF216514D8913D2673BC522D944EE771DA032A1BDC10') { throw 'AccessControl 1.0.8.3 bootstrap hash did not match the pinned upstream archive.' }
+            Remove-Item -LiteralPath $accessControlExtract -Recurse -Force -ErrorAction SilentlyContinue
+            New-Item -ItemType Directory -Force $accessControlExtract | Out-Null
+            & $sevenZip x $accessControlZip "-o$accessControlExtract" '-y'
+            if ($LASTEXITCODE -ne 0) { throw "AccessControl 1.0.8.3 archive extraction failed with exit code $LASTEXITCODE." }
+            $accessControlSource = Join-Path $accessControlExtract 'Plugins\i386-unicode\AccessControl.dll'
+            if (-not (Test-Path $accessControlSource)) { throw 'AccessControl 1.0.8.3 archive did not provide the x86 Unicode plugin.' }
+            New-Item -ItemType Directory -Force $nsisPluginRoot | Out-Null
+            Copy-Item $accessControlSource $accessControlPlugin -Force
+          }
+          $requiredNsisFiles = @($nsisExecutable, $nsProcessInclude, $nsProcessPlugin, $accessControlPlugin)
+          if (@($requiredNsisFiles | Where-Object { -not (Test-Path $_) }).Count -gt 0) { throw 'NSIS 3.10 and its pinned VirtualBox installer plugins were not materialized under tools\win.x86\nsis\v3.10-log-r1.' }
           $cachedNsis = Join-Path $dependencyRoot 'tools\win.x86\nsis\v3.10-log-r1'
           New-Item -ItemType Directory -Force (Split-Path $cachedNsis) | Out-Null
           Copy-Item $nsisTarget $cachedNsis -Recurse -Force
@@ -287,7 +333,14 @@ jobs:
           $cachedNsis = Join-Path $dependencyRoot 'tools\win.x86\nsis'
           New-Item -ItemType Directory -Force (Split-Path $cachedNsis) | Out-Null
           Copy-Item '.\tools\win.x86\nsis\*' $cachedNsis -Recurse -Force
-          if (-not (Test-Path (Join-Path $cachedNsis 'v3.10-log-r1\makensis.exe'))) { throw 'NSIS is missing from the dependency cache.' }
+          $cachedNsisRoot = Join-Path $cachedNsis 'v3.10-log-r1'
+          $requiredNsisFiles = @(
+            (Join-Path $cachedNsisRoot 'makensis.exe'),
+            (Join-Path $cachedNsisRoot 'Include\nsProcess.nsh'),
+            (Join-Path $cachedNsisRoot 'Plugins\x86-unicode\nsProcess.dll'),
+            (Join-Path $cachedNsisRoot 'Plugins\x86-unicode\AccessControl.dll')
+          )
+          if (@($requiredNsisFiles | Where-Object { -not (Test-Path $_) }).Count -gt 0) { throw 'NSIS or its pinned VirtualBox installer plugins are missing from the dependency cache.' }
           $cachedWdk71 = Join-Path $dependencyRoot 'winddk71'
           $wdk71Marker = Get-ChildItem $cachedWdk71 -Recurse -Filter 'rxce.lib' -File -ErrorAction SilentlyContinue |
             Where-Object { $_.FullName -match '\\lib\\wlh\\amd64\\rxce\.lib$' } | Select-Object -First 1

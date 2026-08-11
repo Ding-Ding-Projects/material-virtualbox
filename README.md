@@ -324,7 +324,8 @@ then creates a complete unsigned Squirrel.Windows set containing `Setup.exe`,
 The helper is [`tools/build-windows.ps1`](tools/build-windows.ps1). It keeps
 downloads in a user-local cache, verifies the pinned Windows SDK and WDK
 installer hashes, obtains Qt through `aqtinstall`, materializes the pinned
-NSIS 3.10 packaging tool, and reports the artifact path and SHA-256. An
+NSIS 3.10 packaging tool plus its pinned Unicode installer plugins, and reports
+the artifact path and SHA-256. An
 unsigned installer can trigger an unknown-publisher or
 SmartScreen warning; that warning is expected and is disclosed rather than
 hidden.
