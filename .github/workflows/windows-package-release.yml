@@ -61,10 +61,10 @@ jobs:
           $ErrorActionPreference = 'Stop'
           $dependencyRoot = Join-Path $env:RUNNER_TEMP 'virtualbox-dependencies'
           $qtRoot = Join-Path $dependencyRoot 'virtualbox-qt'
-          $cachedTools = Join-Path $dependencyRoot 'tools\win.x86'
-          if (Test-Path $cachedTools) {
-            New-Item -ItemType Directory -Force '.\tools' | Out-Null
-            Copy-Item $cachedTools '.\tools\win.x86' -Recurse -Force
+          $cachedWix = Join-Path $dependencyRoot 'tools\win.x86\wix'
+          if (Test-Path $cachedWix) {
+            New-Item -ItemType Directory -Force '.\tools\win.x86' | Out-Null
+            Copy-Item $cachedWix '.\tools\win.x86\wix' -Recurse -Force
           }
 
           # The hosted image supplies Visual Studio Build Tools, Python, and .NET.
@@ -114,13 +114,13 @@ jobs:
           $sevenZip = Join-Path $env:ProgramFiles '7-Zip\7z.exe'
           if (-not (Test-Path $sevenZip)) { throw '7-Zip is required to publish the encrypted dependency release.' }
           $dependencyRoot = Join-Path $env:RUNNER_TEMP 'virtualbox-dependencies'
-          $cachedTools = Join-Path $dependencyRoot 'tools\win.x86'
-          New-Item -ItemType Directory -Force (Split-Path $cachedTools) | Out-Null
-          Copy-Item '.\tools\win.x86' $cachedTools -Recurse -Force
+          $cachedWix = Join-Path $dependencyRoot 'tools\win.x86\wix'
+          New-Item -ItemType Directory -Force (Split-Path $cachedWix) | Out-Null
+          Copy-Item '.\tools\win.x86\wix' $cachedWix -Recurse -Force
           $archive = Join-Path $env:RUNNER_TEMP 'virtualbox-dependencies.7z'
           Push-Location $dependencyRoot
           try {
-            & $sevenZip a $archive virtualbox-qt 'tools\win.x86' "-p$env:DEPENDENCY_CACHE_PASSPHRASE" -mhe=on -t7z -v1536m
+            & $sevenZip a $archive virtualbox-qt 'tools\win.x86\wix' "-p$env:DEPENDENCY_CACHE_PASSPHRASE" -mhe=on -t7z -v1536m
           } finally {
             Pop-Location
           }
