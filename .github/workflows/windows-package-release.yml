@@ -120,7 +120,7 @@ jobs:
           $archive = Join-Path $env:RUNNER_TEMP 'virtualbox-dependencies.7z'
           Push-Location $dependencyRoot
           try {
-            & $sevenZip a $archive 'virtualbox-qt', 'tools\win.x86' "-p$env:DEPENDENCY_CACHE_PASSPHRASE" -mhe=on -t7z -v1536m
+            & $sevenZip a $archive virtualbox-qt 'tools\win.x86' "-p$env:DEPENDENCY_CACHE_PASSPHRASE" -mhe=on -t7z -v1536m
           } finally {
             Pop-Location
           }
