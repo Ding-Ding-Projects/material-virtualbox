@@ -2366,8 +2366,13 @@ class ToolCheck(CheckBase):
                               '-products', '*',
                               '-requires', 'Microsoft.VisualStudio*',
                               '-format', 'json' ];
-                    oProc = subprocess.run(asCmd, capture_output = True, check = False, universal_newlines = True);
-                    if oProc.returncode == 0 and oProc.stdout.strip():
+                    try:
+                        oProc = subprocess.run(asCmd, capture_output = True, check = False, universal_newlines = True,
+                                                timeout = 30);
+                    except subprocess.SubprocessError as ex:
+                        self.printVerbose(1, f"vswhere probe failed or timed out: {ex}");
+                        oProc = None;
+                    if oProc and oProc.returncode == 0 and oProc.stdout.strip():
                         import json
                         for curProd in json.loads(oProc.stdout):
                             sCandidatePath = curProd.get('installationPath', None);
