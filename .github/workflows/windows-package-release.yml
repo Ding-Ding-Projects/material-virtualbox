@@ -12,34 +12,87 @@ jobs:
     runs-on: windows-2022
     env:
       VBOX_CI_QT_VERSION: 6.8.3
-      VBOX_CI_WDK_VERSION: 10.0.28000
+      VBOX_CI_WDK_VERSION: 10.0.22621
       VBOX_SIGNING_MODE: ""
     steps:
       - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Restore encrypted dependency release
+        id: dependency-release
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ secrets.RELEASE_TOKEN || secrets.ORG_TOKEN || secrets.GITHUB_TOKEN }}
+          DEPENDENCY_CACHE_PASSPHRASE: ${{ secrets.DEPENDENCY_CACHE_PASSPHRASE }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $prefix = "ci-deps-windows-qt$env:VBOX_CI_QT_VERSION-wdk$env:VBOX_CI_WDK_VERSION-"
+          $tag = gh release list --repo $env:GITHUB_REPOSITORY --limit 100 --json tagName --jq "[.[] | select(.tagName | startswith(\"$prefix\"))][0].tagName"
+          if (-not $tag) {
+            'cache-hit=false' | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
+            exit 0
+          }
+          $sevenZip = Join-Path $env:ProgramFiles '7-Zip\7z.exe'
+          if (-not (Test-Path $sevenZip)) { throw '7-Zip is required to restore the encrypted dependency release.' }
+          $dependencyRoot = Join-Path $env:RUNNER_TEMP 'virtualbox-dependencies'
+          New-Item -ItemType Directory -Force $dependencyRoot | Out-Null
+          gh release download $tag --repo $env:GITHUB_REPOSITORY --pattern 'virtualbox-dependencies.7z.*' --dir $dependencyRoot
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          & $sevenZip x (Join-Path $dependencyRoot 'virtualbox-dependencies.7z.001') "-p$env:DEPENDENCY_CACHE_PASSPHRASE" "-o$dependencyRoot" -y
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          if (-not (Test-Path (Join-Path $dependencyRoot "virtualbox-qt\$env:VBOX_CI_QT_VERSION\msvc2022_64\bin\qmake.exe"))) {
+            throw "Dependency release $tag is missing the expected Qt payload."
+          }
+          'cache-hit=true' | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
+
+      - name: Restore safe build dependency cache
+        id: dependency-cache
+        uses: actions/cache@v4
+        with:
+          path: ${{ runner.temp }}\virtualbox-dependencies
+          key: virtualbox-windows-deps-qt${{ env.VBOX_CI_QT_VERSION }}-wdk${{ env.VBOX_CI_WDK_VERSION }}-${{ hashFiles('Config.kmk', 'kBuild/kBuild/Config.kmk') }}
 
       - name: Bootstrap Windows packaging dependencies
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
-          $qtRoot = Join-Path $env:RUNNER_TEMP 'virtualbox-qt'
+          $dependencyRoot = Join-Path $env:RUNNER_TEMP 'virtualbox-dependencies'
+          $qtRoot = Join-Path $dependencyRoot 'virtualbox-qt'
+          $cachedTools = Join-Path $dependencyRoot 'tools\win.x86'
+          if (Test-Path $cachedTools) {
+            New-Item -ItemType Directory -Force '.\tools' | Out-Null
+            Copy-Item $cachedTools '.\tools\win.x86' -Recurse -Force
+          }
 
           # The hosted image supplies Visual Studio Build Tools, Python, and .NET.
           # Install the remaining package inputs from their canonical publishers.
+          $sdkSetup = Join-Path $env:RUNNER_TEMP 'winsdksetup.exe'
+          Invoke-WebRequest -UseBasicParsing -Uri 'https://download.microsoft.com/download/3/b/d/3bd97f81-3f5b-4922-b86d-dc5145cd6bfe/windowssdk/winsdksetup.exe' -OutFile $sdkSetup
+          if ((Get-FileHash $sdkSetup -Algorithm SHA256).Hash -ne '3F73F59566B0CF3EDDDDAF61AD72BB0C6E4588A5D9E004ABF68115B752EBBBD8') { throw 'Windows SDK bootstrap hash did not match the canonical manifest.' }
+          $sdkInstall = Start-Process -FilePath $sdkSetup -ArgumentList '/quiet','/norestart' -Wait -PassThru -WindowStyle Hidden
+          if ($sdkInstall.ExitCode -ne 0) { throw "Windows SDK installation failed with exit code $($sdkInstall.ExitCode)." }
+
           $wdkSetup = Join-Path $env:RUNNER_TEMP 'wdksetup.exe'
-          Invoke-WebRequest -UseBasicParsing -Uri 'https://download.microsoft.com/download/eb29e759-d7ad-4541-b60c-e9774ad8c593/KIT_BUNDLE_WDK_MEDIACREATION/wdksetup.exe' -OutFile $wdkSetup
+          Invoke-WebRequest -UseBasicParsing -Uri 'https://download.microsoft.com/download/7/b/f/7bfc8dbe-00cb-47de-b856-70e696ef4f46/wdk/wdksetup.exe' -OutFile $wdkSetup
+          if ((Get-FileHash $wdkSetup -Algorithm SHA256).Hash -ne 'A891543C0EAF610757EE7852F515C5CE89D0202F22A15DFA31C4D49F2BAFDF27') { throw 'Windows Driver Kit bootstrap hash did not match the canonical manifest.' }
           $wdkInstall = Start-Process -FilePath $wdkSetup -ArgumentList '/quiet','/norestart' -Wait -PassThru -WindowStyle Hidden
           if ($wdkInstall.ExitCode -ne 0) { throw "Windows Driver Kit installation failed with exit code $($wdkInstall.ExitCode)." }
           if (-not (Test-Path 'C:\Program Files (x86)\Windows Kits\10\Include')) {
             throw 'Windows Driver Kit installation did not create the expected Windows Kits include directory.'
           }
-          & .\kBuild\kBuild\bin\win.amd64\kmk.exe -C tools fetch
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          if (-not (Test-Path '.\tools\win.x86\wix\v4.0.5\tools\net472\x86\wix.exe')) {
+            & .\kBuild\kBuild\bin\win.amd64\kmk.exe -C tools fetch
+            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          }
           if (-not (Test-Path '.\tools\win.x86\wix\v4.0.5\tools\net472\x86\wix.exe')) {
             throw 'The supported tools fetch did not materialize the tree-compatible WiX 4.0.5 layout.'
           }
 
-          python -m pip install --disable-pip-version-check aqtinstall
-          python -m aqt install-qt windows desktop $env:VBOX_CI_QT_VERSION win64_msvc2022_64 --outputdir $qtRoot
+          if (-not (Test-Path (Join-Path $qtRoot "$env:VBOX_CI_QT_VERSION\msvc2022_64\bin\qmake.exe"))) {
+            python -m pip install --disable-pip-version-check aqtinstall
+            python -m aqt install-qt windows desktop $env:VBOX_CI_QT_VERSION win64_msvc2022_64 --outputdir $qtRoot
+          }
           $qt = Get-ChildItem $qtRoot -Directory | Select-Object -First 1
           if (-not $qt) { throw 'Qt installation did not create a version directory.' }
           $qt = Get-ChildItem $qt.FullName -Directory | Select-Object -First 1
@@ -47,6 +100,35 @@ jobs:
             throw 'Qt installation is missing qmake.exe.'
           }
           "VBOX_CI_QT_ROOT=$($qt.FullName)" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+
+      - name: Publish encrypted dependency release when missing
+        if: ${{ steps.dependency-release.outputs.cache-hit != 'true' }}
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ secrets.RELEASE_TOKEN || secrets.ORG_TOKEN || secrets.GITHUB_TOKEN }}
+          DEPENDENCY_CACHE_PASSPHRASE: ${{ secrets.DEPENDENCY_CACHE_PASSPHRASE }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $sevenZip = Join-Path $env:ProgramFiles '7-Zip\7z.exe'
+          if (-not (Test-Path $sevenZip)) { throw '7-Zip is required to publish the encrypted dependency release.' }
+          $dependencyRoot = Join-Path $env:RUNNER_TEMP 'virtualbox-dependencies'
+          $cachedTools = Join-Path $dependencyRoot 'tools\win.x86'
+          New-Item -ItemType Directory -Force (Split-Path $cachedTools) | Out-Null
+          Copy-Item '.\tools\win.x86' $cachedTools -Recurse -Force
+          $archive = Join-Path $env:RUNNER_TEMP 'virtualbox-dependencies.7z'
+          Push-Location $dependencyRoot
+          try {
+            & $sevenZip a $archive 'virtualbox-qt', 'tools\win.x86' "-p$env:DEPENDENCY_CACHE_PASSPHRASE" -mhe=on -t7z -v1536m
+          } finally {
+            Pop-Location
+          }
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          $parts = Get-ChildItem "$archive.*" -File | Sort-Object Name
+          if (-not $parts) { throw 'Encrypted dependency archive did not produce any upload parts.' }
+          $tag = "ci-deps-windows-qt$env:VBOX_CI_QT_VERSION-wdk$env:VBOX_CI_WDK_VERSION-$env:GITHUB_RUN_ID"
+          $notes = "Encrypted Windows dependency cache for Qt $env:VBOX_CI_QT_VERSION and WDK $env:VBOX_CI_WDK_VERSION. Parts are limited to 1.5 GiB."
+          gh release create $tag $parts.FullName --repo $env:GITHUB_REPOSITORY --target $env:GITHUB_SHA --title "Windows dependency cache $tag" --notes $notes
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
       - name: Configure an unsigned Windows package build
         shell: pwsh
