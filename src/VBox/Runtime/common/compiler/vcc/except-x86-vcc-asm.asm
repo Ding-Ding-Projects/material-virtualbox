@@ -107,7 +107,9 @@ extern _rtVccEh4DoLocalUnwindHandler@16
 
 ;; Delcare rtVccEh4DoLocalUnwindHandler() in except-x86.cpp as a safe exception handler.
 ; This adds the symbol table number of the exception handler to the special .sxdata section.
-safeseh _rtVccEh4DoLocalUnwindHandler@16
+safeseh _rtVccEh4DoLocalUnwindHandlerSafe@16
+GLOBALNAME_RAW _rtVccEh4DoLocalUnwindHandlerSafe@16, function
+        jmp     _rtVccEh4DoLocalUnwindHandler@16
 
 %ifdef WITH_NLG_STUFF
 BEGINDATA

@@ -84,6 +84,8 @@ DECLASM(void)                   rtVccEh4DoGlobalUnwind(PEXCEPTION_RECORD pXcptRe
 DECLASM(void)                   rtVccEh4DoFinally(PFN_EH4_FINALLY_T pfnFinally, bool fAbend, uint8_t const *pbFrame);
 extern "C" EXCEPTION_DISPOSITION __stdcall
 rtVccEh4DoLocalUnwindHandler(PEXCEPTION_RECORD pXcptRec, PVOID pvEstFrame, PCONTEXT pCpuCtx, PVOID pvDispCtx);
+extern "C" EXCEPTION_DISPOSITION __stdcall
+rtVccEh4DoLocalUnwindHandlerSafe(PEXCEPTION_RECORD pXcptRec, PVOID pvEstFrame, PCONTEXT pCpuCtx, PVOID pvDispCtx);
 
 
 #ifdef _MSC_VER
@@ -109,7 +111,7 @@ static void rtVccEh4DoLocalUnwind(PEH4_XCPT_REG_REC_T pEh4XcptRegRec, uint32_t u
         __security_cookie ^ (uintptr_t)&RegRec,
         {
             (EXCEPTION_REGISTRATION_RECORD *)__readfsdword(RT_UOFFSETOF(NT_TIB, ExceptionList)),
-            rtVccEh4DoLocalUnwindHandler /* safeseh (.sxdata) entry emitted by except-x86-vcc-asm.asm */
+            rtVccEh4DoLocalUnwindHandlerSafe /* safeseh wrapper emitted by except-x86-vcc-asm.asm */
         },
         pEh4XcptRegRec,
         uTargetTryLevel,
