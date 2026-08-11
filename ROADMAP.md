@@ -7,9 +7,10 @@ CI, documentation, and capture evidence exists.
 
 ## In progress
 
-1. **Manager tools** — compose Media, Network, Extensions, Cloud, Logs,
-   Activities, and related existing manager models in responsive Material
-   surfaces with local search, bulk actions, export, accessibility, and truthful
+1. **Manager tools** — the existing Extensions, Media, Network, Cloud, and VM
+   Activity Overview panes now share a bounded Material search and appearance
+   card without replacing their models. Continue with bulk actions, export,
+   Logs, detached manager windows, complete accessibility, and truthful
    empty/error states.
 2. **Runtime chrome** — compose native Material controls around
    `UIMachineWindow` and `UIMachineView` without changing guest rendering,

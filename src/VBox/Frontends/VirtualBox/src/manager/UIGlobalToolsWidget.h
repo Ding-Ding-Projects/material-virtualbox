@@ -47,6 +47,7 @@ class QToolButton;
 class UIActionPool;
 class UIChooser;
 class UIMachineToolsWidget;
+class UIMd3ManagerToolSearch;
 class UIMd3NavigationRail;
 class UIToolPane;
 class UITools;
@@ -180,6 +181,8 @@ private:
         void updatePageHeader(UIToolType enmType);
         /** Refreshes destination-header colors and typography. */
         void updatePageHeaderTheme();
+        /** Binds the Material manager-tool search card to the active real pane. */
+        void updateToolSearch(UIToolType enmType);
         /** Applies the 1000-pixel rail-to-drawer breakpoint. */
         void updateResponsiveNavigation();
         /** Returns the localized reason why @a enmType is unavailable. */
@@ -220,6 +223,8 @@ private:
     QLabel *m_pPageTitle;
     /** Holds the compact navigation-drawer affordance. */
     QToolButton *m_pNavigationDrawerButton;
+    /** Holds the local search and appearance card for manager-tool panes. */
+    UIMd3ManagerToolSearch *m_pToolSearch;
 
     /** Holds the tools-menu instance. */
     UITools    *m_pMenu;

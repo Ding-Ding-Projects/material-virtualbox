@@ -15,6 +15,9 @@ serializers, validation, guest-display ownership, or session lifecycle.
 - The manager has a native frameless header, responsive navigation rail,
   on-demand workspace tabs, compact navigation, and contextual destination
   heading while preserving the existing tool and chooser models.
+- Extensions, Media, Network, Cloud, and VM Activity Overview share a bounded
+  Material search and appearance card over their existing item views. Original
+  hidden rows are restored when a query or destination changes.
 - Global Preferences and per-machine Settings use one bounded selected page at
   a time; search intentionally changes to cross-page results.
 - Native wizards use a responsive Material step rail and page card, reconcile
@@ -26,11 +29,12 @@ serializers, validation, guest-display ownership, or session lifecycle.
 
 ## Verification and blockers
 
-The current wizard/overlay lane passes its 69-row archive ledger, focused source
-contracts, completion-overlay validator, workflow structure check, XML/HTML
-parse checks, and local Windows x64 `UICommon`, `VirtualBox`, and `VirtualBoxVM`
-build targets. Commit-attributed hashes and CI/Pages links are added after the
-lane is published.
+The current manager-tools working tree passes `git diff --check` and local
+Windows x64 `UICommon`, `VirtualBox`, and `VirtualBoxVM` builds. The new shared
+source compiled, the manager bindings compiled, and all three targets linked
+with exit 0. The archive/source contract, workflow structure, XML/HTML, exact
+commit, and CI/Pages evidence are the remaining publication gates for this
+lane.
 
 The development executable cannot currently open the real manager because its
 COM/SDS classes are not registered. Design HTML and thumbnails are not used as
@@ -43,5 +47,5 @@ rows remain open.
 Continue from [`doc/md3/CodexHandoff.md`](doc/md3/CodexHandoff.md), reconcile
 each lane against [`doc/md3/DesignCoverage.md`](doc/md3/DesignCoverage.md), and
 keep target ownership and existing VirtualBox behavior authoritative. The next
-broad lane is the manager tools, followed by runtime chrome. Do not close the
-design objective from static or prototype evidence.
+broad lane remains manager-tool completion, followed by runtime chrome. Do not
+close the design objective from static or prototype evidence.

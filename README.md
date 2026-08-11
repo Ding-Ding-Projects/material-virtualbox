@@ -14,8 +14,9 @@ application-owned presentation toward one coherent Qt 6 design system.
 with the [canonical VirtualBox prerequisites and commands](#build-and-prerequisites).
 
 > **Implementation status:** the shared theme, style, language, persisted brand,
-> native manager title bar, manager navigation rail, manager tab strip, command
-> palette, appearance editor, full guided shared regex builder, four-scope tab
+> native manager title bar, manager navigation rail, manager tab strip,
+> manager-tool search card, command palette, appearance editor, full guided
+> shared regex builder, four-scope tab
 > manager, single-page settings shell, settings search field, and the
 > notification-center search and keyboard-accessible notification rows are wired
 > into the existing VirtualBox frontend.
@@ -124,6 +125,15 @@ with contextual action pills, and padded Machines chooser/workspace cards. The
 serial Windows gate rebuilt and linked `UICommon` and `VirtualBox`, then
 confirmed `VirtualBoxVM` was already up to date against that shared library;
 real native capture remains a separate runtime gate.
+
+The first manager-tools slice is documented in
+[`doc/md3/ManagerTools.md`](doc/md3/ManagerTools.md). Extensions, Media,
+Network, Cloud, and VM Activity Overview now share one persistent Material
+plain-text/regex search and appearance card over their existing item views. It
+restores each view's original hidden rows, coalesces live model changes, keeps
+the original actions and models authoritative, and removes the duplicate Media
+search action from the embedded contextual toolbar. Bulk operations, export,
+Logs, detached manager windows, and native capture remain open.
 
 The manager's 92-pixel navigation rail uses stacked icon-and-label destinations
 in the prototype order. Its buttons must select the existing `UIToolType`

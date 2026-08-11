@@ -104,6 +104,11 @@ UIToolType UIToolPane::currentTool() const
            : UIToolType_Invalid;
 }
 
+QWidget *UIToolPane::currentToolWidget() const
+{
+    return m_pLayout ? m_pLayout->currentWidget() : 0;
+}
+
 bool UIToolPane::isToolOpened(UIToolType enmType) const
 {
     for (int iIndex = 0; iIndex < m_pLayout->count(); ++iIndex)

@@ -871,7 +871,6 @@ void UIVirtualBoxWidget::updateToolbar()
             m_pToolBar->addAction(actionPool()->action(UIActionIndexMN_M_Medium_S_Remove));
             m_pToolBar->addAction(actionPool()->action(UIActionIndexMN_M_Medium_S_Release));
             m_pToolBar->addAction(actionPool()->action(UIActionIndexMN_M_Medium_S_Clear));
-            m_pToolBar->addAction(actionPool()->action(UIActionIndexMN_M_Medium_T_Search));
             m_pToolBar->addAction(actionPool()->action(UIActionIndexMN_M_Medium_T_Details));
             m_pToolBar->addSeparator();
             m_pToolBar->addAction(actionPool()->action(UIActionIndexMN_M_Medium_S_Refresh));

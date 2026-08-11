@@ -142,6 +142,14 @@ Rules for adding a changelog entry to make them look more uniform:
       </listitem>
 
       <listitem>
+        <para>GUI: Added one bounded Material search and appearance card over
+          the existing Extensions, Media, Network, Cloud, and VM Activity
+          Overview records, preserving prior hidden-row state and live model
+          ownership while removing the duplicate embedded Media toolbar search
+          action</para>
+      </listitem>
+
+      <listitem>
         <para>GUI: Added native snap hit testing with non-client maximize-click
           forwarding, screen-bounded restored geometry, searchable application
           and toolbar menus, accessible Material buttons and page tabs, and
