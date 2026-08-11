@@ -206,7 +206,9 @@ jobs:
             $nsisVersion = '3.10'
             $nsisZip = Join-Path $env:RUNNER_TEMP "nsis-$nsisVersion.zip"
             $nsisExtract = Join-Path $env:RUNNER_TEMP "nsis-$nsisVersion"
-            Invoke-WebRequest -UseBasicParsing -Uri 'https://prdownloads.sourceforge.net/nsis/nsis-3.10.zip?download' -OutFile $nsisZip
+            $curl = Get-Command curl.exe -ErrorAction Stop
+            & $curl.Source -L --fail --silent --show-error --output $nsisZip 'https://downloads.sourceforge.net/project/nsis/NSIS%203/3.10/nsis-3.10.zip'
+            if ($LASTEXITCODE -ne 0) { throw "NSIS download failed with exit code $LASTEXITCODE." }
             if ((Get-FileHash $nsisZip -Algorithm SHA256).Hash -ne 'FCDCE3229717A2A148E7CDA0AB5BDB667F39D8FB33EDE1DA8DABC336BD5AD110') { throw 'NSIS bootstrap hash did not match the canonical release asset.' }
             Remove-Item -LiteralPath $nsisExtract -Recurse -Force -ErrorAction SilentlyContinue
             New-Item -ItemType Directory -Force $nsisExtract | Out-Null

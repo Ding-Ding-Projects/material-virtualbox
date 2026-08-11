@@ -330,10 +330,16 @@ function Ensure-Nsis {
     if (Test-Path -LiteralPath $makensis) {
         return $target
     }
-    $zip = Get-DownloadedFile `
-        -Name "nsis-$version.zip" `
-        -Uri 'https://prdownloads.sourceforge.net/nsis/nsis-3.10.zip?download' `
-        -Sha256 'FCDCE3229717A2A148E7CDA0AB5BDB667F39D8FB33EDE1DA8DABC336BD5AD110'
+    $zip = Join-Path $downloadRoot "nsis-$version.zip"
+    if (-not (Test-Path -LiteralPath $zip)) {
+        $curl = Get-Command curl.exe -ErrorAction Stop
+        & $curl.Source -L --fail --silent --show-error --output $zip 'https://downloads.sourceforge.net/project/nsis/NSIS%203/3.10/nsis-3.10.zip'
+        if ($LASTEXITCODE -ne 0) { throw "NSIS download failed with exit code $LASTEXITCODE." }
+    }
+    $actual = (Get-FileHash -LiteralPath $zip -Algorithm SHA256).Hash
+    if ($actual -ne 'FCDCE3229717A2A148E7CDA0AB5BDB667F39D8FB33EDE1DA8DABC336BD5AD110') {
+        throw "SHA-256 mismatch for nsis-$version.zip: expected FCDCE3229717A2A148E7CDA0AB5BDB667F39D8FB33EDE1DA8DABC336BD5AD110, got $actual."
+    }
     $sevenZip = Ensure-SevenZip
     $extract = Join-Path $toolRoot "nsis-$version"
     Remove-Item -LiteralPath $extract -Recurse -Force -ErrorAction SilentlyContinue
