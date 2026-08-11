@@ -1427,7 +1427,12 @@ VBoxMesaGalliumAuxLib_INCS = \
 	$(VBoxMesaGalliumAuxLib_0_OUTDIR)/$(VBOX_MESA)/src/gallium/auxiliary/driver_trace \
 	src/gallium/auxiliary/util
 
+# Gallium sources include compiler headers through the GLSL and NIR headers.
+# Keep Mesa's generated-header set in this target's dependency graph so a
+# parallel kmk build cannot compile before builtin_types.h and its siblings
+# have been materialized by VBoxMesaLib.
 VBoxMesaGalliumAuxLib_DEPS = \
+	$(VBoxMesaLib_DEPS) \
 	$(VBoxMesaGalliumAuxLib_0_OUTDIR)/$(VBOX_MESA)/src/gallium/auxiliary/driver_trace/tr_util.h \
 	$(VBoxMesaGalliumAuxLib_0_OUTDIR)/$(VBOX_MESA)/src/gallium/auxiliary/u_tracepoints.h
 
