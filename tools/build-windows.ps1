@@ -260,8 +260,11 @@ function Invoke-VirtualBoxBuild {
     )
     Invoke-Checked 'Configure the unsigned Windows build' { & .\configure.ps1 @arguments }
     if (-not (Test-Path -LiteralPath .\env.bat)) { throw 'configure.py did not generate env.bat.' }
+    $revisionMatch = Select-String configure.py -Pattern '\$Id: configure.py (\d+)'
+    if (-not $revisionMatch) { throw 'configure.py does not expose a numeric source revision for the Git mirror build.' }
+    $revision = $revisionMatch.Matches[0].Groups[1].Value
     Invoke-Checked 'Build the Windows package payload' {
-        & cmd.exe /d /c "call `"$repoRoot\env.bat`" && kmk SDK_WINSDK10_MAX_VERSION=10.0.26100.0 packing"
+        & cmd.exe /d /c "call `"$repoRoot\env.bat`" && kmk VBOX_SVN_REV=$revision SDK_WINSDK10_MAX_VERSION=10.0.26100.0 packing"
     }
     $payload = Join-Path $repoRoot 'out\win.amd64\release\bin'
     if (-not (Test-Path -LiteralPath (Join-Path $payload 'VirtualBox.exe'))) {

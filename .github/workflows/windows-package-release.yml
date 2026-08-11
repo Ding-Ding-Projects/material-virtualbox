@@ -167,10 +167,13 @@ jobs:
           if (-not (Test-Path .\env.bat)) { throw 'configure.py did not generate env.bat.' }
 
       - name: Build and package the Windows installer
-        shell: cmd
+        shell: pwsh
         run: |
-          call env.bat
-          kmk SDK_WINSDK10_MAX_VERSION=10.0.26100.0 packing
+          $revisionMatch = Select-String configure.py -Pattern '\$Id: configure.py (\d+)'
+          if (-not $revisionMatch) { throw 'configure.py does not expose a numeric source revision for the Git mirror build.' }
+          $revision = $revisionMatch.Matches[0].Groups[1].Value
+          & cmd.exe /d /c "call `"$PWD\env.bat`" && kmk VBOX_SVN_REV=$revision SDK_WINSDK10_MAX_VERSION=10.0.26100.0 packing"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
       - name: Build unsigned Squirrel full installer
         shell: pwsh
