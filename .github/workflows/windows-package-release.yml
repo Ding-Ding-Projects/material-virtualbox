@@ -30,7 +30,9 @@ jobs:
         run: |
           $ErrorActionPreference = 'Stop'
           $prefix = "ci-deps-windows-qt$env:VBOX_CI_QT_VERSION-wdk$env:VBOX_CI_WDK_VERSION-"
-          $tag = gh release list --repo $env:GITHUB_REPOSITORY --limit 100 --json tagName --jq "[.[] | select(.tagName | startswith(\"$prefix\"))][0].tagName"
+          $releases = gh release list --repo $env:GITHUB_REPOSITORY --limit 100 --json tagName | ConvertFrom-Json
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          $tag = @($releases | Where-Object { $_.tagName.StartsWith($prefix) } | Select-Object -First 1).tagName
           if (-not $tag) {
             Add-Content -LiteralPath $env:GITHUB_OUTPUT -Value 'cache_hit=false' -Encoding utf8NoBOM
             exit 0
