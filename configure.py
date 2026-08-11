@@ -2409,12 +2409,21 @@ class ToolCheck(CheckBase):
                 # kBuild recipes pass compiler and library paths through a shell.
                 # A spaced Windows path is split into unrelated make arguments,
                 # so retain the same installation while emitting its 8.3 form.
-                oShortPath = subprocess.run(
-                    [ 'cmd', '/c', f'for %I in ("{sVCPPPath}") do @echo %~sI' ],
-                    capture_output = True, check = False, universal_newlines = True
-                );
-                if oShortPath.returncode == 0 and oShortPath.stdout.strip():
-                    sVCPPPath = oShortPath.stdout.strip().replace('\\', '/');
+                # Calling cmd.exe with nested quotes can leave the quotes in the
+                # returned path (for example D:/"C:/Program Files/.../"), which
+                # makes the later kBuild tool check look in a path that cannot
+                # exist.  Ask the operating system for the short form directly.
+                oKernel32 = getattr(ctypes, 'windll', None);
+                if oKernel32:
+                    try:
+                        oShortPathBuffer = ctypes.create_unicode_buffer(32768);
+                        cchShortPath = oKernel32.kernel32.GetShortPathNameW(
+                            sVCPPPath, oShortPathBuffer, len(oShortPathBuffer)
+                        );
+                        if cchShortPath and cchShortPath < len(oShortPathBuffer):
+                            sVCPPPath = oShortPathBuffer.value.replace('\\', '/');
+                    except (AttributeError, OSError):
+                        pass;
             self.print(f"Found Visual C++ version {sVCPPVer} at '{sVCPPPath}'");
 
             sVCPPBasePath = os.path.join(sVCPPPath, 'VC', 'Tools', 'MSVC'); # Used by Visual Studio installer.
