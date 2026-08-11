@@ -92,6 +92,7 @@ jobs:
           if (-not $vcpkgCommand) { throw 'vcpkg.exe is required by the VirtualBox configure step.' }
           $vcpkgRoot = Split-Path $vcpkgCommand.Path -Parent
           "VBOX_CI_VCPKG_ROOT=$vcpkgRoot" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+          "VCPKG_ROOT=$vcpkgRoot" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
           $nasmVersion = '2.16.01'
           $nasmZip = Join-Path $env:RUNNER_TEMP "nasm-$nasmVersion-win64.zip"
           $nasmRoot = Join-Path $env:RUNNER_TEMP "nasm-$nasmVersion"
@@ -156,7 +157,7 @@ jobs:
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
-          .\configure.ps1 --disable-hardening --disable-python_c_api --with-kbuild-path="$PWD\kBuild\kBuild" --with-qt-path="$env:VBOX_CI_QT_ROOT" --with-sdk10="$env:VBOX_CI_WINDOWS_SDK_ROOT" --with-win-vcpkg-root="$env:VBOX_CI_VCPKG_ROOT"
+          .\configure.ps1 --disable-hardening --disable-python_c_api --with-kbuild-path="$PWD\kBuild\kBuild" --with-qt-path="$env:VBOX_CI_QT_ROOT" --with-sdk10="$env:VBOX_CI_WINDOWS_SDK_ROOT" --with-ddk="$env:VBOX_CI_WINDOWS_SDK_ROOT" --with-win-vcpkg-root="$env:VBOX_CI_VCPKG_ROOT"
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           if (-not (Test-Path .\env.bat)) { throw 'configure.py did not generate env.bat.' }
 
