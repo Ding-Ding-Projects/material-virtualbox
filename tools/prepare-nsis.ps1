@@ -117,8 +117,10 @@ Write-Utf8NoBom -Path $sconstruct -Value $sourceText
 
 Invoke-Checked 'Install SCons 4.8.1' { & $python -m pip install --disable-pip-version-check --user 'scons==4.8.1' }
 $userBase = (& $python -m site --user-base 2>$null | Select-Object -First 1).Trim()
-$scons = Join-Path $userBase 'Scripts\scons.exe'
-if (-not (Test-Path -LiteralPath $scons)) { throw "SCons 4.8.1 was not materialized at the expected user-scoped path: $scons" }
+$sconsFile = Get-ChildItem -LiteralPath $userBase -Recurse -Filter 'scons.exe' -File -ErrorAction SilentlyContinue |
+    Select-Object -First 1
+if (-not $sconsFile) { throw "SCons 4.8.1 was not materialized below the user-scoped path: $userBase" }
+$scons = $sconsFile.FullName
 
 $originalVboxOse = $env:VBOX_OSE
 Remove-Item Env:VBOX_OSE -ErrorAction SilentlyContinue
