@@ -302,6 +302,32 @@ The build requires a compatible compiler, Qt 6 development files, kBuild
 `configure.py`. Do not copy generated output or machine-local settings into
 the source tree; use `LocalConfig.kmk` for local overrides.
 
+### One-click Windows build and installer scripts
+
+The repository root now carries the same supported Windows build path used by
+the package workflow:
+
+```bat
+build.bat
+build.bat /s
+build-installer.bat /s
+```
+
+`build.bat` bootstraps missing user-scoped dependencies, configures the native
+tree, and builds the runnable `VirtualBox.exe` payload. Without `/s` it offers
+one final choice to launch that payload; `/s`, `--silent`, or `SILENT=1` keeps
+the entire run non-interactive. `build-installer.bat` runs the same path and
+then creates a complete unsigned Squirrel.Windows set containing `Setup.exe`,
+`RELEASES`, the full `.nupkg`, generated deltas when available, and
+`SHA256SUMS.txt`. It never publishes, tags, pushes, or invokes a signer.
+
+The helper is [`tools/build-windows.ps1`](tools/build-windows.ps1). It keeps
+downloads in a user-local cache, verifies the pinned Windows SDK and WDK
+installer hashes, obtains Qt through `aqtinstall`, and reports the artifact
+path and SHA-256. An unsigned installer can trigger an unknown-publisher or
+SmartScreen warning; that warning is expected and is disclosed rather than
+hidden.
+
 **Current verification boundary:** the evidence below was built from exact
 settings-shell source commit [`152327ec9fe04455de55def8bd8e943138b75737`](https://github.com/Ding-Ding-Projects/material-virtualbox/commit/152327ec9fe04455de55def8bd8e943138b75737)
 on a Windows x64 development host, using MSVC 14.44, Windows SDK

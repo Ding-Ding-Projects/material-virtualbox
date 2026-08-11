@@ -2417,7 +2417,10 @@ class ToolCheck(CheckBase):
                 if oKernel32:
                     try:
                         oShortPathBuffer = ctypes.create_unicode_buffer(32768);
-                        cchShortPath = oKernel32.kernel32.GetShortPathNameW(
+                        fnGetShortPathNameW = oKernel32.kernel32.GetShortPathNameW;
+                        fnGetShortPathNameW.argtypes = [ ctypes.c_wchar_p, ctypes.c_wchar_p, ctypes.c_uint32 ];
+                        fnGetShortPathNameW.restype = ctypes.c_uint32;
+                        cchShortPath = fnGetShortPathNameW(
                             sVCPPPath, oShortPathBuffer, len(oShortPathBuffer)
                         );
                         if cchShortPath and cchShortPath < len(oShortPathBuffer):
