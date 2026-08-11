@@ -15,6 +15,7 @@ jobs:
       VBOX_CI_WDK_VERSION: 10.0.22621
       VBOX_SIGNING_MODE: ""
       VBOX_WITHOUT_HARDENING: "1"
+      VBOX_WITHOUT_ADDITIONS: "1"
       VBOX_OSE: "1"
     steps:
       - uses: actions/checkout@v4
@@ -87,6 +88,7 @@ jobs:
             throw 'Windows Driver Kit installation did not create the expected Windows Kits include directory.'
           }
           $windowsSdkRoot = 'C:\Program Files (x86)\Windows Kits\10'
+          $windowsSdkRoot = (cmd /c "for %I in (`"$windowsSdkRoot`") do @echo %~sI").Trim() -replace '\\','/'
           "VBOX_CI_WINDOWS_SDK_ROOT=$windowsSdkRoot" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
           $vcpkgCommand = Get-Command vcpkg.exe -ErrorAction SilentlyContinue
           if (-not $vcpkgCommand) { throw 'vcpkg.exe is required by the VirtualBox configure step.' }
@@ -100,7 +102,8 @@ jobs:
           Expand-Archive -LiteralPath $nasmZip -DestinationPath $nasmRoot -Force
           $nasm = Get-ChildItem $nasmRoot -Recurse -Filter nasm.exe | Select-Object -First 1
           if (-not $nasm) { throw 'NASM bootstrap did not provide nasm.exe.' }
-          "PATH=$($nasm.DirectoryName);$env:PATH" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+          $nasmDirectory = (cmd /c "for %I in (`"$($nasm.DirectoryName)`") do @echo %~sI").Trim() -replace '\\','/'
+          "PATH=$nasmDirectory;$env:PATH" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
           if (-not (Test-Path '.\tools\win.x86\wix\v4.0.5\tools\net472\x86\wix.exe')) {
             dotnet tool install --tool-path '.\tools\win.x86\wix\v4.0.5\tools\net472\x86' wix --version 4.0.5
             if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
@@ -165,7 +168,7 @@ jobs:
         shell: cmd
         run: |
           call env.bat
-          kmk packing
+          kmk SDK_WINSDK10_MAX_VERSION=10.0.26100.0 packing
 
       - name: Build unsigned Squirrel full installer
         shell: pwsh
