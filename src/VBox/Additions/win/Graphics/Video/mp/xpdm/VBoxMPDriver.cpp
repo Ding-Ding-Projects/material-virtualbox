@@ -39,6 +39,12 @@
 #include <iprt/initterm.h>
 #include <VBox/version.h>
 
+/* The current WDK headers omit this legacy XPDM value even though the
+ * IOCTL_VIDEO_GET_CHILD_STATE contract still defines active as one. */
+#ifndef VIDEO_CHILD_ACTIVE
+# define VIDEO_CHILD_ACTIVE 0x00000001
+#endif
+
 
 /*********************************************************************************************************************************
 *   Global Variables                                                                                                             *
