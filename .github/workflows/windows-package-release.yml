@@ -46,6 +46,7 @@ jobs:
           if (-not (Test-Path (Join-Path $dependencyRoot "virtualbox-qt\$env:VBOX_CI_QT_VERSION\msvc2022_64\bin\qmake.exe"))) {
             throw "Dependency release $tag is missing the expected Qt payload."
           }
+          New-Item -ItemType File -Force (Join-Path $env:RUNNER_TEMP 'virtualbox-dependency-release-hit') | Out-Null
           Add-Content -LiteralPath $env:GITHUB_OUTPUT -Value 'cache_hit=true' -Encoding utf8NoBOM
 
       - name: Restore safe build dependency cache
@@ -110,10 +111,8 @@ jobs:
           DEPENDENCY_CACHE_PASSPHRASE: ${{ secrets.DEPENDENCY_CACHE_PASSPHRASE }}
         run: |
           $ErrorActionPreference = 'Stop'
-          $prefix = "ci-deps-windows-qt$env:VBOX_CI_QT_VERSION-wdk$env:VBOX_CI_WDK_VERSION-"
-          $existingTag = gh release list --repo $env:GITHUB_REPOSITORY --limit 100 --json tagName --jq "[.[] | select(.tagName | startswith(\"$prefix\"))][0].tagName"
-          if ($existingTag) {
-            Write-Host "Encrypted dependency release $existingTag already exists; skipping publication."
+          if (Test-Path (Join-Path $env:RUNNER_TEMP 'virtualbox-dependency-release-hit')) {
+            Write-Host 'Validated encrypted dependency release was restored; skipping publication.'
             exit 0
           }
           $sevenZip = Join-Path $env:ProgramFiles '7-Zip\7z.exe'
