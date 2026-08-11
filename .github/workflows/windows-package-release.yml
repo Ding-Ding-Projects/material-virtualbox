@@ -15,6 +15,7 @@ jobs:
       VBOX_CI_WDK_VERSION: 10.0.22621
       VBOX_SIGNING_MODE: ""
       VBOX_WITHOUT_HARDENING: "1"
+      VBOX_OSE: "1"
     steps:
       - uses: actions/checkout@v4
         with:
