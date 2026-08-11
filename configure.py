@@ -2413,17 +2413,30 @@ class ToolCheck(CheckBase):
                 # returned path (for example D:/"C:/Program Files/.../"), which
                 # makes the later kBuild tool check look in a path that cannot
                 # exist.  Ask the operating system for the short form directly.
-                oKernel32 = getattr(ctypes, 'windll', None);
-                if oKernel32:
-                    try:
-                        oShortPathBuffer = ctypes.create_unicode_buffer(32768);
-                        cchShortPath = oKernel32.kernel32.GetShortPathNameW(
-                            sVCPPPath, oShortPathBuffer, len(oShortPathBuffer)
-                        );
-                        if cchShortPath and cchShortPath < len(oShortPathBuffer):
-                            sVCPPPath = oShortPathBuffer.value.replace('\\', '/');
-                    except (AttributeError, OSError):
-                        pass;
+                # Keep the native probe in a short-lived child.  A damaged or
+                # unusual Windows volume can make GetShortPathNameW stall;
+                # configure must continue with the long path rather than
+                # holding the whole build hostage to that optional shortening.
+                sShortPathScript = (
+                    "import ctypes, sys; "
+                    "oKernel32 = ctypes.WinDLL('kernel32', use_last_error=True); "
+                    "fnGetShortPathNameW = oKernel32.GetShortPathNameW; "
+                    "fnGetShortPathNameW.argtypes = [ctypes.c_wchar_p, ctypes.c_wchar_p, ctypes.c_uint32]; "
+                    "fnGetShortPathNameW.restype = ctypes.c_uint32; "
+                    "oShortPathBuffer = ctypes.create_unicode_buffer(32768); "
+                    "cchShortPath = fnGetShortPathNameW(sys.argv[1], oShortPathBuffer, len(oShortPathBuffer)); "
+                    "print(oShortPathBuffer.value if cchShortPath and cchShortPath < len(oShortPathBuffer) else '')"
+                );
+                try:
+                    oShortPathProc = subprocess.run(
+                        [ sys.executable, '-c', sShortPathScript, sVCPPPath ],
+                        capture_output = True, check = False, universal_newlines = True, timeout = 5
+                    );
+                    sShortPath = oShortPathProc.stdout.strip();
+                    if oShortPathProc.returncode == 0 and sShortPath:
+                        sVCPPPath = sShortPath.replace('\\', '/');
+                except (OSError, subprocess.TimeoutExpired):
+                    pass;
             self.print(f"Found Visual C++ version {sVCPPVer} at '{sVCPPPath}'");
 
             sVCPPBasePath = os.path.join(sVCPPPath, 'VC', 'Tools', 'MSVC'); # Used by Visual Studio installer.
