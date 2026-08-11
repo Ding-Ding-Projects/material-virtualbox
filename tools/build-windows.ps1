@@ -204,6 +204,33 @@ function Ensure-Nasm {
     return (Get-ShortPath $nasm.DirectoryName)
 }
 
+function Ensure-WinFlexBison {
+    $version = '2.5.24'
+    $target = Join-Path $repoRoot 'tools\win.x86\win_flex_bison\v3.7.4'
+    $bison = Join-Path $target 'win_bison.exe'
+    $flex = Join-Path $target 'win_flex.exe'
+    if (Test-Path -LiteralPath $bison -and Test-Path -LiteralPath $flex) {
+        return $target
+    }
+    $zip = Get-DownloadedFile `
+        -Name "win_flex_bison-$version.zip" `
+        -Uri "https://github.com/lexxmark/winflexbison/releases/download/v$version/win_flex_bison-$version.zip" `
+        -Sha256 '39C6086CE211D5415500ACC5ED2D8939861CA1696AEE48909C7F6DAF5122B505'
+    $root = Join-Path $toolRoot "win_flex_bison-$version"
+    New-Item -ItemType Directory -Force $root | Out-Null
+    Expand-Archive -LiteralPath $zip -DestinationPath $root -Force
+    $bisonFile = Get-ChildItem -LiteralPath $root -Recurse -Filter win_bison.exe -File | Select-Object -First 1
+    if (-not $bisonFile -or -not (Test-Path (Join-Path $bisonFile.DirectoryName 'win_flex.exe'))) {
+        throw 'WinFlexBison bootstrap did not provide win_bison.exe and win_flex.exe.'
+    }
+    New-Item -ItemType Directory -Force $target | Out-Null
+    Copy-Item (Join-Path $bisonFile.DirectoryName '*') $target -Recurse -Force
+    if (-not (Test-Path -LiteralPath $bison) -or -not (Test-Path -LiteralPath $flex)) {
+        throw 'WinFlexBison was not materialized under tools\win.x86\win_flex_bison\v3.7.4.'
+    }
+    return $target
+}
+
 function Ensure-Qt {
     param([Parameter(Mandatory = $true)] [string] $Python)
     $qtRoot = Join-Path $dependencyRoot 'virtualbox-qt'
@@ -353,6 +380,7 @@ $python = Get-RequiredPython
 Invoke-Checked 'Bootstrap Windows SDK and WDK' { $script:SdkRoot = Ensure-WindowsKits }
 $vcpkgRoot = Ensure-Vcpkg
 $nasmRoot = Ensure-Nasm
+$flexBisonRoot = Ensure-WinFlexBison
 Ensure-MesaPython $python
 $qtRoot = Ensure-Qt $python
 $payload = Invoke-VirtualBoxBuild -Python $python -QtRoot $qtRoot -SdkRoot $SdkRoot -VcpkgRoot $vcpkgRoot -NasmRoot $nasmRoot

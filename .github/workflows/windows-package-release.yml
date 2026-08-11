@@ -48,6 +48,13 @@ jobs:
           if (-not (Test-Path (Join-Path $dependencyRoot "virtualbox-qt\$env:VBOX_CI_QT_VERSION\msvc2022_64\bin\qmake.exe"))) {
             throw "Dependency release $tag is missing the expected Qt payload."
           }
+          if (-not (Test-Path (Join-Path $dependencyRoot 'tools\win.x86\win_flex_bison\v3.7.4\win_bison.exe'))) {
+            Write-Host "Dependency release $tag predates the flex/bison cache; the cache will be refreshed after bootstrap."
+            Add-Content -LiteralPath $env:GITHUB_OUTPUT -Value 'cache_hit=false' -Encoding utf8NoBOM
+            exit 0
+          }
+          New-Item -ItemType Directory -Force '.\tools\win.x86\win_flex_bison' | Out-Null
+          Copy-Item (Join-Path $dependencyRoot 'tools\win.x86\win_flex_bison\v3.7.4') '.\tools\win.x86\win_flex_bison' -Recurse -Force
           New-Item -ItemType File -Force (Join-Path $env:RUNNER_TEMP 'virtualbox-dependency-release-hit') | Out-Null
           Add-Content -LiteralPath $env:GITHUB_OUTPUT -Value 'cache_hit=true' -Encoding utf8NoBOM
 
@@ -103,6 +110,25 @@ jobs:
           if (-not $nasm) { throw 'NASM bootstrap did not provide nasm.exe.' }
           $nasmDirectory = (cmd /c "for %I in (`"$($nasm.DirectoryName)`") do @echo %~sI").Trim() -replace '\\','/'
           "PATH=$nasmDirectory;$env:PATH" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+          $flexTarget = Join-Path $PWD 'tools\win.x86\win_flex_bison\v3.7.4'
+          if (-not (Test-Path (Join-Path $flexTarget 'win_bison.exe'))) {
+            $flexVersion = '2.5.24'
+            $flexZip = Join-Path $env:RUNNER_TEMP "win_flex_bison-$flexVersion.zip"
+            $flexRoot = Join-Path $env:RUNNER_TEMP "win_flex_bison-$flexVersion"
+            Invoke-WebRequest -UseBasicParsing -Uri "https://github.com/lexxmark/winflexbison/releases/download/v$flexVersion/win_flex_bison-$flexVersion.zip" -OutFile $flexZip
+            if ((Get-FileHash $flexZip -Algorithm SHA256).Hash -ne '39C6086CE211D5415500ACC5ED2D8939861CA1696AEE48909C7F6DAF5122B505') { throw 'WinFlexBison bootstrap hash did not match the canonical release asset.' }
+            Expand-Archive -LiteralPath $flexZip -DestinationPath $flexRoot -Force
+            $flexExecutable = Get-ChildItem $flexRoot -Recurse -Filter win_bison.exe -File | Select-Object -First 1
+            if (-not $flexExecutable -or -not (Test-Path (Join-Path $flexExecutable.DirectoryName 'win_flex.exe'))) { throw 'WinFlexBison bootstrap did not provide win_bison.exe and win_flex.exe.' }
+            New-Item -ItemType Directory -Force $flexTarget | Out-Null
+            Copy-Item (Join-Path $flexExecutable.DirectoryName '*') $flexTarget -Recurse -Force
+          } else {
+            Write-Host 'Restored WinFlexBison from the encrypted dependency release.'
+          }
+          if (-not (Test-Path (Join-Path $flexTarget 'win_bison.exe'))) { throw 'WinFlexBison was not materialized under tools\win.x86\win_flex_bison\v3.7.4.' }
+          $cachedFlex = Join-Path $dependencyRoot 'tools\win.x86\win_flex_bison\v3.7.4'
+          New-Item -ItemType Directory -Force (Split-Path $cachedFlex) | Out-Null
+          Copy-Item $flexTarget $cachedFlex -Recurse -Force
           if (-not (Test-Path '.\tools\win.x86\wix\v4.0.5\tools\net472\x86\wix.exe')) {
             dotnet tool install --tool-path '.\tools\win.x86\wix\v4.0.5\tools\net472\x86' wix --version 4.0.5
             if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
@@ -142,10 +168,13 @@ jobs:
           $cachedWix = Join-Path $dependencyRoot 'tools\win.x86\wix'
           New-Item -ItemType Directory -Force (Split-Path $cachedWix) | Out-Null
           Copy-Item '.\tools\win.x86\wix' $cachedWix -Recurse -Force
+          $cachedFlex = Join-Path $dependencyRoot 'tools\win.x86\win_flex_bison'
+          New-Item -ItemType Directory -Force (Split-Path $cachedFlex) | Out-Null
+          Copy-Item '.\tools\win.x86\win_flex_bison\*' $cachedFlex -Recurse -Force
           $archive = Join-Path $env:RUNNER_TEMP 'virtualbox-dependencies.7z'
           Push-Location $dependencyRoot
           try {
-            & $sevenZip a $archive virtualbox-qt 'tools\win.x86\wix' "-p$env:DEPENDENCY_CACHE_PASSPHRASE" -mhe=on -t7z -v1536m
+            & $sevenZip a $archive virtualbox-qt 'tools\win.x86\wix' 'tools\win.x86\win_flex_bison' "-p$env:DEPENDENCY_CACHE_PASSPHRASE" -mhe=on -t7z -v1536m
           } finally {
             Pop-Location
           }
