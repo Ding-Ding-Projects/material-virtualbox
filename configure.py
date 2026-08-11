@@ -2405,6 +2405,16 @@ class ToolCheck(CheckBase):
                         pass;
 
         if sVCPPVer:
+            if g_enmHostOS == BuildTarget.WINDOWS:
+                # kBuild recipes pass compiler and library paths through a shell.
+                # A spaced Windows path is split into unrelated make arguments,
+                # so retain the same installation while emitting its 8.3 form.
+                oShortPath = subprocess.run(
+                    [ 'cmd', '/c', f'for %I in ("{sVCPPPath}") do @echo %~sI' ],
+                    capture_output = True, check = False, universal_newlines = True
+                );
+                if oShortPath.returncode == 0 and oShortPath.stdout.strip():
+                    sVCPPPath = oShortPath.stdout.strip().replace('\\', '/');
             self.print(f"Found Visual C++ version {sVCPPVer} at '{sVCPPPath}'");
 
             sVCPPBasePath = os.path.join(sVCPPPath, 'VC', 'Tools', 'MSVC'); # Used by Visual Studio installer.
