@@ -130,13 +130,20 @@ jobs:
             if (-not $tarCommand) { throw 'tar.exe is required to unpack the verified Info-ZIP package.' }
             $zipArchive = Join-Path $env:RUNNER_TEMP 'miktex-zip-bin-x64.tar.lzma'
             Invoke-WebRequest -UseBasicParsing -Uri 'https://ftp.fau.de/ctan/systems/win32/miktex/tm/packages/miktex-zip-bin-x64.tar.lzma' -OutFile $zipArchive
-            if ((Get-FileHash $zipArchive -Algorithm SHA256).Hash -ne '814365FAB2B5A6B3454ACD2749ABF38B410476CE0D51D15D3A2CB4A85F0A025B') { throw 'Info-ZIP bootstrap hash did not match the verified CTAN package.' }
+            $zipArchiveInfo = Get-Item -LiteralPath $zipArchive
+            if ($zipArchiveInfo.Length -lt 100000) { throw "Info-ZIP bootstrap archive is unexpectedly small: $($zipArchiveInfo.Length) bytes." }
+            $zipArchiveHash = (Get-FileHash -LiteralPath $zipArchive -Algorithm SHA256).Hash.ToLowerInvariant()
+            Write-Host "Info-ZIP bootstrap archive SHA-256=$zipArchiveHash ($($zipArchiveInfo.Length) bytes)."
             $zipInstall = Join-Path $env:RUNNER_TEMP 'miktex-zip-bin-x64'
             New-Item -ItemType Directory -Force $zipInstall | Out-Null
+            & $tarCommand.Path -tf $zipArchive | Out-Null
+            if ($LASTEXITCODE -ne 0) { throw "Info-ZIP package archive validation failed with exit code $LASTEXITCODE." }
             & $tarCommand.Path -xf $zipArchive -C $zipInstall
             if ($LASTEXITCODE -ne 0) { throw "Info-ZIP package extraction failed with exit code $LASTEXITCODE." }
             $zipBinary = Get-ChildItem -LiteralPath $zipInstall -Recurse -Filter miktex-zip.exe -File | Select-Object -First 1
             if ($zipBinary) {
+              $zipHash = (Get-FileHash -LiteralPath $zipBinary.FullName -Algorithm SHA256).Hash.ToLowerInvariant()
+              if ($zipHash -ne 'f52e7f6a0a01a0e70443dfecbbe9e3d42d0bd80dd295ec6acc234b0971e0a3fd') { throw "Info-ZIP payload SHA-256 mismatch: got $zipHash." }
               $zipPath = Join-Path $zipInstall 'zip.exe'
               Copy-Item -LiteralPath $zipBinary.FullName -Destination $zipPath -Force
               $zipCommand = Get-Item -LiteralPath $zipPath

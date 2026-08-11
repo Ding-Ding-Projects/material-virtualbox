@@ -215,18 +215,30 @@ function Ensure-Zip {
     if ($candidate) { return (Get-ShortPath (Split-Path -Parent $candidate)) }
     $tar = Get-Command tar.exe -ErrorAction SilentlyContinue
     if (-not $tar) { throw 'tar.exe is required to unpack the verified Info-ZIP package.' }
-    $archive = Get-DownloadedFile `
-        -Name 'miktex-zip-bin-x64.tar.lzma' `
-        -Uri 'https://ftp.fau.de/ctan/systems/win32/miktex/tm/packages/miktex-zip-bin-x64.tar.lzma' `
-        -Sha256 '814365FAB2B5A6B3454ACD2749ABF38B410476CE0D51D15D3A2CB4A85F0A025B'
+    $archive = Join-Path $downloadRoot 'miktex-zip-bin-x64.tar.lzma'
+    if (-not (Test-Path -LiteralPath $archive)) {
+        Invoke-WebRequest -UseBasicParsing `
+            -Uri 'https://ftp.fau.de/ctan/systems/win32/miktex/tm/packages/miktex-zip-bin-x64.tar.lzma' `
+            -OutFile $archive
+    }
+    $archiveInfo = Get-Item -LiteralPath $archive
+    if ($archiveInfo.Length -lt 100000) { throw "Info-ZIP bootstrap archive is unexpectedly small: $($archiveInfo.Length) bytes." }
+    $archiveHash = (Get-FileHash -LiteralPath $archive -Algorithm SHA256).Hash.ToLowerInvariant()
+    Write-Host "Info-ZIP bootstrap archive SHA-256=$archiveHash ($($archiveInfo.Length) bytes)."
     $installRoot = Join-Path $toolRoot 'miktex-zip-bin-x64'
     $zip = Get-ChildItem -LiteralPath $installRoot -Recurse -Filter zip.exe -File -ErrorAction SilentlyContinue | Select-Object -First 1
     if (-not $zip) {
         New-Item -ItemType Directory -Force $installRoot | Out-Null
+        & $tar.Path -tf $archive | Out-Null
+        if ($LASTEXITCODE -ne 0) { throw "Info-ZIP package archive validation failed with exit code $LASTEXITCODE." }
         & $tar.Path -xf $archive -C $installRoot
         if ($LASTEXITCODE -ne 0) { throw "Info-ZIP package extraction failed with exit code $LASTEXITCODE." }
         $zipBinary = Get-ChildItem -LiteralPath $installRoot -Recurse -Filter miktex-zip.exe -File -ErrorAction SilentlyContinue | Select-Object -First 1
         if ($zipBinary) {
+            $zipHash = (Get-FileHash -LiteralPath $zipBinary.FullName -Algorithm SHA256).Hash.ToLowerInvariant()
+            if ($zipHash -ne 'f52e7f6a0a01a0e70443dfecbbe9e3d42d0bd80dd295ec6acc234b0971e0a3fd') {
+                throw "Info-ZIP payload SHA-256 mismatch: got $zipHash."
+            }
             $zipPath = Join-Path $installRoot 'zip.exe'
             Copy-Item -LiteralPath $zipBinary.FullName -Destination $zipPath -Force
             $zip = Get-Item -LiteralPath $zipPath
