@@ -86,6 +86,20 @@ jobs:
           if (-not (Test-Path 'C:\Program Files (x86)\Windows Kits\10\Include')) {
             throw 'Windows Driver Kit installation did not create the expected Windows Kits include directory.'
           }
+          $windowsSdkRoot = 'C:\Program Files (x86)\Windows Kits\10'
+          "VBOX_CI_WINDOWS_SDK_ROOT=$windowsSdkRoot" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+          $vcpkgCommand = Get-Command vcpkg.exe -ErrorAction SilentlyContinue
+          if (-not $vcpkgCommand) { throw 'vcpkg.exe is required by the VirtualBox configure step.' }
+          $vcpkgRoot = Split-Path $vcpkgCommand.Path -Parent
+          "VBOX_CI_VCPKG_ROOT=$vcpkgRoot" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+          $nasmVersion = '2.16.01'
+          $nasmZip = Join-Path $env:RUNNER_TEMP "nasm-$nasmVersion-win64.zip"
+          $nasmRoot = Join-Path $env:RUNNER_TEMP "nasm-$nasmVersion"
+          Invoke-WebRequest -UseBasicParsing -Uri "https://www.nasm.us/pub/nasm/releasebuilds/$nasmVersion/win64/nasm-$nasmVersion-win64.zip" -OutFile $nasmZip
+          Expand-Archive -LiteralPath $nasmZip -DestinationPath $nasmRoot -Force
+          $nasm = Get-ChildItem $nasmRoot -Recurse -Filter nasm.exe | Select-Object -First 1
+          if (-not $nasm) { throw 'NASM bootstrap did not provide nasm.exe.' }
+          "PATH=$($nasm.DirectoryName);$env:PATH" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
           if (-not (Test-Path '.\tools\win.x86\wix\v4.0.5\tools\net472\x86\wix.exe')) {
             dotnet tool install --tool-path '.\tools\win.x86\wix\v4.0.5\tools\net472\x86' wix --version 4.0.5
             if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
@@ -142,7 +156,7 @@ jobs:
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
-          .\configure.ps1 --disable-hardening --disable-python_c_api --with-kbuild-path="$PWD\kBuild\kBuild" --with-qt-path="$env:VBOX_CI_QT_ROOT"
+          .\configure.ps1 --disable-hardening --disable-python_c_api --with-kbuild-path="$PWD\kBuild\kBuild" --with-qt-path="$env:VBOX_CI_QT_ROOT" --with-sdk10="$env:VBOX_CI_WINDOWS_SDK_ROOT" --with-win-vcpkg-root="$env:VBOX_CI_VCPKG_ROOT"
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           if (-not (Test-Path .\env.bat)) { throw 'configure.py did not generate env.bat.' }
 
