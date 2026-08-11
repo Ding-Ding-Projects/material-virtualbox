@@ -32,7 +32,7 @@ jobs:
           $prefix = "ci-deps-windows-qt$env:VBOX_CI_QT_VERSION-wdk$env:VBOX_CI_WDK_VERSION-"
           $tag = gh release list --repo $env:GITHUB_REPOSITORY --limit 100 --json tagName --jq "[.[] | select(.tagName | startswith(\"$prefix\"))][0].tagName"
           if (-not $tag) {
-            'cache_hit=false' | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
+            Add-Content -LiteralPath $env:GITHUB_OUTPUT -Value 'cache_hit=false' -Encoding utf8NoBOM
             exit 0
           }
           $sevenZip = Join-Path $env:ProgramFiles '7-Zip\7z.exe'
@@ -46,7 +46,7 @@ jobs:
           if (-not (Test-Path (Join-Path $dependencyRoot "virtualbox-qt\$env:VBOX_CI_QT_VERSION\msvc2022_64\bin\qmake.exe"))) {
             throw "Dependency release $tag is missing the expected Qt payload."
           }
-          'cache_hit=true' | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
+          Add-Content -LiteralPath $env:GITHUB_OUTPUT -Value 'cache_hit=true' -Encoding utf8NoBOM
 
       - name: Restore safe build dependency cache
         id: dependency-cache
