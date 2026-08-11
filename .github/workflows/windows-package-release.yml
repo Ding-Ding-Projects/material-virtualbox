@@ -174,6 +174,8 @@ jobs:
           $revisionFile = Join-Path $PWD 'out\win.amd64\release\revision.kmk'
           New-Item -ItemType Directory -Force -Path (Split-Path -Parent $revisionFile) | Out-Null
           Set-Content -LiteralPath $revisionFile -Value "export VBOX_SVN_REV=$revision" -Encoding ascii
+          & cmd.exe /d /c "call `"$PWD\env.bat`" && kmk crypto-headers"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           & cmd.exe /d /c "call `"$PWD\env.bat`" && kmk VBOX_SVN_REV=$revision SDK_WINSDK10_MAX_VERSION=10.0.26100.0 packing"
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
