@@ -179,6 +179,30 @@ function Ensure-WindowsKits {
         $process = Start-Process -FilePath $wdk -ArgumentList '/quiet', '/norestart' -Wait -PassThru -WindowStyle Hidden
         if ($process.ExitCode -ne 0) { throw "Windows Driver Kit installation failed with exit code $($process.ExitCode)." }
     }
+    $wdk71CacheRoot = Join-Path $dependencyRoot 'winddk71'
+    $wdk71Marker = Get-ChildItem $wdk71CacheRoot -Recurse -Filter 'rxce.lib' -File -ErrorAction SilentlyContinue |
+        Where-Object { $_.FullName -match '\\lib\\wlh\\amd64\\rxce\.lib$' } | Select-Object -First 1
+    if (-not $wdk71Marker) {
+        $wdk71Iso = Get-DownloadedFile `
+            -Name 'GRMWDK_EN_7600_1.ISO' `
+            -Uri 'https://download.microsoft.com/download/4/a/2/4a25c7d5-efbe-4182-b6a9-ae6850409a78/GRMWDK_EN_7600_1.ISO' `
+            -Sha256 '5EDC723B50EA28A070CAD361DD0927DF402B7A861A036BBCF11D27EBBA77657D'
+        $wdk71Packages = Join-Path $toolRoot 'wdk71-packages'
+        New-Item -ItemType Directory -Force $wdk71Packages | Out-Null
+        $sevenZip = Ensure-SevenZip
+        & $sevenZip x $wdk71Iso 'WDK\headers.msi' 'WDK\headers_cab001.cab' 'WDK\vistalibs_x64fre.msi' 'WDK\vistalibs_x64fre_cab001.cab' 'WDK\wnetlibs_x64fre.msi' 'WDK\wnetlibs_x64fre_cab001.cab' "-o$wdk71Packages" '-y'
+        if ($LASTEXITCODE -ne 0) { throw "WDK 7.1 package extraction failed with exit code $LASTEXITCODE." }
+        New-Item -ItemType Directory -Force $wdk71CacheRoot | Out-Null
+        foreach ($packageName in @('headers.msi', 'vistalibs_x64fre.msi', 'wnetlibs_x64fre.msi')) {
+            $packagePath = Join-Path $wdk71Packages "WDK\$packageName"
+            $install = Start-Process -FilePath 'msiexec.exe' -ArgumentList @('/a', $packagePath, "TARGETDIR=$wdk71CacheRoot", '/qn', '/norestart') -Wait -PassThru -WindowStyle Hidden
+            if ($install.ExitCode -ne 0) { throw "WDK 7.1 package $packageName extraction failed with exit code $($install.ExitCode)." }
+        }
+        $wdk71Marker = Get-ChildItem $wdk71CacheRoot -Recurse -Filter 'rxce.lib' -File -ErrorAction SilentlyContinue |
+            Where-Object { $_.FullName -match '\\lib\\wlh\\amd64\\rxce\.lib$' } | Select-Object -First 1
+    }
+    if (-not $wdk71Marker) { throw 'WDK 7.1 extraction did not provide lib\wlh\amd64\rxce.lib.' }
+    $script:Wdk71Root = $wdk71Marker.Directory.Parent.Parent.Parent.FullName
     $shortKits = Get-ShortPath $kitsRoot
     return $shortKits
 }
@@ -342,6 +366,7 @@ function Invoke-VirtualBoxBuild {
         [Parameter(Mandatory = $true)] [string] $Python,
         [Parameter(Mandatory = $true)] [string] $QtRoot,
         [Parameter(Mandatory = $true)] [string] $SdkRoot,
+        [Parameter(Mandatory = $true)] [string] $Wdk71Root,
         [Parameter(Mandatory = $true)] [string] $VcpkgRoot,
         [Parameter(Mandatory = $true)] [string] $NasmRoot,
         [Parameter(Mandatory = $true)] [string] $ZipRoot
@@ -351,6 +376,7 @@ function Invoke-VirtualBoxBuild {
     $env:VBOX_OSE = '1'
     $env:VBOX_CI_QT_ROOT = $QtRoot
     $env:VBOX_CI_WINDOWS_SDK_ROOT = $SdkRoot
+    $env:PATH_SDK_WINDDK71 = $Wdk71Root
     $env:VBOX_CI_VCPKG_ROOT = $VcpkgRoot
     $env:VCPKG_ROOT = $VcpkgRoot
     $env:Path = "$ZipRoot;$NasmRoot;$env:Path"
@@ -375,7 +401,7 @@ function Invoke-VirtualBoxBuild {
         & cmd.exe /d /c "call `"$repoRoot\env.bat`" && kmk crypto-headers"
     }
     Invoke-Checked 'Build the Windows package payload' {
-        & cmd.exe /d /c "call `"$repoRoot\env.bat`" && kmk VBOX_SVN_REV=$revision SDK_WINSDK10_MAX_VERSION=10.0.22621.0 VBOX_WINDDK_GST_W7=WINSDK10-KM VBOX_WINDDK_GST_W8=WINSDK10-KM VBOX_WINDDK_GST_WLH=WINSDK10-KM-W7 VBOX_WINDDK_GST_W2K3=WINSDK10-KM VBOX_WINDDK_GST_WXP=WINSDK10-KM VBOX_WINDDK_GST_W2K=WINSDK10-KM VBOX_WINDDK_GST_NT4=WINSDK10-KM packing"
+        & cmd.exe /d /c "call `"$repoRoot\env.bat`" && kmk VBOX_SVN_REV=$revision SDK_WINSDK10_MAX_VERSION=10.0.22621.0 VBOX_WINDDK_GST_W7=WINSDK10-KM VBOX_WINDDK_GST_W8=WINSDK10-KM VBOX_WINDDK_GST_WLH=WINDDK71WLH VBOX_WINDDK_GST_W2K3=WINSDK10-KM VBOX_WINDDK_GST_WXP=WINSDK10-KM VBOX_WINDDK_GST_W2K=WINSDK10-KM VBOX_WINDDK_GST_NT4=WINSDK10-KM packing"
     }
     $payload = Join-Path $repoRoot 'out\win.amd64\release\bin'
     if (-not (Test-Path -LiteralPath (Join-Path $payload 'VirtualBox.exe'))) {
@@ -447,13 +473,17 @@ function New-SquirrelInstaller {
 
 $python = Get-RequiredPython
 Invoke-Checked 'Bootstrap Windows SDK and WDK' { $script:SdkRoot = Ensure-WindowsKits }
+$wdk71Root = $script:Wdk71Root
+if (-not $wdk71Root -or -not (Test-Path -LiteralPath (Join-Path $wdk71Root 'lib\wlh\amd64\rxce.lib'))) {
+    throw 'WDK 7.1 compatibility libraries were not materialized.'
+}
 $vcpkgRoot = Ensure-Vcpkg
 $nasmRoot = Ensure-Nasm
 $zipRoot = Ensure-Zip
 $flexBisonRoot = Ensure-WinFlexBison
 Ensure-MesaPython $python
 $qtRoot = Ensure-Qt $python
-$payload = Invoke-VirtualBoxBuild -Python $python -QtRoot $qtRoot -SdkRoot $SdkRoot -VcpkgRoot $vcpkgRoot -NasmRoot $nasmRoot -ZipRoot $zipRoot
+$payload = Invoke-VirtualBoxBuild -Python $python -QtRoot $qtRoot -SdkRoot $SdkRoot -Wdk71Root $wdk71Root -VcpkgRoot $vcpkgRoot -NasmRoot $nasmRoot -ZipRoot $zipRoot
 
 if ($Mode -eq 'Installer') {
     $squirrelTools = Ensure-Squirrel

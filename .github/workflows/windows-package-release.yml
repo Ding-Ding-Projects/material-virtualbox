@@ -15,6 +15,7 @@ jobs:
     env:
       VBOX_CI_QT_VERSION: 6.8.3
       VBOX_CI_WDK_VERSION: 10.0.22621
+      VBOX_CI_WLH_VERSION: 7.1.0
       VBOX_SIGNING_MODE: ""
       VBOX_WITHOUT_HARDENING: "1"
       VBOX_OSE: "1"
@@ -31,7 +32,7 @@ jobs:
           DEPENDENCY_CACHE_PASSPHRASE: ${{ secrets.DEPENDENCY_CACHE_PASSPHRASE }}
         run: |
           $ErrorActionPreference = 'Stop'
-          $prefix = "ci-deps-windows-qt$env:VBOX_CI_QT_VERSION-wdk$env:VBOX_CI_WDK_VERSION-"
+          $prefix = "ci-deps-windows-qt$env:VBOX_CI_QT_VERSION-wdk$env:VBOX_CI_WDK_VERSION-wlh$env:VBOX_CI_WLH_VERSION-"
           $releases = gh release list --repo $env:GITHUB_REPOSITORY --limit 100 --json tagName | ConvertFrom-Json
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           $tag = @($releases | Where-Object { $_.tagName.StartsWith($prefix) } | Select-Object -First 1).tagName
@@ -55,6 +56,13 @@ jobs:
             Add-Content -LiteralPath $env:GITHUB_OUTPUT -Value 'cache_hit=false' -Encoding utf8NoBOM
             exit 0
           }
+          $wdk71Marker = Get-ChildItem (Join-Path $dependencyRoot 'winddk71') -Recurse -Filter 'rxce.lib' -File -ErrorAction SilentlyContinue |
+            Where-Object { $_.FullName -match '\\lib\\wlh\\amd64\\rxce\.lib$' } | Select-Object -First 1
+          if (-not $wdk71Marker) {
+            Write-Host "Dependency release $tag predates the WDK 7.1 compatibility libraries; the cache will be refreshed after bootstrap."
+            Add-Content -LiteralPath $env:GITHUB_OUTPUT -Value 'cache_hit=false' -Encoding utf8NoBOM
+            exit 0
+          }
           New-Item -ItemType Directory -Force '.\tools\win.x86\win_flex_bison' | Out-Null
           Copy-Item (Join-Path $dependencyRoot 'tools\win.x86\win_flex_bison\v3.7.4') '.\tools\win.x86\win_flex_bison' -Recurse -Force
           New-Item -ItemType File -Force (Join-Path $env:RUNNER_TEMP 'virtualbox-dependency-release-hit') | Out-Null
@@ -65,7 +73,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ${{ runner.temp }}\virtualbox-dependencies
-          key: virtualbox-windows-deps-qt${{ env.VBOX_CI_QT_VERSION }}-wdk${{ env.VBOX_CI_WDK_VERSION }}-${{ hashFiles('Config.kmk', 'kBuild/kBuild/Config.kmk') }}
+          key: virtualbox-windows-deps-qt${{ env.VBOX_CI_QT_VERSION }}-wdk${{ env.VBOX_CI_WDK_VERSION }}-wlh${{ env.VBOX_CI_WLH_VERSION }}-${{ hashFiles('Config.kmk', 'kBuild/kBuild/Config.kmk') }}
 
       - name: Bootstrap Windows packaging dependencies
         shell: pwsh
@@ -98,6 +106,32 @@ jobs:
           $windowsSdkRoot = 'C:\Program Files (x86)\Windows Kits\10'
           $windowsSdkRoot = (cmd /c "for %I in (`"$windowsSdkRoot`") do @echo %~sI").Trim() -replace '\\','/'
           "VBOX_CI_WINDOWS_SDK_ROOT=$windowsSdkRoot" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+          $wdk71CacheRoot = Join-Path $dependencyRoot 'winddk71'
+          $wdk71Marker = Get-ChildItem $wdk71CacheRoot -Recurse -Filter 'rxce.lib' -File -ErrorAction SilentlyContinue |
+            Where-Object { $_.FullName -match '\\lib\\wlh\\amd64\\rxce\.lib$' } | Select-Object -First 1
+          if (-not $wdk71Marker) {
+            $wdk71Iso = Join-Path $env:RUNNER_TEMP 'GRMWDK_EN_7600_1.ISO'
+            Invoke-WebRequest -UseBasicParsing -Uri 'https://download.microsoft.com/download/4/a/2/4a25c7d5-efbe-4182-b6a9-ae6850409a78/GRMWDK_EN_7600_1.ISO' -OutFile $wdk71Iso
+            if ((Get-FileHash $wdk71Iso -Algorithm SHA256).Hash -ne '5EDC723B50EA28A070CAD361DD0927DF402B7A861A036BBCF11D27EBBA77657D') { throw 'WDK 7.1 ISO bootstrap hash did not match the canonical manifest.' }
+            $wdk71Packages = Join-Path $env:RUNNER_TEMP 'wdk71-packages'
+            New-Item -ItemType Directory -Force $wdk71Packages | Out-Null
+            $sevenZip = Join-Path $env:ProgramFiles '7-Zip\7z.exe'
+            if (-not (Test-Path $sevenZip)) { throw '7-Zip is required to unpack the WDK 7.1 ISO.' }
+            & $sevenZip x $wdk71Iso 'WDK\headers.msi' 'WDK\headers_cab001.cab' 'WDK\vistalibs_x64fre.msi' 'WDK\vistalibs_x64fre_cab001.cab' 'WDK\wnetlibs_x64fre.msi' 'WDK\wnetlibs_x64fre_cab001.cab' "-o$wdk71Packages" '-y'
+            if ($LASTEXITCODE -ne 0) { throw "WDK 7.1 package extraction failed with exit code $LASTEXITCODE." }
+            New-Item -ItemType Directory -Force $wdk71CacheRoot | Out-Null
+            foreach ($packageName in @('headers.msi','vistalibs_x64fre.msi','wnetlibs_x64fre.msi')) {
+              $packagePath = Join-Path $wdk71Packages "WDK\$packageName"
+              $install = Start-Process -FilePath 'msiexec.exe' -ArgumentList @('/a', $packagePath, "TARGETDIR=$wdk71CacheRoot", '/qn', '/norestart') -Wait -PassThru -WindowStyle Hidden
+              if ($install.ExitCode -ne 0) { throw "WDK 7.1 package $packageName extraction failed with exit code $($install.ExitCode)." }
+            }
+            $wdk71Marker = Get-ChildItem $wdk71CacheRoot -Recurse -Filter 'rxce.lib' -File -ErrorAction SilentlyContinue |
+              Where-Object { $_.FullName -match '\\lib\\wlh\\amd64\\rxce\.lib$' } | Select-Object -First 1
+          }
+          if (-not $wdk71Marker) { throw 'WDK 7.1 extraction did not provide lib\wlh\amd64\rxce.lib.' }
+          $wdk71Root = $wdk71Marker.Directory.Parent.Parent.Parent.FullName
+          "PATH_SDK_WINDDK71=$wdk71Root" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+          $env:PATH_SDK_WINDDK71 = $wdk71Root
           $vcpkgCommand = Get-Command vcpkg.exe -ErrorAction SilentlyContinue
           if (-not $vcpkgCommand) { throw 'vcpkg.exe is required by the VirtualBox configure step.' }
           $vcpkgRoot = Split-Path $vcpkgCommand.Path -Parent
@@ -220,18 +254,22 @@ jobs:
           $cachedFlex = Join-Path $dependencyRoot 'tools\win.x86\win_flex_bison'
           New-Item -ItemType Directory -Force (Split-Path $cachedFlex) | Out-Null
           Copy-Item '.\tools\win.x86\win_flex_bison\*' $cachedFlex -Recurse -Force
+          $cachedWdk71 = Join-Path $dependencyRoot 'winddk71'
+          $wdk71Marker = Get-ChildItem $cachedWdk71 -Recurse -Filter 'rxce.lib' -File -ErrorAction SilentlyContinue |
+            Where-Object { $_.FullName -match '\\lib\\wlh\\amd64\\rxce\.lib$' } | Select-Object -First 1
+          if (-not $wdk71Marker) { throw 'WDK 7.1 compatibility libraries are missing from the dependency cache.' }
           $archive = Join-Path $env:RUNNER_TEMP 'virtualbox-dependencies.7z'
           Push-Location $dependencyRoot
           try {
-            & $sevenZip a $archive virtualbox-qt 'tools\win.x86\wix' 'tools\win.x86\win_flex_bison' "-p$env:DEPENDENCY_CACHE_PASSPHRASE" -mhe=on -t7z -v1536m
+            & $sevenZip a $archive virtualbox-qt 'tools\win.x86\wix' 'tools\win.x86\win_flex_bison' winddk71 "-p$env:DEPENDENCY_CACHE_PASSPHRASE" -mhe=on -t7z -v1536m
           } finally {
             Pop-Location
           }
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           $parts = Get-ChildItem "$archive.*" -File | Sort-Object Name
           if (-not $parts) { throw 'Encrypted dependency archive did not produce any upload parts.' }
-          $tag = "ci-deps-windows-qt$env:VBOX_CI_QT_VERSION-wdk$env:VBOX_CI_WDK_VERSION-$env:GITHUB_RUN_ID"
-          $notes = "Encrypted Windows dependency cache for Qt $env:VBOX_CI_QT_VERSION and WDK $env:VBOX_CI_WDK_VERSION. Parts are limited to 1.5 GiB."
+          $tag = "ci-deps-windows-qt$env:VBOX_CI_QT_VERSION-wdk$env:VBOX_CI_WDK_VERSION-wlh$env:VBOX_CI_WLH_VERSION-$env:GITHUB_RUN_ID"
+          $notes = "Encrypted Windows dependency cache for Qt $env:VBOX_CI_QT_VERSION, WDK $env:VBOX_CI_WDK_VERSION, and WDK 7.1 compatibility libraries. Parts are limited to 1.5 GiB."
           gh release create $tag $parts.FullName --repo $env:GITHUB_REPOSITORY --target $env:GITHUB_SHA --title "Windows dependency cache $tag" --notes $notes
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
@@ -256,7 +294,7 @@ jobs:
           Set-Content -LiteralPath $revisionFile -Value "export VBOX_SVN_REV=$revision" -Encoding ascii
           & cmd.exe /d /c "call `"$PWD\env.bat`" && kmk crypto-headers"
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          & cmd.exe /d /c "call `"$PWD\env.bat`" && kmk VBOX_SVN_REV=$revision SDK_WINSDK10_MAX_VERSION=10.0.22621.0 VBOX_WINDDK_GST_W7=WINSDK10-KM VBOX_WINDDK_GST_W8=WINSDK10-KM VBOX_WINDDK_GST_WLH=WINSDK10-KM-W7 VBOX_WINDDK_GST_W2K3=WINSDK10-KM VBOX_WINDDK_GST_WXP=WINSDK10-KM VBOX_WINDDK_GST_W2K=WINSDK10-KM VBOX_WINDDK_GST_NT4=WINSDK10-KM packing"
+          & cmd.exe /d /c "call `"$PWD\env.bat`" && kmk VBOX_SVN_REV=$revision SDK_WINSDK10_MAX_VERSION=10.0.22621.0 VBOX_WINDDK_GST_W7=WINSDK10-KM VBOX_WINDDK_GST_W8=WINSDK10-KM VBOX_WINDDK_GST_WLH=WINDDK71WLH VBOX_WINDDK_GST_W2K3=WINSDK10-KM VBOX_WINDDK_GST_WXP=WINSDK10-KM VBOX_WINDDK_GST_W2K=WINSDK10-KM VBOX_WINDDK_GST_NT4=WINSDK10-KM packing"
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
       - name: Build unsigned Squirrel full installer
