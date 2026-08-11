@@ -269,7 +269,7 @@ function Invoke-VirtualBoxBuild {
         & cmd.exe /d /c "call `"$repoRoot\env.bat`" && kmk crypto-headers"
     }
     Invoke-Checked 'Build the Windows package payload' {
-        & cmd.exe /d /c "call `"$repoRoot\env.bat`" && kmk VBOX_SVN_REV=$revision SDK_WINSDK10_MAX_VERSION=10.0.26100.0 VBOX_WINDDK_GST_WLH=WINSDK10-KM VBOX_WINDDK_GST_W2K3=WINSDK10-KM VBOX_WINDDK_GST_WXP=WINSDK10-KM VBOX_WINDDK_GST_W2K=WINSDK10-KM VBOX_WINDDK_GST_NT4=WINSDK10-KM packing"
+        & cmd.exe /d /c "call `"$repoRoot\env.bat`" && kmk VBOX_SVN_REV=$revision SDK_WINSDK10_MAX_VERSION=10.0.26100.0 VBOX_WINDDK_GST_W7=WINSDK10-KM VBOX_WINDDK_GST_W8=WINSDK10-KM VBOX_WINDDK_GST_WLH=WINSDK10-KM VBOX_WINDDK_GST_W2K3=WINSDK10-KM VBOX_WINDDK_GST_WXP=WINSDK10-KM VBOX_WINDDK_GST_W2K=WINSDK10-KM VBOX_WINDDK_GST_NT4=WINSDK10-KM packing"
     }
     $payload = Join-Path $repoRoot 'out\win.amd64\release\bin'
     if (-not (Test-Path -LiteralPath (Join-Path $payload 'VirtualBox.exe'))) {
