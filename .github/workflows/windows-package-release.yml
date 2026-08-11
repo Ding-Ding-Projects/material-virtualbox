@@ -126,8 +126,8 @@ jobs:
             }
           }
           if (-not $zipCommand) {
-            $tarCommand = Get-Command tar.exe -ErrorAction SilentlyContinue
-            if (-not $tarCommand) { throw 'tar.exe is required to unpack the verified Info-ZIP package.' }
+            $sevenZip = Join-Path $env:ProgramFiles '7-Zip\7z.exe'
+            if (-not (Test-Path -LiteralPath $sevenZip)) { throw '7-Zip is required to unpack the verified Info-ZIP package.' }
             $zipArchive = Join-Path $env:RUNNER_TEMP 'miktex-zip-bin-x64.tar.lzma'
             Invoke-WebRequest -UseBasicParsing -Uri 'https://ftp.fau.de/ctan/systems/win32/miktex/tm/packages/miktex-zip-bin-x64.tar.lzma' -OutFile $zipArchive
             $zipArchiveInfo = Get-Item -LiteralPath $zipArchive
@@ -136,10 +136,15 @@ jobs:
             Write-Host "Info-ZIP bootstrap archive SHA-256=$zipArchiveHash ($($zipArchiveInfo.Length) bytes)."
             $zipInstall = Join-Path $env:RUNNER_TEMP 'miktex-zip-bin-x64'
             New-Item -ItemType Directory -Force $zipInstall | Out-Null
-            & $tarCommand.Path -tf $zipArchive | Out-Null
-            if ($LASTEXITCODE -ne 0) { throw "Info-ZIP package archive validation failed with exit code $LASTEXITCODE." }
-            & $tarCommand.Path -xf $zipArchive -C $zipInstall
-            if ($LASTEXITCODE -ne 0) { throw "Info-ZIP package extraction failed with exit code $LASTEXITCODE." }
+            $zipOutput = '-o' + $zipInstall
+            & $sevenZip x $zipArchive $zipOutput '-y'
+            if ($LASTEXITCODE -ne 0) { throw "Info-ZIP LZMA extraction failed with exit code $LASTEXITCODE." }
+            $tarArchive = Get-ChildItem -LiteralPath $zipInstall -Filter '*.tar' -File | Select-Object -First 1
+            if (-not $tarArchive) { throw 'Info-ZIP bootstrap did not produce its tar payload.' }
+            & $sevenZip t $tarArchive.FullName
+            if ($LASTEXITCODE -ne 0) { throw "Info-ZIP tar payload validation failed with exit code $LASTEXITCODE." }
+            & $sevenZip x $tarArchive.FullName $zipOutput '-y'
+            if ($LASTEXITCODE -ne 0) { throw "Info-ZIP tar payload extraction failed with exit code $LASTEXITCODE." }
             $zipBinary = Get-ChildItem -LiteralPath $zipInstall -Recurse -Filter miktex-zip.exe -File | Select-Object -First 1
             if ($zipBinary) {
               $zipHash = (Get-FileHash -LiteralPath $zipBinary.FullName -Algorithm SHA256).Hash.ToLowerInvariant()

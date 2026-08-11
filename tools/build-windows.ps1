@@ -66,6 +66,26 @@ function Ensure-WingetPackage {
     Refresh-ProcessPath
 }
 
+function Ensure-SevenZip {
+    $command = Get-Command 7z.exe -ErrorAction SilentlyContinue
+    if ($command) { return $command.Path }
+    $candidates = @(
+        (Join-Path ${env:ProgramFiles} '7-Zip\7z.exe'),
+        (Join-Path ${env:ProgramFiles(x86)} '7-Zip\7z.exe')
+    ) | Where-Object { $_ -and (Test-Path -LiteralPath $_) }
+    $candidate = $candidates | Select-Object -First 1
+    if ($candidate) { return $candidate }
+    Ensure-WingetPackage '7zip.7zip'
+    $command = Get-Command 7z.exe -ErrorAction SilentlyContinue
+    if ($command) { return $command.Path }
+    $candidate = @(
+        (Join-Path ${env:ProgramFiles} '7-Zip\7z.exe'),
+        (Join-Path ${env:ProgramFiles(x86)} '7-Zip\7z.exe')
+    ) | Where-Object { $_ -and (Test-Path -LiteralPath $_) } | Select-Object -First 1
+    if ($candidate) { return $candidate }
+    throw '7-Zip is still unavailable after the canonical user-scoped install attempt.'
+}
+
 function Get-RequiredPython {
     $python = Get-Command python.exe -ErrorAction SilentlyContinue
     if ($python) {
@@ -213,8 +233,7 @@ function Ensure-Zip {
     ) | Where-Object { $_ -and (Test-Path -LiteralPath $_) }
     $candidate = $candidates | Select-Object -First 1
     if ($candidate) { return (Get-ShortPath (Split-Path -Parent $candidate)) }
-    $tar = Get-Command tar.exe -ErrorAction SilentlyContinue
-    if (-not $tar) { throw 'tar.exe is required to unpack the verified Info-ZIP package.' }
+    $sevenZip = Ensure-SevenZip
     $archive = Join-Path $downloadRoot 'miktex-zip-bin-x64.tar.lzma'
     if (-not (Test-Path -LiteralPath $archive)) {
         Invoke-WebRequest -UseBasicParsing `
@@ -229,10 +248,15 @@ function Ensure-Zip {
     $zip = Get-ChildItem -LiteralPath $installRoot -Recurse -Filter zip.exe -File -ErrorAction SilentlyContinue | Select-Object -First 1
     if (-not $zip) {
         New-Item -ItemType Directory -Force $installRoot | Out-Null
-        & $tar.Path -tf $archive | Out-Null
-        if ($LASTEXITCODE -ne 0) { throw "Info-ZIP package archive validation failed with exit code $LASTEXITCODE." }
-        & $tar.Path -xf $archive -C $installRoot
-        if ($LASTEXITCODE -ne 0) { throw "Info-ZIP package extraction failed with exit code $LASTEXITCODE." }
+        $zipOutput = '-o' + $installRoot
+        & $sevenZip x $archive $zipOutput '-y'
+        if ($LASTEXITCODE -ne 0) { throw "Info-ZIP LZMA extraction failed with exit code $LASTEXITCODE." }
+        $tarArchive = Get-ChildItem -LiteralPath $installRoot -Filter '*.tar' -File | Select-Object -First 1
+        if (-not $tarArchive) { throw 'Info-ZIP bootstrap did not produce its tar payload.' }
+        & $sevenZip t $tarArchive.FullName
+        if ($LASTEXITCODE -ne 0) { throw "Info-ZIP tar payload validation failed with exit code $LASTEXITCODE." }
+        & $sevenZip x $tarArchive.FullName $zipOutput '-y'
+        if ($LASTEXITCODE -ne 0) { throw "Info-ZIP tar payload extraction failed with exit code $LASTEXITCODE." }
         $zipBinary = Get-ChildItem -LiteralPath $installRoot -Recurse -Filter miktex-zip.exe -File -ErrorAction SilentlyContinue | Select-Object -First 1
         if ($zipBinary) {
             $zipHash = (Get-FileHash -LiteralPath $zipBinary.FullName -Algorithm SHA256).Hash.ToLowerInvariant()
