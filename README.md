@@ -323,9 +323,12 @@ then creates a complete unsigned Squirrel.Windows set containing `Setup.exe`,
 
 The helper is [`tools/build-windows.ps1`](tools/build-windows.ps1). It keeps
 downloads in a user-local cache, verifies the pinned Windows SDK and WDK
-installer hashes, obtains Qt through `aqtinstall`, materializes the pinned
-NSIS 3.10 packaging tool plus its pinned Unicode installer plugins, and reports
-the artifact path and SHA-256. An
+installer hashes, obtains Qt through `aqtinstall`, builds the documented
+NSIS 3.10 `NSIS_CONFIG_LOG` package from its pinned source (including the x86
+zlib and PE-version prerequisites), materializes its pinned Unicode installer
+plugins, and reports the artifact path and SHA-256. The reusable source-build
+step is [`tools/prepare-nsis.ps1`](tools/prepare-nsis.ps1), and the dependency
+release refuses a cache that lacks its log-support marker. An
 unsigned installer can trigger an unknown-publisher or
 SmartScreen warning; that warning is expected and is disclosed rather than
 hidden.

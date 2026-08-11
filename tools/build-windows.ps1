@@ -324,87 +324,29 @@ function Ensure-WinFlexBison {
 }
 
 function Ensure-Nsis {
-    $version = '3.10'
     $target = Join-Path $repoRoot 'tools\win.x86\nsis\v3.10-log-r1'
-    $makensis = Join-Path $target 'makensis.exe'
-    $nsProcessInclude = Join-Path $target 'Include\nsProcess.nsh'
-    $nsProcessPlugin = Join-Path $target 'Plugins\x86-unicode\nsProcess.dll'
-    $accessControlPlugin = Join-Path $target 'Plugins\x86-unicode\AccessControl.dll'
-    if ((Test-Path -LiteralPath $makensis) -and
-        (Test-Path -LiteralPath $nsProcessInclude) -and
-        (Test-Path -LiteralPath $nsProcessPlugin) -and
-        (Test-Path -LiteralPath $accessControlPlugin)) {
+    $required = @(
+        (Join-Path $target 'makensis.exe'),
+        (Join-Path $target 'Include\nsProcess.nsh'),
+        (Join-Path $target 'Plugins\x86-unicode\nsProcess.dll'),
+        (Join-Path $target 'Plugins\x86-unicode\AccessControl.dll'),
+        (Join-Path $target 'VirtualBox-NSIS_CONFIG_LOG.txt')
+    )
+    if (@($required | Where-Object { -not (Test-Path -LiteralPath $_) }).Count -eq 0) {
         return $target
     }
-    $curl = Get-Command curl.exe -ErrorAction Stop
-    $zip = Join-Path $downloadRoot "nsis-$version.zip"
-    if (-not (Test-Path -LiteralPath $zip)) {
-        & $curl.Source -L --fail --silent --show-error --output $zip 'https://downloads.sourceforge.net/project/nsis/NSIS%203/3.10/nsis-3.10.zip'
-        if ($LASTEXITCODE -ne 0) { throw "NSIS download failed with exit code $LASTEXITCODE." }
+    $environmentFile = Join-Path $repoRoot 'env.bat'
+    if (-not (Test-Path -LiteralPath $environmentFile)) {
+        throw 'The VirtualBox environment must be configured before the custom NSIS tool can be built.'
     }
-    $actual = (Get-FileHash -LiteralPath $zip -Algorithm SHA256).Hash
-    if ($actual -ne 'FCDCE3229717A2A148E7CDA0AB5BDB667F39D8FB33EDE1DA8DABC336BD5AD110') {
-        throw "SHA-256 mismatch for nsis-$version.zip: expected FCDCE3229717A2A148E7CDA0AB5BDB667F39D8FB33EDE1DA8DABC336BD5AD110, got $actual."
+    $prepare = Join-Path $repoRoot 'tools\prepare-nsis.ps1'
+    $powerShell = Get-Command pwsh.exe -ErrorAction SilentlyContinue
+    if (-not $powerShell) { $powerShell = Get-Command powershell.exe -ErrorAction Stop }
+    Invoke-Checked 'Build custom NSIS 3.10 with log support' {
+        & $powerShell.Source -NoLogo -NoProfile -ExecutionPolicy Bypass -File $prepare -EnvironmentFile $environmentFile
     }
-    $sevenZip = Ensure-SevenZip
-    $extract = Join-Path $toolRoot "nsis-$version"
-    Remove-Item -LiteralPath $extract -Recurse -Force -ErrorAction SilentlyContinue
-    New-Item -ItemType Directory -Force $extract | Out-Null
-    Invoke-Checked 'Extract NSIS 3.10 packaging tool' {
-        & $sevenZip x $zip "-o$extract" '-y'
-    }
-    $source = Join-Path $extract "nsis-$version"
-    if (-not (Test-Path -LiteralPath (Join-Path $source 'makensis.exe'))) {
-        throw 'NSIS bootstrap did not provide makensis.exe.'
-    }
-    New-Item -ItemType Directory -Force $target | Out-Null
-    Copy-Item (Join-Path $source '*') $target -Recurse -Force
-    $nsProcessZip = Join-Path $downloadRoot 'NsProcess-1.6.zip'
-    if (-not (Test-Path -LiteralPath $nsProcessZip)) {
-        & $curl.Source -L --fail --silent --show-error --output $nsProcessZip 'https://nsis.sourceforge.io/mediawiki/images/1/18/NsProcess.zip'
-        if ($LASTEXITCODE -ne 0) { throw "NsProcess 1.6 download failed with exit code $LASTEXITCODE." }
-    }
-    if ((Get-FileHash -LiteralPath $nsProcessZip -Algorithm SHA256).Hash -ne 'FC19FC66A5219A233570FAFD5DAEB0C9B85387B379F6DF5AC8898159A57C5944') {
-        throw 'SHA-256 mismatch for NsProcess-1.6.zip.'
-    }
-    $nsProcessExtract = Join-Path $toolRoot 'NsProcess-1.6'
-    Remove-Item -LiteralPath $nsProcessExtract -Recurse -Force -ErrorAction SilentlyContinue
-    New-Item -ItemType Directory -Force $nsProcessExtract | Out-Null
-    Invoke-Checked 'Extract NsProcess 1.6 installer plugin' {
-        & $sevenZip x $nsProcessZip "-o$nsProcessExtract" '-y'
-    }
-    $nsProcessSource = Join-Path $nsProcessExtract 'Include\nsProcess.nsh'
-    $nsProcessUnicode = Join-Path $nsProcessExtract 'Plugin\nsProcessW.dll'
-    if (-not (Test-Path -LiteralPath $nsProcessSource) -or -not (Test-Path -LiteralPath $nsProcessUnicode)) {
-        throw 'NsProcess 1.6 archive did not provide the Unicode include and plugin.'
-    }
-    New-Item -ItemType Directory -Force (Split-Path $nsProcessInclude), (Split-Path $nsProcessPlugin) | Out-Null
-    Copy-Item -LiteralPath $nsProcessSource -Destination $nsProcessInclude -Force
-    Copy-Item -LiteralPath $nsProcessUnicode -Destination $nsProcessPlugin -Force
-
-    $accessControlZip = Join-Path $downloadRoot 'AccessControl-1.0.8.3.zip'
-    if (-not (Test-Path -LiteralPath $accessControlZip)) {
-        & $curl.Source -L --fail --silent --show-error --output $accessControlZip 'https://nsis.sourceforge.io/mediawiki/images/4/4a/AccessControl.zip'
-        if ($LASTEXITCODE -ne 0) { throw "AccessControl 1.0.8.3 download failed with exit code $LASTEXITCODE." }
-    }
-    if ((Get-FileHash -LiteralPath $accessControlZip -Algorithm SHA256).Hash -ne '9AA60F9C5C023FDA2808AF216514D8913D2673BC522D944EE771DA032A1BDC10') {
-        throw 'SHA-256 mismatch for AccessControl-1.0.8.3.zip.'
-    }
-    $accessControlExtract = Join-Path $toolRoot 'AccessControl-1.0.8.3'
-    Remove-Item -LiteralPath $accessControlExtract -Recurse -Force -ErrorAction SilentlyContinue
-    New-Item -ItemType Directory -Force $accessControlExtract | Out-Null
-    Invoke-Checked 'Extract AccessControl 1.0.8.3 installer plugin' {
-        & $sevenZip x $accessControlZip "-o$accessControlExtract" '-y'
-    }
-    $accessControlSource = Join-Path $accessControlExtract 'Plugins\i386-unicode\AccessControl.dll'
-    if (-not (Test-Path -LiteralPath $accessControlSource)) {
-        throw 'AccessControl 1.0.8.3 archive did not provide the x86 Unicode plugin.'
-    }
-    New-Item -ItemType Directory -Force (Split-Path $accessControlPlugin) | Out-Null
-    Copy-Item -LiteralPath $accessControlSource -Destination $accessControlPlugin -Force
-    $requiredNsisFiles = @($makensis, $nsProcessInclude, $nsProcessPlugin, $accessControlPlugin)
-    if (@($requiredNsisFiles | Where-Object { -not (Test-Path -LiteralPath $_) }).Count -gt 0) {
-        throw 'NSIS 3.10 and its pinned VirtualBox installer plugins were not materialized under tools\win.x86\nsis\v3.10-log-r1.'
+    if (@($required | Where-Object { -not (Test-Path -LiteralPath $_) }).Count -gt 0) {
+        throw 'The custom NSIS source build did not materialize the complete log-enabled package.'
     }
     return $target
 }
@@ -477,6 +419,7 @@ function Invoke-VirtualBoxBuild {
     )
     Invoke-Checked 'Configure the unsigned Windows build' { & .\configure.ps1 @arguments }
     if (-not (Test-Path -LiteralPath .\env.bat)) { throw 'configure.py did not generate env.bat.' }
+    $null = Ensure-Nsis
     $revisionMatch = Select-String configure.py -Pattern '\$Id: configure.py (\d+)'
     if (-not $revisionMatch) { throw 'configure.py does not expose a numeric source revision for the Git mirror build.' }
     $revision = $revisionMatch.Matches[0].Groups[1].Value
@@ -567,7 +510,6 @@ $vcpkgRoot = Ensure-Vcpkg
 $nasmRoot = Ensure-Nasm
 $zipRoot = Ensure-Zip
 $flexBisonRoot = Ensure-WinFlexBison
-$nsisRoot = Ensure-Nsis
 Ensure-MesaPython $python
 $qtRoot = Ensure-Qt $python
 $payload = Invoke-VirtualBoxBuild -Python $python -QtRoot $qtRoot -SdkRoot $SdkRoot -Wdk71Root $wdk71Root -VcpkgRoot $vcpkgRoot -NasmRoot $nasmRoot -ZipRoot $zipRoot

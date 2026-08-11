@@ -61,7 +61,8 @@ jobs:
             (Join-Path $cachedNsisRoot 'makensis.exe'),
             (Join-Path $cachedNsisRoot 'Include\nsProcess.nsh'),
             (Join-Path $cachedNsisRoot 'Plugins\x86-unicode\nsProcess.dll'),
-            (Join-Path $cachedNsisRoot 'Plugins\x86-unicode\AccessControl.dll')
+            (Join-Path $cachedNsisRoot 'Plugins\x86-unicode\AccessControl.dll'),
+            (Join-Path $cachedNsisRoot 'VirtualBox-NSIS_CONFIG_LOG.txt')
           )
           if (@($nsisCacheFiles | Where-Object { -not (Test-Path $_) }).Count -gt 0) {
             Write-Host "Dependency release $tag predates the NSIS cache; the cache will be refreshed after bootstrap."
@@ -207,68 +208,6 @@ jobs:
           }
           if (-not $zipCommand) { throw 'zip.exe is required for the Validation Kit package and was not available from the runner or Git for Windows.' }
           Write-Host "Using zip.exe from $($zipCommand.FullName)."
-          $nsisTarget = Join-Path $PWD 'tools\win.x86\nsis\v3.10-log-r1'
-          $nsisExecutable = Join-Path $nsisTarget 'makensis.exe'
-          $curl = Get-Command curl.exe -ErrorAction Stop
-          if (-not (Test-Path $nsisExecutable)) {
-            $nsisVersion = '3.10'
-            $nsisZip = Join-Path $env:RUNNER_TEMP "nsis-$nsisVersion.zip"
-            $nsisExtract = Join-Path $env:RUNNER_TEMP "nsis-$nsisVersion"
-            & $curl.Source -L --fail --silent --show-error --output $nsisZip 'https://downloads.sourceforge.net/project/nsis/NSIS%203/3.10/nsis-3.10.zip'
-            if ($LASTEXITCODE -ne 0) { throw "NSIS download failed with exit code $LASTEXITCODE." }
-            if ((Get-FileHash $nsisZip -Algorithm SHA256).Hash -ne 'FCDCE3229717A2A148E7CDA0AB5BDB667F39D8FB33EDE1DA8DABC336BD5AD110') { throw 'NSIS bootstrap hash did not match the canonical release asset.' }
-            Remove-Item -LiteralPath $nsisExtract -Recurse -Force -ErrorAction SilentlyContinue
-            New-Item -ItemType Directory -Force $nsisExtract | Out-Null
-            & $sevenZip x $nsisZip "-o$nsisExtract" '-y'
-            if ($LASTEXITCODE -ne 0) { throw "NSIS archive extraction failed with exit code $LASTEXITCODE." }
-            $nsisSource = Join-Path $nsisExtract "nsis-$nsisVersion"
-            if (-not (Test-Path (Join-Path $nsisSource 'makensis.exe'))) { throw 'NSIS bootstrap did not provide makensis.exe.' }
-            New-Item -ItemType Directory -Force $nsisTarget | Out-Null
-            Copy-Item (Join-Path $nsisSource '*') $nsisTarget -Recurse -Force
-          }
-          $nsisPluginRoot = Join-Path $nsisTarget 'Plugins\x86-unicode'
-          $nsisInclude = Join-Path $nsisTarget 'Include'
-          $nsProcessInclude = Join-Path $nsisInclude 'nsProcess.nsh'
-          $nsProcessPlugin = Join-Path $nsisPluginRoot 'nsProcess.dll'
-          $accessControlPlugin = Join-Path $nsisPluginRoot 'AccessControl.dll'
-          if (-not (Test-Path $nsProcessInclude) -or -not (Test-Path $nsProcessPlugin)) {
-            $nsProcessZip = Join-Path $env:RUNNER_TEMP 'NsProcess-1.6.zip'
-            $nsProcessExtract = Join-Path $env:RUNNER_TEMP 'NsProcess-1.6'
-            & $curl.Source -L --fail --silent --show-error --output $nsProcessZip 'https://nsis.sourceforge.io/mediawiki/images/1/18/NsProcess.zip'
-            if ($LASTEXITCODE -ne 0) { throw "NsProcess 1.6 download failed with exit code $LASTEXITCODE." }
-            if ((Get-FileHash $nsProcessZip -Algorithm SHA256).Hash -ne 'FC19FC66A5219A233570FAFD5DAEB0C9B85387B379F6DF5AC8898159A57C5944') { throw 'NsProcess 1.6 bootstrap hash did not match the pinned upstream archive.' }
-            Remove-Item -LiteralPath $nsProcessExtract -Recurse -Force -ErrorAction SilentlyContinue
-            New-Item -ItemType Directory -Force $nsProcessExtract | Out-Null
-            & $sevenZip x $nsProcessZip "-o$nsProcessExtract" '-y'
-            if ($LASTEXITCODE -ne 0) { throw "NsProcess 1.6 archive extraction failed with exit code $LASTEXITCODE." }
-            $nsProcessSource = Join-Path $nsProcessExtract 'Include\nsProcess.nsh'
-            $nsProcessUnicode = Join-Path $nsProcessExtract 'Plugin\nsProcessW.dll'
-            if (-not (Test-Path $nsProcessSource) -or -not (Test-Path $nsProcessUnicode)) { throw 'NsProcess 1.6 archive did not provide the Unicode include and plugin.' }
-            New-Item -ItemType Directory -Force $nsisInclude | Out-Null
-            New-Item -ItemType Directory -Force $nsisPluginRoot | Out-Null
-            Copy-Item $nsProcessSource $nsProcessInclude -Force
-            Copy-Item $nsProcessUnicode $nsProcessPlugin -Force
-          }
-          if (-not (Test-Path $accessControlPlugin)) {
-            $accessControlZip = Join-Path $env:RUNNER_TEMP 'AccessControl-1.0.8.3.zip'
-            $accessControlExtract = Join-Path $env:RUNNER_TEMP 'AccessControl-1.0.8.3'
-            & $curl.Source -L --fail --silent --show-error --output $accessControlZip 'https://nsis.sourceforge.io/mediawiki/images/4/4a/AccessControl.zip'
-            if ($LASTEXITCODE -ne 0) { throw "AccessControl 1.0.8.3 download failed with exit code $LASTEXITCODE." }
-            if ((Get-FileHash $accessControlZip -Algorithm SHA256).Hash -ne '9AA60F9C5C023FDA2808AF216514D8913D2673BC522D944EE771DA032A1BDC10') { throw 'AccessControl 1.0.8.3 bootstrap hash did not match the pinned upstream archive.' }
-            Remove-Item -LiteralPath $accessControlExtract -Recurse -Force -ErrorAction SilentlyContinue
-            New-Item -ItemType Directory -Force $accessControlExtract | Out-Null
-            & $sevenZip x $accessControlZip "-o$accessControlExtract" '-y'
-            if ($LASTEXITCODE -ne 0) { throw "AccessControl 1.0.8.3 archive extraction failed with exit code $LASTEXITCODE." }
-            $accessControlSource = Join-Path $accessControlExtract 'Plugins\i386-unicode\AccessControl.dll'
-            if (-not (Test-Path $accessControlSource)) { throw 'AccessControl 1.0.8.3 archive did not provide the x86 Unicode plugin.' }
-            New-Item -ItemType Directory -Force $nsisPluginRoot | Out-Null
-            Copy-Item $accessControlSource $accessControlPlugin -Force
-          }
-          $requiredNsisFiles = @($nsisExecutable, $nsProcessInclude, $nsProcessPlugin, $accessControlPlugin)
-          if (@($requiredNsisFiles | Where-Object { -not (Test-Path $_) }).Count -gt 0) { throw 'NSIS 3.10 and its pinned VirtualBox installer plugins were not materialized under tools\win.x86\nsis\v3.10-log-r1.' }
-          $cachedNsis = Join-Path $dependencyRoot 'tools\win.x86\nsis\v3.10-log-r1'
-          New-Item -ItemType Directory -Force (Split-Path $cachedNsis) | Out-Null
-          Copy-Item $nsisTarget $cachedNsis -Recurse -Force
           $flexTarget = Join-Path $PWD 'tools\win.x86\win_flex_bison\v3.7.4'
           if (-not (Test-Path (Join-Path $flexTarget 'win_bison.exe'))) {
             $flexVersion = '2.5.24'
@@ -310,6 +249,23 @@ jobs:
           }
           "VBOX_CI_QT_ROOT=$($qt.FullName)" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
 
+      - name: Configure the prerequisite Windows build environment
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $python = Get-Command python.exe -ErrorAction Stop
+          $pythonRoot = (Split-Path $python.Source -Parent) -replace '\\','/'
+          .\configure.ps1 --disable-hardening --disable-python_c_api --disable-win-ddk --disable-win-msi --disable-win-wix --with-kbuild-path="$PWD\kBuild\kBuild" --with-qt-path="$env:VBOX_CI_QT_ROOT" --with-sdk10="$env:VBOX_CI_WINDOWS_SDK_ROOT" --with-win-vcpkg-root="$env:VBOX_CI_VCPKG_ROOT" --with-python-path="$pythonRoot"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          if (-not (Test-Path .\env.bat)) { throw 'configure.py did not generate env.bat.' }
+
+      - name: Build the custom NSIS log packaging tool
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          & pwsh.exe -NoLogo -NoProfile -ExecutionPolicy Bypass -File .\tools\prepare-nsis.ps1 -EnvironmentFile .\env.bat
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
       - name: Publish encrypted dependency release when missing
         shell: pwsh
         env:
@@ -338,7 +294,8 @@ jobs:
             (Join-Path $cachedNsisRoot 'makensis.exe'),
             (Join-Path $cachedNsisRoot 'Include\nsProcess.nsh'),
             (Join-Path $cachedNsisRoot 'Plugins\x86-unicode\nsProcess.dll'),
-            (Join-Path $cachedNsisRoot 'Plugins\x86-unicode\AccessControl.dll')
+            (Join-Path $cachedNsisRoot 'Plugins\x86-unicode\AccessControl.dll'),
+            (Join-Path $cachedNsisRoot 'VirtualBox-NSIS_CONFIG_LOG.txt')
           )
           if (@($requiredNsisFiles | Where-Object { -not (Test-Path $_) }).Count -gt 0) { throw 'NSIS or its pinned VirtualBox installer plugins are missing from the dependency cache.' }
           $cachedWdk71 = Join-Path $dependencyRoot 'winddk71'
@@ -359,16 +316,6 @@ jobs:
           $notes = "Encrypted Windows dependency cache for Qt $env:VBOX_CI_QT_VERSION, WDK $env:VBOX_CI_WDK_VERSION, WDK 7.1 compatibility libraries, WinFlexBison, WiX, and NSIS 3.10. Parts are limited to 1.5 GiB."
           gh release create $tag $parts.FullName --repo $env:GITHUB_REPOSITORY --target $env:GITHUB_SHA --title "Windows dependency cache $tag" --notes $notes
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-
-      - name: Configure an unsigned Windows package build
-        shell: pwsh
-        run: |
-          $ErrorActionPreference = 'Stop'
-          $python = Get-Command python.exe -ErrorAction Stop
-          $pythonRoot = (Split-Path $python.Source -Parent) -replace '\\','/'
-          .\configure.ps1 --disable-hardening --disable-python_c_api --disable-win-ddk --disable-win-msi --disable-win-wix --with-kbuild-path="$PWD\kBuild\kBuild" --with-qt-path="$env:VBOX_CI_QT_ROOT" --with-sdk10="$env:VBOX_CI_WINDOWS_SDK_ROOT" --with-win-vcpkg-root="$env:VBOX_CI_VCPKG_ROOT" --with-python-path="$pythonRoot"
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          if (-not (Test-Path .\env.bat)) { throw 'configure.py did not generate env.bat.' }
 
       - name: Build and package the Windows installer
         shell: pwsh
@@ -465,6 +412,7 @@ jobs:
         run: |
           New-Item -ItemType Directory -Force "$env:RUNNER_TEMP\evidence" | Out-Null
           Copy-Item configure.log,AutoConfig.kmk -Destination "$env:RUNNER_TEMP\evidence" -ErrorAction SilentlyContinue
+          Copy-Item "$env:LOCALAPPDATA\VirtualBox\build-tools\nsis-3.10-source\scons.log" -Destination "$env:RUNNER_TEMP\evidence" -ErrorAction SilentlyContinue
           Copy-Item "$env:RUNNER_TEMP\package-hashes.txt","$env:RUNNER_TEMP\package-files.txt" -Destination "$env:RUNNER_TEMP\evidence" -ErrorAction SilentlyContinue
           Copy-Item "$env:RUNNER_TEMP\squirrel-release\*" -Destination "$env:RUNNER_TEMP\evidence" -ErrorAction SilentlyContinue
 
