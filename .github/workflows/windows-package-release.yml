@@ -56,6 +56,11 @@ jobs:
             Add-Content -LiteralPath $env:GITHUB_OUTPUT -Value 'cache_hit=false' -Encoding utf8NoBOM
             exit 0
           }
+          if (-not (Test-Path (Join-Path $dependencyRoot 'tools\win.x86\nsis\v3.10-log-r1\makensis.exe'))) {
+            Write-Host "Dependency release $tag predates the NSIS cache; the cache will be refreshed after bootstrap."
+            Add-Content -LiteralPath $env:GITHUB_OUTPUT -Value 'cache_hit=false' -Encoding utf8NoBOM
+            exit 0
+          }
           $wdk71Marker = Get-ChildItem (Join-Path $dependencyRoot 'winddk71') -Recurse -Filter 'rxce.lib' -File -ErrorAction SilentlyContinue |
             Where-Object { $_.FullName -match '\\lib\\wlh\\amd64\\rxce\.lib$' } | Select-Object -First 1
           if (-not $wdk71Marker) {
@@ -65,6 +70,8 @@ jobs:
           }
           New-Item -ItemType Directory -Force '.\tools\win.x86\win_flex_bison' | Out-Null
           Copy-Item (Join-Path $dependencyRoot 'tools\win.x86\win_flex_bison\v3.7.4') '.\tools\win.x86\win_flex_bison' -Recurse -Force
+          New-Item -ItemType Directory -Force '.\tools\win.x86\nsis' | Out-Null
+          Copy-Item (Join-Path $dependencyRoot 'tools\win.x86\nsis\v3.10-log-r1') '.\tools\win.x86\nsis' -Recurse -Force
           New-Item -ItemType File -Force (Join-Path $env:RUNNER_TEMP 'virtualbox-dependency-release-hit') | Out-Null
           Add-Content -LiteralPath $env:GITHUB_OUTPUT -Value 'cache_hit=true' -Encoding utf8NoBOM
 
@@ -81,6 +88,8 @@ jobs:
           $ErrorActionPreference = 'Stop'
           $dependencyRoot = Join-Path $env:RUNNER_TEMP 'virtualbox-dependencies'
           $qtRoot = Join-Path $dependencyRoot 'virtualbox-qt'
+          $sevenZip = Join-Path $env:ProgramFiles '7-Zip\7z.exe'
+          if (-not (Test-Path $sevenZip)) { throw '7-Zip is required to bootstrap the Windows packaging toolchain.' }
           $cachedWix = Join-Path $dependencyRoot 'tools\win.x86\wix'
           if (Test-Path $cachedWix) {
             New-Item -ItemType Directory -Force '.\tools\win.x86' | Out-Null
@@ -115,8 +124,6 @@ jobs:
             if ((Get-FileHash $wdk71Iso -Algorithm SHA256).Hash -ne '5EDC723B50EA28A070CAD361DD0927DF402B7A861A036BBCF11D27EBBA77657D') { throw 'WDK 7.1 ISO bootstrap hash did not match the canonical manifest.' }
             $wdk71Packages = Join-Path $env:RUNNER_TEMP 'wdk71-packages'
             New-Item -ItemType Directory -Force $wdk71Packages | Out-Null
-            $sevenZip = Join-Path $env:ProgramFiles '7-Zip\7z.exe'
-            if (-not (Test-Path $sevenZip)) { throw '7-Zip is required to unpack the WDK 7.1 ISO.' }
             & $sevenZip x $wdk71Iso 'WDK\headers.msi' 'WDK\headers_cab001.cab' 'WDK\vistalibs_x64fre.msi' 'WDK\vistalibs_x64fre_cab001.cab' 'WDK\wnetlibs_x64fre.msi' 'WDK\wnetlibs_x64fre_cab001.cab' "-o$wdk71Packages" '-y'
             if ($LASTEXITCODE -ne 0) { throw "WDK 7.1 package extraction failed with exit code $LASTEXITCODE." }
             New-Item -ItemType Directory -Force $wdk71CacheRoot | Out-Null
@@ -193,6 +200,27 @@ jobs:
           }
           if (-not $zipCommand) { throw 'zip.exe is required for the Validation Kit package and was not available from the runner or Git for Windows.' }
           Write-Host "Using zip.exe from $($zipCommand.FullName)."
+          $nsisTarget = Join-Path $PWD 'tools\win.x86\nsis\v3.10-log-r1'
+          $nsisExecutable = Join-Path $nsisTarget 'makensis.exe'
+          if (-not (Test-Path $nsisExecutable)) {
+            $nsisVersion = '3.10'
+            $nsisZip = Join-Path $env:RUNNER_TEMP "nsis-$nsisVersion.zip"
+            $nsisExtract = Join-Path $env:RUNNER_TEMP "nsis-$nsisVersion"
+            Invoke-WebRequest -UseBasicParsing -Uri 'https://prdownloads.sourceforge.net/nsis/nsis-3.10.zip?download' -OutFile $nsisZip
+            if ((Get-FileHash $nsisZip -Algorithm SHA256).Hash -ne 'FCDCE3229717A2A148E7CDA0AB5BDB667F39D8FB33EDE1DA8DABC336BD5AD110') { throw 'NSIS bootstrap hash did not match the canonical release asset.' }
+            Remove-Item -LiteralPath $nsisExtract -Recurse -Force -ErrorAction SilentlyContinue
+            New-Item -ItemType Directory -Force $nsisExtract | Out-Null
+            & $sevenZip x $nsisZip "-o$nsisExtract" '-y'
+            if ($LASTEXITCODE -ne 0) { throw "NSIS archive extraction failed with exit code $LASTEXITCODE." }
+            $nsisSource = Join-Path $nsisExtract "nsis-$nsisVersion"
+            if (-not (Test-Path (Join-Path $nsisSource 'makensis.exe'))) { throw 'NSIS bootstrap did not provide makensis.exe.' }
+            New-Item -ItemType Directory -Force $nsisTarget | Out-Null
+            Copy-Item (Join-Path $nsisSource '*') $nsisTarget -Recurse -Force
+          }
+          if (-not (Test-Path $nsisExecutable)) { throw 'NSIS was not materialized under tools\win.x86\nsis\v3.10-log-r1.' }
+          $cachedNsis = Join-Path $dependencyRoot 'tools\win.x86\nsis\v3.10-log-r1'
+          New-Item -ItemType Directory -Force (Split-Path $cachedNsis) | Out-Null
+          Copy-Item $nsisTarget $cachedNsis -Recurse -Force
           $flexTarget = Join-Path $PWD 'tools\win.x86\win_flex_bison\v3.7.4'
           if (-not (Test-Path (Join-Path $flexTarget 'win_bison.exe'))) {
             $flexVersion = '2.5.24'
@@ -254,6 +282,10 @@ jobs:
           $cachedFlex = Join-Path $dependencyRoot 'tools\win.x86\win_flex_bison'
           New-Item -ItemType Directory -Force (Split-Path $cachedFlex) | Out-Null
           Copy-Item '.\tools\win.x86\win_flex_bison\*' $cachedFlex -Recurse -Force
+          $cachedNsis = Join-Path $dependencyRoot 'tools\win.x86\nsis'
+          New-Item -ItemType Directory -Force (Split-Path $cachedNsis) | Out-Null
+          Copy-Item '.\tools\win.x86\nsis\*' $cachedNsis -Recurse -Force
+          if (-not (Test-Path (Join-Path $cachedNsis 'v3.10-log-r1\makensis.exe'))) { throw 'NSIS is missing from the dependency cache.' }
           $cachedWdk71 = Join-Path $dependencyRoot 'winddk71'
           $wdk71Marker = Get-ChildItem $cachedWdk71 -Recurse -Filter 'rxce.lib' -File -ErrorAction SilentlyContinue |
             Where-Object { $_.FullName -match '\\lib\\wlh\\amd64\\rxce\.lib$' } | Select-Object -First 1
@@ -261,7 +293,7 @@ jobs:
           $archive = Join-Path $env:RUNNER_TEMP 'virtualbox-dependencies.7z'
           Push-Location $dependencyRoot
           try {
-            & $sevenZip a $archive virtualbox-qt 'tools\win.x86\wix' 'tools\win.x86\win_flex_bison' winddk71 "-p$env:DEPENDENCY_CACHE_PASSPHRASE" -mhe=on -t7z -v1536m
+            & $sevenZip a $archive virtualbox-qt 'tools\win.x86\wix' 'tools\win.x86\win_flex_bison' 'tools\win.x86\nsis' winddk71 "-p$env:DEPENDENCY_CACHE_PASSPHRASE" -mhe=on -t7z -v1536m
           } finally {
             Pop-Location
           }
@@ -269,7 +301,7 @@ jobs:
           $parts = Get-ChildItem "$archive.*" -File | Sort-Object Name
           if (-not $parts) { throw 'Encrypted dependency archive did not produce any upload parts.' }
           $tag = "ci-deps-windows-qt$env:VBOX_CI_QT_VERSION-wdk$env:VBOX_CI_WDK_VERSION-wlh$env:VBOX_CI_WLH_VERSION-$env:GITHUB_RUN_ID"
-          $notes = "Encrypted Windows dependency cache for Qt $env:VBOX_CI_QT_VERSION, WDK $env:VBOX_CI_WDK_VERSION, and WDK 7.1 compatibility libraries. Parts are limited to 1.5 GiB."
+          $notes = "Encrypted Windows dependency cache for Qt $env:VBOX_CI_QT_VERSION, WDK $env:VBOX_CI_WDK_VERSION, WDK 7.1 compatibility libraries, WinFlexBison, WiX, and NSIS 3.10. Parts are limited to 1.5 GiB."
           gh release create $tag $parts.FullName --repo $env:GITHUB_REPOSITORY --target $env:GITHUB_SHA --title "Windows dependency cache $tag" --notes $notes
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 

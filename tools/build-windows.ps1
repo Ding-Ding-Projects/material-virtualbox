@@ -323,6 +323,36 @@ function Ensure-WinFlexBison {
     return $target
 }
 
+function Ensure-Nsis {
+    $version = '3.10'
+    $target = Join-Path $repoRoot 'tools\win.x86\nsis\v3.10-log-r1'
+    $makensis = Join-Path $target 'makensis.exe'
+    if (Test-Path -LiteralPath $makensis) {
+        return $target
+    }
+    $zip = Get-DownloadedFile `
+        -Name "nsis-$version.zip" `
+        -Uri 'https://prdownloads.sourceforge.net/nsis/nsis-3.10.zip?download' `
+        -Sha256 'FCDCE3229717A2A148E7CDA0AB5BDB667F39D8FB33EDE1DA8DABC336BD5AD110'
+    $sevenZip = Ensure-SevenZip
+    $extract = Join-Path $toolRoot "nsis-$version"
+    Remove-Item -LiteralPath $extract -Recurse -Force -ErrorAction SilentlyContinue
+    New-Item -ItemType Directory -Force $extract | Out-Null
+    Invoke-Checked 'Extract NSIS 3.10 packaging tool' {
+        & $sevenZip x $zip "-o$extract" '-y'
+    }
+    $source = Join-Path $extract "nsis-$version"
+    if (-not (Test-Path -LiteralPath (Join-Path $source 'makensis.exe'))) {
+        throw 'NSIS bootstrap did not provide makensis.exe.'
+    }
+    New-Item -ItemType Directory -Force $target | Out-Null
+    Copy-Item (Join-Path $source '*') $target -Recurse -Force
+    if (-not (Test-Path -LiteralPath $makensis)) {
+        throw 'NSIS was not materialized under tools\win.x86\nsis\v3.10-log-r1.'
+    }
+    return $target
+}
+
 function Ensure-Qt {
     param([Parameter(Mandatory = $true)] [string] $Python)
     $qtRoot = Join-Path $dependencyRoot 'virtualbox-qt'
@@ -481,6 +511,7 @@ $vcpkgRoot = Ensure-Vcpkg
 $nasmRoot = Ensure-Nasm
 $zipRoot = Ensure-Zip
 $flexBisonRoot = Ensure-WinFlexBison
+$nsisRoot = Ensure-Nsis
 Ensure-MesaPython $python
 $qtRoot = Ensure-Qt $python
 $payload = Invoke-VirtualBoxBuild -Python $python -QtRoot $qtRoot -SdkRoot $SdkRoot -Wdk71Root $wdk71Root -VcpkgRoot $vcpkgRoot -NasmRoot $nasmRoot -ZipRoot $zipRoot
