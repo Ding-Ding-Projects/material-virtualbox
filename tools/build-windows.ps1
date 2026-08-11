@@ -204,6 +204,31 @@ function Ensure-Nasm {
     return (Get-ShortPath $nasm.DirectoryName)
 }
 
+function Ensure-Zip {
+    $zip = Get-Command zip.exe -ErrorAction SilentlyContinue
+    if ($zip) { return (Split-Path -Parent $zip.Path) }
+    $candidates = @(
+        (Join-Path ${env:ProgramFiles} 'Git\usr\bin\zip.exe'),
+        (Join-Path ${env:ProgramFiles(x86)} 'Git\usr\bin\zip.exe')
+    ) | Where-Object { $_ -and (Test-Path -LiteralPath $_) }
+    $candidate = $candidates | Select-Object -First 1
+    if ($candidate) { return (Get-ShortPath (Split-Path -Parent $candidate)) }
+    $setup = Get-DownloadedFile `
+        -Name 'zip-3.0-setup.exe' `
+        -Uri 'https://sourceforge.net/projects/gnuwin32/files/zip/3.0/zip-3.0-setup.exe/download' `
+        -Sha256 '4dcbdb79d06011b00e50f155a0852ac898857562dce3efbec9745d457258996c'
+    $installRoot = Join-Path $toolRoot 'gnuwin32-zip-3.0'
+    $zip = Get-ChildItem -LiteralPath $installRoot -Recurse -Filter zip.exe -File -ErrorAction SilentlyContinue | Select-Object -First 1
+    if (-not $zip) {
+        New-Item -ItemType Directory -Force $installRoot | Out-Null
+        $process = Start-Process -FilePath $setup -ArgumentList '/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART', ("/DIR=" + $installRoot) -Wait -PassThru -WindowStyle Hidden
+        if ($process.ExitCode -ne 0) { throw "GnuWin32 Zip installation failed with exit code $($process.ExitCode)." }
+        $zip = Get-ChildItem -LiteralPath $installRoot -Recurse -Filter zip.exe -File -ErrorAction SilentlyContinue | Select-Object -First 1
+    }
+    if ($zip) { return (Get-ShortPath $zip.DirectoryName) }
+    throw 'zip.exe is required for the Validation Kit package and was not available from the runner or Git for Windows.'
+}
+
 function Ensure-WinFlexBison {
     $version = '2.5.24'
     $target = Join-Path $repoRoot 'tools\win.x86\win_flex_bison\v3.7.4'
@@ -275,7 +300,8 @@ function Invoke-VirtualBoxBuild {
         [Parameter(Mandatory = $true)] [string] $QtRoot,
         [Parameter(Mandatory = $true)] [string] $SdkRoot,
         [Parameter(Mandatory = $true)] [string] $VcpkgRoot,
-        [Parameter(Mandatory = $true)] [string] $NasmRoot
+        [Parameter(Mandatory = $true)] [string] $NasmRoot,
+        [Parameter(Mandatory = $true)] [string] $ZipRoot
     )
     $env:VBOX_SIGNING_MODE = ''
     $env:VBOX_WITHOUT_HARDENING = '1'
@@ -284,7 +310,7 @@ function Invoke-VirtualBoxBuild {
     $env:VBOX_CI_WINDOWS_SDK_ROOT = $SdkRoot
     $env:VBOX_CI_VCPKG_ROOT = $VcpkgRoot
     $env:VCPKG_ROOT = $VcpkgRoot
-    $env:Path = "$NasmRoot;$env:Path"
+    $env:Path = "$ZipRoot;$NasmRoot;$env:Path"
     $pythonRoot = (Split-Path -Parent $Python).Replace('\', '/')
     $env:Path = "$pythonRoot;$env:Path"
     $arguments = @(
@@ -380,10 +406,11 @@ $python = Get-RequiredPython
 Invoke-Checked 'Bootstrap Windows SDK and WDK' { $script:SdkRoot = Ensure-WindowsKits }
 $vcpkgRoot = Ensure-Vcpkg
 $nasmRoot = Ensure-Nasm
+$zipRoot = Ensure-Zip
 $flexBisonRoot = Ensure-WinFlexBison
 Ensure-MesaPython $python
 $qtRoot = Ensure-Qt $python
-$payload = Invoke-VirtualBoxBuild -Python $python -QtRoot $qtRoot -SdkRoot $SdkRoot -VcpkgRoot $vcpkgRoot -NasmRoot $nasmRoot
+$payload = Invoke-VirtualBoxBuild -Python $python -QtRoot $qtRoot -SdkRoot $SdkRoot -VcpkgRoot $vcpkgRoot -NasmRoot $nasmRoot -ZipRoot $zipRoot
 
 if ($Mode -eq 'Installer') {
     $squirrelTools = Ensure-Squirrel

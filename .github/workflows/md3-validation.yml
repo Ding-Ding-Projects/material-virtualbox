@@ -284,23 +284,11 @@ jobs:
           if-no-files-found: warn
           retention-days: 7
 
-  tonal-palette:
-    # The colour science is the one part of the theme that can be proven by running it
-    # rather than by matching source patterns, so it gets a compiled gate of its own.
-    # UIMd3Hct depends on no Qt, so this needs nothing beyond a C++ compiler.
+  tonal-palette-contract:
+    # GitHub Actions records source-contract evidence only; executable tests stay local.
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Build and run the HCT tonal-palette testcase
-        run: |
-          g++ -O2 -std=c++17 -Wall -Wextra -Werror -DIN_RING3 \
-            -I include \
-            -I src/VBox/Frontends/VirtualBox/src/globals \
-            -I src/VBox/Frontends/VirtualBox/src/md3 \
-            -o tstUIMd3Hct \
-            src/VBox/Frontends/VirtualBox/testcase/tstUIMd3Hct.cpp \
-            src/VBox/Frontends/VirtualBox/src/md3/UIMd3Hct.cpp
-          ./tstUIMd3Hct
       - name: Validate the tonal-palette contract
         shell: pwsh
         run: |

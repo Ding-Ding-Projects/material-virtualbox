@@ -112,6 +112,32 @@ jobs:
           if (-not $nasm) { throw 'NASM bootstrap did not provide nasm.exe.' }
           $nasmDirectory = (cmd /c "for %I in (`"$($nasm.DirectoryName)`") do @echo %~sI").Trim() -replace '\\','/'
           "PATH=$nasmDirectory;$env:PATH" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+          $zipCommand = Get-Command zip.exe -ErrorAction SilentlyContinue
+          if (-not $zipCommand) {
+            $zipCandidates = @(
+              (Join-Path $env:ProgramFiles 'Git\usr\bin\zip.exe'),
+              (Join-Path ${env:ProgramFiles(x86)} 'Git\usr\bin\zip.exe')
+            ) | Where-Object { $_ -and (Test-Path -LiteralPath $_) }
+            $zipCandidate = $zipCandidates | Select-Object -First 1
+            if ($zipCandidate) {
+              $zipCommand = Get-Item -LiteralPath $zipCandidate
+              $zipDirectory = $zipCommand.DirectoryName
+              "PATH=$zipDirectory;$env:PATH" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+            }
+          }
+          if (-not $zipCommand) {
+            $zipSetup = Join-Path $env:RUNNER_TEMP 'zip-3.0-setup.exe'
+            Invoke-WebRequest -UseBasicParsing -Uri 'https://sourceforge.net/projects/gnuwin32/files/zip/3.0/zip-3.0-setup.exe/download' -OutFile $zipSetup
+            if ((Get-FileHash $zipSetup -Algorithm SHA256).Hash -ne '4dcbdb79d06011b00e50f155a0852ac898857562dce3efbec9745d457258996c') { throw 'GnuWin32 Zip bootstrap hash did not match the canonical manifest.' }
+            $zipInstall = Join-Path $env:RUNNER_TEMP 'gnuwin32-zip-3.0'
+            New-Item -ItemType Directory -Force $zipInstall | Out-Null
+            $zipInstaller = Start-Process -FilePath $zipSetup -ArgumentList '/VERYSILENT','/SUPPRESSMSGBOXES','/NORESTART',("/DIR=" + $zipInstall) -Wait -PassThru -WindowStyle Hidden
+            if ($zipInstaller.ExitCode -ne 0) { throw "GnuWin32 Zip installation failed with exit code $($zipInstaller.ExitCode)." }
+            $zipCommand = Get-ChildItem -LiteralPath $zipInstall -Recurse -Filter zip.exe -File | Select-Object -First 1
+            if ($zipCommand) { "PATH=$($zipCommand.DirectoryName);$env:PATH" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8 }
+          }
+          if (-not $zipCommand) { throw 'zip.exe is required for the Validation Kit package and was not available from the runner or Git for Windows.' }
+          Write-Host "Using zip.exe from $($zipCommand.FullName)."
           $flexTarget = Join-Path $PWD 'tools\win.x86\win_flex_bison\v3.7.4'
           if (-not (Test-Path (Join-Path $flexTarget 'win_bison.exe'))) {
             $flexVersion = '2.5.24'
