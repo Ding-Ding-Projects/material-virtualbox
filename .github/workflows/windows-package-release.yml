@@ -84,11 +84,11 @@ jobs:
             throw 'Windows Driver Kit installation did not create the expected Windows Kits include directory.'
           }
           if (-not (Test-Path '.\tools\win.x86\wix\v4.0.5\tools\net472\x86\wix.exe')) {
-            & .\kBuild\kBuild\bin\win.amd64\kmk.exe -C tools fetch
+            dotnet tool install --tool-path '.\tools\win.x86\wix\v4.0.5\tools\net472\x86' wix --version 4.0.5
             if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           }
           if (-not (Test-Path '.\tools\win.x86\wix\v4.0.5\tools\net472\x86\wix.exe')) {
-            throw 'The supported tools fetch did not materialize the tree-compatible WiX 4.0.5 layout.'
+            throw 'The official WiX 4.0.5 tool package did not materialize the tree-compatible executable path.'
           }
 
           if (-not (Test-Path (Join-Path $qtRoot "$env:VBOX_CI_QT_VERSION\msvc2022_64\bin\qmake.exe"))) {
