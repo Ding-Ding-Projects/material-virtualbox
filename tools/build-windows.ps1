@@ -213,20 +213,27 @@ function Ensure-Zip {
     ) | Where-Object { $_ -and (Test-Path -LiteralPath $_) }
     $candidate = $candidates | Select-Object -First 1
     if ($candidate) { return (Get-ShortPath (Split-Path -Parent $candidate)) }
-    $setup = Get-DownloadedFile `
-        -Name 'zip-3.0-setup.exe' `
-        -Uri 'https://sourceforge.net/projects/gnuwin32/files/zip/3.0/zip-3.0-setup.exe/download' `
-        -Sha256 '4dcbdb79d06011b00e50f155a0852ac898857562dce3efbec9745d457258996c'
-    $installRoot = Join-Path $toolRoot 'gnuwin32-zip-3.0'
+    $tar = Get-Command tar.exe -ErrorAction SilentlyContinue
+    if (-not $tar) { throw 'tar.exe is required to unpack the verified Info-ZIP package.' }
+    $archive = Get-DownloadedFile `
+        -Name 'miktex-zip-bin-x64.tar.lzma' `
+        -Uri 'https://ftp.fau.de/ctan/systems/win32/miktex/tm/packages/miktex-zip-bin-x64.tar.lzma' `
+        -Sha256 '814365FAB2B5A6B3454ACD2749ABF38B410476CE0D51D15D3A2CB4A85F0A025B'
+    $installRoot = Join-Path $toolRoot 'miktex-zip-bin-x64'
     $zip = Get-ChildItem -LiteralPath $installRoot -Recurse -Filter zip.exe -File -ErrorAction SilentlyContinue | Select-Object -First 1
     if (-not $zip) {
         New-Item -ItemType Directory -Force $installRoot | Out-Null
-        $process = Start-Process -FilePath $setup -ArgumentList '/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART', ("/DIR=" + $installRoot) -Wait -PassThru -WindowStyle Hidden
-        if ($process.ExitCode -ne 0) { throw "GnuWin32 Zip installation failed with exit code $($process.ExitCode)." }
-        $zip = Get-ChildItem -LiteralPath $installRoot -Recurse -Filter zip.exe -File -ErrorAction SilentlyContinue | Select-Object -First 1
+        & $tar.Path -xf $archive -C $installRoot
+        if ($LASTEXITCODE -ne 0) { throw "Info-ZIP package extraction failed with exit code $LASTEXITCODE." }
+        $zipBinary = Get-ChildItem -LiteralPath $installRoot -Recurse -Filter miktex-zip.exe -File -ErrorAction SilentlyContinue | Select-Object -First 1
+        if ($zipBinary) {
+            $zipPath = Join-Path $installRoot 'zip.exe'
+            Copy-Item -LiteralPath $zipBinary.FullName -Destination $zipPath -Force
+            $zip = Get-Item -LiteralPath $zipPath
+        }
     }
     if ($zip) { return (Get-ShortPath $zip.DirectoryName) }
-    throw 'zip.exe is required for the Validation Kit package and was not available from the runner or Git for Windows.'
+    throw 'zip.exe is required for the Validation Kit package and the verified Info-ZIP package did not provide it.'
 }
 
 function Ensure-WinFlexBison {

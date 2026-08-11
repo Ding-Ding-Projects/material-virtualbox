@@ -126,15 +126,22 @@ jobs:
             }
           }
           if (-not $zipCommand) {
-            $zipSetup = Join-Path $env:RUNNER_TEMP 'zip-3.0-setup.exe'
-            Invoke-WebRequest -UseBasicParsing -Uri 'https://sourceforge.net/projects/gnuwin32/files/zip/3.0/zip-3.0-setup.exe/download' -OutFile $zipSetup
-            if ((Get-FileHash $zipSetup -Algorithm SHA256).Hash -ne '4dcbdb79d06011b00e50f155a0852ac898857562dce3efbec9745d457258996c') { throw 'GnuWin32 Zip bootstrap hash did not match the canonical manifest.' }
-            $zipInstall = Join-Path $env:RUNNER_TEMP 'gnuwin32-zip-3.0'
+            $tarCommand = Get-Command tar.exe -ErrorAction SilentlyContinue
+            if (-not $tarCommand) { throw 'tar.exe is required to unpack the verified Info-ZIP package.' }
+            $zipArchive = Join-Path $env:RUNNER_TEMP 'miktex-zip-bin-x64.tar.lzma'
+            Invoke-WebRequest -UseBasicParsing -Uri 'https://ftp.fau.de/ctan/systems/win32/miktex/tm/packages/miktex-zip-bin-x64.tar.lzma' -OutFile $zipArchive
+            if ((Get-FileHash $zipArchive -Algorithm SHA256).Hash -ne '814365FAB2B5A6B3454ACD2749ABF38B410476CE0D51D15D3A2CB4A85F0A025B') { throw 'Info-ZIP bootstrap hash did not match the verified CTAN package.' }
+            $zipInstall = Join-Path $env:RUNNER_TEMP 'miktex-zip-bin-x64'
             New-Item -ItemType Directory -Force $zipInstall | Out-Null
-            $zipInstaller = Start-Process -FilePath $zipSetup -ArgumentList '/VERYSILENT','/SUPPRESSMSGBOXES','/NORESTART',("/DIR=" + $zipInstall) -Wait -PassThru -WindowStyle Hidden
-            if ($zipInstaller.ExitCode -ne 0) { throw "GnuWin32 Zip installation failed with exit code $($zipInstaller.ExitCode)." }
-            $zipCommand = Get-ChildItem -LiteralPath $zipInstall -Recurse -Filter zip.exe -File | Select-Object -First 1
-            if ($zipCommand) { "PATH=$($zipCommand.DirectoryName);$env:PATH" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8 }
+            & $tarCommand.Path -xf $zipArchive -C $zipInstall
+            if ($LASTEXITCODE -ne 0) { throw "Info-ZIP package extraction failed with exit code $LASTEXITCODE." }
+            $zipBinary = Get-ChildItem -LiteralPath $zipInstall -Recurse -Filter miktex-zip.exe -File | Select-Object -First 1
+            if ($zipBinary) {
+              $zipPath = Join-Path $zipInstall 'zip.exe'
+              Copy-Item -LiteralPath $zipBinary.FullName -Destination $zipPath -Force
+              $zipCommand = Get-Item -LiteralPath $zipPath
+              "PATH=$($zipCommand.DirectoryName);$env:PATH" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+            }
           }
           if (-not $zipCommand) { throw 'zip.exe is required for the Validation Kit package and was not available from the runner or Git for Windows.' }
           Write-Host "Using zip.exe from $($zipCommand.FullName)."
