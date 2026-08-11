@@ -1,0 +1,137 @@
+name: Windows package and release
+
+on:
+  push:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build-package-release:
+    runs-on: windows-2022
+    env:
+      VBOX_CI_QT_VERSION: 6.8.3
+      VBOX_CI_WDK_VERSION: 10.0.28000
+      VBOX_SIGNING_MODE: ""
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Bootstrap Windows packaging dependencies
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $qtRoot = Join-Path $env:RUNNER_TEMP 'virtualbox-qt'
+
+          # The hosted image supplies Visual Studio Build Tools, Python, and .NET.
+          # Install the remaining package inputs from their canonical publishers.
+          if (-not (Get-Command winget -ErrorAction SilentlyContinue)) {
+            throw 'WinGet is required to install the Windows Driver Kit.'
+          }
+          winget install --exact --id "Microsoft.WindowsWDK.$env:VBOX_CI_WDK_VERSION" --silent --accept-package-agreements --accept-source-agreements
+          & .\kBuild\kBuild\bin\win.amd64\kmk.exe -C tools fetch
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          if (-not (Test-Path '.\tools\win.x86\wix\v4.0.5\tools\net472\x86\wix.exe')) {
+            throw 'The supported tools fetch did not materialize the tree-compatible WiX 4.0.5 layout.'
+          }
+
+          python -m pip install --disable-pip-version-check aqtinstall
+          python -m aqt install-qt windows desktop $env:VBOX_CI_QT_VERSION win64_msvc2022_64 --outputdir $qtRoot
+          $qt = Get-ChildItem $qtRoot -Directory | Select-Object -First 1
+          if (-not $qt) { throw 'Qt installation did not create a version directory.' }
+          $qt = Get-ChildItem $qt.FullName -Directory | Select-Object -First 1
+          if (-not $qt -or -not (Test-Path (Join-Path $qt.FullName 'bin\qmake.exe'))) {
+            throw 'Qt installation is missing qmake.exe.'
+          }
+          "VBOX_CI_QT_ROOT=$($qt.FullName)" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+
+      - name: Configure an unsigned Windows package build
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          .\configure.ps1 --disable-hardening --disable-python_c_api --with-qt-path="$env:VBOX_CI_QT_ROOT"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          if (-not (Test-Path .\env.bat)) { throw 'configure.py did not generate env.bat.' }
+
+      - name: Build and package the Windows installer
+        shell: cmd
+        run: |
+          call env.bat
+          kmk packing
+
+      - name: Verify unsigned package inputs
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $packages = Get-ChildItem 'out\win.amd64\release\bin' -File | Where-Object { $_.Extension -in '.msi', '.exe' }
+          if (-not $packages) { throw 'The packaging target produced no Windows installer assets.' }
+          $packages | ForEach-Object {
+            $signature = Get-AuthenticodeSignature $_.FullName
+            if ($signature.Status -ne 'NotSigned') { throw "Expected unsigned asset: $($_.FullName) ($($signature.Status))" }
+            Get-FileHash $_.FullName -Algorithm SHA256 | Format-List | Out-String | Add-Content "$env:RUNNER_TEMP\package-hashes.txt"
+          }
+          $packages.FullName | Set-Content "$env:RUNNER_TEMP\package-files.txt"
+
+      - name: Collect build evidence
+        if: ${{ always() }}
+        continue-on-error: true
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force "$env:RUNNER_TEMP\evidence" | Out-Null
+          Copy-Item configure.log,AutoConfig.kmk -Destination "$env:RUNNER_TEMP\evidence" -ErrorAction SilentlyContinue
+          Copy-Item "$env:RUNNER_TEMP\package-hashes.txt","$env:RUNNER_TEMP\package-files.txt" -Destination "$env:RUNNER_TEMP\evidence" -ErrorAction SilentlyContinue
+          Get-ChildItem 'out\win.amd64\release\bin' -File -ErrorAction SilentlyContinue |
+            Where-Object { $_.Extension -in '.msi', '.exe' } |
+            Copy-Item -Destination "$env:RUNNER_TEMP\evidence" -ErrorAction SilentlyContinue
+
+      - name: Upload build evidence
+        if: ${{ always() }}
+        continue-on-error: true
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-package-evidence-${{ github.run_id }}
+          path: ${{ runner.temp }}\evidence
+          if-no-files-found: warn
+          retention-days: 14
+
+      - name: Publish immutable release
+        if: ${{ success() }}
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ secrets.RELEASE_TOKEN || secrets.ORG_TOKEN || secrets.GITHUB_TOKEN }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $run = gh api "repos/$env:GITHUB_REPOSITORY/actions/runs/$env:GITHUB_RUN_ID" | ConvertFrom-Json
+          $major = (Select-String Version.kmk -Pattern '^VBOX_VERSION_MAJOR\s*=\s*(\d+)' | ForEach-Object { $_.Matches[0].Groups[1].Value })
+          $minor = (Select-String Version.kmk -Pattern '^VBOX_VERSION_MINOR\s*=\s*(\d+)' | ForEach-Object { $_.Matches[0].Groups[1].Value })
+          $build = (Select-String Version.kmk -Pattern '^VBOX_VERSION_BUILD\s*=\s*(\d+)' | ForEach-Object { $_.Matches[0].Groups[1].Value })
+          $tag = "v$major.$minor.$build-ci.$env:GITHUB_RUN_NUMBER"
+          $completed = (Get-Date).ToUniversalTime().ToString('o')
+          $start = [DateTimeOffset]::Parse($run.run_started_at)
+          $duration = (([DateTimeOffset]::Parse($completed)) - $start).ToString('hh\\:mm\\:ss')
+          $notes = @"
+          ## Windows package
+
+          This release contains unsigned Windows installer assets built from $env:GITHUB_SHA.
+
+          - Workflow started: $($run.run_started_at)
+          - Workflow completed: $completed
+          - Workflow duration: $duration
+          - Checks run in GitHub Actions: build, packaging, asset presence, and unsigned-asset verification. No tests or lint run in GitHub Actions.
+
+          SHA-256:
+          $(Get-Content "$env:RUNNER_TEMP\package-hashes.txt" -Raw)
+          "@
+          $notesPath = Join-Path $env:RUNNER_TEMP 'release-notes.md'
+          Set-Content -Path $notesPath -Value $notes -Encoding utf8
+          $assets = Get-Content "$env:RUNNER_TEMP\package-files.txt"
+          gh release create $tag $assets --target $env:GITHUB_SHA --title "VirtualBox $tag" --notes-file $notesPath --draft
+          gh release edit $tag --draft=false
+          $completed = (Get-Date).ToUniversalTime().ToString('o')
+          $duration = (([DateTimeOffset]::Parse($completed)) - $start).ToString('hh\\:mm\\:ss')
+          $notes = $notes -replace '(?m)^          - Workflow completed: .+$', "          - Workflow completed: $completed"
+          $notes = $notes -replace '(?m)^          - Workflow duration: .+$', "          - Workflow duration: $duration"
+          Set-Content -Path $notesPath -Value $notes -Encoding utf8
+          gh release edit $tag --notes-file $notesPath
