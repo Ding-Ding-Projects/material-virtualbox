@@ -252,7 +252,7 @@ function Invoke-VirtualBoxBuild {
     $pythonRoot = (Split-Path -Parent $Python).Replace('\', '/')
     $env:Path = "$pythonRoot;$env:Path"
     $arguments = @(
-        '--disable-hardening', '--disable-python_c_api', '--disable-win-ddk',
+        '--disable-hardening', '--disable-python_c_api', '--disable-validationkit', '--disable-win-ddk',
         '--disable-win-msi', '--disable-win-wix',
         "--with-kbuild-path=$($repoRoot.Replace('\', '/'))/kBuild/kBuild",
         "--with-qt-path=$QtRoot", "--with-sdk10=$SdkRoot",
