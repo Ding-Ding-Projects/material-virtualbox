@@ -112,9 +112,11 @@ jobs:
           }
 
           if (-not (Test-Path (Join-Path $qtRoot "$env:VBOX_CI_QT_VERSION\msvc2022_64\bin\qmake.exe"))) {
-            python -m pip install --disable-pip-version-check aqtinstall
+            python -m pip install --disable-pip-version-check --user aqtinstall
             python -m aqt install-qt windows desktop $env:VBOX_CI_QT_VERSION win64_msvc2022_64 --outputdir $qtRoot
           }
+          python -m pip install --disable-pip-version-check --user 'mako==1.3.10'
+          python -c "import mako; assert tuple(int(x) for x in mako.__version__.split('.')[:2]) >= (0, 8); print('Mako', mako.__version__)"
           $qt = Get-ChildItem $qtRoot -Directory | Select-Object -First 1
           if (-not $qt) { throw 'Qt installation did not create a version directory.' }
           $qt = Get-ChildItem $qt.FullName -Directory | Select-Object -First 1

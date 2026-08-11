@@ -217,6 +217,16 @@ function Ensure-Qt {
     return (Split-Path -Parent (Split-Path -Parent $qmake.FullName))
 }
 
+function Ensure-MesaPython {
+    param([Parameter(Mandatory = $true)] [string] $Python)
+    Invoke-Checked 'Install Mesa Mako build dependency' {
+        & $Python -m pip install --disable-pip-version-check --user 'mako==1.3.10'
+    }
+    Invoke-Checked 'Verify Mesa Mako build dependency' {
+        & $Python -c "import mako; assert tuple(int(x) for x in mako.__version__.split('.')[:2]) >= (0, 8); print('Mako ' + mako.__version__)"
+    }
+}
+
 function Ensure-Squirrel {
     $nuget = Join-Path $toolRoot 'nuget.exe'
     if (-not (Test-Path -LiteralPath $nuget)) {
@@ -343,6 +353,7 @@ $python = Get-RequiredPython
 Invoke-Checked 'Bootstrap Windows SDK and WDK' { $script:SdkRoot = Ensure-WindowsKits }
 $vcpkgRoot = Ensure-Vcpkg
 $nasmRoot = Ensure-Nasm
+Ensure-MesaPython $python
 $qtRoot = Ensure-Qt $python
 $payload = Invoke-VirtualBoxBuild -Python $python -QtRoot $qtRoot -SdkRoot $SdkRoot -VcpkgRoot $vcpkgRoot -NasmRoot $nasmRoot
 
