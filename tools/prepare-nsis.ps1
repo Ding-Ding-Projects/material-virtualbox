@@ -147,10 +147,24 @@ if (-not $peTool) { throw 'The x86 prerequisite build did not provide VBoxPeSetV
 $vswhere = Join-Path $programFilesX86 'Microsoft Visual Studio\Installer\vswhere.exe'
 $vcvars = $null
 if (Test-Path -LiteralPath $vswhere) {
-    $vsInstall = (& $vswhere -latest -products '*' -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath 2>$null | Select-Object -First 1).Trim()
-    if ($vsInstall) {
-        $candidate = Join-Path $vsInstall 'VC\Auxiliary\Build\vcvarsall.bat'
-        if (Test-Path -LiteralPath $candidate) { $vcvars = Get-Item -LiteralPath $candidate }
+    # NSIS 3.10 links its plugins with /NODEFAULTLIB and supplies only a hand
+    # written memset shim.  MSVC 14.5x (Visual Studio 2026) rewrites the byte
+    # copy loop in Contrib\VPatch\Source\Plugin\md5.c into a call to memcpy,
+    # which then has nothing to resolve against and fails the link; MSVC 14.4x
+    # does not.  Prefer a Visual Studio 2022 toolset for this tool build - the
+    # same one the hosted runners use - and fall back to the newest instance.
+    $vsSearches = @(
+        @('-products', '*', '-requires', 'Microsoft.VisualStudio.Component.VC.Tools.x86.x64', '-version', '[17.0,18.0)'),
+        @('-products', '*', '-requires', 'Microsoft.VisualStudio.Component.VC.Tools.x86.x64', '-latest')
+    )
+    foreach ($vsSearch in $vsSearches) {
+        $vsInstalls = @(& $vswhere @vsSearch -property installationPath 2>$null |
+            ForEach-Object { $_.Trim() } | Where-Object { $_ })
+        foreach ($vsInstall in $vsInstalls) {
+            $candidate = Join-Path $vsInstall 'VC\Auxiliary\Build\vcvarsall.bat'
+            if (Test-Path -LiteralPath $candidate) { $vcvars = Get-Item -LiteralPath $candidate; break }
+        }
+        if ($vcvars) { break }
     }
 }
 if (-not $vcvars) {
