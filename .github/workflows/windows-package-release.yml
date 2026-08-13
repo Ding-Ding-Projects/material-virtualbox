@@ -312,7 +312,14 @@ jobs:
           # this installation qualify (that's the useful evidence), but pass the root.
           Write-Host "Selected MSVC v143 toolset: $vcToolset (Visual Studio installation: $vcInstallRoot)"
 
-          .\configure.ps1 --disable-hardening --disable-python_c_api --disable-win-ddk --disable-win-msi --disable-win-wix --with-kbuild-path="$PWD\kBuild\kBuild" --with-qt-path="$env:VBOX_CI_QT_ROOT" --with-sdk10="$env:VBOX_CI_WINDOWS_SDK_ROOT" --with-win-vcpkg-root="$env:VBOX_CI_VCPKG_ROOT" --with-python-path="$pythonRoot" --with-vc="$vcInstallRoot"
+          # Call configure.py directly with the interpreter resolved above, rather
+          # than through the configure.ps1 wrapper. The wrapper now declares
+          # `param([string] $PythonPath)`, and PowerShell binds that POSITIONALLY:
+          # `.\configure.ps1 --disable-hardening ...` hands "--disable-hardening" to
+          # $PythonPath and dies with "The requested Python 3 executable does not
+          # exist: --disable-hardening". tools/build-windows.ps1 already drives
+          # configure.py directly for the same reason; this keeps the two in step.
+          & $python.Source configure.py --disable-hardening --disable-python_c_api --disable-win-ddk --disable-win-msi --disable-win-wix --with-kbuild-path="$PWD\kBuild\kBuild" --with-qt-path="$env:VBOX_CI_QT_ROOT" --with-sdk10="$env:VBOX_CI_WINDOWS_SDK_ROOT" --with-win-vcpkg-root="$env:VBOX_CI_VCPKG_ROOT" --with-python-path="$pythonRoot" --with-vc="$vcInstallRoot"
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           if (-not (Test-Path .\env.bat)) { throw 'configure.py did not generate env.bat.' }
 
