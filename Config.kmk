@@ -3822,6 +3822,10 @@ VBOX_VCC_WARN_ALL += -wd4388
 #             throughout the 32-bit builds by RT_ALIGN_Z(), where a 32-bit size_t meets a 64-bit sector or offset.
 #             The zero extension is what the macro intends; -Wall enables the warning and -WX makes it fatal.
 VBOX_VCC_WARN_ALL += -wd4319
+#    -wd5286/-wd5287: formats.h(192): warning C5287: operands are different enum types.  Raised in bulk by the
+#             vendored Mesa sources, which mask and combine values from separate enums by design.  Newer MSVC
+#             reports the pair; -Wall enables them and -WX makes them fatal.
+VBOX_VCC_WARN_ALL += -wd5286 -wd5287
 if "$(VBOX_VCC_TOOL_STEM)" >= "VCC143"
  #    -wd4865: wingdi.h(2806): warning C4865: the underlying type of '<unnamed-enum-DISPLAYCONFIG_OUTPUT_TECHNOLOGY_OTHER>'
  #             will change when '/Zc:enumTypes' is specified on the command line.  Emitted by the Windows 10 SDK
