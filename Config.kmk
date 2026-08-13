@@ -3826,6 +3826,14 @@ VBOX_VCC_WARN_ALL += -wd4319
 #             vendored Mesa sources, which mask and combine values from separate enums by design.  Newer MSVC
 #             reports the pair; -Wall enables them and -WX makes them fatal.
 VBOX_VCC_WARN_ALL += -wd5286 -wd5287
+#    -wd4668: qnumeric.h(96): warning C4668: 'Q_CC_GNU' is not defined as a preprocessor macro,
+#             replacing with '0' for '#if/#elif'.  Raised inside Qt 6's own QtCore header, which
+#             tests the GCC-only Q_CC_GNU macro with a bare #if; under MSVC it is simply undefined,
+#             which is exactly the case the warning reports and exactly what Qt intends.  Hits every
+#             VBoxDbg translation unit that includes QtCore.  Already disabled for the same reason in
+#             the vendored Mesa build's VBOXGL_DISABLED_WARNINGS (src/VBox/Additions/3D/win/VBoxGL/
+#             Makefile.kmk).  -Wall enables the warning and -WX makes it fatal.
+VBOX_VCC_WARN_ALL += -wd4668
 if "$(VBOX_VCC_TOOL_STEM)" >= "VCC143"
  #    -wd4865: wingdi.h(2806): warning C4865: the underlying type of '<unnamed-enum-DISPLAYCONFIG_OUTPUT_TECHNOLOGY_OTHER>'
  #             will change when '/Zc:enumTypes' is specified on the command line.  Emitted by the Windows 10 SDK
