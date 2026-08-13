@@ -27,9 +27,9 @@
 
 /* Qt includes: */
 #ifndef VBOX_WS_MAC
+# include <QKeyEvent>
 # include <QMainWindow>
 # include <QMenuBar>
-# include <QKeyEvent>
 # include <QTimer>
 #endif /* !VBOX_WS_MAC */
 
@@ -38,6 +38,7 @@
 #ifndef VBOX_WS_MAC
 # include "UIMachineLogic.h"
 # include "UIMachineWindow.h"
+# include "UIMachineWindowNormal.h"
 # include "UIShortcutPool.h"
 #endif /* !VBOX_WS_MAC */
 
@@ -79,10 +80,20 @@ bool UIKeyboardHandlerNormal::eventFilter(QObject *pWatchedObject, QEvent *pEven
                     && gShortcutPool->shortcut(GUI_Input_MachineShortcuts, QString("PopupMenu")).sequences().contains(QKeySequence(pKeyEvent->key())))
                 {
                     /* Trying to get menu-bar: */
-                    QMenuBar *pMenuBar = qobject_cast<QMainWindow*>(m_windows[uScreenId])->menuBar();
+                    QMainWindow *pWindow = qobject_cast<QMainWindow*>(m_windows[uScreenId]);
+                    QMenuBar *pMenuBar = pWindow ? pWindow->menuBar() : 0;
                     /* If menu-bar is present and have actions: */
                     if (pMenuBar && !pMenuBar->actions().isEmpty())
                     {
+#ifdef VBOX_WS_WIN
+                        /* The normal runtime's hidden menu bar is only an action
+                         * model.  Route Host+Home to the same searchable Material
+                         * surface as its visible menu button. */
+                        if (UIMachineWindowNormal *pNormal = qobject_cast<UIMachineWindowNormal*>(pWindow))
+                            QTimer::singleShot(0, pNormal, SLOT(sltShowSearchableRuntimeMenu()));
+                        else
+                            QTimer::singleShot(0, m_pMachineLogic, SLOT(sltInvokePopupMenu()));
+#else /* !VBOX_WS_WIN */
                         /* Is menu-bar visible? */
                         if (pMenuBar->isVisible())
                         {
@@ -92,21 +103,13 @@ bool UIKeyboardHandlerNormal::eventFilter(QObject *pWatchedObject, QEvent *pEven
                                 pMenuBar->setActiveAction(pMenuBar->actions()[0]);
                             /* If 'active' action is chosen: */
                             if (pMenuBar->activeAction())
-                            {
                                 /* Activate 'active' menu-bar action: */
                                 pMenuBar->activeAction()->activate(QAction::Trigger);
-#ifdef VBOX_WS_WIN
-                                /* Windows host needs separate 'focus set'
-                                 * to let menubar operate while popped up: */
-                                pMenuBar->setFocus();
-#endif /* VBOX_WS_WIN */
-                            }
                         }
                         else
-                        {
                             /* Post request to show popup-menu: */
                             QTimer::singleShot(0, m_pMachineLogic, SLOT(sltInvokePopupMenu()));
-                        }
+#endif /* !VBOX_WS_WIN */
                         /* Filter-out this event: */
                         return true;
                     }
