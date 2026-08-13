@@ -187,16 +187,26 @@ function Ensure-WindowsKits {
             -Name 'GRMWDK_EN_7600_1.ISO' `
             -Uri 'https://download.microsoft.com/download/4/a/2/4a25c7d5-efbe-4182-b6a9-ae6850409a78/GRMWDK_EN_7600_1.ISO' `
             -Sha256 '5EDC723B50EA28A070CAD361DD0927DF402B7A861A036BBCF11D27EBBA77657D'
-        $wdk71Packages = Join-Path $toolRoot 'wdk71-packages'
+        # An /a administrative install is carried out by the out-of-process Windows
+        # Installer service, so the service itself has to be able to open the package.
+        # Stage the extracted packages under the OS temporary directory, which the
+        # service can always read, rather than inside the tool cache, which may carry
+        # restrictive inherited permissions.  Only the extraction output is cached.
+        $wdk71Packages = Join-Path ([IO.Path]::GetTempPath()) ('vbox-wdk71-' + [guid]::NewGuid().ToString('N'))
         New-Item -ItemType Directory -Force $wdk71Packages | Out-Null
-        $sevenZip = Ensure-SevenZip
-        & $sevenZip x $wdk71Iso 'WDK\headers.msi' 'WDK\headers_cab001.cab' 'WDK\vistalibs_x64fre.msi' 'WDK\vistalibs_x64fre_cab001.cab' 'WDK\wnetlibs_x64fre.msi' 'WDK\wnetlibs_x64fre_cab001.cab' "-o$wdk71Packages" '-y'
-        if ($LASTEXITCODE -ne 0) { throw "WDK 7.1 package extraction failed with exit code $LASTEXITCODE." }
-        New-Item -ItemType Directory -Force $wdk71CacheRoot | Out-Null
-        foreach ($packageName in @('headers.msi', 'vistalibs_x64fre.msi', 'wnetlibs_x64fre.msi')) {
-            $packagePath = Join-Path $wdk71Packages "WDK\$packageName"
-            $install = Start-Process -FilePath 'msiexec.exe' -ArgumentList @('/a', $packagePath, "TARGETDIR=$wdk71CacheRoot", '/qn', '/norestart') -Wait -PassThru -WindowStyle Hidden
-            if ($install.ExitCode -ne 0) { throw "WDK 7.1 package $packageName extraction failed with exit code $($install.ExitCode)." }
+        try {
+            $sevenZip = Ensure-SevenZip
+            & $sevenZip x $wdk71Iso 'WDK\headers.msi' 'WDK\headers_cab001.cab' 'WDK\vistalibs_x64fre.msi' 'WDK\vistalibs_x64fre_cab001.cab' 'WDK\wnetlibs_x64fre.msi' 'WDK\wnetlibs_x64fre_cab001.cab' "-o$wdk71Packages" '-y'
+            if ($LASTEXITCODE -ne 0) { throw "WDK 7.1 package extraction failed with exit code $LASTEXITCODE." }
+            New-Item -ItemType Directory -Force $wdk71CacheRoot | Out-Null
+            foreach ($packageName in @('headers.msi', 'vistalibs_x64fre.msi', 'wnetlibs_x64fre.msi')) {
+                $packagePath = Join-Path $wdk71Packages "WDK\$packageName"
+                if (-not (Test-Path -LiteralPath $packagePath)) { throw "WDK 7.1 package $packageName was not extracted to $packagePath." }
+                $install = Start-Process -FilePath 'msiexec.exe' -ArgumentList @('/a', $packagePath, "TARGETDIR=$wdk71CacheRoot", '/qn', '/norestart') -Wait -PassThru -WindowStyle Hidden
+                if ($install.ExitCode -ne 0) { throw "WDK 7.1 package $packageName extraction from $packagePath failed with exit code $($install.ExitCode)." }
+            }
+        } finally {
+            Remove-Item -LiteralPath $wdk71Packages -Recurse -Force -ErrorAction SilentlyContinue
         }
         $wdk71Marker = Get-ChildItem $wdk71CacheRoot -Recurse -Filter 'rxce.lib' -File -ErrorAction SilentlyContinue |
             Where-Object { $_.FullName -match '\\lib\\wlh\\amd64\\rxce\.lib$' } | Select-Object -First 1
