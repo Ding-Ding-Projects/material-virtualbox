@@ -30,5 +30,10 @@ This section records the native Qt implementation of the supplied Material Desig
   targeting, `PageTab` accessibility children, dedicated New tab/Tab manager
   actions, and the remaining docking, reordering, history, and runtime gaps.
 - [`RuntimeCapture.md`](RuntimeCapture.md) records the genuine native screenshot contract and the current COM/service blocker.
+- [`CaptureMatrix.md`](CaptureMatrix.md) is the enumerated capture tracking table: every manager, settings, wizard, tool, runtime, and installer surface and state that must be photographed, each currently `Not captured`, with the exact blocker (missing COM/SDS registration or no verified installer yet) named per row.
 
 Build and runtime evidence must name the exact target, commit, host, Qt version, and whether the result is source-only, built, headless, or release-verified. Missing `svn`, `kmk`, or `scm` tools are reported as environment blockers rather than inferred passes.
+
+## Windows build and packaging
+
+- [`../../CHANGELOG.md`](../../CHANGELOG.md) records the Windows build/packaging pipeline's day-to-day fixes, each linked to its exact verified commit, and the current known issue blocking a green release build.

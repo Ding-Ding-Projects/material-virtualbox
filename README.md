@@ -8,6 +8,7 @@ application-owned presentation toward one coherent Qt 6 design system.
 **Documentation:** [Material Virtual Machine documentation](https://ding-ding-projects.github.io/material-virtualbox/)
 
 **Delivery map:** [roadmap](ROADMAP.md) · [current handoff](HANDOFF.md) ·
+[changelog](CHANGELOG.md) ·
 [native implementation authority](doc/md3/CodexHandoff.md)
 
 **Install status:** no verified installer is published yet. Build from source
@@ -38,7 +39,8 @@ with the [canonical VirtualBox prerequisites and commands](#build-and-prerequisi
 - [Build and prerequisites](#build-and-prerequisites)
 - [Verification boundaries](#verification-boundaries)
 - [CI and Pages](#ci-and-pages)
-- [Roadmap and handoff](ROADMAP.md)
+- [Roadmap and handoff](ROADMAP.md) · [changelog](CHANGELOG.md) ·
+  [capture matrix](doc/md3/CaptureMatrix.md)
 - [Contributing](#contributing)
 - [Security and license](#security-and-license)
 
@@ -71,8 +73,14 @@ Material 3 manager screenshot. The design thumbnail and static HTML previews do
 not count. The gallery will grow only with real manager, settings, wizard, tool,
 notification, and runtime captures from the rewritten build.
 
-The capture contract, required screenshot matrix, and current COM/service evidence
-are maintained in [`doc/md3/RuntimeCapture.md`](doc/md3/RuntimeCapture.md).
+The capture contract and current COM/service evidence are maintained in
+[`doc/md3/RuntimeCapture.md`](doc/md3/RuntimeCapture.md). The full enumerated
+tracking table — every surface and state that must be captured, each
+currently `Not captured` with its exact blocker named — is
+[`doc/md3/CaptureMatrix.md`](doc/md3/CaptureMatrix.md). As of this writing
+every row in that table is open: no verified Windows installer has been
+built yet (see the CI status below), and this environment's unregistered
+COM/SDS classes independently block reaching the manager shell at all.
 
 Global Preferences and per-machine Settings now compose their existing page
 models inside a bounded Material selector, one selected page card, and a compact
@@ -320,6 +328,19 @@ the entire run non-interactive. `build-installer.bat` runs the same path and
 then creates a complete unsigned Squirrel.Windows set containing `Setup.exe`,
 `RELEASES`, the full `.nupkg`, generated deltas when available, and
 `SHA256SUMS.txt`. It never publishes, tags, pushes, or invokes a signer.
+
+**Current CI status, stated honestly:** the **Windows package and release**
+workflow this script mirrors is not green yet. As of commit
+[`9efa7f522c69f3ce1b99940d13e96d534ee2a0c3`](https://github.com/Ding-Ding-Projects/material-virtualbox/commit/9efa7f522c69f3ce1b99940d13e96d534ee2a0c3),
+[run 31731859854](https://github.com/Ding-Ding-Projects/material-virtualbox/actions/runs/31731859854)
+gets through Qt setup, MSVC toolset selection, and the full build before
+failing in its own packaging self-check with `STATUS_STACK_BUFFER_OVERRUN`.
+No release has been published and no verified installer exists yet. See
+[`CHANGELOG.md`](CHANGELOG.md) for the fix history and the exact current
+blocker, and [`HANDOFF.md`](HANDOFF.md) for the full state summary. No local
+artifact produced on a warm, already-built tree is accepted as evidence that
+either script works from a genuinely clean checkout — only a passing run of
+that same CI job, or an equivalent from-empty local run, counts.
 
 The helper is [`tools/build-windows.ps1`](tools/build-windows.ps1). It keeps
 downloads in a user-local cache, verifies the pinned Windows SDK and WDK

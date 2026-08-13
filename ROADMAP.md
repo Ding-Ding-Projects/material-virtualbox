@@ -5,6 +5,30 @@ and remain independently buildable. Status is evidence-based; an implementation
 row remains open until its required source, interaction, runtime, accessibility,
 CI, documentation, and capture evidence exists.
 
+## Windows build and packaging (2026-08-13 status)
+
+0. **Pipeline hardening** — seven fixes landed today, each removing one
+   failure a clean CI checkout surfaced (missing host binaries, missing Qt
+   modules, a rejected module name, an auto-selected v142 MSVC toolset, a
+   toolset-selection loop bug, a mixed-separator redistributable path, and a
+   fatal MSVC warning on a GCC-only macro). Every fix is linked to its
+   verified commit SHA in [`CHANGELOG.md`](CHANGELOG.md). The **Material 3
+   validation** workflow is green at the current commit; the **Windows
+   package and release** workflow is still red, now failing later in the
+   pipeline on `STATUS_STACK_BUFFER_OVERRUN` in the packaging step's own
+   `tstVMStructSize`/`tstAsmStructs` self-check — a new, not-yet-root-caused
+   failure. No release has been published and no verified installer exists.
+   See [`HANDOFF.md`](HANDOFF.md#windows-build-and-packaging-pipeline-2026-08-13)
+   for the full current-state summary and exact CI run links.
+1. **Real capture evidence** — [`doc/md3/CaptureMatrix.md`](doc/md3/CaptureMatrix.md)
+   enumerates every manager, settings, wizard, tool, runtime, and installer
+   surface and state that still needs a genuine screenshot. Every row is
+   currently `Not captured`, blocked either by the missing verified
+   installer above or by this environment's unregistered COM/SDS classes
+   (`REGDB_E_CLASSNOTREG`, tracked in
+   [`doc/md3/RuntimeCapture.md`](doc/md3/RuntimeCapture.md)). Closing rows is
+   the next gate after the packaging pipeline goes green.
+
 ## In progress
 
 1. **Manager tools** — the existing Extensions, Media, Network, Cloud, and VM
