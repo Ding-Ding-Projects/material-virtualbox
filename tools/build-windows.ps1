@@ -372,6 +372,18 @@ function Get-PreferredVisualCppRoot {
     # errors.  Prefer a complete 17.x installation so a local build uses the
     # same compiler as the hosted runners, and fall back to configure.py's own
     # newest-installation probe when no such toolset is present.
+    #
+    # A Visual Studio 2022 install can also carry an older v142 (VS 2019)
+    # toolset side by side with v143 for compatibility -- e.g. 14.29.30133.
+    # That toolset has a working cl.exe and libvcruntime.lib and compiles the
+    # whole tree, but this build sets VBOX_VCC_TOOL_STEM := VCC143, and
+    # kBuild/kBuild/tools/VCC143.kmk locates the compiler's redistributable
+    # with the wildcard Redist/MSVC/14.[34]* (and hardcodes the
+    # Microsoft.VC143.CRT merge-module path), neither of which a 14.29.*
+    # install satisfies.  Picking a 14.2x toolset here therefore looks fine,
+    # builds cleanly, and only fails tens of minutes later on a missing
+    # vcruntime140.dll.  Reject any toolset whose directory name is not
+    # 14.3x/14.4x so this function only ever hands back a v143 toolset.
     $vswhere = Join-Path ${env:ProgramFiles(x86)} 'Microsoft Visual Studio\Installer\vswhere.exe'
     if (-not (Test-Path -LiteralPath $vswhere)) { return $null }
     $installs = @(& $vswhere -products '*' -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 `
@@ -381,6 +393,7 @@ function Get-PreferredVisualCppRoot {
         $toolsets = @(Get-ChildItem -LiteralPath (Join-Path $install 'VC\Tools\MSVC') -Directory -ErrorAction SilentlyContinue |
             Sort-Object Name -Descending)
         foreach ($toolset in $toolsets) {
+            if ($toolset.Name -notmatch '^14\.[34]\d') { continue }
             $compiler = Join-Path $toolset.FullName 'bin\Hostx64\x64\cl.exe'
             $runtime = Join-Path $toolset.FullName 'lib\x64\libvcruntime.lib'
             if ((Test-Path -LiteralPath $compiler) -and (Test-Path -LiteralPath $runtime)) {

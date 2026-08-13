@@ -2472,9 +2472,13 @@ class ToolCheck(CheckBase):
                 # Used for internal tools.
                 sVCPPBasePath = os.path.join(sVCPPPath, 'Tools', 'MSVC');
 
+            # The sort is descending, so index 0 is the newest toolset. glob.glob()
+            # already returns absolute paths, so iterating this list and re-joining
+            # each entry onto sVCPPBasePath (as this used to do) walked all the way
+            # to the last, i.e. oldest, entry instead of picking the newest one.
             asVCPPVer = sorted(glob.glob(os.path.join(sVCPPBasePath, '*')), reverse = True);
-            for sVer in asVCPPVer:
-                sVCPPBasePath = os.path.join(sVCPPBasePath, sVer);
+            if asVCPPVer:
+                sVCPPBasePath = asVCPPVer[0];
 
             # The order is important here for parsing lateron.
             # Key: Visual Studio Version -- Tuple: MSVC Toolset stem define (kBuild), Description.

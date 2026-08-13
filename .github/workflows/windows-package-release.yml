@@ -283,6 +283,7 @@ jobs:
 
           $rejectedToolsets = @()
           $vcToolset = $null
+          $vcInstallRoot = $null
           foreach ($vsInstallation in $vsInstallations) {
             $msvcRoot = Join-Path $vsInstallation 'VC\Tools\MSVC'
             if (-not (Test-Path -LiteralPath $msvcRoot)) { continue }
@@ -296,6 +297,7 @@ jobs:
                 continue
               }
               $vcToolset = $candidate.FullName
+              $vcInstallRoot = $vsInstallation
               break
             }
             if ($vcToolset) { break }
@@ -304,9 +306,13 @@ jobs:
             $rejectedSummary = if ($rejectedToolsets.Count -gt 0) { ($rejectedToolsets -join '; ') } else { 'none' }
             throw "No acceptable MSVC v143 (14.3x/14.4x) toolset was found under any Visual Studio 2022 installation returned by vswhere ($($vsInstallations -join '; ')). Rejected toolsets: $rejectedSummary"
           }
-          Write-Host "Selected MSVC v143 toolset: $vcToolset"
+          # configure.py's --with-vc expects the Visual Studio INSTALLATION ROOT (the
+          # directory containing VC\Tools\MSVC), not a toolset directory underneath it:
+          # it re-derives 'VC\Tools\MSVC\<newest>' itself. Log the toolset that made
+          # this installation qualify (that's the useful evidence), but pass the root.
+          Write-Host "Selected MSVC v143 toolset: $vcToolset (Visual Studio installation: $vcInstallRoot)"
 
-          .\configure.ps1 --disable-hardening --disable-python_c_api --disable-win-ddk --disable-win-msi --disable-win-wix --with-kbuild-path="$PWD\kBuild\kBuild" --with-qt-path="$env:VBOX_CI_QT_ROOT" --with-sdk10="$env:VBOX_CI_WINDOWS_SDK_ROOT" --with-win-vcpkg-root="$env:VBOX_CI_VCPKG_ROOT" --with-python-path="$pythonRoot" --with-vc="$vcToolset"
+          .\configure.ps1 --disable-hardening --disable-python_c_api --disable-win-ddk --disable-win-msi --disable-win-wix --with-kbuild-path="$PWD\kBuild\kBuild" --with-qt-path="$env:VBOX_CI_QT_ROOT" --with-sdk10="$env:VBOX_CI_WINDOWS_SDK_ROOT" --with-win-vcpkg-root="$env:VBOX_CI_VCPKG_ROOT" --with-python-path="$pythonRoot" --with-vc="$vcInstallRoot"
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           if (-not (Test-Path .\env.bat)) { throw 'configure.py did not generate env.bat.' }
 
