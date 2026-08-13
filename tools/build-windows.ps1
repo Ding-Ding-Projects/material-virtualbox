@@ -411,7 +411,7 @@ function Ensure-Qt {
     }
     if ($needsInstall) {
         Invoke-Checked 'Install aqtinstall' { & $Python -m pip install --disable-pip-version-check --user aqtinstall }
-        Invoke-Checked 'Install Qt 6.8.3 MSVC 2022' { & $Python -m aqt install-qt windows desktop 6.8.3 win64_msvc2022_64 --outputdir $qtRoot --modules qtscxml qttools }
+        Invoke-Checked 'Install Qt 6.8.3 MSVC 2022' { & $Python -m aqt install-qt windows desktop 6.8.3 win64_msvc2022_64 --outputdir $qtRoot --modules qtscxml }
         $qmake = Get-ChildItem -LiteralPath $qtRoot -Recurse -Filter qmake.exe -File | Select-Object -First 1
     }
     if (-not $qmake) { throw 'Qt installation did not provide qmake.exe.' }
