@@ -184,9 +184,19 @@ $distributionExtract = Join-Path $sourceWork 'dist-zip-extract'
 Remove-Item -LiteralPath $distributionExtract -Recurse -Force -ErrorAction SilentlyContinue
 New-Item -ItemType Directory -Force $distributionExtract | Out-Null
 Expand-Archive -LiteralPath $distributionArchive -DestinationPath $distributionExtract -Force
-$makensisFiles = @(Get-ChildItem -LiteralPath $distributionExtract -Recurse -Filter 'makensis.exe' -File)
-if ($makensisFiles.Count -ne 1) { throw "The NSIS distribution archive must contain exactly one makensis.exe, found $($makensisFiles.Count)." }
-$distributionRoot = $makensisFiles[0].DirectoryName
+$distributionDirectories = @($distributionExtract) + @(Get-ChildItem -LiteralPath $distributionExtract -Recurse -Directory)
+$distributionRoots = @($distributionDirectories | Where-Object {
+        (Test-Path -LiteralPath (Join-Path $_ 'makensis.exe') -PathType Leaf) -and
+        (Test-Path -LiteralPath (Join-Path $_ 'nsisconf.nsh') -PathType Leaf) -and
+        (Test-Path -LiteralPath (Join-Path $_ 'Include') -PathType Container) -and
+        (Test-Path -LiteralPath (Join-Path $_ 'Plugins') -PathType Container) -and
+        (Test-Path -LiteralPath (Join-Path $_ 'Contrib') -PathType Container)
+    })
+$expectedDistributionRoot = Join-Path $distributionExtract 'nsis-3.10'
+if ($distributionRoots.Count -ne 1 -or $distributionRoots[0].FullName -ne $expectedDistributionRoot) {
+    throw "The NSIS archive must contain exactly one canonical nsis-3.10 distribution root; found $($distributionRoots.FullName -join ', ')."
+}
+$distributionRoot = $distributionRoots[0].FullName
 Remove-Item -LiteralPath $target -Recurse -Force -ErrorAction SilentlyContinue
 New-Item -ItemType Directory -Force $target | Out-Null
 Copy-Item -Path (Join-Path $distributionRoot '*') -Destination $target -Recurse -Force
