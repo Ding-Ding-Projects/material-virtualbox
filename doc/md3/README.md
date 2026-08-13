@@ -34,6 +34,12 @@ This section records the native Qt implementation of the supplied Material Desig
 - [`CaptureHarness.md`](CaptureHarness.md) documents the runtime screenshot capture tool (`tools/capture/Invoke-CaptureHarness.ps1`): named off-screen desktop launch, dynamic window resolution and junk-window filtering, `PrintWindow` capture, a self-tested black-frame validator that never trusts `PrintWindow`'s return value alone, background input for driving the application without touching the visible desktop, and the JSON manifest it writes.
 - [`CaptureMatrix.md`](CaptureMatrix.md) is the enumerated capture tracking table: every manager, settings, wizard, tool, runtime, and installer surface and state that must be photographed. Several rows are captured from the real installed build; every other row remains `Not captured`, with the exact blocker named per row.
 - [`LocalGates.md`](LocalGates.md) is the hand-written local-suite inventory: every gate this repository can run locally, the exact command and result for each, why every non-runnable gate (compiled testcases, the full Windows build, `scm`, translation regeneration) is infeasible in a lane without the kBuild/Qt/MSVC toolchain, and the gates — runtime capture, accessibility, installer COM verification, MD3 localization completeness, lint/static analysis, security scanning — this project should have and currently does not.
+- [`CompletenessInventory.md`](CompletenessInventory.md) is the hand-written, per-surface completeness
+  inventory the release gate requires: every canonical house-contract feature checked against this
+  repository's actual source, for every identified user-facing surface including the documentation
+  site, with implementation paths, docs, localization, tests, build/interaction proof, capture
+  status, and the exact blocker named per row. Most rows are gaps, and it explains why that is the
+  correct and expected result of a genuinely hand-written audit rather than a generated checklist.
 
 Build and runtime evidence must name the exact target, commit, host, Qt version, and whether the result is source-only, built, headless, or release-verified. Missing `svn`, `kmk`, or `scm` tools are reported as environment blockers rather than inferred passes.
 
