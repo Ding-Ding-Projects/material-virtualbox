@@ -30,5 +30,6 @@ This section records the native Qt implementation of the supplied Material Desig
   targeting, `PageTab` accessibility children, dedicated New tab/Tab manager
   actions, and the remaining docking, reordering, history, and runtime gaps.
 - [`RuntimeCapture.md`](RuntimeCapture.md) records the genuine native screenshot contract and the current COM/service blocker.
+- [`AppIcon.md`](AppIcon.md) documents the original Material mark, its committed SVG master and reproducible raster generator, the real multi-resolution Windows `.ico`, every chrome/executable wiring point, and the outstanding Squirrel `--icon` flag needed in the packaging scripts.
 
 Build and runtime evidence must name the exact target, commit, host, Qt version, and whether the result is source-only, built, headless, or release-verified. Missing `svn`, `kmk`, or `scm` tools are reported as environment blockers rather than inferred passes.
