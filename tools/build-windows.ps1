@@ -139,6 +139,23 @@ public static class VirtualBoxShortPath
     return ([VirtualBoxShortPath]::Convert($Path)).Replace('\', '/')
 }
 
+function Get-Sha256File {
+    param([Parameter(Mandatory = $true)] [string] $Path)
+    $stream = [System.IO.File]::OpenRead($Path)
+    try {
+        $sha256 = [System.Security.Cryptography.SHA256]::Create()
+        try {
+            return ([System.BitConverter]::ToString($sha256.ComputeHash($stream))).Replace('-', '')
+        }
+        finally {
+            $sha256.Dispose()
+        }
+    }
+    finally {
+        $stream.Dispose()
+    }
+}
+
 function Get-DownloadedFile {
     param(
         [Parameter(Mandatory = $true)] [string] $Name,
@@ -149,7 +166,7 @@ function Get-DownloadedFile {
     if (-not (Test-Path -LiteralPath $path)) {
         Invoke-WebRequest -UseBasicParsing -Uri $Uri -OutFile $path
     }
-    $actual = (Get-FileHash -LiteralPath $path -Algorithm SHA256).Hash
+    $actual = Get-Sha256File -Path $path
     if ($actual -ne $Sha256) {
         throw "SHA-256 mismatch for ${Name}: expected $Sha256, got $actual."
     }
@@ -279,7 +296,7 @@ function Ensure-Zip {
     }
     $archiveInfo = Get-Item -LiteralPath $archive
     if ($archiveInfo.Length -lt 100000) { throw "Info-ZIP bootstrap archive is unexpectedly small: $($archiveInfo.Length) bytes." }
-    $archiveHash = (Get-FileHash -LiteralPath $archive -Algorithm SHA256).Hash.ToLowerInvariant()
+    $archiveHash = (Get-Sha256File -Path $archive).ToLowerInvariant()
     Write-Host "Info-ZIP bootstrap archive SHA-256=$archiveHash ($($archiveInfo.Length) bytes)."
     $installRoot = Join-Path $toolRoot 'miktex-zip-bin-x64'
     $zip = Get-ChildItem -LiteralPath $installRoot -Recurse -Filter zip.exe -File -ErrorAction SilentlyContinue | Select-Object -First 1
@@ -296,7 +313,7 @@ function Ensure-Zip {
         if ($LASTEXITCODE -ne 0) { throw "Info-ZIP tar payload extraction failed with exit code $LASTEXITCODE." }
         $zipBinary = Get-ChildItem -LiteralPath $installRoot -Recurse -Filter miktex-zip.exe -File -ErrorAction SilentlyContinue | Select-Object -First 1
         if ($zipBinary) {
-            $zipHash = (Get-FileHash -LiteralPath $zipBinary.FullName -Algorithm SHA256).Hash.ToLowerInvariant()
+            $zipHash = (Get-Sha256File -Path $zipBinary.FullName).ToLowerInvariant()
             if ($zipHash -ne 'f52e7f6a0a01a0e70443dfecbbe9e3d42d0bd80dd295ec6acc234b0971e0a3fd') {
                 throw "Info-ZIP payload SHA-256 mismatch: got $zipHash."
             }
@@ -480,7 +497,7 @@ function Invoke-VirtualBoxBuild {
     $env:Path = "$ZipRoot;$NasmRoot;$env:Path"
     $pythonRoot = (Split-Path -Parent $Python).Replace('\', '/')
     $env:Path = "$pythonRoot;$env:Path"
-    $arguments = @(
+    $commonArguments = @(
         '--disable-hardening', '--disable-python_c_api', '--disable-win-ddk',
         '--disable-win-msi', '--disable-win-wix',
         "--with-kbuild-path=$($repoRoot.Replace('\', '/'))/kBuild/kBuild",
@@ -488,15 +505,28 @@ function Invoke-VirtualBoxBuild {
         "--with-win-vcpkg-root=$VcpkgRoot", "--with-python-path=$pythonRoot"
     )
     $visualCppRoot = Get-PreferredVisualCppRoot
-    if ($visualCppRoot) { $arguments += "--with-vc=$visualCppRoot" }
+    if ($visualCppRoot) { $commonArguments += "--with-vc=$visualCppRoot" }
     # configure.ps1 resolves "python3" ahead of "python", and on a default Windows
     # install python3.exe is the Microsoft Store app-execution alias rather than an
     # interpreter: it writes an advertisement to stderr and exits non-zero.  This
-    # script already discovered and version-checked a real Python 3, so drive
-    # configure.py with that interpreter instead of re-running the wrapper's search.
-    Invoke-Checked 'Configure the unsigned Windows build' { & $Python configure.py @arguments }
+    # script already discovered and version-checked a real Python 3, so both passes
+    # below drive configure.py with that interpreter directly instead of re-running
+    # the wrapper's search (the wrapper also has no -PythonPath parameter to hand it
+    # one anyway).
+    #
+    # The custom log-enabled NSIS build (Ensure-Nsis) needs env.bat to already exist,
+    # since it compiles NSIS from source with the toolchain configure.py just wired
+    # up.  So the first pass disables win-nsis outright -- otherwise configure.py's
+    # required win-nsis tool check fails outright on a machine with no NSIS
+    # registered at all -- purely to get env.bat written, and only the second, final
+    # pass points configure at the freshly built tool.
+    $bootstrapArguments = @($commonArguments) + '--disable-win-nsis'
+    Invoke-Checked 'Bootstrap the unsigned Windows build environment' { & $Python configure.py @bootstrapArguments }
     if (-not (Test-Path -LiteralPath .\env.bat)) { throw 'configure.py did not generate env.bat.' }
-    $null = Ensure-Nsis
+    $nsisRoot = Ensure-Nsis
+    $finalArguments = @($commonArguments) + "--with-win-nsis-path=$nsisRoot"
+    Invoke-Checked 'Configure the unsigned Windows build' { & $Python configure.py @finalArguments }
+    if (-not (Test-Path -LiteralPath .\env.bat)) { throw 'Final configure.py pass did not generate env.bat.' }
     $revisionMatch = Select-String configure.py -Pattern '\$Id: configure.py (\d+)'
     if (-not $revisionMatch) { throw 'configure.py does not expose a numeric source revision for the Git mirror build.' }
     $revision = $revisionMatch.Matches[0].Groups[1].Value
@@ -619,7 +649,12 @@ function New-SquirrelInstaller {
             if ($signature.Status -ne 'NotSigned') { throw "Expected unsigned installer asset: $($file.Name) ($($signature.Status))." }
         }
     }
-    $hashes = Get-ChildItem -LiteralPath $release -File | Get-FileHash -Algorithm SHA256
+    $hashes = Get-ChildItem -LiteralPath $release -File | ForEach-Object {
+        [pscustomobject]@{
+            Hash = Get-Sha256File -Path $_.FullName
+            Path = $_.FullName
+        }
+    }
     $hashes | ForEach-Object { "{0}  {1}" -f $_.Hash.ToLowerInvariant(), $_.Path.Substring($release.Length + 1) } | Set-Content -LiteralPath (Join-Path $release 'SHA256SUMS.txt') -Encoding UTF8
     Write-Host "Unsigned Squirrel installer: $setup"
     Write-Host "RELEASES index: $releases"

@@ -38,6 +38,7 @@
 class CMediumAttachment;
 class UIIndicatorsPool;
 class UIAction;
+class UIMd3RuntimeHeader;
 
 /** UIMachineWindow subclass used as normal machine window implementation. */
 class UIMachineWindowNormal : public UIMachineWindow
@@ -53,6 +54,11 @@ public:
 
     /** Constructor, passes @a pMachineLogic and @a uScreenId to the UIMachineWindow constructor. */
     UIMachineWindowNormal(UIMachineLogic *pMachineLogic, ulong uScreenId);
+
+public slots:
+
+    /** Opens the runtime header's searchable action menu. */
+    void sltShowSearchableRuntimeMenu();
 
 private slots:
 
@@ -87,6 +93,8 @@ private:
     /** Prepare menu routine. */
     void prepareMenu()  RT_OVERRIDE RT_FINAL;
 #endif /* !VBOX_WS_MAC */
+    /** Prepares the Material 3 runtime header on Windows hosts. */
+    void prepareRuntimeHeader();
     /** Prepare status-bar routine. */
     void prepareStatusBar() RT_OVERRIDE;
     /** Prepare notification-center routine. */
@@ -126,6 +134,11 @@ private:
 
     /** Common @a pEvent handler. */
     bool event(QEvent *pEvent) RT_OVERRIDE;
+#ifdef VBOX_WS_WIN
+    /** Supplies native hit-testing for snap layouts, movement, and edge resize. */
+    virtual bool nativeEvent(const QByteArray &strEventType, void *pMessage,
+                             qintptr *pResult) RT_OVERRIDE;
+#endif /* VBOX_WS_WIN */
 
     /** Returns whether this window is maximized. */
     bool isMaximizedChecked();
@@ -137,6 +150,8 @@ private:
 
     /** Holds the indicator-pool instance. */
     UIIndicatorsPool *m_pIndicatorsPool;
+    /** Holds the Windows Material 3 runtime header, if present. */
+    UIMd3RuntimeHeader *m_pRuntimeHeader;
 
     /** Holds the current window geometry. */
     QRect  m_geometry;

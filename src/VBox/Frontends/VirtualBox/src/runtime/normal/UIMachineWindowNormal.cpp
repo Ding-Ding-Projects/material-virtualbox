@@ -34,6 +34,10 @@
 #ifdef VBOX_WS_NIX
 # include <QTimer>
 #endif
+#ifdef VBOX_WS_WIN
+# include <windows.h>
+# include <windowsx.h>
+#endif
 
 /* GUI includes: */
 #include "UICommon.h"
@@ -44,6 +48,7 @@
 #include "UIIndicatorsPool.h"
 #include "UIKeyboardHandler.h"
 #include "UILoggingDefs.h"
+#include "UIMd3RuntimeHeader.h"
 #include "UIMachine.h"
 #include "UIMouseHandler.h"
 #include "UIMachineLogic.h"
@@ -70,8 +75,22 @@
 UIMachineWindowNormal::UIMachineWindowNormal(UIMachineLogic *pMachineLogic, ulong uScreenId)
     : UIMachineWindow(pMachineLogic, uScreenId)
     , m_pIndicatorsPool(0)
+    , m_pRuntimeHeader(0)
     , m_iGeometrySaveTimerId(-1)
 {
+#ifdef VBOX_WS_WIN
+    /* Normal Windows runtime windows use the in-content Material header as
+     * their only product chrome.  Other visual states keep their own flags. */
+    setWindowFlag(Qt::FramelessWindowHint, true);
+#endif /* VBOX_WS_WIN */
+}
+
+void UIMachineWindowNormal::sltShowSearchableRuntimeMenu()
+{
+#ifdef VBOX_WS_WIN
+    if (m_pRuntimeHeader)
+        m_pRuntimeHeader->showApplicationMenu();
+#endif /* VBOX_WS_WIN */
 }
 
 void UIMachineWindowNormal::sltMachineStateChanged()
@@ -101,8 +120,13 @@ void UIMachineWindowNormal::sltHandleMenuBarConfigurationChange(const QUuid &uMa
     pActionMenuBarSwitch->setChecked(fEnabled);
     pActionMenuBarSwitch->blockSignals(false);
 
-    /* Update menu-bar visibility: */
+    /* Update menu-bar visibility.  On Windows the legacy menu bar remains the
+     * action model; this option controls menu access, never product chrome. */
+#ifdef VBOX_WS_WIN
+    menuBar()->hide();
+#else /* !VBOX_WS_WIN */
     menuBar()->setVisible(pActionMenuBarSwitch->isChecked());
+#endif /* !VBOX_WS_WIN */
     /* Update menu-bar: */
     updateMenu();
 
@@ -213,6 +237,24 @@ void UIMachineWindowNormal::prepareMenu()
 }
 #endif /* !VBOX_WS_MAC */
 
+void UIMachineWindowNormal::prepareRuntimeHeader()
+{
+#ifdef VBOX_WS_WIN
+    if (m_pRuntimeHeader || !m_pMainLayout || !menuBar())
+        return;
+
+    /* Keep QMenu/QAction ownership in the existing hidden menu bar while the
+     * Material header supplies the production window chrome and menu entry. */
+    menuBar()->hide();
+    m_pTopSpacer->changeSize(0, 0, QSizePolicy::Fixed, QSizePolicy::Fixed);
+    m_pMainLayout->setRowStretch(0, 0);
+    m_pMainLayout->setRowMinimumHeight(0, 48);
+    m_pRuntimeHeader = new UIMd3RuntimeHeader(this, menuBar(), centralWidget());
+    AssertPtrReturnVoid(m_pRuntimeHeader);
+    m_pMainLayout->addWidget(m_pRuntimeHeader, 0, 0, 1, 3);
+#endif /* VBOX_WS_WIN */
+}
+
 void UIMachineWindowNormal::prepareStatusBar()
 {
     /* Call to base-class: */
@@ -270,6 +312,9 @@ void UIMachineWindowNormal::prepareVisualState()
     /* Call to base-class: */
     UIMachineWindow::prepareVisualState();
 
+    /* The main layout and action-backed menu are ready at this point. */
+    prepareRuntimeHeader();
+
 #ifdef VBOX_GUI_WITH_CUSTOMIZATIONS1
     /* Customer request: The background has to go black: */
     QPalette palette(centralWidget()->palette());
@@ -304,8 +349,13 @@ void UIMachineWindowNormal::loadSettings()
     /* Load GUI customizations: */
     {
 #ifndef VBOX_WS_MAC
-        /* Update menu-bar visibility: */
+        /* Update menu-bar visibility.  On Windows the action-backed menu bar
+         * stays hidden while the always-visible header remains product chrome. */
+#ifdef VBOX_WS_WIN
+        menuBar()->hide();
+#else /* !VBOX_WS_WIN */
         menuBar()->setVisible(actionPool()->action(UIActionIndexRT_M_View_M_MenuBar_T_Visibility)->isChecked());
+#endif /* !VBOX_WS_WIN */
 #endif /* !VBOX_WS_MAC */
         /* Update status-bar visibility: */
         statusBar()->setVisible(actionPool()->action(UIActionIndexRT_M_View_M_StatusBar_T_Visibility)->isChecked());
@@ -465,6 +515,102 @@ bool UIMachineWindowNormal::event(QEvent *pEvent)
     }
     return UIMachineWindow::event(pEvent);
 }
+
+#ifdef VBOX_WS_WIN
+bool UIMachineWindowNormal::nativeEvent(const QByteArray &strEventType, void *pMessage, qintptr *pResult)
+{
+    if (strEventType == "windows_generic_MSG" && pMessage && pResult)
+    {
+        MSG *pMsg = static_cast<MSG *>(pMessage);
+        if (pMsg->message == WM_NCHITTEST)
+        {
+            const POINT nativePoint = { GET_X_LPARAM(pMsg->lParam), GET_Y_LPARAM(pMsg->lParam) };
+            RECT nativeWindow = { 0, 0, 0, 0 };
+            const HWND hwnd = reinterpret_cast<HWND>(winId());
+            if (!GetWindowRect(hwnd, &nativeWindow))
+                return QMainWindow::nativeEvent(strEventType, pMessage, pResult);
+
+            const qreal dScaleFactor = qMax<qreal>(1.0, devicePixelRatioF());
+            const int iBorder = qMax(1, qRound(8 * dScaleFactor));
+            if (!isMaximized())
+            {
+                const bool fLeft = nativePoint.x >= nativeWindow.left
+                                && nativePoint.x < nativeWindow.left + iBorder;
+                const bool fRight = nativePoint.x < nativeWindow.right
+                                 && nativePoint.x >= nativeWindow.right - iBorder;
+                const bool fTop = nativePoint.y >= nativeWindow.top
+                               && nativePoint.y < nativeWindow.top + iBorder;
+                const bool fBottom = nativePoint.y < nativeWindow.bottom
+                                  && nativePoint.y >= nativeWindow.bottom - iBorder;
+
+                if (fTop && fLeft) *pResult = HTTOPLEFT;
+                else if (fTop && fRight) *pResult = HTTOPRIGHT;
+                else if (fBottom && fLeft) *pResult = HTBOTTOMLEFT;
+                else if (fBottom && fRight) *pResult = HTBOTTOMRIGHT;
+                else if (fLeft) *pResult = HTLEFT;
+                else if (fRight) *pResult = HTRIGHT;
+                else if (fTop) *pResult = HTTOP;
+                else if (fBottom) *pResult = HTBOTTOM;
+                else *pResult = HTNOWHERE;
+                if (*pResult != HTNOWHERE)
+                    return true;
+            }
+
+            if (!m_pRuntimeHeader)
+                return QMainWindow::nativeEvent(strEventType, pMessage, pResult);
+            POINT nativeClientOrigin = { 0, 0 };
+            if (!ClientToScreen(hwnd, &nativeClientOrigin))
+                return QMainWindow::nativeEvent(strEventType, pMessage, pResult);
+            const QPoint logicalHeaderOrigin = m_pRuntimeHeader->mapTo(this, QPoint(0, 0));
+            const int iHeaderLeft = nativeClientOrigin.x
+                                  + qRound(logicalHeaderOrigin.x() * dScaleFactor);
+            const int iHeaderTop = nativeClientOrigin.y
+                                 + qRound(logicalHeaderOrigin.y() * dScaleFactor);
+            const int iHeaderRight = iHeaderLeft
+                                   + qRound(m_pRuntimeHeader->width() * dScaleFactor);
+            const int iHeaderBottom = iHeaderTop
+                                    + qRound(m_pRuntimeHeader->height() * dScaleFactor);
+            if (nativePoint.y < iHeaderTop || nativePoint.y >= iHeaderBottom
+                || nativePoint.x < iHeaderLeft || nativePoint.x >= iHeaderRight)
+                return QMainWindow::nativeEvent(strEventType, pMessage, pResult);
+
+            /* Interactive header children retain ordinary Qt pointer handling.
+             * The maximize control intentionally remains HTCLIENT: intercepting
+             * HTMAXBUTTON would bypass its real Material state layers.  Convert
+             * each logical widget rectangle at the current per-window DPI, then
+             * compare only native physical screen coordinates. */
+            QWidget *pTarget = 0;
+            const QObjectList children = m_pRuntimeHeader->children();
+            foreach (QObject *pObject, children)
+            {
+                QWidget *pChild = qobject_cast<QWidget *>(pObject);
+                if (!pChild || !pChild->isVisible() || pChild->testAttribute(Qt::WA_TransparentForMouseEvents))
+                    continue;
+                const QPoint logicalTopLeft = pChild->mapTo(m_pRuntimeHeader, QPoint(0, 0));
+                const RECT nativeChild =
+                {
+                    iHeaderLeft + qRound(logicalTopLeft.x() * dScaleFactor),
+                    iHeaderTop + qRound(logicalTopLeft.y() * dScaleFactor),
+                    iHeaderLeft + qRound((logicalTopLeft.x() + pChild->width()) * dScaleFactor),
+                    iHeaderTop + qRound((logicalTopLeft.y() + pChild->height()) * dScaleFactor)
+                };
+                if (nativePoint.x >= nativeChild.left && nativePoint.x < nativeChild.right
+                    && nativePoint.y >= nativeChild.top && nativePoint.y < nativeChild.bottom)
+                {
+                    pTarget = pChild;
+                    break;
+                }
+            }
+            if (pTarget)
+                return QMainWindow::nativeEvent(strEventType, pMessage, pResult);
+
+            *pResult = HTCAPTION;
+            return true;
+        }
+    }
+    return QMainWindow::nativeEvent(strEventType, pMessage, pResult);
+}
+#endif /* VBOX_WS_WIN */
 
 void UIMachineWindowNormal::showInNecessaryMode()
 {
