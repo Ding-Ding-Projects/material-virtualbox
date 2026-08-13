@@ -255,7 +255,7 @@ Install-NsisPlugin @accessControlPluginSpec
 
 $probeScript = Join-Path $sourceWork 'log-probe.nsi'
 $probeOutput = Join-Path $sourceWork 'log-probe.exe'
-Write-Utf8NoBom -Path $probeScript -Value ('OutFile ' + $quote + $probeOutput + $quote + $nl + 'LogText ' + $quote + 'VirtualBox NSIS_CONFIG_LOG probe' + $quote + $nl)
+Write-Utf8NoBom -Path $probeScript -Value ('Name ' + $quote + 'VirtualBox NSIS_CONFIG_LOG probe' + $quote + $nl + 'OutFile ' + $quote + $probeOutput + $quote + $nl + 'Section' + $nl + '    LogText ' + $quote + 'VirtualBox NSIS_CONFIG_LOG probe' + $quote + $nl + 'SectionEnd' + $nl)
 & (Join-Path $target 'makensis.exe') $probeScript
 if ($LASTEXITCODE -ne 0) { throw 'The built makensis.exe rejected LogText; NSIS_CONFIG_LOG is not enabled.' }
 Remove-Item -LiteralPath $probeScript, $probeOutput -Force -ErrorAction SilentlyContinue
