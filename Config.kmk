@@ -3818,6 +3818,10 @@ VBOX_VCC_WARN_ALL += -wd4548
 #             conversion warning already disabled above, raised where a signed index or status is range checked
 #             against an unsigned count such as RT_ELEMENTS().  -Wall enables it and -WX makes it fatal.
 VBOX_VCC_WARN_ALL += -wd4388
+#    -wd4319: dvmgpt.cpp(313): warning C4319: '~': zero extending 'size_t' to 'uint64_t' of greater size.  Raised
+#             throughout the 32-bit builds by RT_ALIGN_Z(), where a 32-bit size_t meets a 64-bit sector or offset.
+#             The zero extension is what the macro intends; -Wall enables the warning and -WX makes it fatal.
+VBOX_VCC_WARN_ALL += -wd4319
 if "$(VBOX_VCC_TOOL_STEM)" >= "VCC143"
  #    -wd4865: wingdi.h(2806): warning C4865: the underlying type of '<unnamed-enum-DISPLAYCONFIG_OUTPUT_TECHNOLOGY_OTHER>'
  #             will change when '/Zc:enumTypes' is specified on the command line.  Emitted by the Windows 10 SDK
