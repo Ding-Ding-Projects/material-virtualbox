@@ -202,7 +202,9 @@ endif
 VBOX_WINDOWS_ADDITIONS_OTHER_FILES := \
 	$(PATH_STAGE_BIN)/additions/VBoxService.exe \
 	$(PATH_STAGE_BIN)/additions/VBoxHook.dll \
-	$(PATH_STAGE_BIN)/additions/VBoxDrvInst.exe
+	$(PATH_STAGE_BIN)/additions/VBoxDrvInst.exe \
+	$(PATH_STAGE_BIN)/additions/VBoxGINA.dll \
+	$(PATH_STAGE_BIN)/additions/VBoxCredProv.dll
 
 ifeq ($(KBUILD_TARGET_ARCH),x86)
  VBOX_WINDOWS_ADDITIONS_OTHER_FILES += \
