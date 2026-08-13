@@ -318,7 +318,7 @@ function Ensure-WinFlexBison {
     $target = Join-Path $repoRoot 'tools\win.x86\win_flex_bison\v3.7.4'
     $bison = Join-Path $target 'win_bison.exe'
     $flex = Join-Path $target 'win_flex.exe'
-    if (Test-Path -LiteralPath $bison -and Test-Path -LiteralPath $flex) {
+    if ((Test-Path -LiteralPath $bison) -and (Test-Path -LiteralPath $flex)) {
         return $target
     }
     $zip = Get-DownloadedFile `
