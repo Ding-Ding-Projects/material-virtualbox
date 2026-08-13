@@ -3814,6 +3814,10 @@ if "$(VBOX_VCC_TOOL_STEM)" >= "VCC142"  # With v16.11.9, not with v16.6.0 4242
 endif
 #    -wd4548: socket.cpp(1931): warning C4548: expression before comma has no effect; expected expression with side-effect
 VBOX_VCC_WARN_ALL += -wd4548
+#    -wd4388: VBoxCaps.cpp(231): warning C4388: '<': signed/unsigned mismatch.  The companion of the -wd4365
+#             conversion warning already disabled above, raised where a signed index or status is range checked
+#             against an unsigned count such as RT_ELEMENTS().  -Wall enables it and -WX makes it fatal.
+VBOX_VCC_WARN_ALL += -wd4388
 if "$(VBOX_VCC_TOOL_STEM)" >= "VCC143"
  #    -wd4865: wingdi.h(2806): warning C4865: the underlying type of '<unnamed-enum-DISPLAYCONFIG_OUTPUT_TECHNOLOGY_OTHER>'
  #             will change when '/Zc:enumTypes' is specified on the command line.  Emitted by the Windows 10 SDK
