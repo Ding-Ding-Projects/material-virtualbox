@@ -263,7 +263,50 @@ jobs:
           $ErrorActionPreference = 'Stop'
           $python = Get-Command python.exe -ErrorAction Stop
           $pythonRoot = (Split-Path $python.Source -Parent) -replace '\\','/'
-          .\configure.ps1 --disable-hardening --disable-python_c_api --disable-win-ddk --disable-win-msi --disable-win-wix --with-kbuild-path="$PWD\kBuild\kBuild" --with-qt-path="$env:VBOX_CI_QT_ROOT" --with-sdk10="$env:VBOX_CI_WINDOWS_SDK_ROOT" --with-win-vcpkg-root="$env:VBOX_CI_VCPKG_ROOT" --with-python-path="$pythonRoot"
+
+          # configure.py's own MSVC probe can select an older v142 toolset that the
+          # hosted VS 2022 Enterprise image carries alongside v143 for compatibility
+          # (observed: 14.29.30133). VCC143.kmk hardcodes VBOX_VCC_TOOL_STEM=VCC143 and
+          # derives its redist directory with the wildcard Redist\MSVC\14.[34]*, which a
+          # 14.29 install does not match; the build then dies ~39 minutes in on a
+          # malformed, version-less vcruntime140.dll redist path. Select the toolset
+          # ourselves, mirroring tools/build-windows.ps1's Get-PreferredVisualCppRoot,
+          # but additionally require a v143 version (14.3x/14.4x) so a v142 toolset -
+          # which also has cl.exe and libvcruntime.lib and would otherwise pass the same
+          # checks - is explicitly rejected rather than silently accepted.
+          $vswhere = Join-Path ${env:ProgramFiles(x86)} 'Microsoft Visual Studio\Installer\vswhere.exe'
+          if (-not (Test-Path -LiteralPath $vswhere)) { throw "vswhere.exe was not found at $vswhere; cannot select the MSVC v143 toolset." }
+          $vsInstallations = & $vswhere -products '*' -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -version '[17.0,18.0)' -property installationPath
+          if ($LASTEXITCODE -ne 0) { throw "vswhere failed with exit code $LASTEXITCODE while searching for a Visual Studio 2022 installation with the C++ toolset component." }
+          $vsInstallations = @($vsInstallations | Where-Object { $_ })
+          if ($vsInstallations.Count -eq 0) { throw 'vswhere found no Visual Studio 2022 installation with the Microsoft.VisualStudio.Component.VC.Tools.x86.x64 component installed.' }
+
+          $rejectedToolsets = @()
+          $vcToolset = $null
+          foreach ($vsInstallation in $vsInstallations) {
+            $msvcRoot = Join-Path $vsInstallation 'VC\Tools\MSVC'
+            if (-not (Test-Path -LiteralPath $msvcRoot)) { continue }
+            $candidates = Get-ChildItem -LiteralPath $msvcRoot -Directory | Sort-Object -Property Name -Descending
+            foreach ($candidate in $candidates) {
+              $clExe = Join-Path $candidate.FullName 'bin\Hostx64\x64\cl.exe'
+              $libVcRuntime = Join-Path $candidate.FullName 'lib\x64\libvcruntime.lib'
+              if (-not ((Test-Path -LiteralPath $clExe) -and (Test-Path -LiteralPath $libVcRuntime))) { continue }
+              if ($candidate.Name -notmatch '^14\.[34]\d') {
+                $rejectedToolsets += "$($candidate.FullName) (not a v143 toolset: '$($candidate.Name)' does not match 14.[34]x)"
+                continue
+              }
+              $vcToolset = $candidate.FullName
+              break
+            }
+            if ($vcToolset) { break }
+          }
+          if (-not $vcToolset) {
+            $rejectedSummary = if ($rejectedToolsets.Count -gt 0) { ($rejectedToolsets -join '; ') } else { 'none' }
+            throw "No acceptable MSVC v143 (14.3x/14.4x) toolset was found under any Visual Studio 2022 installation returned by vswhere ($($vsInstallations -join '; ')). Rejected toolsets: $rejectedSummary"
+          }
+          Write-Host "Selected MSVC v143 toolset: $vcToolset"
+
+          .\configure.ps1 --disable-hardening --disable-python_c_api --disable-win-ddk --disable-win-msi --disable-win-wix --with-kbuild-path="$PWD\kBuild\kBuild" --with-qt-path="$env:VBOX_CI_QT_ROOT" --with-sdk10="$env:VBOX_CI_WINDOWS_SDK_ROOT" --with-win-vcpkg-root="$env:VBOX_CI_VCPKG_ROOT" --with-python-path="$pythonRoot" --with-vc="$vcToolset"
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           if (-not (Test-Path .\env.bat)) { throw 'configure.py did not generate env.bat.' }
 
