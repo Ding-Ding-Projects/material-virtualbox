@@ -136,6 +136,23 @@ public static class VirtualBoxShortPath
     return ([VirtualBoxShortPath]::Convert($Path)).Replace('\', '/')
 }
 
+function Get-Sha256File {
+    param([Parameter(Mandatory = $true)] [string] $Path)
+    $stream = [System.IO.File]::OpenRead($Path)
+    try {
+        $sha256 = [System.Security.Cryptography.SHA256]::Create()
+        try {
+            return ([System.BitConverter]::ToString($sha256.ComputeHash($stream))).Replace('-', '')
+        }
+        finally {
+            $sha256.Dispose()
+        }
+    }
+    finally {
+        $stream.Dispose()
+    }
+}
+
 function Get-DownloadedFile {
     param(
         [Parameter(Mandatory = $true)] [string] $Name,
@@ -146,7 +163,7 @@ function Get-DownloadedFile {
     if (-not (Test-Path -LiteralPath $path)) {
         Invoke-WebRequest -UseBasicParsing -Uri $Uri -OutFile $path
     }
-    $actual = (Microsoft.PowerShell.Utility\Get-FileHash -LiteralPath $path -Algorithm SHA256).Hash
+    $actual = Get-Sha256File -Path $path
     if ($actual -ne $Sha256) {
         throw "SHA-256 mismatch for ${Name}: expected $Sha256, got $actual."
     }
@@ -266,7 +283,7 @@ function Ensure-Zip {
     }
     $archiveInfo = Get-Item -LiteralPath $archive
     if ($archiveInfo.Length -lt 100000) { throw "Info-ZIP bootstrap archive is unexpectedly small: $($archiveInfo.Length) bytes." }
-    $archiveHash = (Microsoft.PowerShell.Utility\Get-FileHash -LiteralPath $archive -Algorithm SHA256).Hash.ToLowerInvariant()
+    $archiveHash = (Get-Sha256File -Path $archive).ToLowerInvariant()
     Write-Host "Info-ZIP bootstrap archive SHA-256=$archiveHash ($($archiveInfo.Length) bytes)."
     $installRoot = Join-Path $toolRoot 'miktex-zip-bin-x64'
     $zip = Get-ChildItem -LiteralPath $installRoot -Recurse -Filter zip.exe -File -ErrorAction SilentlyContinue | Select-Object -First 1
@@ -283,7 +300,7 @@ function Ensure-Zip {
         if ($LASTEXITCODE -ne 0) { throw "Info-ZIP tar payload extraction failed with exit code $LASTEXITCODE." }
         $zipBinary = Get-ChildItem -LiteralPath $installRoot -Recurse -Filter miktex-zip.exe -File -ErrorAction SilentlyContinue | Select-Object -First 1
         if ($zipBinary) {
-            $zipHash = (Microsoft.PowerShell.Utility\Get-FileHash -LiteralPath $zipBinary.FullName -Algorithm SHA256).Hash.ToLowerInvariant()
+            $zipHash = (Get-Sha256File -Path $zipBinary.FullName).ToLowerInvariant()
             if ($zipHash -ne 'f52e7f6a0a01a0e70443dfecbbe9e3d42d0bd80dd295ec6acc234b0971e0a3fd') {
                 throw "Info-ZIP payload SHA-256 mismatch: got $zipHash."
             }
@@ -491,7 +508,12 @@ function New-SquirrelInstaller {
             if ($signature.Status -ne 'NotSigned') { throw "Expected unsigned installer asset: $($file.Name) ($($signature.Status))." }
         }
     }
-    $hashes = Get-ChildItem -LiteralPath $release -File | Microsoft.PowerShell.Utility\Get-FileHash -Algorithm SHA256
+    $hashes = Get-ChildItem -LiteralPath $release -File | ForEach-Object {
+        [pscustomobject]@{
+            Hash = Get-Sha256File -Path $_.FullName
+            Path = $_.FullName
+        }
+    }
     $hashes | ForEach-Object { "{0}  {1}" -f $_.Hash.ToLowerInvariant(), $_.Path.Substring($release.Length + 1) } | Set-Content -LiteralPath (Join-Path $release 'SHA256SUMS.txt') -Encoding UTF8
     Write-Host "Unsigned Squirrel installer: $setup"
     Write-Host "RELEASES index: $releases"
