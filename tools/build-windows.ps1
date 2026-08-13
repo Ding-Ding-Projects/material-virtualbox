@@ -364,6 +364,34 @@ function Ensure-Nsis {
     return $target
 }
 
+function Get-PreferredVisualCppRoot {
+    # The tree is built and released with the Visual Studio 2022 toolset.  MSVC
+    # 14.5x (Visual Studio 2026) diverges from it in ways this source does not
+    # accommodate yet: it rejects IPRT's no-CRT definitions of intrinsic
+    # functions (C2169) and raises new warnings that -Wall -WX turns into
+    # errors.  Prefer a complete 17.x installation so a local build uses the
+    # same compiler as the hosted runners, and fall back to configure.py's own
+    # newest-installation probe when no such toolset is present.
+    $vswhere = Join-Path ${env:ProgramFiles(x86)} 'Microsoft Visual Studio\Installer\vswhere.exe'
+    if (-not (Test-Path -LiteralPath $vswhere)) { return $null }
+    $installs = @(& $vswhere -products '*' -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 `
+            -version '[17.0,18.0)' -property installationPath 2>$null |
+        ForEach-Object { $_.Trim() } | Where-Object { $_ })
+    foreach ($install in $installs) {
+        $toolsets = @(Get-ChildItem -LiteralPath (Join-Path $install 'VC\Tools\MSVC') -Directory -ErrorAction SilentlyContinue |
+            Sort-Object Name -Descending)
+        foreach ($toolset in $toolsets) {
+            $compiler = Join-Path $toolset.FullName 'bin\Hostx64\x64\cl.exe'
+            $runtime = Join-Path $toolset.FullName 'lib\x64\libvcruntime.lib'
+            if ((Test-Path -LiteralPath $compiler) -and (Test-Path -LiteralPath $runtime)) {
+                Write-Host "Using the Visual Studio 2022 toolset at $install for the VirtualBox build."
+                return $install
+            }
+        }
+    }
+    return $null
+}
+
 function Ensure-Qt {
     param([Parameter(Mandatory = $true)] [string] $Python)
     $qtRoot = Join-Path $dependencyRoot 'virtualbox-qt'
@@ -430,6 +458,8 @@ function Invoke-VirtualBoxBuild {
         "--with-qt-path=$QtRoot", "--with-sdk10=$SdkRoot",
         "--with-win-vcpkg-root=$VcpkgRoot", "--with-python-path=$pythonRoot"
     )
+    $visualCppRoot = Get-PreferredVisualCppRoot
+    if ($visualCppRoot) { $arguments += "--with-vc=$visualCppRoot" }
     # configure.ps1 resolves "python3" ahead of "python", and on a default Windows
     # install python3.exe is the Microsoft Store app-execution alias rather than an
     # interpreter: it writes an advertisement to stderr and exits non-zero.  This
