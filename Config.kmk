@@ -5173,7 +5173,10 @@ SDK_VBoxLzf-x86_LIBS          ?= $(PATH_STAGE_LIB)/VBox-liblzf-x86$(VBOX_SUFF_LI
 SDK_VBoxLzfStatic             := lzf compressor/decompressor for static linking.
 SDK_VBoxLzfStatic_EXTENDS     := VBoxLzf
 if1of ($(KBUILD_TARGET), os2 win)
- SDK_VBoxLzfStatic_LIBS       := $(PATH_STAGE_LIB)/VBox-liblzf-static$(VBOX_SUFF_LIB)
+ # kBuild normalizes library producer paths to forward slashes.  Keep this
+ # dependency in the same spelling so a Windows nested Validation Kit build
+ # does not treat the backslash form as a different, missing target.
+ SDK_VBoxLzfStatic_LIBS       := $(subst \,/,$(PATH_STAGE_LIB))/VBox-liblzf-static$(VBOX_SUFF_LIB)
 endif
 
 # openssl

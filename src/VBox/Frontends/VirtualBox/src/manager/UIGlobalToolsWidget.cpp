@@ -44,6 +44,7 @@
 #include "UIExtraDataManager.h"
 #include "UIGlobalToolsWidget.h"
 #include "UIMd3Language.h"
+#include "UIMd3ManagerToolSearch.h"
 #include "UIMd3MenuSearch.h"
 #include "UIMd3NavigationRail.h"
 #include "UIMd3Theme.h"
@@ -72,6 +73,7 @@ UIGlobalToolsWidget::UIGlobalToolsWidget(QWidget *pParent, UIActionPool *pAction
     , m_pPageEyebrow(0)
     , m_pPageTitle(0)
     , m_pNavigationDrawerButton(0)
+    , m_pToolSearch(0)
     , m_pMenu(0)
     , m_pNavigationRail(0)
     , m_pPane(0)
@@ -276,6 +278,7 @@ void UIGlobalToolsWidget::sltHandleToolsMenuIndexChange(UIToolType enmType)
         updatePageHeader(enmType);
         /* Switch tool-pane accordingly: */
         switchToolTo(enmType);
+        updateToolSearch(enmType);
 
         /* Special handling for Global Resources tool,
          * start unconditionally updating all cloud VMs: */
@@ -309,6 +312,7 @@ void UIGlobalToolsWidget::sltRetranslateUI()
         m_pPageTitle->setAccessibleDescription(
             md3ManagerText("md3.manager.current-destination", tr("Current destination")));
     updatePageHeader(toolMenu() ? toolMenu()->toolsType() : UIToolType_Home);
+    updateToolSearch(toolMenu() ? toolMenu()->toolsType() : UIToolType_Home);
 }
 
 void UIGlobalToolsWidget::sltShowNavigationDrawer()
@@ -439,6 +443,48 @@ void UIGlobalToolsWidget::updatePageHeaderTheme()
             .arg(md3(UIMd3ColorRole_Primary).name(QColor::HexArgb)));
 }
 
+void UIGlobalToolsWidget::updateToolSearch(UIToolType enmType)
+{
+    if (!m_pToolSearch || !toolPane())
+        return;
+
+    const UIMd3Language *pLanguage = UIMd3Language::instance();
+    QString strKey;
+    QString strName;
+    switch (enmType)
+    {
+        case UIToolType_Extensions:
+            strKey = QStringLiteral("extensions");
+            strName = pLanguage ? pLanguage->text(QStringLiteral("md3.tab.extensions")) : tr("Extensions");
+            break;
+        case UIToolType_Media:
+            strKey = QStringLiteral("media");
+            strName = pLanguage ? pLanguage->text(QStringLiteral("md3.tab.media")) : tr("Media");
+            break;
+        case UIToolType_Network:
+            strKey = QStringLiteral("network");
+            strName = pLanguage ? pLanguage->text(QStringLiteral("md3.tab.network")) : tr("Network");
+            break;
+        case UIToolType_Cloud:
+            strKey = QStringLiteral("cloud");
+            strName = pLanguage ? pLanguage->text(QStringLiteral("md3.tab.cloud")) : tr("Cloud");
+            break;
+        case UIToolType_Resources:
+            strKey = QStringLiteral("activity-overview");
+            strName = pLanguage ? pLanguage->text(QStringLiteral("md3.tab.resources")) : tr("Resources");
+            break;
+        default:
+            m_pToolSearch->clearTarget();
+            m_pToolSearch->hide();
+            return;
+    }
+
+    const QString strPlaceholder = md3ManagerText("md3.manager-tool.search-placeholder",
+                                                   tr("Search %1 records")).arg(strName);
+    m_pToolSearch->setTarget(toolPane()->currentToolWidget(), strKey, strName, strPlaceholder);
+    m_pToolSearch->show();
+}
+
 void UIGlobalToolsWidget::sltSwitchToResourcesTool()
 {
     setMenuToolType(UIToolType_Resources);
@@ -474,6 +520,7 @@ void UIGlobalToolsWidget::prepare()
         UIMd3Language::instance()->registerText(QStringLiteral("md3.manager.disabled.machines"), QStringLiteral("No virtual machine is available."), QStringLiteral("沒有可用的虛擬機。"));
         UIMd3Language::instance()->registerText(QStringLiteral("md3.manager.disabled.expert"), QStringLiteral("Expert mode is required."), QStringLiteral("需要啟用專家模式。"));
         UIMd3Language::instance()->registerText(QStringLiteral("md3.manager.disabled.generic"), QStringLiteral("This destination is currently unavailable."), QStringLiteral("這個目的地目前不可用。"));
+        UIMd3Language::instance()->registerText(QStringLiteral("md3.manager-tool.search-placeholder"), QStringLiteral("Search %1 records"), QStringLiteral("搜尋 %1 記錄"));
         UIMd3Language::instance()->registerText(QStringLiteral("md3.tab.home"), QStringLiteral("Home"), QStringLiteral("主頁"));
         UIMd3Language::instance()->registerText(QStringLiteral("md3.tab.machines"), QStringLiteral("Machines"), QStringLiteral("虛擬機"));
         UIMd3Language::instance()->registerText(QStringLiteral("md3.tab.extensions"), QStringLiteral("Extensions"), QStringLiteral("擴充功能"));
@@ -509,7 +556,7 @@ void UIGlobalToolsWidget::prepareWidgets()
             toolMenu()->hide();
             m_pNavigationRail = new UIMd3NavigationRail(this);
             if (m_pNavigationRail)
-                m_pLayout->addWidget(m_pNavigationRail, 0, 0, 2, 1);
+                m_pLayout->addWidget(m_pNavigationRail, 0, 0, 3, 1);
         }
 
         /* Create a compact destination heading.  It owns the contextual
@@ -548,12 +595,22 @@ void UIGlobalToolsWidget::prepareWidgets()
             m_pLayout->addWidget(m_pPageHeader, 0, 1);
         }
 
+        /* Create one consistent local-search card for the manager panes which
+         * expose list or table records.  It filters their existing item views
+         * and never owns or duplicates the underlying models. */
+        m_pToolSearch = new UIMd3ManagerToolSearch(this);
+        if (m_pToolSearch)
+        {
+            m_pToolSearch->hide();
+            m_pLayout->addWidget(m_pToolSearch, 1, 1);
+        }
+
         /* Create tool-pane: */
         m_pPane = new UIToolPane(this, UIToolClass_Global, actionPool());
         if (toolPane())
         {
             /* Add into layout: */
-            m_pLayout->addWidget(toolPane(), 1, 1);
+            m_pLayout->addWidget(toolPane(), 2, 1);
         }
     }
 }

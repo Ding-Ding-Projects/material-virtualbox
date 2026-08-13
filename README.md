@@ -7,19 +7,25 @@ application-owned presentation toward one coherent Qt 6 design system.
 
 **Documentation:** [Material Virtual Machine documentation](https://ding-ding-projects.github.io/material-virtualbox/)
 
+**Delivery map:** [roadmap](ROADMAP.md) · [current handoff](HANDOFF.md) ·
+[native implementation authority](doc/md3/CodexHandoff.md)
+
 **Install status:** no verified installer is published yet. Build from source
 with the [canonical VirtualBox prerequisites and commands](#build-and-prerequisites).
 
 > **Implementation status:** the shared theme, style, language, persisted brand,
-> native manager title bar, manager navigation rail, manager tab strip, command
-> palette, appearance editor, full guided shared regex builder, four-scope tab
+> native manager title bar, manager navigation rail, manager tab strip,
+> manager-tool search card, command palette, appearance editor, full guided
+> shared regex builder, four-scope tab
 > manager, single-page settings shell, settings search field, and the
 > notification-center search and keyboard-accessible notification rows are wired
 > into the existing VirtualBox frontend.
 > The shared style now gives stock Qt controls Material semantic colors, shape,
 > state layers, focus treatment, disabled presentation, and bounded minimum
 > anatomy across manager, settings, wizard, and runtime-owned pages.
-> Wizard, tool, and runtime shells remain in progress; the local history
+> The responsive wizard shell now composes the real page stack, visible-step
+> rail, bounded page card, and native action row; manager-tool and runtime shells
+> remain in progress. The local history
 > browser now restores validated notification and appearance/theme revisions
 > through their owning services.
 > Build and release claims below are deliberately bounded.
@@ -32,6 +38,7 @@ with the [canonical VirtualBox prerequisites and commands](#build-and-prerequisi
 - [Build and prerequisites](#build-and-prerequisites)
 - [Verification boundaries](#verification-boundaries)
 - [CI and Pages](#ci-and-pages)
+- [Roadmap and handoff](ROADMAP.md)
 - [Contributing](#contributing)
 - [Security and license](#security-and-license)
 
@@ -96,6 +103,12 @@ UIMd3Language-backed English/Cantonese/bilingual copy with independent funny-lev
 refresh, exact handler-owned focus, bounded accessible results, and focus return;
 its native capture remains pending the COM registration gate.
 
+Material colour roles are now generated from native HCT/CAM16 core palettes
+instead of the former HSL approximation. The compiled tonal-palette testcase
+covers 127 reference, gamut, contrast, and stability checks; implementation,
+failure bounds, and verification are documented in
+[`doc/md3/TonalPalette.md`](doc/md3/TonalPalette.md).
+
 The frameless Windows manager title bar is documented in
 [`doc/md3/TitleBar.md`](doc/md3/TitleBar.md). The 48-pixel header now presents a
 compact application mark/name, manager subtitle, command-palette pill,
@@ -112,6 +125,15 @@ with contextual action pills, and padded Machines chooser/workspace cards. The
 serial Windows gate rebuilt and linked `UICommon` and `VirtualBox`, then
 confirmed `VirtualBoxVM` was already up to date against that shared library;
 real native capture remains a separate runtime gate.
+
+The first manager-tools slice is documented in
+[`doc/md3/ManagerTools.md`](doc/md3/ManagerTools.md). Extensions, Media,
+Network, Cloud, and VM Activity Overview now share one persistent Material
+plain-text/regex search and appearance card over their existing item views. It
+restores each view's original hidden rows, coalesces live model changes, keeps
+the original actions and models authoritative, and removes the duplicate Media
+search action from the embedded contextual toolbar. Bulk operations, export,
+Logs, detached manager windows, and native capture remain open.
 
 The manager's 92-pixel navigation rail uses stacked icon-and-label destinations
 in the prototype order. Its buttons must select the existing `UIToolType`
@@ -192,12 +214,17 @@ revisions. Surface-specific settings/runtime restore adapters, provider-authored
 rendering, bulk dismiss/delete, complete row selection/restore semantics, and
 native capture remain open lanes. This is
 not a claim that the legacy notification surface has been fully replaced.
+The modeless review surface now uses idempotent signal connections and one
+`sigChanged()` refresh path, avoiding callback multiplication after reopen and
+duplicate list rebuilds after model mutations.
 
 The existing New VM, New virtual disk, clone, import, and export flows now
 compose an embedded Material 3 wizard shell around their real
 `UINativeWizardPage` stacks. [`doc/md3/WizardShell.md`](doc/md3/WizardShell.md)
-documents the translated page title, step summary, completion state, localized
-current/completed/upcoming step descriptions, named page stack, and accessible
+documents the two-card desktop layout, compact rail collapse below 720 logical
+pixels, hidden-page reconciliation, bounded page scrolling, translated page
+title, step summary, completion state, localized current/completed/upcoming
+step descriptions, named page stack, and accessible 48-pixel
 Back/Next/Finish/Cancel/Help actions while preserving validation/progress
 contracts. Cross-wizard tabs, full validation summary details, runtime
 accessibility-tree captures, and native runtime captures remain open.
@@ -274,6 +301,37 @@ The build requires a compatible compiler, Qt 6 development files, kBuild
 (`kmk`), platform SDKs, and the other dependencies selected by
 `configure.py`. Do not copy generated output or machine-local settings into
 the source tree; use `LocalConfig.kmk` for local overrides.
+
+### One-click Windows build and installer scripts
+
+The repository root now carries the same supported Windows build path used by
+the package workflow:
+
+```bat
+build.bat
+build.bat /s
+build-installer.bat /s
+```
+
+`build.bat` bootstraps missing user-scoped dependencies, configures the native
+tree, and builds the runnable `VirtualBox.exe` payload. Without `/s` it offers
+one final choice to launch that payload; `/s`, `--silent`, or `SILENT=1` keeps
+the entire run non-interactive. `build-installer.bat` runs the same path and
+then creates a complete unsigned Squirrel.Windows set containing `Setup.exe`,
+`RELEASES`, the full `.nupkg`, generated deltas when available, and
+`SHA256SUMS.txt`. It never publishes, tags, pushes, or invokes a signer.
+
+The helper is [`tools/build-windows.ps1`](tools/build-windows.ps1). It keeps
+downloads in a user-local cache, verifies the pinned Windows SDK and WDK
+installer hashes, obtains Qt through `aqtinstall`, builds the documented
+NSIS 3.10 `NSIS_CONFIG_LOG` package from its pinned source (including the x86
+zlib and PE-version prerequisites), materializes its pinned Unicode installer
+plugins, and reports the artifact path and SHA-256. The reusable source-build
+step is [`tools/prepare-nsis.ps1`](tools/prepare-nsis.ps1), and the dependency
+release refuses a cache that lacks its log-support marker. An
+unsigned installer can trigger an unknown-publisher or
+SmartScreen warning; that warning is expected and is disclosed rather than
+hidden.
 
 **Current verification boundary:** the evidence below was built from exact
 settings-shell source commit [`152327ec9fe04455de55def8bd8e943138b75737`](https://github.com/Ding-Ding-Projects/material-virtualbox/commit/152327ec9fe04455de55def8bd8e943138b75737)

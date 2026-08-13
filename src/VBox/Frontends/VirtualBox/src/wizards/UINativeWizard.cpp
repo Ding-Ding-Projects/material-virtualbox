@@ -27,11 +27,13 @@
 
 /* Qt includes: */
 #include <QApplication>
+#include <QFrame>
 #include <QHBoxLayout>
 #include <QKeyEvent>
 #include <QLabel>
 #include <QPainter>
 #include <QPushButton>
+#include <QScrollArea>
 #include <QStackedWidget>
 #include <QStyle>
 #include <QVBoxLayout>
@@ -44,12 +46,63 @@
 #include "UIExtraDataManager.h"
 #include "UIHelpBrowserDialog.h"
 #include "UIIconPool.h"
+#include "UIMd3Language.h"
 #include "UIMd3Wizard.h"
 #include "UINativeWizard.h"
 #include "UINativeWizardPage.h"
 #include "UINotificationCenter.h"
 #include "UIShortcutPool.h"
 #include "UITranslationEventListener.h"
+
+namespace
+{
+    /** Registers fixed native-wizard action and accessibility text. */
+    void registerMd3NativeWizardTexts()
+    {
+        UIMd3Language *pLanguage = UIMd3Language::instance();
+        if (!pLanguage)
+            return;
+#define REGISTER_NATIVE_WIZARD_TEXT(a_pszKey, a_pszEnglish, a_pszCantonese) \
+        pLanguage->registerText(QStringLiteral(a_pszKey), QStringLiteral(a_pszEnglish), QStringLiteral(a_pszCantonese))
+        REGISTER_NATIVE_WIZARD_TEXT("md3.wizard.name", "Wizard", "精靈");
+        REGISTER_NATIVE_WIZARD_TEXT("md3.wizard.dialog-description", "Wizard dialog with step navigation and validation actions.", "有步驟導覽同驗證動作嘅精靈對話框。");
+        REGISTER_NATIVE_WIZARD_TEXT("md3.wizard.help", "&Help", "說明(&H)");
+        REGISTER_NATIVE_WIZARD_TEXT("md3.wizard.help-name", "Help", "說明");
+        REGISTER_NATIVE_WIZARD_TEXT("md3.wizard.help-tooltip", "Open corresponding Help topic.", "開啟相應說明主題。");
+        REGISTER_NATIVE_WIZARD_TEXT("md3.wizard.help-description", "Open the corresponding help topic for this wizard.", "開啟呢個精靈相應嘅說明主題。");
+        REGISTER_NATIVE_WIZARD_TEXT("md3.wizard.back", "&Back", "返回(&B)");
+        REGISTER_NATIVE_WIZARD_TEXT("md3.wizard.back-name", "Back", "返回");
+        REGISTER_NATIVE_WIZARD_TEXT("md3.wizard.back-tooltip", "Go to previous wizard page.", "去上一個精靈頁面。");
+        REGISTER_NATIVE_WIZARD_TEXT("md3.wizard.back-description", "Go to the previous wizard page.", "去上一個精靈頁面。");
+        REGISTER_NATIVE_WIZARD_TEXT("md3.wizard.next", "&Next", "下一步(&N)");
+        REGISTER_NATIVE_WIZARD_TEXT("md3.wizard.next-name", "Next", "下一步");
+        REGISTER_NATIVE_WIZARD_TEXT("md3.wizard.next-tooltip", "Go to next wizard page.", "去下一個精靈頁面。");
+        REGISTER_NATIVE_WIZARD_TEXT("md3.wizard.next-description", "Go to the next wizard page after validation.", "驗證後去下一個精靈頁面。");
+        REGISTER_NATIVE_WIZARD_TEXT("md3.wizard.finish", "&Finish", "完成(&F)");
+        REGISTER_NATIVE_WIZARD_TEXT("md3.wizard.finish-name", "Finish", "完成");
+        REGISTER_NATIVE_WIZARD_TEXT("md3.wizard.finish-tooltip", "Commit all wizard data.", "套用全部精靈資料。");
+        REGISTER_NATIVE_WIZARD_TEXT("md3.wizard.finish-description", "Validate and commit all wizard data.", "驗證並套用全部精靈資料。");
+        REGISTER_NATIVE_WIZARD_TEXT("md3.wizard.cancel", "&Cancel", "取消(&C)");
+        REGISTER_NATIVE_WIZARD_TEXT("md3.wizard.cancel-name", "Cancel", "取消");
+        REGISTER_NATIVE_WIZARD_TEXT("md3.wizard.cancel-tooltip", "Cancel wizard execution.", "取消執行精靈。");
+        REGISTER_NATIVE_WIZARD_TEXT("md3.wizard.cancel-description", "Cancel this wizard without committing its data.", "取消呢個精靈而唔套用資料。");
+        REGISTER_NATIVE_WIZARD_TEXT("md3.wizard.pages", "Wizard pages", "精靈頁面");
+        REGISTER_NATIVE_WIZARD_TEXT("md3.wizard.pages-description", "Current wizard page content.", "目前精靈頁面內容。");
+        REGISTER_NATIVE_WIZARD_TEXT("md3.wizard.current-page-description", "Current wizard page: %1", "目前精靈頁面：%1");
+        REGISTER_NATIVE_WIZARD_TEXT("md3.wizard.incomplete-description", "Complete the current wizard page before continuing.", "完成目前精靈頁面先可以繼續。");
+#undef REGISTER_NATIVE_WIZARD_TEXT
+    }
+
+    /** Resolves native-wizard text with a safe Qt fallback. */
+    QString nativeWizardText(const char *pszKey, const QString &strFallback)
+    {
+        if (!UIMd3Language::instance())
+            return strFallback;
+        const QString strKey = QString::fromLatin1(pszKey);
+        const QString strText = md3Text(strKey);
+        return strText == strKey || strText.isEmpty() ? strFallback : strText;
+    }
+}
 
 #ifdef VBOX_WS_MAC
 UIFrame::UIFrame(QWidget *pParent)
@@ -200,53 +253,67 @@ int UINativeWizard::addPage(UINativeWizardPage *pPage)
 
 void UINativeWizard::sltRetranslateUI()
 {
-    setAccessibleName(windowTitle().isEmpty() ? tr("Wizard") : windowTitle());
-    setAccessibleDescription(tr("Wizard dialog with step navigation and validation actions."));
+    registerMd3NativeWizardTexts();
+    setAccessibleName(windowTitle().isEmpty()
+                      ? nativeWizardText("md3.wizard.name", tr("Wizard"))
+                      : windowTitle());
+    setAccessibleDescription(nativeWizardText("md3.wizard.dialog-description",
+                                               tr("Wizard dialog with step navigation and validation actions.")));
 
     /* Translate Help button: */
     QPushButton *pButtonHelp = wizardButton(WizardButtonType_Help);
     if (pButtonHelp)
     {
-        pButtonHelp->setText(tr("&Help"));
-        pButtonHelp->setToolTip(tr("Open corresponding Help topic."));
-        pButtonHelp->setAccessibleName(tr("Help"));
-        pButtonHelp->setAccessibleDescription(tr("Open the corresponding help topic for this wizard."));
+        pButtonHelp->setText(nativeWizardText("md3.wizard.help", tr("&Help")));
+        pButtonHelp->setToolTip(nativeWizardText("md3.wizard.help-tooltip",
+                                                 tr("Open corresponding Help topic.")));
+        pButtonHelp->setAccessibleName(nativeWizardText("md3.wizard.help-name", tr("Help")));
+        pButtonHelp->setAccessibleDescription(nativeWizardText("md3.wizard.help-description",
+                                                                tr("Open the corresponding help topic for this wizard.")));
         pButtonHelp->setShortcut(UIShortcutPool::standardSequence(QKeySequence::HelpContents));
     }
 
     /* Translate Back button: */
     QPushButton *pButtonBack = wizardButton(WizardButtonType_Back);
     AssertMsgReturnVoid(pButtonBack, ("No Back wizard button found!\n"));
-    pButtonBack->setText(tr("&Back"));
-    pButtonBack->setToolTip(tr("Go to previous wizard page."));
-    pButtonBack->setAccessibleName(tr("Back"));
-    pButtonBack->setAccessibleDescription(tr("Go to the previous wizard page."));
+    pButtonBack->setText(nativeWizardText("md3.wizard.back", tr("&Back")));
+    pButtonBack->setToolTip(nativeWizardText("md3.wizard.back-tooltip",
+                                             tr("Go to previous wizard page.")));
+    pButtonBack->setAccessibleName(nativeWizardText("md3.wizard.back-name", tr("Back")));
+    pButtonBack->setAccessibleDescription(nativeWizardText("md3.wizard.back-description",
+                                                            tr("Go to the previous wizard page.")));
 
     /* Translate Next button: */
     QPushButton *pButtonNext = wizardButton(WizardButtonType_Next);
     AssertMsgReturnVoid(pButtonNext, ("No Next wizard button found!\n"));
     if (!isLastVisiblePage(m_pWidgetStack->currentIndex()))
     {
-        pButtonNext->setText(tr("&Next"));
-        pButtonNext->setToolTip(tr("Go to next wizard page."));
-        pButtonNext->setAccessibleName(tr("Next"));
-        pButtonNext->setAccessibleDescription(tr("Go to the next wizard page after validation."));
+        pButtonNext->setText(nativeWizardText("md3.wizard.next", tr("&Next")));
+        pButtonNext->setToolTip(nativeWizardText("md3.wizard.next-tooltip",
+                                                 tr("Go to next wizard page.")));
+        pButtonNext->setAccessibleName(nativeWizardText("md3.wizard.next-name", tr("Next")));
+        pButtonNext->setAccessibleDescription(nativeWizardText("md3.wizard.next-description",
+                                                                tr("Go to the next wizard page after validation.")));
     }
     else
     {
-        pButtonNext->setText(tr("&Finish"));
-        pButtonNext->setToolTip(tr("Commit all wizard data."));
-        pButtonNext->setAccessibleName(tr("Finish"));
-        pButtonNext->setAccessibleDescription(tr("Validate and commit all wizard data."));
+        pButtonNext->setText(nativeWizardText("md3.wizard.finish", tr("&Finish")));
+        pButtonNext->setToolTip(nativeWizardText("md3.wizard.finish-tooltip",
+                                                 tr("Commit all wizard data.")));
+        pButtonNext->setAccessibleName(nativeWizardText("md3.wizard.finish-name", tr("Finish")));
+        pButtonNext->setAccessibleDescription(nativeWizardText("md3.wizard.finish-description",
+                                                                tr("Validate and commit all wizard data.")));
     }
 
     /* Translate Cancel button: */
     QPushButton *pButtonCancel = wizardButton(WizardButtonType_Cancel);
     AssertMsgReturnVoid(pButtonCancel, ("No Cancel wizard button found!\n"));
-    pButtonCancel->setText(tr("&Cancel"));
-    pButtonCancel->setToolTip(tr("Cancel wizard execution."));
-    pButtonCancel->setAccessibleName(tr("Cancel"));
-    pButtonCancel->setAccessibleDescription(tr("Cancel this wizard without committing its data."));
+    pButtonCancel->setText(nativeWizardText("md3.wizard.cancel", tr("&Cancel")));
+    pButtonCancel->setToolTip(nativeWizardText("md3.wizard.cancel-tooltip",
+                                               tr("Cancel wizard execution.")));
+    pButtonCancel->setAccessibleName(nativeWizardText("md3.wizard.cancel-name", tr("Cancel")));
+    pButtonCancel->setAccessibleDescription(nativeWizardText("md3.wizard.cancel-description",
+                                                              tr("Cancel this wizard without committing its data.")));
 
     if (m_pWidgetStack && m_pWidgetStack->count())
     {
@@ -339,8 +406,9 @@ void UINativeWizard::sltCurrentIndexChanged(int iIndex /* = -1 */)
     UINativeWizardPage *pPage = qobject_cast<UINativeWizardPage*>(m_pWidgetStack->widget(iIndex));
     AssertPtrReturnVoid(pPage);
     m_pLabelPageTitle->setText(pPage->title());
-    m_pWidgetStack->setAccessibleDescription(tr("Current wizard page: %1").arg(pPage->title()));
-    updateMd3Shell();
+    m_pWidgetStack->setAccessibleDescription(nativeWizardText("md3.wizard.current-page-description",
+                                                              tr("Current wizard page: %1"))
+                                               .arg(pPage->title()));
     if (iIndex > m_iLastIndex)
         pPage->initializePage();
 
@@ -357,16 +425,27 @@ void UINativeWizard::sltCurrentIndexChanged(int iIndex /* = -1 */)
     const bool fPageComplete = pPage->isComplete();
     const bool fLastPage = isLastVisiblePage(iIndex);
     pButtonNext->setEnabled(fPageComplete);
-    pButtonNext->setAccessibleName(fLastPage ? tr("Finish") : tr("Next"));
+    pButtonNext->setAccessibleName(fLastPage
+                                   ? nativeWizardText("md3.wizard.finish-name", tr("Finish"))
+                                   : nativeWizardText("md3.wizard.next-name", tr("Next")));
     if (!fPageComplete)
-        pButtonNext->setAccessibleDescription(tr("Complete the current wizard page before continuing."));
+        pButtonNext->setAccessibleDescription(nativeWizardText("md3.wizard.incomplete-description",
+                                                                tr("Complete the current wizard page before continuing.")));
     else if (fLastPage)
-        pButtonNext->setAccessibleDescription(tr("Validate and commit all wizard data."));
+        pButtonNext->setAccessibleDescription(nativeWizardText("md3.wizard.finish-description",
+                                                                tr("Validate and commit all wizard data.")));
     else
-        pButtonNext->setAccessibleDescription(tr("Go to the next wizard page after validation."));
+        pButtonNext->setAccessibleDescription(nativeWizardText("md3.wizard.next-description",
+                                                                tr("Go to the next wizard page after validation.")));
 
     /* Update last index: */
     m_iLastIndex = iIndex;
+
+    /* Refresh the step row last, once the page is initialized and the button state is
+     * settled.  sltCompleteChanged() cannot stand in for this: it only runs when a page
+     * emits completeChanged, which an already-initialized page returned to with Back
+     * never does. */
+    updateMd3Shell();
 }
 
 void UINativeWizard::sltCompleteChanged()
@@ -383,13 +462,22 @@ void UINativeWizard::sltCompleteChanged()
     const bool fPageComplete = pPage->isComplete();
     const bool fLastPage = isLastVisiblePage(m_pWidgetStack->currentIndex());
     pButtonNext->setEnabled(fPageComplete);
-    pButtonNext->setAccessibleName(fLastPage ? tr("Finish") : tr("Next"));
+    pButtonNext->setAccessibleName(fLastPage
+                                   ? nativeWizardText("md3.wizard.finish-name", tr("Finish"))
+                                   : nativeWizardText("md3.wizard.next-name", tr("Next")));
     if (!fPageComplete)
-        pButtonNext->setAccessibleDescription(tr("Complete the current wizard page before continuing."));
+        pButtonNext->setAccessibleDescription(nativeWizardText("md3.wizard.incomplete-description",
+                                                                tr("Complete the current wizard page before continuing.")));
     else if (fLastPage)
-        pButtonNext->setAccessibleDescription(tr("Validate and commit all wizard data."));
+        pButtonNext->setAccessibleDescription(nativeWizardText("md3.wizard.finish-description",
+                                                                tr("Validate and commit all wizard data.")));
     else
-        pButtonNext->setAccessibleDescription(tr("Go to the next wizard page after validation."));
+        pButtonNext->setAccessibleDescription(nativeWizardText("md3.wizard.next-description",
+                                                                tr("Go to the next wizard page after validation.")));
+
+    /* The step row shows whether the current page is complete, so it has to follow
+     * validity changes as well as navigation: */
+    updateMd3Shell();
 }
 
 void UINativeWizard::sltPrevious()
@@ -449,6 +537,8 @@ void UINativeWizard::sltHandleHelpRequest()
 
 void UINativeWizard::prepare()
 {
+    registerMd3NativeWizardTexts();
+
     /* Prepare main layout: */
     QVBoxLayout *pLayoutMain = new QVBoxLayout(this);
     if (pLayoutMain)
@@ -472,7 +562,10 @@ void UINativeWizard::prepare()
             const int iSpacing = qApp->style()->pixelMetric(QStyle::PM_LayoutHorizontalSpacing);
             pLayoutUpper->setSpacing(iSpacing);
 
-            /* Prepare pixmap label: */
+            /* Prepare the legacy pixmap label outside the Windows Material
+             * presentation.  The Material shell carries the page hierarchy
+             * without a fixed 145-pixel watermark column. */
+#ifndef VBOX_WS_WIN
             m_pLabelPixmap = new QLabel(this);
             if (m_pLabelPixmap)
             {
@@ -488,6 +581,7 @@ void UINativeWizard::prepare()
                 pLayoutUpper->addWidget(m_pLabelPixmap);
 #endif /* !VBOX_WS_MAC */
             }
+#endif /* !VBOX_WS_WIN */
 
             /* Prepare right layout: */
             m_pLayoutRight = new QVBoxLayout;
@@ -517,8 +611,10 @@ void UINativeWizard::prepare()
                         if (m_pWidgetStack)
                         {
                             m_pWidgetStack->setObjectName(QStringLiteral("wizardPageStack"));
-                            m_pWidgetStack->setAccessibleName(tr("Wizard pages"));
-                            m_pWidgetStack->setAccessibleDescription(tr("Current wizard page content."));
+                            m_pWidgetStack->setAccessibleName(nativeWizardText("md3.wizard.pages",
+                                                                              tr("Wizard pages")));
+                            m_pWidgetStack->setAccessibleDescription(nativeWizardText("md3.wizard.pages-description",
+                                                                                     tr("Current wizard page content.")));
                             m_pWidgetStack->setFocusPolicy(Qt::NoFocus);
                             connect(m_pWidgetStack, &QStackedWidget::currentChanged, this, &UINativeWizard::sltCurrentIndexChanged);
                             pLayoutFrame->addWidget(m_pWidgetStack);
@@ -538,12 +634,33 @@ void UINativeWizard::prepare()
                 if (m_pWidgetStack)
                 {
                     m_pWidgetStack->setObjectName(QStringLiteral("wizardPageStack"));
-                    m_pWidgetStack->setAccessibleName(tr("Wizard pages"));
-                    m_pWidgetStack->setAccessibleDescription(tr("Current wizard page content."));
+                    m_pWidgetStack->setAccessibleName(nativeWizardText("md3.wizard.pages",
+                                                                      tr("Wizard pages")));
+                    m_pWidgetStack->setAccessibleDescription(nativeWizardText("md3.wizard.pages-description",
+                                                                             tr("Current wizard page content.")));
                     m_pWidgetStack->setFocusPolicy(Qt::NoFocus);
                     connect(m_pWidgetStack, &QStackedWidget::currentChanged, this, &UINativeWizard::sltCurrentIndexChanged);
                     if (m_pMd3Shell)
+                    {
+#ifdef VBOX_WS_WIN
+                        QScrollArea *pPageScrollArea = new QScrollArea(m_pMd3Shell);
+                        pPageScrollArea->setObjectName(QStringLiteral("md3WizardPageScrollArea"));
+                        pPageScrollArea->setAccessibleName(nativeWizardText("md3.wizard.pages",
+                                                                           tr("Wizard pages")));
+                        pPageScrollArea->setAccessibleDescription(nativeWizardText("md3.wizard.pages-description",
+                                                                                  tr("Current wizard page content.")));
+                        pPageScrollArea->setWidgetResizable(true);
+                        pPageScrollArea->setFrameShape(QFrame::NoFrame);
+                        pPageScrollArea->setHorizontalScrollBarPolicy(Qt::ScrollBarAsNeeded);
+                        pPageScrollArea->setVerticalScrollBarPolicy(Qt::ScrollBarAsNeeded);
+                        pPageScrollArea->setMinimumSize(QSize(0, 0));
+                        m_pWidgetStack->setMinimumSize(QSize(0, 0));
+                        pPageScrollArea->setWidget(m_pWidgetStack);
+                        m_pMd3Shell->setContentWidget(pPageScrollArea);
+#else /* !VBOX_WS_WIN */
                         m_pMd3Shell->setContentWidget(m_pWidgetStack);
+#endif /* !VBOX_WS_WIN */
+                    }
                     else
                         m_pLayoutRight->addWidget(m_pWidgetStack);
                 }
@@ -563,23 +680,34 @@ void UINativeWizard::prepare()
         {
 #ifndef VBOX_WS_MAC
             /* Adjust palette a bit on Windows/X11 for native purposes: */
-            pWidgetBottom->setAutoFillBackground(true);
-            QPalette pal = QGuiApplication::palette();
-            pal.setColor(QPalette::Active, QPalette::Window, pal.color(QPalette::Active, QPalette::Window).darker(110));
-            pal.setColor(QPalette::Inactive, QPalette::Window, pal.color(QPalette::Inactive, QPalette::Window).darker(110));
-            pWidgetBottom->setPalette(pal);
+            if (!m_pMd3Shell)
+            {
+                pWidgetBottom->setAutoFillBackground(true);
+                QPalette pal = QGuiApplication::palette();
+                pal.setColor(QPalette::Active, QPalette::Window, pal.color(QPalette::Active, QPalette::Window).darker(110));
+                pal.setColor(QPalette::Inactive, QPalette::Window, pal.color(QPalette::Inactive, QPalette::Window).darker(110));
+                pWidgetBottom->setPalette(pal);
+            }
 #endif /* !VBOX_WS_MAC */
 
             /* Prepare bottom layout: */
             QHBoxLayout *pLayoutBottom = new QHBoxLayout(pWidgetBottom);
             if (pLayoutBottom)
             {
-                /* Reset margins to default, they were flawed by parent inheritance: */
-                const int iL = qApp->style()->pixelMetric(QStyle::PM_LayoutLeftMargin);
-                const int iT = qApp->style()->pixelMetric(QStyle::PM_LayoutTopMargin);
-                const int iR = qApp->style()->pixelMetric(QStyle::PM_LayoutRightMargin);
-                const int iB = qApp->style()->pixelMetric(QStyle::PM_LayoutBottomMargin);
-                pLayoutBottom->setContentsMargins(iL, iT, iR, iB);
+                if (m_pMd3Shell)
+                {
+                    pLayoutBottom->setContentsMargins(0, 4, 0, 0);
+                    pLayoutBottom->setSpacing(8);
+                }
+                else
+                {
+                    /* Reset margins to default, they were flawed by parent inheritance: */
+                    const int iL = qApp->style()->pixelMetric(QStyle::PM_LayoutLeftMargin);
+                    const int iT = qApp->style()->pixelMetric(QStyle::PM_LayoutTopMargin);
+                    const int iR = qApp->style()->pixelMetric(QStyle::PM_LayoutRightMargin);
+                    const int iB = qApp->style()->pixelMetric(QStyle::PM_LayoutBottomMargin);
+                    pLayoutBottom->setContentsMargins(iL, iT, iR, iB);
+                }
 
                 // WORKAROUND:
                 // Prepare dialog button-box? Huh, no .. QWizard has different opinion.
@@ -593,12 +721,19 @@ void UINativeWizard::prepare()
                         m_buttons[enmType] = new QPushButton(pWidgetBottom);
                     QPushButton *pButton = wizardButton(enmType);
                     if (pButton)
+                    {
+                        pButton->setMinimumHeight(48);
+                        pButton->setSizePolicy(QSizePolicy::Minimum, QSizePolicy::Fixed);
                         pLayoutBottom->addWidget(pButton);
+                    }
                     if (enmType == WizardButtonType_Help)
                         pLayoutBottom->addStretch(1);
                     if (   pButton
                         && enmType == WizardButtonType_Next)
+                    {
+                        pButton->setMinimumWidth(96);
                         pButton->setDefault(true);
+                    }
                 }
                 /* Hide Back button in Expert mode: */
                 if (   m_enmMode == WizardMode_Expert
@@ -619,8 +754,11 @@ void UINativeWizard::prepare()
                         this, &UINativeWizard::close);
             }
 
-            /* Add to layout: */
-            pLayoutMain->addWidget(pWidgetBottom);
+            /* Keep the action row inside the same Material surface. */
+            if (m_pMd3Shell)
+                m_pMd3Shell->setActionWidget(pWidgetBottom);
+            else
+                pLayoutMain->addWidget(pWidgetBottom);
         }
     }
 
@@ -636,6 +774,9 @@ void UINativeWizard::prepare()
 
     connect(&translationEventListener(), &UITranslationEventListener::sigRetranslateUI,
             this, &UINativeWizard::sltRetranslateUI);
+    if (UIMd3Language::instance())
+        connect(UIMd3Language::instance(), &UIMd3Language::sigLanguageChanged,
+                this, &UINativeWizard::sltRetranslateUI, Qt::UniqueConnection);
 }
 
 void UINativeWizard::cleanup()
@@ -672,29 +813,59 @@ void UINativeWizard::updateMd3Shell()
     if (!m_pMd3Shell || !m_pWidgetStack)
         return;
 
+    /* Hidden pages are not steps.  Counting them puts the progress text out of step
+     * with what the user can actually reach: */
     QStringList stepTitles;
+    const int iCurrentPage = m_pWidgetStack->currentIndex();
+    int iCurrentStep = -1;
     for (int i = 0; i < m_pWidgetStack->count(); ++i)
     {
+        if (!isPageVisible(i))
+            continue;
         UINativeWizardPage *pStepPage = qobject_cast<UINativeWizardPage*>(m_pWidgetStack->widget(i));
-        if (pStepPage)
-            stepTitles << pStepPage->title();
+        if (!pStepPage)
+            continue;
+        if (i == iCurrentPage)
+            iCurrentStep = stepTitles.size();
+        stepTitles << pStepPage->title();
     }
     m_pMd3Shell->setStepTitles(stepTitles);
-    m_pMd3Shell->setCurrentStep(m_pWidgetStack->currentIndex());
-    for (int i = 0; i < stepTitles.size(); ++i)
-        m_pMd3Shell->setStepComplete(i, i < m_pWidgetStack->currentIndex());
+    m_pMd3Shell->setCurrentStep(iCurrentStep);
+
+    int iStepIndex = 0;
+    for (int i = 0; i < m_pWidgetStack->count(); ++i)
+    {
+        if (!isPageVisible(i))
+            continue;
+        UINativeWizardPage *pStepPage = qobject_cast<UINativeWizardPage*>(m_pWidgetStack->widget(i));
+        if (!pStepPage)
+            continue;
+        /* A passed page is complete; the current one is complete once it validates: */
+        const bool fComplete = i < iCurrentPage
+                            || (i == iCurrentPage && pStepPage->isComplete());
+        m_pMd3Shell->setStepComplete(iStepIndex++, fComplete);
+    }
 }
 
 void UINativeWizard::resizeToGoldenRatio()
 {
     /* Standard top margin: */
+#ifdef VBOX_WS_WIN
+    m_pLayoutRight->setContentsMargins(0, 0, 0, 0);
+#else /* !VBOX_WS_WIN */
     const int iT = qApp->style()->pixelMetric(QStyle::PM_LayoutTopMargin);
     m_pLayoutRight->setContentsMargins(0, iT, 0, 0);
+#endif /* !VBOX_WS_WIN */
     /* Show title label for Basic mode case: */
+#ifdef VBOX_WS_WIN
+    m_pLabelPageTitle->show();
+#else /* !VBOX_WS_WIN */
     m_pLabelPageTitle->setVisible(m_enmMode == WizardMode_Basic);
+#endif /* !VBOX_WS_WIN */
 #ifndef VBOX_WS_MAC
     /* Hide/show pixmap label on Windows/X11 only, on macOS it's in the background: */
-    m_pLabelPixmap->setVisible(!m_strPixmapName.isEmpty());
+    if (m_pLabelPixmap)
+        m_pLabelPixmap->setVisible(!m_strPixmapName.isEmpty());
 #endif /* !VBOX_WS_MAC */
 
     /* For wizard in Basic mode: */
@@ -723,10 +894,12 @@ void UINativeWizard::resizeToGoldenRatio()
             const QSize msh = m_pWidgetStack->minimumSizeHint();
             int iWidth = msh.width();
             int iHeight = msh.height();
-#ifndef VBOX_WS_MAC
+#if !defined(VBOX_WS_MAC) && !defined(VBOX_WS_WIN)
             /* Advance width for standard watermark width: */
             if (!m_strPixmapName.isEmpty())
                 iWidth += 145;
+#endif /* !VBOX_WS_MAC && !VBOX_WS_WIN */
+#ifndef VBOX_WS_MAC
             /* Advance height for spacing & title height: */
             if (m_pLayoutRight)
             {
@@ -751,11 +924,11 @@ void UINativeWizard::resizeToGoldenRatio()
     /* Assign background finally: */
     if (!m_strPixmapName.isEmpty())
         assignBackground();
-#else
+#elif !defined(VBOX_WS_WIN)
     /* Assign watermark finally: */
     if (!m_strPixmapName.isEmpty())
         assignWatermark();
-#endif /* !VBOX_WS_MAC */
+#endif /* !VBOX_WS_MAC && !VBOX_WS_WIN */
 
     /* Make sure layouts are freshly updated & activated: */
     foreach (QLayout *pLayout, findChildren<QLayout*>())
@@ -765,8 +938,20 @@ void UINativeWizard::resizeToGoldenRatio()
     }
     QCoreApplication::sendPostedEvents(0, QEvent::LayoutRequest);
 
-    /* Resize to minimum size-hint: */
+    /* Resize to a bounded native working-area size.  The Windows page stack
+     * scrolls internally, so the dialog can remain usable on compact and
+     * high-scale desktops without imposing an impossible minimum. */
+#ifdef VBOX_WS_WIN
+    const QRect available = gpDesktop->availableGeometry(this);
+    const int iMaximumWidth = qMax(1, available.width() - 32);
+    const int iMaximumHeight = qMax(1, available.height() - 32);
+    QSize sizeTarget = minimumSizeHint();
+    sizeTarget.setWidth(qMin(qMax(640, sizeTarget.width()), iMaximumWidth));
+    sizeTarget.setHeight(qMin(qMax(420, sizeTarget.height()), iMaximumHeight));
+    resize(sizeTarget);
+#else /* !VBOX_WS_WIN */
     resize(minimumSizeHint());
+#endif /* !VBOX_WS_WIN */
 }
 
 bool UINativeWizard::isLastVisiblePage(int iPageIndex) const
@@ -811,6 +996,9 @@ void UINativeWizard::assignBackground()
 
 void UINativeWizard::assignWatermark()
 {
+    if (!m_pLabelPixmap || !m_pWidgetStack || !m_pLayoutRight || !m_pLabelPageTitle)
+        return;
+
     /* Load pixmap to icon first, this will gather HiDPI pixmaps as well: */
     const QIcon icon = UIIconPool::iconSet(m_strPixmapName);
 

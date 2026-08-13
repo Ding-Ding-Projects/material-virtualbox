@@ -4615,7 +4615,8 @@ if1of (win, $(KBUILD_TARGET) $(KBUILD_HOST))
 		'%include "iprt/asmdefs.mac"' \
                'BEGINCODE' \
                '%macro IMPLIB_EXPORT 1' \
-               'global %1:function' \
+               '; COFF has no ELF symbol type suffix; keep the export plain for NASM.' \
+               'global %1' \
                '%1: nop' \
                '%endm' \
                ''
