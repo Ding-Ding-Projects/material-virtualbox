@@ -169,14 +169,22 @@ $peForScons = $peTool.FullName.Replace('\', '/')
 $sconsForCmd = $scons.Replace('\', '/')
 $sourceForCmd = $source.Replace('\', '/')
 $vcvarsForCmd = $vcvars.FullName
+$sourceLicense = Join-Path $source 'COPYING'
+$exampleInstaller = Join-Path $source 'Examples\makensis.nsi'
+if (-not (Test-Path -LiteralPath $sourceLicense -PathType Leaf)) { throw 'The verified NSIS source tree does not contain COPYING.' }
+if (-not (Test-Path -LiteralPath $exampleInstaller -PathType Leaf)) { throw 'The verified NSIS source tree does not contain Examples\makensis.nsi.' }
+$oldLicenseData = 'LicenseData "..\COPYING"'
+$newLicenseData = 'LicenseData "..\..\COPYING"'
+$exampleText = [IO.File]::ReadAllText($exampleInstaller)
+$exampleText = Replace-Once -Text $exampleText -Old $oldLicenseData -New $newLicenseData -Description 'Examples\makensis.nsi LicenseData path'
+Write-Utf8NoBom -Path $exampleInstaller -Value $exampleText
+$patchedExampleText = [IO.File]::ReadAllText($exampleInstaller)
+if (   ([regex]::Matches($patchedExampleText, [regex]::Escape($newLicenseData))).Count -ne 1
+    -or ([regex]::Matches($patchedExampleText, [regex]::Escape($oldLicenseData))).Count -ne 0) {
+    throw 'The NSIS example installer LicenseData path was not patched exactly once.'
+}
 $sconsCommand = "call $quote$vcvarsForCmd$quote x86 && set $quote" + 'CODESIGNER=' + "$quote && set $quote" + "MY_VBOX_PE_SET_VERSION=$peForScons$quote && cd /d $quote$sourceForCmd$quote && $quote$sconsForCmd$quote MSVC_USE_SCRIPT=None MSTOOLKIT=yes MSVS_VERSION=14.3 TARGET_ARCH=x86 UNICODE=yes SKIPUTILS=$quote" + 'NSIS Menu' + "$quote SKIPTESTS=all SKIPDOC=all APPEND_CCFLAGS=-arch:IA32 STRIP=1 STRIP_W32=1 NSIS_CONFIG_LOG=1 ZLIB_W32=$zlibForScons dist > $quote$sconsLog$quote 2>&1"
 $instdist = Join-Path $source '.instdist'
-$sourceLicense = Join-Path $source 'COPYING'
-$distributionLicense = Join-Path $instdist 'COPYING'
-if (-not (Test-Path -LiteralPath $sourceLicense -PathType Leaf)) { throw 'The verified NSIS source tree does not contain COPYING.' }
-New-Item -ItemType Directory -Force $instdist | Out-Null
-Copy-Item -LiteralPath $sourceLicense -Destination $distributionLicense -Force
-if (-not (Test-Path -LiteralPath $distributionLicense -PathType Leaf)) { throw 'The NSIS install distribution does not contain COPYING required by Examples\makensis.nsi.' }
 Invoke-Checked 'Build the NSIS 3.10 log-enabled distribution' { & cmd.exe /d /c $sconsCommand }
 
 $builtMakensis = Join-Path $instdist 'makensis.exe'
