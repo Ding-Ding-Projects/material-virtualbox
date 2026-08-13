@@ -539,6 +539,31 @@ function Invoke-VirtualBoxBuild {
     if (-not (Test-Path -LiteralPath (Join-Path $payload 'VirtualBox.exe'))) {
         throw "The build completed without $payload\VirtualBox.exe."
     }
+    # The five host kernel drivers (src/VBox/HostDrivers/{Support,VBoxUSB,VBoxNetFlt,VBoxNetAdp})
+    # are ordinary SYSMODS gated only by VBOX_WITH_VBOXDRV/_USB/_NETFLT/_NETADP, all of which
+    # default to 1 for a normal Windows build (Config.kmk) and were never touched by any flag
+    # this script passes -- --disable-win-ddk only turns off configure.py's probe for the
+    # legacy Windows 7 DDK (WINDDK71), which the default host SDK selection
+    # (VBOX_WINDDK ?= WINSDK10-KM, Config.kmk) does not use.  A prior investigation that
+    # inspected an actual CI build log confirmed VBoxUSB.sys, VBoxUSBMon.sys, VBoxNetLwf.sys
+    # and VBoxNetAdp6.sys do compile, link and stage into this directory unmodified; the run
+    # that lacked them simply never finished (it died on the now-fixed
+    # tstVMStructSize/tstAsmStructs STATUS_STACK_BUFFER_OVERRUN crash before kBuild's late-
+    # scheduled VBoxTpG-dependent targets -- VBoxDrv/VBoxSup.sys included -- were reached).
+    # Verify all five explicitly so a real regression here fails the build loudly instead of
+    # silently shipping an installer with no hypervisor driver to install.
+    $expectedHostDrivers = @(
+        'VBoxSup.sys', 'VBoxSup.inf',
+        'VBoxUSBMon.sys', 'VBoxUSBMon.inf',
+        'VBoxUSB.sys', 'VBoxUSB.inf',
+        'VBoxNetAdp6.sys', 'VBoxNetAdp6.inf',
+        'VBoxNetLwf.sys', 'VBoxNetLwf.inf'
+    )
+    $missingHostDrivers = $expectedHostDrivers | Where-Object { -not (Test-Path -LiteralPath (Join-Path $payload $_)) }
+    if ($missingHostDrivers) {
+        $missingList = $missingHostDrivers -join ', '
+        throw "The build completed without the following host driver file(s) in $($payload): $missingList. Unsigned drivers still will not load under Driver Signature Enforcement, but they must exist for VBoxDrvInst.exe to attempt installing them at all."
+    }
     return $payload
 }
 

@@ -424,6 +424,23 @@ jobs:
           if (-not (Test-Path (Join-Path $payload 'VirtualBox.exe'))) {
             throw 'The packaged Windows payload is missing VirtualBox.exe.'
           }
+          # The five host kernel drivers (Support/VBoxUSB/VBoxNetFlt/VBoxNetAdp) are ordinary
+          # SYSMODS gated only by VBOX_WITH_VBOXDRV/_USB/_NETFLT/_NETADP, which all default to 1
+          # for a Windows build (Config.kmk) and are untouched by any flag this workflow passes.
+          # Fail loudly rather than shipping an installer with nothing for VBoxDrvInst.exe to
+          # install.
+          $expectedHostDrivers = @(
+            'VBoxSup.sys', 'VBoxSup.inf',
+            'VBoxUSBMon.sys', 'VBoxUSBMon.inf',
+            'VBoxUSB.sys', 'VBoxUSB.inf',
+            'VBoxNetAdp6.sys', 'VBoxNetAdp6.inf',
+            'VBoxNetLwf.sys', 'VBoxNetLwf.inf'
+          )
+          $missingHostDrivers = $expectedHostDrivers | Where-Object { -not (Test-Path (Join-Path $payload $_)) }
+          if ($missingHostDrivers) {
+            $missingList = $missingHostDrivers -join ', '
+            throw "The packaged Windows payload is missing host driver file(s): $missingList."
+          }
           $nugetCommand = Get-Command nuget.exe -ErrorAction SilentlyContinue
           if ($nugetCommand) {
             $nugetPath = $nugetCommand.Path
