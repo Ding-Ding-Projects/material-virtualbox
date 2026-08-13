@@ -347,9 +347,9 @@ jobs:
             Invoke-WebRequest 'https://dist.nuget.org/win-x86-commandline/v6.11.1/nuget.exe' -OutFile $nugetPath
           }
           $squirrelRoot = Join-Path $env:RUNNER_TEMP 'squirrel-tools'
-          & $nugetPath install Squirrel -Version 1.9.1 -OutputDirectory $squirrelRoot -ExcludeVersion -NonInteractive
+          & $nugetPath install squirrel.windows -Version 1.9.1 -OutputDirectory $squirrelRoot -ExcludeVersion -NonInteractive
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          $squirrel = Join-Path $squirrelRoot 'Squirrel\tools\Squirrel.exe'
+          $squirrel = Join-Path $squirrelRoot 'squirrel.windows\tools\Squirrel.exe'
           if (-not (Test-Path $squirrel)) { throw 'NuGet did not provide Squirrel.exe.' }
           $major = (Select-String Version.kmk -Pattern '^VBOX_VERSION_MAJOR\s*=\s*(\d+)' | ForEach-Object { $_.Matches[0].Groups[1].Value })
           $minor = (Select-String Version.kmk -Pattern '^VBOX_VERSION_MINOR\s*=\s*(\d+)' | ForEach-Object { $_.Matches[0].Groups[1].Value })
@@ -367,7 +367,7 @@ jobs:
               <authors>Oracle</authors>
               <description>Unsigned VirtualBox Windows package.</description>
             </metadata>
-            <files><file src="lib\\net45\\**\\*" target="lib\\net45" /></files>
+            <files><file src="lib\net45\**\*" target="lib\net45" /></files>
           </package>
           "@
           $nuspecPath = Join-Path $stage 'VirtualBox.nuspec'
