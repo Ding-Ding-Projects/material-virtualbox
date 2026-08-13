@@ -421,9 +421,12 @@ function Ensure-Squirrel {
         Invoke-WebRequest -UseBasicParsing -Uri 'https://dist.nuget.org/win-x86-commandline/v6.11.1/nuget.exe' -OutFile $nuget
     }
     $squirrelRoot = Join-Path $toolRoot 'squirrel'
-    $squirrel = Join-Path $squirrelRoot 'Squirrel\tools\Squirrel.exe'
+    # The NuGet package is "squirrel.windows"; a package named "Squirrel" does not
+    # exist.  -ExcludeVersion drops the version from the directory but keeps the
+    # package id, so the tool lands in <root>\squirrel.windows\tools.
+    $squirrel = Join-Path $squirrelRoot 'squirrel.windows\tools\Squirrel.exe'
     if (-not (Test-Path -LiteralPath $squirrel)) {
-        & $nuget install Squirrel -Version 1.9.1 -OutputDirectory $squirrelRoot -ExcludeVersion -NonInteractive | Out-Host
+        & $nuget install squirrel.windows -Version 1.9.1 -OutputDirectory $squirrelRoot -ExcludeVersion -NonInteractive | Out-Host
         if ($LASTEXITCODE -ne 0) { throw "NuGet Squirrel installation failed with exit code $LASTEXITCODE." }
     }
     if (-not (Test-Path -LiteralPath $squirrel)) { throw 'NuGet did not provide Squirrel.exe.' }
@@ -517,7 +520,7 @@ function New-SquirrelInstaller {
     <authors>Oracle</authors>
     <description>Unsigned VirtualBox Windows package.</description>
   </metadata>
-  <files><file src="lib\\net45\\**\\*" target="lib\\net45" /></files>
+  <files><file src="lib\net45\**\*" target="lib\net45" /></files>
 </package>
 "@
     $nuspecPath = Join-Path $stage 'VirtualBox.nuspec'
