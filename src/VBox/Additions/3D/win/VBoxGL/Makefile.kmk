@@ -46,6 +46,9 @@ VBOXGL_DISABLED_WARNINGS := -wd4005
 # -wd4459: stw_device.h(102): warning C4459: declaration of 'stw_dev' hides global declaration
 # -wd4668: c99_compat.h(99): warning C4668: '__STDC_VERSION__' is not defined as a preprocessor macro, replacing with '0' for '#if/#elif'
 VBOXGL_DISABLED_WARNINGS += -wd4100 -wd4204 -wd4245 -wd4267 -wd4459 -wd4668
+# -wd5286/-wd5287: formats.h(192): warning C5287: operands are different enum types.  The Mesa sources mask and
+#                  combine values belonging to separate enums by design; newer MSVC reports the pair.
+VBOXGL_DISABLED_WARNINGS += -wd5286 -wd5287
 VBoxGL_CFLAGS   = $(VBOXGL_DISABLED_WARNINGS)
 VBoxGL_CXXFLAGS = $(VBOXGL_DISABLED_WARNINGS)
 VBoxGL_INCS     = \

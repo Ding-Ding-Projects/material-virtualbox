@@ -31,6 +31,9 @@ function Invoke-Checked {
     )
     $timer = [Diagnostics.Stopwatch]::StartNew()
     Write-Host "==> $Name"
+    # Send the action's own output straight to the host.  Anything left on the
+    # success stream would otherwise be returned by whichever Ensure-* function
+    # invoked this, turning a single path string into an array.
     & $Action | Out-Host
     if ($LASTEXITCODE -ne 0) {
         throw "$Name failed with exit code $LASTEXITCODE."
@@ -204,16 +207,26 @@ function Ensure-WindowsKits {
             -Name 'GRMWDK_EN_7600_1.ISO' `
             -Uri 'https://download.microsoft.com/download/4/a/2/4a25c7d5-efbe-4182-b6a9-ae6850409a78/GRMWDK_EN_7600_1.ISO' `
             -Sha256 '5EDC723B50EA28A070CAD361DD0927DF402B7A861A036BBCF11D27EBBA77657D'
-        $wdk71Packages = Join-Path $toolRoot 'wdk71-packages'
+        # An /a administrative install is carried out by the out-of-process Windows
+        # Installer service, so the service itself has to be able to open the package.
+        # Stage the extracted packages under the OS temporary directory, which the
+        # service can always read, rather than inside the tool cache, which may carry
+        # restrictive inherited permissions.  Only the extraction output is cached.
+        $wdk71Packages = Join-Path ([IO.Path]::GetTempPath()) ('vbox-wdk71-' + [guid]::NewGuid().ToString('N'))
         New-Item -ItemType Directory -Force $wdk71Packages | Out-Null
-        $sevenZip = Ensure-SevenZip
-        & $sevenZip x $wdk71Iso 'WDK\headers.msi' 'WDK\headers_cab001.cab' 'WDK\vistalibs_x64fre.msi' 'WDK\vistalibs_x64fre_cab001.cab' 'WDK\wnetlibs_x64fre.msi' 'WDK\wnetlibs_x64fre_cab001.cab' "-o$wdk71Packages" '-y'
-        if ($LASTEXITCODE -ne 0) { throw "WDK 7.1 package extraction failed with exit code $LASTEXITCODE." }
-        New-Item -ItemType Directory -Force $wdk71CacheRoot | Out-Null
-        foreach ($packageName in @('headers.msi', 'vistalibs_x64fre.msi', 'wnetlibs_x64fre.msi')) {
-            $packagePath = Join-Path $wdk71Packages "WDK\$packageName"
-            $install = Start-Process -FilePath 'msiexec.exe' -ArgumentList @('/a', $packagePath, "TARGETDIR=$wdk71CacheRoot", '/qn', '/norestart') -Wait -PassThru -WindowStyle Hidden
-            if ($install.ExitCode -ne 0) { throw "WDK 7.1 package $packageName extraction failed with exit code $($install.ExitCode)." }
+        try {
+            $sevenZip = Ensure-SevenZip
+            & $sevenZip x $wdk71Iso 'WDK\headers.msi' 'WDK\headers_cab001.cab' 'WDK\vistalibs_x64fre.msi' 'WDK\vistalibs_x64fre_cab001.cab' 'WDK\wnetlibs_x64fre.msi' 'WDK\wnetlibs_x64fre_cab001.cab' "-o$wdk71Packages" '-y' | Out-Host
+            if ($LASTEXITCODE -ne 0) { throw "WDK 7.1 package extraction failed with exit code $LASTEXITCODE." }
+            New-Item -ItemType Directory -Force $wdk71CacheRoot | Out-Null
+            foreach ($packageName in @('headers.msi', 'vistalibs_x64fre.msi', 'wnetlibs_x64fre.msi')) {
+                $packagePath = Join-Path $wdk71Packages "WDK\$packageName"
+                if (-not (Test-Path -LiteralPath $packagePath)) { throw "WDK 7.1 package $packageName was not extracted to $packagePath." }
+                $install = Start-Process -FilePath 'msiexec.exe' -ArgumentList @('/a', $packagePath, "TARGETDIR=$wdk71CacheRoot", '/qn', '/norestart') -Wait -PassThru -WindowStyle Hidden
+                if ($install.ExitCode -ne 0) { throw "WDK 7.1 package $packageName extraction from $packagePath failed with exit code $($install.ExitCode)." }
+            }
+        } finally {
+            Remove-Item -LiteralPath $wdk71Packages -Recurse -Force -ErrorAction SilentlyContinue
         }
         $wdk71Marker = Get-ChildItem $wdk71CacheRoot -Recurse -Filter 'rxce.lib' -File -ErrorAction SilentlyContinue |
             Where-Object { $_.FullName -match '\\lib\\wlh\\amd64\\rxce\.lib$' } | Select-Object -First 1
@@ -368,6 +381,34 @@ function Ensure-Nsis {
     return $target
 }
 
+function Get-PreferredVisualCppRoot {
+    # The tree is built and released with the Visual Studio 2022 toolset.  MSVC
+    # 14.5x (Visual Studio 2026) diverges from it in ways this source does not
+    # accommodate yet: it rejects IPRT's no-CRT definitions of intrinsic
+    # functions (C2169) and raises new warnings that -Wall -WX turns into
+    # errors.  Prefer a complete 17.x installation so a local build uses the
+    # same compiler as the hosted runners, and fall back to configure.py's own
+    # newest-installation probe when no such toolset is present.
+    $vswhere = Join-Path ${env:ProgramFiles(x86)} 'Microsoft Visual Studio\Installer\vswhere.exe'
+    if (-not (Test-Path -LiteralPath $vswhere)) { return $null }
+    $installs = @(& $vswhere -products '*' -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 `
+            -version '[17.0,18.0)' -property installationPath 2>$null |
+        ForEach-Object { $_.Trim() } | Where-Object { $_ })
+    foreach ($install in $installs) {
+        $toolsets = @(Get-ChildItem -LiteralPath (Join-Path $install 'VC\Tools\MSVC') -Directory -ErrorAction SilentlyContinue |
+            Sort-Object Name -Descending)
+        foreach ($toolset in $toolsets) {
+            $compiler = Join-Path $toolset.FullName 'bin\Hostx64\x64\cl.exe'
+            $runtime = Join-Path $toolset.FullName 'lib\x64\libvcruntime.lib'
+            if ((Test-Path -LiteralPath $compiler) -and (Test-Path -LiteralPath $runtime)) {
+                Write-Host "Using the Visual Studio 2022 toolset at $install for the VirtualBox build."
+                return $install
+            }
+        }
+    }
+    return $null
+}
+
 function Ensure-Qt {
     param([Parameter(Mandatory = $true)] [string] $Python)
     $qtRoot = Join-Path $dependencyRoot 'virtualbox-qt'
@@ -397,9 +438,12 @@ function Ensure-Squirrel {
         Invoke-WebRequest -UseBasicParsing -Uri 'https://dist.nuget.org/win-x86-commandline/v6.11.1/nuget.exe' -OutFile $nuget
     }
     $squirrelRoot = Join-Path $toolRoot 'squirrel'
-    $squirrel = Join-Path $squirrelRoot 'Squirrel\tools\Squirrel.exe'
+    # The NuGet package is "squirrel.windows"; a package named "Squirrel" does not
+    # exist.  -ExcludeVersion drops the version from the directory but keeps the
+    # package id, so the tool lands in <root>\squirrel.windows\tools.
+    $squirrel = Join-Path $squirrelRoot 'squirrel.windows\tools\Squirrel.exe'
     if (-not (Test-Path -LiteralPath $squirrel)) {
-        & $nuget install Squirrel -Version 1.9.1 -OutputDirectory $squirrelRoot -ExcludeVersion -NonInteractive | Out-Host
+        & $nuget install squirrel.windows -Version 1.9.1 -OutputDirectory $squirrelRoot -ExcludeVersion -NonInteractive | Out-Host
         if ($LASTEXITCODE -ne 0) { throw "NuGet Squirrel installation failed with exit code $LASTEXITCODE." }
     }
     if (-not (Test-Path -LiteralPath $squirrel)) { throw 'NuGet did not provide Squirrel.exe.' }
@@ -434,12 +478,28 @@ function Invoke-VirtualBoxBuild {
         "--with-qt-path=$QtRoot", "--with-sdk10=$SdkRoot",
         "--with-win-vcpkg-root=$VcpkgRoot", "--with-python-path=$pythonRoot"
     )
+    $visualCppRoot = Get-PreferredVisualCppRoot
+    if ($visualCppRoot) { $commonArguments += "--with-vc=$visualCppRoot" }
+    # configure.ps1 resolves "python3" ahead of "python", and on a default Windows
+    # install python3.exe is the Microsoft Store app-execution alias rather than an
+    # interpreter: it writes an advertisement to stderr and exits non-zero.  This
+    # script already discovered and version-checked a real Python 3, so both passes
+    # below drive configure.py with that interpreter directly instead of re-running
+    # the wrapper's search (the wrapper also has no -PythonPath parameter to hand it
+    # one anyway).
+    #
+    # The custom log-enabled NSIS build (Ensure-Nsis) needs env.bat to already exist,
+    # since it compiles NSIS from source with the toolchain configure.py just wired
+    # up.  So the first pass disables win-nsis outright -- otherwise configure.py's
+    # required win-nsis tool check fails outright on a machine with no NSIS
+    # registered at all -- purely to get env.bat written, and only the second, final
+    # pass points configure at the freshly built tool.
     $bootstrapArguments = @($commonArguments) + '--disable-win-nsis'
-    Invoke-Checked 'Bootstrap the unsigned Windows build environment' { & .\configure.ps1 -PythonPath $Python @bootstrapArguments }
+    Invoke-Checked 'Bootstrap the unsigned Windows build environment' { & $Python configure.py @bootstrapArguments }
     if (-not (Test-Path -LiteralPath .\env.bat)) { throw 'configure.py did not generate env.bat.' }
     $nsisRoot = Ensure-Nsis
     $finalArguments = @($commonArguments) + "--with-win-nsis-path=$nsisRoot"
-    Invoke-Checked 'Configure the unsigned Windows build' { & .\configure.ps1 -PythonPath $Python @finalArguments }
+    Invoke-Checked 'Configure the unsigned Windows build' { & $Python configure.py @finalArguments }
     if (-not (Test-Path -LiteralPath .\env.bat)) { throw 'Final configure.py pass did not generate env.bat.' }
     $revisionMatch = Select-String configure.py -Pattern '\$Id: configure.py (\d+)'
     if (-not $revisionMatch) { throw 'configure.py does not expose a numeric source revision for the Git mirror build.' }
@@ -450,8 +510,24 @@ function Invoke-VirtualBoxBuild {
     Invoke-Checked 'Stage OpenSSL headers' {
         & cmd.exe /d /c "call `"$repoRoot\env.bat`" && kmk crypto-headers"
     }
+    Invoke-Checked 'Build the Windows host binaries' {
+        # A plain "kmk" pass (no explicit target) must run before the "packing"
+        # pass below.  "packing" only runs VirtualBox's packing/staging rules; it
+        # does not itself compile the host binaries (VirtualBox.exe, VBoxSVC.exe,
+        # VBoxManage.exe, the Qt frontend, and the rest of
+        # out\win.amd64\release\bin).  Running "kmk ... packing" alone against a
+        # cold checkout leaves those binaries unbuilt and the payload directory
+        # missing VirtualBox.exe.
+        & cmd.exe /d /c "call `"$repoRoot\env.bat`" && kmk VBOX_SVN_REV=$revision SDK_WINSDK10_MAX_VERSION=10.0.22621.0 VBOX_WINDDK_GST_W7=WINSDK10-KM VBOX_WINDDK_GST_W8=WINSDK10-KM VBOX_WINDDK_GST_WLH=WINDDK71WLH VBOX_WINDDK_GST_W2K3=WINSDK10-KM VBOX_WINDDK_GST_WXP=WINSDK10-KM VBOX_WINDDK_GST_W2K=WINSDK10-KM VBOX_WINDDK_GST_NT4=WINSDK10-KM VBOX_USE_RTISOMAKER=1 VBOX_WITHOUT_WIN_HOST_INSTALLER=1"
+    }
     Invoke-Checked 'Build the Windows package payload' {
-        & cmd.exe /d /c "call `"$repoRoot\env.bat`" && kmk VBOX_SVN_REV=$revision SDK_WINSDK10_MAX_VERSION=10.0.22621.0 VBOX_WINDDK_GST_W7=WINSDK10-KM VBOX_WINDDK_GST_W8=WINSDK10-KM VBOX_WINDDK_GST_WLH=WINDDK71WLH VBOX_WINDDK_GST_W2K3=WINSDK10-KM VBOX_WINDDK_GST_WXP=WINSDK10-KM VBOX_WINDDK_GST_W2K=WINSDK10-KM VBOX_WINDDK_GST_NT4=WINSDK10-KM VBOX_USE_RTISOMAKER=1 packing"
+        # VBOX_WITHOUT_WIN_HOST_INSTALLER skips the WiX/MSI host installer during
+        # "packing".  This package ships the unsigned Squirrel installer built from
+        # out\win.amd64\release\bin further down, not the traditional VirtualBox MSI,
+        # so the MSI would need the WiX toolset nothing installs and would produce an
+        # artifact this pipeline never publishes.  The host binaries themselves were
+        # already built by the full pass above; this pass only packs them.
+        & cmd.exe /d /c "call `"$repoRoot\env.bat`" && kmk VBOX_SVN_REV=$revision SDK_WINSDK10_MAX_VERSION=10.0.22621.0 VBOX_WINDDK_GST_W7=WINSDK10-KM VBOX_WINDDK_GST_W8=WINSDK10-KM VBOX_WINDDK_GST_WLH=WINDDK71WLH VBOX_WINDDK_GST_W2K3=WINSDK10-KM VBOX_WINDDK_GST_WXP=WINSDK10-KM VBOX_WINDDK_GST_W2K=WINSDK10-KM VBOX_WINDDK_GST_NT4=WINSDK10-KM VBOX_USE_RTISOMAKER=1 VBOX_WITHOUT_WIN_HOST_INSTALLER=1 packing"
     }
     $payload = Join-Path $repoRoot 'out\win.amd64\release\bin'
     if (-not (Test-Path -LiteralPath (Join-Path $payload 'VirtualBox.exe'))) {
@@ -484,21 +560,21 @@ function New-SquirrelInstaller {
     <authors>Oracle</authors>
     <description>Unsigned VirtualBox Windows package.</description>
   </metadata>
-  <files><file src="lib\\net45\\**\\*" target="lib\\net45" /></files>
+  <files><file src="lib\net45\**\*" target="lib\net45" /></files>
 </package>
 "@
     $nuspecPath = Join-Path $stage 'VirtualBox.nuspec'
     Set-Content -LiteralPath $nuspecPath -Value $nuspec -Encoding UTF8
     Push-Location $stage
     try {
-        & $Tools.NuGet pack $nuspecPath -NoPackageAnalysis -NonInteractive
+        & $Tools.NuGet pack $nuspecPath -NoPackageAnalysis -NonInteractive | Out-Host
         if ($LASTEXITCODE -ne 0) { throw "NuGet package creation failed with exit code $LASTEXITCODE." }
     } finally {
         Pop-Location
     }
     $package = Get-ChildItem -LiteralPath $stage -Filter '*.nupkg' -File | Select-Object -First 1
     if (-not $package) { throw 'NuGet did not produce the Squirrel input package.' }
-    & $Tools.Squirrel --releasify $package.FullName --releaseDir $release --no-msi
+    & $Tools.Squirrel --releasify $package.FullName --releaseDir $release --no-msi | Out-Host
     if ($LASTEXITCODE -ne 0) { throw "Squirrel releasify failed with exit code $LASTEXITCODE." }
     $setup = Join-Path $release 'Setup.exe'
     $releases = Join-Path $release 'RELEASES'

@@ -328,7 +328,9 @@ jobs:
           Set-Content -LiteralPath $revisionFile -Value "export VBOX_SVN_REV=$revision" -Encoding ascii
           & cmd.exe /d /c "call `"$PWD\env.bat`" && kmk crypto-headers"
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          & cmd.exe /d /c "call `"$PWD\env.bat`" && kmk VBOX_SVN_REV=$revision SDK_WINSDK10_MAX_VERSION=10.0.22621.0 VBOX_WINDDK_GST_W7=WINSDK10-KM VBOX_WINDDK_GST_W8=WINSDK10-KM VBOX_WINDDK_GST_WLH=WINDDK71WLH VBOX_WINDDK_GST_W2K3=WINSDK10-KM VBOX_WINDDK_GST_WXP=WINSDK10-KM VBOX_WINDDK_GST_W2K=WINSDK10-KM VBOX_WINDDK_GST_NT4=WINSDK10-KM VBOX_USE_RTISOMAKER=1 packing"
+          & cmd.exe /d /c "call `"$PWD\env.bat`" && kmk VBOX_SVN_REV=$revision SDK_WINSDK10_MAX_VERSION=10.0.22621.0 VBOX_WINDDK_GST_W7=WINSDK10-KM VBOX_WINDDK_GST_W8=WINSDK10-KM VBOX_WINDDK_GST_WLH=WINDDK71WLH VBOX_WINDDK_GST_W2K3=WINSDK10-KM VBOX_WINDDK_GST_WXP=WINSDK10-KM VBOX_WINDDK_GST_W2K=WINSDK10-KM VBOX_WINDDK_GST_NT4=WINSDK10-KM VBOX_USE_RTISOMAKER=1 VBOX_WITHOUT_WIN_HOST_INSTALLER=1"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          & cmd.exe /d /c "call `"$PWD\env.bat`" && kmk VBOX_SVN_REV=$revision SDK_WINSDK10_MAX_VERSION=10.0.22621.0 VBOX_WINDDK_GST_W7=WINSDK10-KM VBOX_WINDDK_GST_W8=WINSDK10-KM VBOX_WINDDK_GST_WLH=WINDDK71WLH VBOX_WINDDK_GST_W2K3=WINSDK10-KM VBOX_WINDDK_GST_WXP=WINSDK10-KM VBOX_WINDDK_GST_W2K=WINSDK10-KM VBOX_WINDDK_GST_NT4=WINSDK10-KM VBOX_USE_RTISOMAKER=1 VBOX_WITHOUT_WIN_HOST_INSTALLER=1 packing"
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
       - name: Build unsigned Squirrel full installer
@@ -347,9 +349,9 @@ jobs:
             Invoke-WebRequest 'https://dist.nuget.org/win-x86-commandline/v6.11.1/nuget.exe' -OutFile $nugetPath
           }
           $squirrelRoot = Join-Path $env:RUNNER_TEMP 'squirrel-tools'
-          & $nugetPath install Squirrel -Version 1.9.1 -OutputDirectory $squirrelRoot -ExcludeVersion -NonInteractive
+          & $nugetPath install squirrel.windows -Version 1.9.1 -OutputDirectory $squirrelRoot -ExcludeVersion -NonInteractive
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          $squirrel = Join-Path $squirrelRoot 'Squirrel\tools\Squirrel.exe'
+          $squirrel = Join-Path $squirrelRoot 'squirrel.windows\tools\Squirrel.exe'
           if (-not (Test-Path $squirrel)) { throw 'NuGet did not provide Squirrel.exe.' }
           $major = (Select-String Version.kmk -Pattern '^VBOX_VERSION_MAJOR\s*=\s*(\d+)' | ForEach-Object { $_.Matches[0].Groups[1].Value })
           $minor = (Select-String Version.kmk -Pattern '^VBOX_VERSION_MINOR\s*=\s*(\d+)' | ForEach-Object { $_.Matches[0].Groups[1].Value })
@@ -367,7 +369,7 @@ jobs:
               <authors>Oracle</authors>
               <description>Unsigned VirtualBox Windows package.</description>
             </metadata>
-            <files><file src="lib\\net45\\**\\*" target="lib\\net45" /></files>
+            <files><file src="lib\net45\**\*" target="lib\net45" /></files>
           </package>
           "@
           $nuspecPath = Join-Path $stage 'VirtualBox.nuspec'
@@ -426,6 +428,156 @@ jobs:
           if-no-files-found: warn
           retention-days: 14
 
+      - name: Compose release content
+        if: ${{ success() }}
+        continue-on-error: true
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ secrets.RELEASE_TOKEN || secrets.ORG_TOKEN || secrets.GITHUB_TOKEN }}
+          DIM_SUM_CATALOG_URL: https://raw.githubusercontent.com/Ding-Ding-Projects/dim-sum-photos/main/catalog/index.json
+          DIM_SUM_PHOTO_REPOSITORY: Ding-Ding-Projects/dim-sum-photos
+          DIM_SUM_CANDIDATE_LIMIT: "8"
+        run: |
+          # Produces the release-notes fragments that the publish step consumes. Every
+          # failure in here is reported in the fragment itself; none of it may block or
+          # fail the release, which is why the step is continue-on-error and why nothing
+          # below rethrows.
+          $ErrorActionPreference = 'Continue'
+          $lineCountPath = Join-Path $env:RUNNER_TEMP 'release-line-count.md'
+          $dimSumNotePath = Join-Path $env:RUNNER_TEMP 'release-dim-sum.md'
+          $dimSumAssetPath = Join-Path $env:RUNNER_TEMP 'release-dim-sum-asset.txt'
+          $dimSumTitlePath = Join-Path $env:RUNNER_TEMP 'release-dim-sum-title.txt'
+          Set-Content -LiteralPath $dimSumAssetPath -Value '' -Encoding utf8
+          Set-Content -LiteralPath $dimSumTitlePath -Value '' -Encoding utf8
+
+          # --- Line count -----------------------------------------------------------
+          $reproduce = 'pwsh -NoProfile -File tools/count-release-lines.ps1'
+          try {
+            if ((& git rev-parse --is-shallow-repository) -eq 'true') {
+              Write-Host 'Deepening the shallow checkout so line attribution can see recent history.'
+              & git fetch --deepen=1000 --no-tags 2>&1 | ForEach-Object { Write-Host $_ }
+            }
+          } catch {
+            Write-Host "History deepening was skipped: $($_.Exception.Message)"
+          }
+          $countOut = Join-Path $env:RUNNER_TEMP 'line-count-stdout.md'
+          $countErr = Join-Path $env:RUNNER_TEMP 'line-count-stderr.txt'
+          $counter = $null
+          try {
+            $counter = Start-Process -FilePath 'pwsh' -ArgumentList @('-NoProfile', '-File', 'tools/count-release-lines.ps1') -NoNewWindow -Wait -PassThru -RedirectStandardOutput $countOut -RedirectStandardError $countErr
+          } catch {
+            Write-Host "The line counter could not be started: $($_.Exception.Message)"
+          }
+          if (Test-Path -LiteralPath $countErr) { Get-Content -LiteralPath $countErr | ForEach-Object { Write-Host $_ } }
+          $table = ''
+          if (Test-Path -LiteralPath $countOut) { $table = (Get-Content -LiteralPath $countOut -Raw) }
+          if ($counter -and $counter.ExitCode -eq 0 -and -not [string]::IsNullOrWhiteSpace($table)) {
+            $lineCount = "## Line count`n`nCounted by this workflow run at ``$env:GITHUB_SHA``. Reproduce locally with ``$reproduce`` from the repository root.`n`n$table"
+          } else {
+            $firstError = ''
+            if (Test-Path -LiteralPath $countErr) {
+              $errorLines = @(Get-Content -LiteralPath $countErr | Where-Object { $_.Trim() })
+              $firstError = @($errorLines | Where-Object { $_ -match '(?i)fail|error|exception|not recognized|denied' } | Select-Object -First 1)[0]
+              if (-not $firstError -and $errorLines.Count -gt 0) { $firstError = $errorLines[-1] }
+            }
+            if (-not $firstError) {
+              $exitCode = if ($counter) { $counter.ExitCode } else { 'unknown' }
+              $firstError = "the counter exited with code $exitCode and produced no table"
+            }
+            $lineCount = "## Line count`n`nLine counting failed: $firstError"
+          }
+          Set-Content -LiteralPath $lineCountPath -Value $lineCount -Encoding utf8
+
+          # --- Dim sum code name and photo ------------------------------------------
+          # Best effort only. The public catalog is resolved at run time and never
+          # vendored into this repository; if anything about it surprises us we say so
+          # in the notes and ship the release without a dish.
+          $dimSumSkip = {
+            param($reason)
+            Write-Host "Dim sum content omitted: $reason"
+            Set-Content -LiteralPath $dimSumNotePath -Value "## Dim sum`n`nThe dim sum code name and photo were omitted from this release: $reason" -Encoding utf8
+          }
+          try {
+            $catalogFile = Join-Path $env:RUNNER_TEMP 'dim-sum-catalog.json'
+            Invoke-WebRequest -UseBasicParsing -Uri $env:DIM_SUM_CATALOG_URL -OutFile $catalogFile -TimeoutSec 180
+            $catalog = Get-Content -LiteralPath $catalogFile -Raw -Encoding utf8 | ConvertFrom-Json -AsHashtable -Depth 24
+            if (-not $catalog -or -not ($catalog.Keys -contains 'dishes')) {
+              throw "the catalog JSON has no 'dishes' collection (top-level keys: $(@($catalog.Keys) -join ', '))"
+            }
+            $dishes = @($catalog['dishes'])
+            if ($dishes.Count -eq 0) { throw 'the catalog reported an empty dish collection' }
+            $usable = @($dishes | Where-Object {
+              $_ -is [System.Collections.IDictionary] -and
+              $_.Keys -contains 'name' -and $_['name'] -is [System.Collections.IDictionary] -and
+              $_['name'].Keys -contains 'en' -and $_['name'].Keys -contains 'zhHant' -and
+              -not [string]::IsNullOrWhiteSpace([string]$_['name']['en']) -and
+              -not [string]::IsNullOrWhiteSpace([string]$_['name']['zhHant']) -and
+              $_.Keys -contains 'image' -and $_['image'] -is [System.Collections.IDictionary] -and
+              $_['image'].Keys -contains 'path' -and
+              -not [string]::IsNullOrWhiteSpace([string]$_['image']['path'])
+            })
+            if ($usable.Count -eq 0) { throw "no catalog entry carried the expected name.en, name.zhHant and image.path fields" }
+            Write-Host "Catalog resolved: $($dishes.Count) entries, $($usable.Count) usable."
+
+            $previousBodies = ''
+            try {
+              $previous = @(gh api "repos/$env:GITHUB_REPOSITORY/releases?per_page=100" | ConvertFrom-Json)
+              $previousBodies = ($previous | ForEach-Object { "$($_.name)`n$($_.body)" }) -join "`n"
+              Write-Host "Scanned $($previous.Count) earlier release record(s) for dish names already in use."
+            } catch {
+              Write-Host "Earlier releases could not be scanned, so no dish is treated as used: $($_.Exception.Message)"
+            }
+
+            $photoTags = @(gh release list --repo $env:DIM_SUM_PHOTO_REPOSITORY --limit 200 --json tagName,isDraft |
+              ConvertFrom-Json |
+              Where-Object { -not $_.isDraft -and $_.tagName -like 'catalog-v1*' } |
+              Sort-Object -Property tagName |
+              ForEach-Object { $_.tagName })
+            if ($photoTags.Count -eq 0) { throw 'the public photo repository published no catalog-v1 release' }
+
+            $limit = [int]$env:DIM_SUM_CANDIDATE_LIMIT
+            $attempted = 0
+            $chosen = $null
+            foreach ($dish in $usable) {
+              $display = "$([string]$dish['name']['en']) · $([string]$dish['name']['zhHant'])"
+              if ($previousBodies -and $previousBodies.Contains($display)) { continue }
+              $assetName = Split-Path -Leaf ([string]$dish['image']['path'])
+              $attempted++
+              foreach ($tag in $photoTags) {
+                $url = "https://github.com/$env:DIM_SUM_PHOTO_REPOSITORY/releases/download/$tag/$assetName"
+                try {
+                  $probe = Invoke-WebRequest -UseBasicParsing -Method Head -Uri $url -TimeoutSec 90
+                  if ($probe.StatusCode -eq 200) {
+                    $chosen = [pscustomobject]@{ Display = $display; AssetName = $assetName; Url = $url; Tag = $tag }
+                    break
+                  }
+                } catch {
+                  # A 404 simply means this volume does not carry the candidate.
+                }
+              }
+              if ($chosen) { break }
+              if ($attempted -ge $limit) { break }
+            }
+            if (-not $chosen) { throw "no unused dish among the first $attempted candidate(s) had a published image asset in $($photoTags -join ', ')" }
+
+            $photoFile = Join-Path $env:RUNNER_TEMP $chosen.AssetName
+            Invoke-WebRequest -UseBasicParsing -Uri $chosen.Url -OutFile $photoFile -TimeoutSec 300
+            $photoInfo = Get-Item -LiteralPath $photoFile
+            if ($photoInfo.Length -le 0) { throw "the downloaded photo $($chosen.AssetName) is empty" }
+            $magic = [byte[]](Get-Content -LiteralPath $photoFile -AsByteStream -TotalCount 8)
+            $isPng = $magic.Length -ge 8 -and $magic[0] -eq 0x89 -and $magic[1] -eq 0x50 -and $magic[2] -eq 0x4E -and $magic[3] -eq 0x47 -and $magic[4] -eq 0x0D -and $magic[5] -eq 0x0A -and $magic[6] -eq 0x1A -and $magic[7] -eq 0x0A
+            $isJpeg = $magic.Length -ge 3 -and $magic[0] -eq 0xFF -and $magic[1] -eq 0xD8 -and $magic[2] -eq 0xFF
+            if (-not ($isPng -or $isJpeg)) { throw "the downloaded photo $($chosen.AssetName) is neither PNG nor JPEG" }
+
+            Set-Content -LiteralPath $dimSumAssetPath -Value $photoFile -Encoding utf8
+            Set-Content -LiteralPath $dimSumTitlePath -Value "— $($chosen.Display)" -Encoding utf8
+            $dimSumNote = "## Dim sum`n`nRelease code name: **$($chosen.Display)**`n`n- Photo asset attached to this release: ``$($chosen.AssetName)`` ($($photoInfo.Length) bytes)`n- Public source: <$($chosen.Url)>`n- Catalog: <$env:DIM_SUM_CATALOG_URL>"
+            Set-Content -LiteralPath $dimSumNotePath -Value $dimSumNote -Encoding utf8
+            Write-Host "Dim sum code name: $($chosen.Display) ($($chosen.AssetName) from $($chosen.Tag))."
+          } catch {
+            & $dimSumSkip ($_.Exception.Message -split "`n")[0]
+          }
+
       - name: Publish immutable release
         if: ${{ success() }}
         shell: pwsh
@@ -441,6 +593,22 @@ jobs:
           $completed = (Get-Date).ToUniversalTime().ToString('o')
           $start = [DateTimeOffset]::Parse($run.run_started_at)
           $duration = (([DateTimeOffset]::Parse($completed)) - $start).ToString('hh\:mm\:ss')
+
+          # Content fragments written by the preceding step. Each one is best effort and
+          # already carries its own explanation when it could not be produced, so a
+          # missing fragment is reported rather than allowed to hold up the release.
+          $lineCountPath = Join-Path $env:RUNNER_TEMP 'release-line-count.md'
+          $lineCount = "## Line count`n`nLine counting failed: the release-content step produced no result."
+          if (Test-Path -LiteralPath $lineCountPath) { $lineCount = (Get-Content -LiteralPath $lineCountPath -Raw -Encoding utf8).TrimEnd() }
+          $dimSumNotePath = Join-Path $env:RUNNER_TEMP 'release-dim-sum.md'
+          $dimSum = "## Dim sum`n`nThe dim sum code name and photo were omitted from this release: the release-content step produced no result."
+          if (Test-Path -LiteralPath $dimSumNotePath) { $dimSum = (Get-Content -LiteralPath $dimSumNotePath -Raw -Encoding utf8).TrimEnd() }
+          $titleSuffix = ''
+          $dimSumTitlePath = Join-Path $env:RUNNER_TEMP 'release-dim-sum-title.txt'
+          if (Test-Path -LiteralPath $dimSumTitlePath) { $titleSuffix = (Get-Content -LiteralPath $dimSumTitlePath -Raw -Encoding utf8).Trim() }
+          $title = "VirtualBox $tag"
+          if ($titleSuffix) { $title = "$title $titleSuffix" }
+
           $notes = @"
           ## Windows Squirrel package
 
@@ -456,15 +624,28 @@ jobs:
 
           SHA-256:
           $(Get-Content "$env:RUNNER_TEMP\package-hashes.txt" -Raw)
+
+          $lineCount
+
+          $dimSum
           "@
           $notesPath = Join-Path $env:RUNNER_TEMP 'release-notes.md'
           Set-Content -Path $notesPath -Value $notes -Encoding utf8
-          $assets = Get-Content "$env:RUNNER_TEMP\package-files.txt"
-          gh release create $tag $assets --target $env:GITHUB_SHA --title "VirtualBox $tag" --notes-file $notesPath --draft
+          $assets = @(Get-Content "$env:RUNNER_TEMP\package-files.txt")
+          $dimSumAssetPath = Join-Path $env:RUNNER_TEMP 'release-dim-sum-asset.txt'
+          if (Test-Path -LiteralPath $dimSumAssetPath) {
+            $photo = (Get-Content -LiteralPath $dimSumAssetPath -Raw -Encoding utf8).Trim()
+            if ($photo -and (Test-Path -LiteralPath $photo)) { $assets += $photo }
+          }
+          gh release create $tag $assets --target $env:GITHUB_SHA --title $title --notes-file $notesPath --draft
           gh release edit $tag --draft=false
           $completed = (Get-Date).ToUniversalTime().ToString('o')
           $duration = (([DateTimeOffset]::Parse($completed)) - $start).ToString('hh\:mm\:ss')
-          $notes = $notes -replace '(?m)^          - Workflow completed: .+$', "          - Workflow completed: $completed"
-          $notes = $notes -replace '(?m)^          - Workflow duration: .+$', "          - Workflow duration: $duration"
+          # The YAML block scalar strips this step's indentation before PowerShell sees
+          # it, so the notes carry no leading spaces and these patterns must not expect
+          # any; with the spaces they matched nothing and the published timing never got
+          # its final update.
+          $notes = $notes -replace '(?m)^- Workflow completed: .+$', "- Workflow completed: $completed"
+          $notes = $notes -replace '(?m)^- Workflow duration: .+$', "- Workflow duration: $duration"
           Set-Content -Path $notesPath -Value $notes -Encoding utf8
           gh release edit $tag --notes-file $notesPath
