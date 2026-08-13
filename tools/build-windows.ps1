@@ -430,7 +430,12 @@ function Invoke-VirtualBoxBuild {
         "--with-qt-path=$QtRoot", "--with-sdk10=$SdkRoot",
         "--with-win-vcpkg-root=$VcpkgRoot", "--with-python-path=$pythonRoot"
     )
-    Invoke-Checked 'Configure the unsigned Windows build' { & .\configure.ps1 @arguments }
+    # configure.ps1 resolves "python3" ahead of "python", and on a default Windows
+    # install python3.exe is the Microsoft Store app-execution alias rather than an
+    # interpreter: it writes an advertisement to stderr and exits non-zero.  This
+    # script already discovered and version-checked a real Python 3, so drive
+    # configure.py with that interpreter instead of re-running the wrapper's search.
+    Invoke-Checked 'Configure the unsigned Windows build' { & $Python configure.py @arguments }
     if (-not (Test-Path -LiteralPath .\env.bat)) { throw 'configure.py did not generate env.bat.' }
     $null = Ensure-Nsis
     $revisionMatch = Select-String configure.py -Pattern '\$Id: configure.py (\d+)'
