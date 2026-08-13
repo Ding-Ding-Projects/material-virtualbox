@@ -170,9 +170,15 @@ $sconsForCmd = $scons.Replace('\', '/')
 $sourceForCmd = $source.Replace('\', '/')
 $vcvarsForCmd = $vcvars.FullName
 $sconsCommand = "call $quote$vcvarsForCmd$quote x86 && set $quote" + 'CODESIGNER=' + "$quote && set $quote" + "MY_VBOX_PE_SET_VERSION=$peForScons$quote && cd /d $quote$sourceForCmd$quote && $quote$sconsForCmd$quote MSVC_USE_SCRIPT=None MSTOOLKIT=yes MSVS_VERSION=14.3 TARGET_ARCH=x86 UNICODE=yes SKIPUTILS=$quote" + 'NSIS Menu' + "$quote SKIPTESTS=all SKIPDOC=all APPEND_CCFLAGS=-arch:IA32 STRIP=1 STRIP_W32=1 NSIS_CONFIG_LOG=1 ZLIB_W32=$zlibForScons dist > $quote$sconsLog$quote 2>&1"
+$instdist = Join-Path $source '.instdist'
+$sourceLicense = Join-Path $source 'COPYING'
+$distributionLicense = Join-Path $instdist 'COPYING'
+if (-not (Test-Path -LiteralPath $sourceLicense -PathType Leaf)) { throw 'The verified NSIS source tree does not contain COPYING.' }
+New-Item -ItemType Directory -Force $instdist | Out-Null
+Copy-Item -LiteralPath $sourceLicense -Destination $distributionLicense -Force
+if (-not (Test-Path -LiteralPath $distributionLicense -PathType Leaf)) { throw 'The NSIS install distribution does not contain COPYING required by Examples\makensis.nsi.' }
 Invoke-Checked 'Build the NSIS 3.10 log-enabled distribution' { & cmd.exe /d /c $sconsCommand }
 
-$instdist = Join-Path $source '.instdist'
 $builtMakensis = Join-Path $instdist 'makensis.exe'
 if (-not (Test-Path -LiteralPath $builtMakensis)) { throw 'The NSIS source build did not produce .instdist\makensis.exe.' }
 Remove-Item -LiteralPath $target -Recurse -Force -ErrorAction SilentlyContinue
