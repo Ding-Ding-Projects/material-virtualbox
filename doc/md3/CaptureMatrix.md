@@ -6,13 +6,46 @@ release gate requires. [`RuntimeCapture.md`](RuntimeCapture.md) is the
 This document is the *list* — every surface and state that must be captured,
 and whether it has been yet.
 
-**Current status: zero rows in this table are captured.** No row here may be
-marked captured from a mock, a design thumbnail, a prototype HTML preview, an
-image from an unrelated build, or a hand-edited image. A row stays
-`Not captured` until a real image exists from the exact built artifact,
-committed to this repository or otherwise reproducibly retrievable, with its
-commit, target, Qt version, display scale, and language mode recorded beside
-it, exactly as `RuntimeCapture.md` requires.
+**Current status: row 1 below is captured; every other row remains
+`Not captured`.** No row here may be marked captured from a mock, a design
+thumbnail, a prototype HTML preview, an image from an unrelated build, or a
+hand-edited image. A row stays `Not captured` until a real image exists from
+the exact built artifact, committed to this repository or otherwise
+reproducibly retrievable, with its commit, target, Qt version, display scale,
+and language mode recorded beside it, exactly as `RuntimeCapture.md` requires.
+
+### First real capture, and a discrepancy it surfaces
+
+This repository previously had **no capture tool of any kind** -- every row
+below existed only as an entry in this table. [`CaptureHarness.md`](CaptureHarness.md)
+documents the harness now built (`tools/capture/Invoke-CaptureHarness.ps1`):
+a real off-screen-desktop PrintWindow capture tool, with its own self-test
+proving its black-frame detector actually rejects a blank capture instead of
+trusting `PrintWindow`'s return value.
+
+Proving that harness end to end against `VirtualBox.exe` at
+`%LOCALAPPDATA%\VirtualBox\app-7.2.97\VirtualBox.exe` produced row 1 below --
+and it is **not** the `REGDB_E_CLASSNOTREG` failure this document's blocker B
+and [`RuntimeCapture.md`](RuntimeCapture.md) describe. The manager shell
+rendered fully and functionally: navigation rail, title bar, search, the Home
+destination's "Get started with VirtualBox" content, a live notification
+reading "Can't enumerate USB ..." (a genuine runtime diagnostic -- not
+something a static mock would produce), and a first-run "Please choose
+Experience Mode!" prompt. No COM/SDS error appeared anywhere in the captured
+window.
+
+This does not mean blocker B is resolved for every row, and this capture pass
+does not claim that: it reflects one build, at one moment, in one environment,
+captured by one lane while a separate installer lane was independently and
+actively working on this exact machine's `VirtualBox` install directory (see
+the `-Notes` field on the row 1 capture below, and
+[`CaptureHarness.md`](CaptureHarness.md)'s "portability wrinkle" section for
+the environment quirks hit along the way). It is reported here plainly because
+the evidence contradicts the blocker table's current wording for at least this
+one build/environment, and a capture matrix that hid that would be exactly the
+kind of silent gap this document exists to prevent. Rows 2 and 4-39 remain
+`Not captured` on their own honest merits -- nobody has captured them yet --
+not because blocker B is assumed to still apply to them.
 
 ## Why every row is blocked, and by what
 
@@ -30,18 +63,24 @@ This audit did not find that image file committed anywhere in this
 repository (a repository-wide search for capture-shaped `.png`/`.jpg` files
 turned up only pre-existing upstream documentation diagrams and vendored
 third-party assets, none of which are application captures), so it is not
-counted as evidence here and is not linked from any row below. If that
-capture still exists outside this checkout, committing it — labelled
-honestly as a failure state, not a manager screenshot — would close row 1's
-failure-state column below.
+counted as evidence here and is not linked from any row below.
+
+**Update:** row 1 below is now captured, and the failure state that capture
+would have documented did not reproduce — see "First real capture, and a
+discrepancy it surfaces" above. If the `REGDB_E_CLASSNOTREG` capture described
+above still exists outside this checkout, it remains worth committing as
+historical evidence of blocker B's *previous* effect, labelled honestly with
+the environment/build/date it came from, since row 1's current capture does
+not prove blocker B never applies -- only that it did not apply to the one
+build and environment this harness was proven against.
 
 ## Manager
 
 | # | Surface | State / variant | Status | Blocker |
 | --- | --- | --- | --- | --- |
-| 1 | Manager shell | Cold launch, no VMs registered (empty state) | Not captured | B |
+| 1 | Manager shell | Cold launch, no VMs registered (empty state) | **Captured**: [`captures/manager-shell--01--Qt683QWindowIcon--Material-Virtual-Machine-Manager.png`](captures/manager-shell--01--Qt683QWindowIcon--Material-Virtual-Machine-Manager.png) — real `PrintWindow` capture via `tools/capture/Invoke-CaptureHarness.ps1` on a named off-screen desktop, validated non-uniform (18/144 distinct sampled grid colors). Target: `%LOCALAPPDATA%\VirtualBox\app-7.2.97\VirtualBox.exe`. Window: class `Qt683QWindowIcon`, title "Material Virtual Machine Manager", 1024×975px. Commit: this worktree's tip at capture time, `cb9f573030e` (the exact source commit of *this specific installed binary* is not independently verified by this lane — see the note below and the manifest's `notes` field). Qt: 6.8.3 (from the class name). Display scale: 100%. Language mode: English. Profile state: default user profile, no VMs registered. Full provenance: [`captures/capture-manifest.json`](captures/capture-manifest.json). | — |
 | 2 | Manager shell | Populated chooser with registered VMs | Not captured | B |
-| 3 | Manager shell | `REGDB_E_CLASSNOTREG` failure dialog (the actual current launch outcome) | Not captured in this repository | B (this *is* the state B produces — capturing it is possible today and does not require registration) |
+| 3 | Manager shell | `REGDB_E_CLASSNOTREG` failure dialog | Not captured in this repository | B was previously described as producing this on every launch; it did **not** reproduce when row 1 was captured (see "First real capture, and a discrepancy it surfaces" above) — the manager shell rendered fully instead. Still listed under blocker B pending re-verification of whether/when this failure state still occurs. |
 | 4 | Navigation rail | Expanded, ≥1000 logical px | Not captured | B |
 | 5 | Navigation rail | Compact/searchable, <1000 logical px | Not captured | B |
 | 6 | Command palette | `Ctrl+Shift+F` open, category-grouped results | Not captured | B |
@@ -134,7 +173,8 @@ failure-state column below.
    to provide — do not spend it.
 
 Suggested articles: [`RuntimeCapture.md`](RuntimeCapture.md) for the capture
-contract itself, [`DesignCoverage.md`](DesignCoverage.md) for the underlying
+contract itself, [`CaptureHarness.md`](CaptureHarness.md) for the tool that
+now implements it, [`DesignCoverage.md`](DesignCoverage.md) for the underlying
 69-entry implementation ledger these surfaces come from, and
 [`../../CHANGELOG.md`](../../CHANGELOG.md) for why blocker A is currently in
 effect.
