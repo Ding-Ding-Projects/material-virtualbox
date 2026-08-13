@@ -179,8 +179,9 @@ $exampleText = [IO.File]::ReadAllText($exampleInstaller)
 $exampleText = Replace-Once -Text $exampleText -Old $oldLicenseData -New $newLicenseData -Description 'Examples\makensis.nsi LicenseData path'
 Write-Utf8NoBom -Path $exampleInstaller -Value $exampleText
 $patchedExampleText = [IO.File]::ReadAllText($exampleInstaller)
-if (   ([regex]::Matches($patchedExampleText, [regex]::Escape($newLicenseData))).Count -ne 1
-    -or ([regex]::Matches($patchedExampleText, [regex]::Escape($oldLicenseData))).Count -ne 0) {
+$newLicenseDataCount = ([regex]::Matches($patchedExampleText, [regex]::Escape($newLicenseData))).Count
+$oldLicenseDataCount = ([regex]::Matches($patchedExampleText, [regex]::Escape($oldLicenseData))).Count
+if ($newLicenseDataCount -ne 1 -or $oldLicenseDataCount -ne 0) {
     throw 'The NSIS example installer LicenseData path was not patched exactly once.'
 }
 $sconsCommand = "call $quote$vcvarsForCmd$quote x86 && set $quote" + 'CODESIGNER=' + "$quote && set $quote" + "MY_VBOX_PE_SET_VERSION=$peForScons$quote && cd /d $quote$sourceForCmd$quote && $quote$sconsForCmd$quote MSVC_USE_SCRIPT=None MSTOOLKIT=yes MSVS_VERSION=14.3 TARGET_ARCH=x86 UNICODE=yes SKIPUTILS=$quote" + 'NSIS Menu' + "$quote SKIPTESTS=all SKIPDOC=all APPEND_CCFLAGS=-arch:IA32 STRIP=1 STRIP_W32=1 NSIS_CONFIG_LOG=1 ZLIB_W32=$zlibForScons dist > $quote$sconsLog$quote 2>&1"
