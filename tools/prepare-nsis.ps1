@@ -176,8 +176,14 @@ if (-not (Test-Path -LiteralPath $exampleInstaller -PathType Leaf)) { throw 'The
 $oldLicenseData = 'LicenseData "..\COPYING"'
 $newLicenseData = 'LicenseData "..\..\COPYING"'
 $exampleText = [IO.File]::ReadAllText($exampleInstaller)
-$exampleText = Replace-Once -Text $exampleText -Old $oldLicenseData -New $newLicenseData -Description 'Examples\makensis.nsi LicenseData path'
-Write-Utf8NoBom -Path $exampleInstaller -Value $exampleText
+$oldLicenseDataCount = ([regex]::Matches($exampleText, [regex]::Escape($oldLicenseData))).Count
+$newLicenseDataCount = ([regex]::Matches($exampleText, [regex]::Escape($newLicenseData))).Count
+if ($oldLicenseDataCount -eq 1 -and $newLicenseDataCount -eq 0) {
+    $exampleText = Replace-Once -Text $exampleText -Old $oldLicenseData -New $newLicenseData -Description 'Examples\makensis.nsi LicenseData path'
+    Write-Utf8NoBom -Path $exampleInstaller -Value $exampleText
+} elseif ($oldLicenseDataCount -ne 0 -or $newLicenseDataCount -ne 1) {
+    throw "The NSIS example installer LicenseData path is ambiguous: old=$oldLicenseDataCount, new=$newLicenseDataCount."
+}
 $patchedExampleText = [IO.File]::ReadAllText($exampleInstaller)
 $newLicenseDataCount = ([regex]::Matches($patchedExampleText, [regex]::Escape($newLicenseData))).Count
 $oldLicenseDataCount = ([regex]::Matches($patchedExampleText, [regex]::Escape($oldLicenseData))).Count
