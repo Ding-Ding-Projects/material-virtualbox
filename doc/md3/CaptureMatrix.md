@@ -6,13 +6,25 @@ release gate requires. [`RuntimeCapture.md`](RuntimeCapture.md) is the
 This document is the *list* — every surface and state that must be captured,
 and whether it has been yet.
 
-**Current status: row 1 below is captured; every other row remains
+**Current status: rows 1, 5, 27, and 31 are captured; every other row remains
 `Not captured`.** No row here may be marked captured from a mock, a design
 thumbnail, a prototype HTML preview, an image from an unrelated build, or a
 hand-edited image. A row stays `Not captured` until a real image exists from
 the exact built artifact, committed to this repository or otherwise
 reproducibly retrievable, with its commit, target, Qt version, display scale,
 and language mode recorded beside it, exactly as `RuntimeCapture.md` requires.
+
+Rows 5, 27, and 31 were closed by driving the live application with real
+background input (mouse clicks and a window resize delivered directly to its
+off-screen HWND — see [`CaptureHarness.md`](CaptureHarness.md)'s "Driving the
+application with background input" section) rather than only photographing
+whatever the app happened to render at cold launch. Several more rows were
+attempted and honestly left `Not captured` with a specific reason recorded
+per row — including a real, reproducible finding that the **Machines**,
+**Media**, and **Network** nav-rail items are disabled in this environment
+(confirmed by pixel-luminance sampling of their labels, not just by clicks
+having no visible effect), which is new information about the shape of
+blocker B beyond "the manager shell doesn't render at all."
 
 ### First real capture, and a discrepancy it surfaces
 
@@ -79,60 +91,60 @@ build and environment this harness was proven against.
 | # | Surface | State / variant | Status | Blocker |
 | --- | --- | --- | --- | --- |
 | 1 | Manager shell | Cold launch, no VMs registered (empty state) | **Captured**: [`captures/manager-shell--01--Qt683QWindowIcon--Material-Virtual-Machine-Manager.png`](captures/manager-shell--01--Qt683QWindowIcon--Material-Virtual-Machine-Manager.png) — real `PrintWindow` capture via `tools/capture/Invoke-CaptureHarness.ps1` on a named off-screen desktop, validated non-uniform (18/144 distinct sampled grid colors). Target: `%LOCALAPPDATA%\VirtualBox\app-7.2.97\VirtualBox.exe`. Window: class `Qt683QWindowIcon`, title "Material Virtual Machine Manager", 1024×975px. Commit: this worktree's tip at capture time, `cb9f573030e` (the exact source commit of *this specific installed binary* is not independently verified by this lane — see the note below and the manifest's `notes` field). Qt: 6.8.3 (from the class name). Display scale: 100%. Language mode: English. Profile state: default user profile, no VMs registered. Full provenance: [`captures/capture-manifest.json`](captures/capture-manifest.json). | — |
-| 2 | Manager shell | Populated chooser with registered VMs | Not captured | B |
+| 2 | Manager shell | Populated chooser with registered VMs | Not captured | This lane is explicitly prohibited from creating/modifying/deleting a VM, so this row cannot be closed without violating that boundary. Additionally, the **Machines** nav-rail item itself was found DISABLED in this environment (see the driven-input finding below row 31) — even a read-only visit to the Machines list did not respond to input. |
 | 3 | Manager shell | `REGDB_E_CLASSNOTREG` failure dialog | Not captured in this repository | B was previously described as producing this on every launch; it did **not** reproduce when row 1 was captured (see "First real capture, and a discrepancy it surfaces" above) — the manager shell rendered fully instead. Still listed under blocker B pending re-verification of whether/when this failure state still occurs. |
-| 4 | Navigation rail | Expanded, ≥1000 logical px | Not captured | B |
-| 5 | Navigation rail | Compact/searchable, <1000 logical px | Not captured | B |
-| 6 | Command palette | `Ctrl+Shift+F` open, category-grouped results | Not captured | B |
-| 7 | Notification centre | Empty history | Not captured | B |
-| 8 | Notification centre | Populated history, filtered/selected rows | Not captured | B |
+| 4 | Navigation rail | Expanded, ≥1000 logical px | Not captured | Row 1's own image already shows the expanded rail at 1024px width, but that row is scoped to "cold launch" specifically; this row is left open for a dedicated capture rather than silently reusing row 1's image under a second row. |
+| 5 | Navigation rail | Compact/searchable, <1000 logical px | **Captured**: [`captures/manager-nav-rail-compact--01--Qt683QWindowIcon--Material-Virtual-Machine-Manager.png`](captures/manager-nav-rail-compact--01--Qt683QWindowIcon--Material-Virtual-Machine-Manager.png) — driven capture: the window was resized in place to 640×800 via `SetWindowPos` (`tools/capture/Invoke-DrivenAction.ps1 -Action resize`), a normal window-management API targeted at the specific off-screen HWND, never `SendInput`. Below the <1000 logical px threshold the left rail collapses to a single hamburger-style toggle and the top bar's search pill/New/Open buttons become compact icon-only affordances (search glyph, notification bell with an unread-count badge). Validated non-uniform (29/144 distinct sampled colors). Target: `C:\Program Files\VirtualBox\VirtualBox.exe` (NSIS-installed). Commit: `dd561e36499`. Qt: 6.8.3. Display scale: 100%. Language mode: English. Full provenance: [`captures/capture-manifest.json`](captures/capture-manifest.json). | — |
+| 6 | Command palette | `Ctrl+Shift+F` open, category-grouped results | Not captured | Attempted via a driven `Ctrl+Shift+F` chord delivered through `PostMessage` (WM_KEYDOWN for Control, then Shift, then F, each separated by a settle delay and preceded by WM_SETFOCUS, per the per-thread `GetKeyState` mechanism `Invoke-DrivenAction.ps1` relies on) — no palette window or in-window overlay appeared across two attempts with different timing, and a full window-station window enumeration confirmed no second top-level window was created. Consistent with this project's own recorded caution that modifier chords delivered through generic synthetic-input routes can be unreliable for headless Qt windows; this is a genuine open item, not a confirmed absence of the feature. |
+| 7 | Notification centre | Empty history | Not captured | The notification centre is showing a live, populated "Can't enumerate USB devices ..." diagnostic in every capture from this session; reaching an empty-history state was not attempted since it would mean deliberately dismissing that notification, and this lane prioritized non-destructive, easily-repeatable captures. |
+| 8 | Notification centre | Populated history, filtered/selected rows | Not captured | A populated notification (visible, undismissed) is present in every capture in this session, including row 1's — but this row specifically wants a **filtered/selected** state, which requires interacting with the notification centre's own filter/selection controls; that interaction was not attempted this pass. |
 | 9 | Notification centre | Clear-history two-key confirmation gate | Not captured | B |
-| 10 | Tab strip | Single tab | Not captured | B |
-| 11 | Tab strip | Multiple tabs, overflow menu open | Not captured | B |
-| 12 | Tab strip | Tab manager / group picker (`Ctrl+Shift+T`) | Not captured | B |
-| 13 | Local history browser | `Ctrl+H`, action/date filter applied | Not captured | B |
-| 14 | Appearance editor | Per-element panel, `Shift`+right-click entry | Not captured | B |
-| 15 | Title bar | Frameless header, window controls, snap layout | Not captured | B |
+| 10 | Tab strip | Single tab | Not captured | Reachable in practice (the driven session returned to a single "Home" tab several times after tabs were closed) but not captured to a dedicated evidence file this pass; row 1's image already shows a single tab, but is scoped under "Manager shell / Cold launch" rather than this row. |
+| 11 | Tab strip | Multiple tabs, overflow menu open | Not captured | The driven session had 2-3 tabs open simultaneously (Home + Extensions + Resources) at points during this pass, but 1024px width was never narrow enough to force the overflow menu, so this row's specific "overflow menu open" state was not reached. |
+| 12 | Tab strip | Tab manager / group picker (`Ctrl+Shift+T`) | Not captured | Not attempted this pass. |
+| 13 | Local history browser | `Ctrl+H`, action/date filter applied | Not captured | Not attempted this pass. |
+| 14 | Appearance editor | Per-element panel, `Shift`+right-click entry | Not captured | Not attempted this pass; this lane's driven-input harness added plain left-click and key-chord delivery but not a modifier-click (Shift+right-click) primitive. |
+| 15 | Title bar | Frameless header, window controls, snap layout | Not captured | The custom frameless Material header (no OS-drawn caption/border; hamburger, app icon+title, search, notification bell) is visible in every capture from this session, but window controls (minimize/maximize/close) were not visually located anywhere within the captured window bounds at any tested size, and snap-layout behavior was not tested. Worth a dedicated follow-up: either the controls render off the visible/captured area under some layout condition, or this build genuinely omits them from the frameless header. Not marking this row captured on partial evidence per this document's own rule. |
 
 ## Settings
 
 | # | Surface | State / variant | Status | Blocker |
 | --- | --- | --- | --- | --- |
-| 16 | Global Preferences | Default landing page | Not captured | B |
-| 17 | Global Preferences | Search active, plain-text mode | Not captured | B |
-| 18 | Global Preferences | Search active, regex builder open | Not captured | B |
-| 19 | Machine Settings | Default landing page | Not captured | B |
-| 20 | Machine Settings | Validation error state | Not captured | B |
-| 21 | Settings shell | Narrow-width layout | Not captured | B |
+| 16 | Global Preferences | Default landing page | Not captured | Attempted twice this pass: a driven `Ctrl+G` chord (the traditional VirtualBox Global Settings shortcut) and a plain left-click on the top-left hamburger icon. Neither opened a Preferences surface — no new top-level window appeared and the main window's content was unchanged in both cases. The hamburger click did leave a visible focus ring on the icon, so *something* registered the click; it just did not open a menu or dialog in this build/environment. Genuinely unreached, not confirmed absent. |
+| 17 | Global Preferences | Search active, plain-text mode | Not captured | Blocked behind row 16. |
+| 18 | Global Preferences | Search active, regex builder open | Not captured | Blocked behind row 16. |
+| 19 | Machine Settings | Default landing page | Not captured | Requires a registered machine; this lane is prohibited from creating one. |
+| 20 | Machine Settings | Validation error state | Not captured | Blocked behind row 19. |
+| 21 | Settings shell | Narrow-width layout | Not captured | Blocked behind row 16 (no Settings surface was reached to resize). |
 
 ## Wizards
 
 | # | Surface | State / variant | Status | Blocker |
 | --- | --- | --- | --- | --- |
-| 22 | New VM wizard | First page | Not captured | B |
-| 23 | New VM wizard | Validation error | Not captured | B |
-| 24 | New VM wizard | Summary / completion page | Not captured | B |
-| 25 | New VM wizard | Cancellation confirmation | Not captured | B |
-| 26 | Import/Export/Clone wizard | Compact rail collapse, <720 logical px | Not captured | B |
+| 22 | New VM wizard | First page | Not captured | A driven left-click on the Home page's "New" button (image coords matching its visible position at 1024px width) produced no new top-level window and no visible change in the main window across a full window-station enumeration. Opening the wizard's first page alone (without ever advancing to Finish) would not have created a VM and was safe to attempt; it simply did not open. Possibly gated behind the same backend condition affecting Machines/Media/Network (see below) since VM creation also depends on `IMachine`/COM. |
+| 23 | New VM wizard | Validation error | Not captured | Blocked behind row 22. |
+| 24 | New VM wizard | Summary / completion page | Not captured | Blocked behind row 22 — and even if reached, this lane would stop before the Finish/Create step per this task's explicit no-VM-creation boundary. |
+| 25 | New VM wizard | Cancellation confirmation | Not captured | Blocked behind row 22. |
+| 26 | Import/Export/Clone wizard | Compact rail collapse, <720 logical px | Not captured | Not attempted this pass. |
 
 ## Manager tools
 
 | # | Surface | State / variant | Status | Blocker |
 | --- | --- | --- | --- | --- |
-| 27 | Extensions | List + Material search/appearance card | Not captured | B |
-| 28 | Media | List + Material search/appearance card | Not captured | B |
-| 29 | Network | List + Material search/appearance card | Not captured | B |
-| 30 | Cloud | List + Material search/appearance card | Not captured | B |
-| 31 | VM Activity Overview | List + Material search/appearance card | Not captured | B |
+| 27 | Extensions | List + Material search/appearance card | **Captured**: [`captures/manager-extensions-tool--01--Qt683QWindowIcon--Material-Virtual-Machine-Manager.png`](captures/manager-extensions-tool--01--Qt683QWindowIcon--Material-Virtual-Machine-Manager.png) — driven capture showing the Extensions tool's list chrome: a "Search Extensions records" search field and an `Active \| Name` column header, with no rows (no extension packs installed in this profile) so per-row card content is not demonstrated. Validated non-uniform (12/144 distinct sampled colors). Reached via a driven click on the nav rail. Target: `C:\Program Files\VirtualBox\VirtualBox.exe` (NSIS-installed). Commit: `dd561e36499`. Qt: 6.8.3. Display scale: 100%. Language mode: English. Full provenance: [`captures/capture-manifest.json`](captures/capture-manifest.json). | — |
+| 28 | Media | List + Material search/appearance card | Not captured | **Confirmed DISABLED in this environment**, not merely unreached: the "Media" rail label was measured with the harness's own pixel-luminance sampling at 87.2, identical to "Machines" and "Network" and far below the ~199-228 measured for every enabled item (Home/Extensions/Cloud/Resources). Multiple driven clicks at several coordinates within the Media row, at different points in the session, produced zero response. Consistent with blocker B's backend/COM condition — the visible "Can't enumerate USB ..." notification suggests host-device enumeration is already known to be degraded in this environment, and Media likely depends on the same `IHost` enumeration path. |
+| 29 | Network | List + Material search/appearance card | Not captured | **Confirmed DISABLED in this environment** — same luminance evidence (87.2) and same repeated no-response result as row 28. See that row's note. |
+| 30 | Cloud | List + Material search/appearance card | Not captured | Attempted (driven click on the rail's Cloud row) but not reached — unlike Machines/Media/Network, Cloud's label luminance measured 199 (matching the enabled items, not the disabled ones), so this is very likely the same rail-click flakiness observed intermittently on other enabled items in this session (see `CaptureHarness.md`'s driven-input notes on `ClickWindowPoint`) rather than a disabled control. Worth a fresh attempt in a follow-up pass. |
+| 31 | VM Activity Overview | List + Material search/appearance card | **Captured**: [`captures/manager-vm-activity-overview--01--Qt683QWindowIcon--Material-Virtual-Machine-Manager.png`](captures/manager-vm-activity-overview--01--Qt683QWindowIcon--Material-Virtual-Machine-Manager.png) — driven capture of the "Resources" Global Tool: a "Search Resources records" search field plus three live Material card widgets (Host CPU Load, Host RAM Usage, Host File System) with real gauge/donut charts and numeric readouts that changed value on repeated polls, confirming a genuine live render rather than a cached frame. Validated non-uniform (14/144 distinct sampled colors). Target: `C:\Program Files\VirtualBox\VirtualBox.exe` (NSIS-installed). Commit: `dd561e36499`. Qt: 6.8.3. Display scale: 100%. Language mode: English. Full provenance: [`captures/capture-manifest.json`](captures/capture-manifest.json). | — |
 
 ## Runtime window
 
 | # | Surface | State / variant | Status | Blocker |
 | --- | --- | --- | --- | --- |
-| 32 | Runtime window | Normal windowed | Not captured | B |
-| 33 | Runtime window | Fullscreen | Not captured | B |
-| 34 | Runtime window | Scaled / high-DPI (150%, 200%) | Not captured | B |
-| 35 | Runtime window | Narrow window | Not captured | B |
+| 32 | Runtime window | Normal windowed | Not captured | Requires an actually running VM, which requires the VirtualBox host kernel drivers (VBoxDrv etc.). Those are not built for this checkout, and even if they were, this is an unsigned development build — Windows would refuse to load unsigned kernel drivers, so a runtime session cannot start here regardless of VM registration. This lane is also separately prohibited from creating/starting a VM. |
+| 33 | Runtime window | Fullscreen | Not captured | Blocked behind row 32. |
+| 34 | Runtime window | Scaled / high-DPI (150%, 200%) | Not captured | Blocked behind row 32. Separately: this session's own captures show the installed Manager window at 1024×975px against a manually-verified 1280×1219px window from an earlier interactive session on the same build — an exact 1.25× ratio on both axes, suggestive of a DPI-scale difference between an off-screen desktop (which may report a fixed 96 DPI / 100% regardless of the primary monitor's real scale) and a normal interactive desktop. Worth a dedicated investigation before trusting any high-DPI capture taken through this harness. |
+| 35 | Runtime window | Narrow window | Not captured | Blocked behind row 32. |
 
 ## Cross-cutting states (apply across rows 1–35 where the surface exists)
 
