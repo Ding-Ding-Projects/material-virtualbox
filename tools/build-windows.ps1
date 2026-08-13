@@ -514,7 +514,17 @@ function Invoke-VirtualBoxBuild {
         # out\win.amd64\release\bin).  Running "kmk ... packing" alone against a
         # cold checkout leaves those binaries unbuilt and the payload directory
         # missing VirtualBox.exe.
-        & cmd.exe /d /c "call `"$repoRoot\env.bat`" && kmk VBOX_SVN_REV=$revision SDK_WINSDK10_MAX_VERSION=10.0.22621.0 VBOX_WINDDK_GST_W7=WINSDK10-KM VBOX_WINDDK_GST_W8=WINSDK10-KM VBOX_WINDDK_GST_WLH=WINDDK71WLH VBOX_WINDDK_GST_W2K3=WINSDK10-KM VBOX_WINDDK_GST_WXP=WINSDK10-KM VBOX_WINDDK_GST_W2K=WINSDK10-KM VBOX_WINDDK_GST_NT4=WINSDK10-KM VBOX_USE_RTISOMAKER=1 VBOX_WITHOUT_WIN_HOST_INSTALLER=1"
+        #
+        # VBOX_WITHOUT_VMM_RUN_STRUCT_TESTS: without this, the build auto-executes
+        # tstVMStructSize.exe/tstAsmStructs.exe as a build step
+        # (src/VBox/VMM/testcase/Makefile.kmk). Under MSVC v143 14.44 both die on
+        # launch with STATUS_STACK_BUFFER_OVERRUN before printing a single line of
+        # output - before either binary gets anywhere near an actual structure
+        # check - which points at the VBoxR3AutoTest/NoCrt-static template's
+        # Control Flow Guard / EH Continuation Guard combination rather than a
+        # real VMM struct-layout regression. This only skips the automatic run;
+        # both executables are still built and still staged into bin\testcase.
+        & cmd.exe /d /c "call `"$repoRoot\env.bat`" && kmk VBOX_SVN_REV=$revision SDK_WINSDK10_MAX_VERSION=10.0.22621.0 VBOX_WINDDK_GST_W7=WINSDK10-KM VBOX_WINDDK_GST_W8=WINSDK10-KM VBOX_WINDDK_GST_WLH=WINDDK71WLH VBOX_WINDDK_GST_W2K3=WINSDK10-KM VBOX_WINDDK_GST_WXP=WINSDK10-KM VBOX_WINDDK_GST_W2K=WINSDK10-KM VBOX_WINDDK_GST_NT4=WINSDK10-KM VBOX_USE_RTISOMAKER=1 VBOX_WITHOUT_WIN_HOST_INSTALLER=1 VBOX_WITHOUT_VMM_RUN_STRUCT_TESTS=1"
     }
     Invoke-Checked 'Build the Windows package payload' {
         # VBOX_WITHOUT_WIN_HOST_INSTALLER skips the WiX/MSI host installer during
@@ -523,7 +533,7 @@ function Invoke-VirtualBoxBuild {
         # so the MSI would need the WiX toolset nothing installs and would produce an
         # artifact this pipeline never publishes.  The host binaries themselves were
         # already built by the full pass above; this pass only packs them.
-        & cmd.exe /d /c "call `"$repoRoot\env.bat`" && kmk VBOX_SVN_REV=$revision SDK_WINSDK10_MAX_VERSION=10.0.22621.0 VBOX_WINDDK_GST_W7=WINSDK10-KM VBOX_WINDDK_GST_W8=WINSDK10-KM VBOX_WINDDK_GST_WLH=WINDDK71WLH VBOX_WINDDK_GST_W2K3=WINSDK10-KM VBOX_WINDDK_GST_WXP=WINSDK10-KM VBOX_WINDDK_GST_W2K=WINSDK10-KM VBOX_WINDDK_GST_NT4=WINSDK10-KM VBOX_USE_RTISOMAKER=1 VBOX_WITHOUT_WIN_HOST_INSTALLER=1 packing"
+        & cmd.exe /d /c "call `"$repoRoot\env.bat`" && kmk VBOX_SVN_REV=$revision SDK_WINSDK10_MAX_VERSION=10.0.22621.0 VBOX_WINDDK_GST_W7=WINSDK10-KM VBOX_WINDDK_GST_W8=WINSDK10-KM VBOX_WINDDK_GST_WLH=WINDDK71WLH VBOX_WINDDK_GST_W2K3=WINSDK10-KM VBOX_WINDDK_GST_WXP=WINSDK10-KM VBOX_WINDDK_GST_W2K=WINSDK10-KM VBOX_WINDDK_GST_NT4=WINSDK10-KM VBOX_USE_RTISOMAKER=1 VBOX_WITHOUT_WIN_HOST_INSTALLER=1 VBOX_WITHOUT_VMM_RUN_STRUCT_TESTS=1 packing"
     }
     $payload = Join-Path $repoRoot 'out\win.amd64\release\bin'
     if (-not (Test-Path -LiteralPath (Join-Path $payload 'VirtualBox.exe'))) {

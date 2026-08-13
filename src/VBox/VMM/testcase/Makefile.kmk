@@ -134,6 +134,20 @@ BLDDIRS += $(VBOX_VMM_TESTCASE_OUT_DIR)
 # We setup two 'other' targets for executing the two structure & alignment
 # validation testcases. Perhaps a bit hackish, but extremely useful.
 #
+# Set VBOX_WITHOUT_VMM_RUN_STRUCT_TESTS to stop kmk from auto-executing
+# tstVMStructSize.exe/tstAsmStructs.exe as part of the ordinary build (the
+# 'run-struct-tests' alias below still lets you run them by hand). This is
+# a narrow escape hatch for toolchains where the *build machine itself*
+# cannot run these two executables (observed: MSVC v143 14.44 + the
+# VBoxR3AutoTest/NoCrt-static template's default Control Flow Guard and EH
+# Continuation Guard produce a binary that __fastfail()s with
+# STATUS_STACK_BUFFER_OVERRUN before printing a single line of its own
+# output - i.e. before it even gets to check anything). It does NOT touch
+# VBOX_WITH_TESTCASES, so the two executables are still compiled and still
+# staged into bin/testcase exactly as before; only the automatic execution
+# during the build is skipped.
+#
+ifndef VBOX_WITHOUT_VMM_RUN_STRUCT_TESTS
 ifeq ($(KBUILD_TARGET).$(KBUILD_TARGET_ARCH),$(KBUILD_HOST).$(KBUILD_HOST_ARCH))
  OTHERS       += $(VBOX_VMM_TESTCASE_OUT_DIR)/tstVMStructSize.run
  ## @todo kBuild bug: OTHERS.amd64 += $(VBOX_VMM_TESTCASE_OUT_DIR)/tstAsmStructs.run
@@ -145,6 +159,7 @@ endif
 # The normal testing pass.
 TESTING       += $(VBOX_VMM_TESTCASE_OUT_DIR)/tstVMStructSize.run
 TESTING.amd64 += $(VBOX_VMM_TESTCASE_OUT_DIR)/tstAsmStructs.run
+endif # !VBOX_WITHOUT_VMM_RUN_STRUCT_TESTS
 
 OTHER_CLEAN += \
 	$(VBOX_VMM_TESTCASE_OUT_DIR)/tstAsmStructs.run \
