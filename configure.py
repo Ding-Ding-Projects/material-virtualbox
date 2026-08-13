@@ -2479,6 +2479,18 @@ class ToolCheck(CheckBase):
             asVCPPVer = sorted(glob.glob(os.path.join(sVCPPBasePath, '*')), reverse = True);
             if asVCPPVer:
                 sVCPPBasePath = asVCPPVer[0];
+                if g_enmHostOS == BuildTarget.WINDOWS:
+                    # kBuild's VCC143.kmk only takes its fast path to the redist
+                    # directory (straight to Redist/MSVC/<ver>) when
+                    # PATH_TOOL_VCC143 ends in '/tools/msvc/' with forward
+                    # slashes; glob.glob() hands back native, i.e. backslash,
+                    # separators here, so left alone this silently falls through
+                    # to a fallback search that resolves to the wrong directory
+                    # (VC/Redist instead of VC/Redist/MSVC/<ver>), and
+                    # vcruntime140.dll can never be found.  Normalise once here
+                    # so PATH_TOOL_VCC143 and everything joined onto it below
+                    # stay consistently forward-slashed.
+                    sVCPPBasePath = sVCPPBasePath.replace('\\', '/');
 
             # The order is important here for parsing lateron.
             # Key: Visual Studio Version -- Tuple: MSVC Toolset stem define (kBuild), Description.

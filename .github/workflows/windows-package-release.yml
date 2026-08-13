@@ -316,6 +316,23 @@ jobs:
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           if (-not (Test-Path .\env.bat)) { throw 'configure.py did not generate env.bat.' }
 
+          # kBuild's VCC143.kmk derives the redist directory - and so
+          # vcruntime140.dll - from PATH_TOOL_VCC143 itself: it only takes the
+          # fast, correct path straight to Redist\MSVC\<ver> when that value
+          # ends in '/tools/msvc/' using forward slashes. A backslashed value
+          # silently falls through to a fallback search that resolves to the
+          # wrong directory, and the build dies on a missing vcruntime140.dll
+          # roughly 39 minutes in. Catch that here, in seconds, instead.
+          $autoConfigPath = Join-Path $PWD 'AutoConfig.kmk'
+          if (-not (Test-Path -LiteralPath $autoConfigPath)) { throw 'configure.py did not generate AutoConfig.kmk.' }
+          $vccToolLine = Select-String -LiteralPath $autoConfigPath -Pattern '^PATH_TOOL_VCC1\d+\s*[:?]?=\s*(.+?)\s*$' | Select-Object -First 1
+          if (-not $vccToolLine) { throw 'AutoConfig.kmk does not assign a PATH_TOOL_VCC1<version> variable; cannot verify the MSVC toolset path separators.' }
+          $vccToolValue = $vccToolLine.Matches[0].Groups[1].Value
+          if ($vccToolValue -match '\\') {
+            throw "AutoConfig.kmk's '$($vccToolLine.Line.Trim())' uses backslashes; kBuild's VCC143.kmk redist lookup needs forward slashes or it will resolve the wrong Redist directory and lose vcruntime140.dll ~39 minutes into the build."
+          }
+          Write-Host "Resolved MSVC toolset path (PATH_TOOL_VCC1<version>): $vccToolValue"
+
       - name: Build the custom NSIS log packaging tool
         shell: pwsh
         run: |
