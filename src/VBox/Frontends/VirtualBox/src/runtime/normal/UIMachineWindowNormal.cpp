@@ -29,8 +29,10 @@
 #include <QMenuBar>
 #include <QTimerEvent>
 #include <QContextMenuEvent>
+#include <QGridLayout>
 #include <QResizeEvent>
 #include <QScrollBar>
+#include <QSpacerItem>
 #ifdef VBOX_WS_NIX
 # include <QTimer>
 #endif
