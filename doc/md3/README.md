@@ -32,6 +32,12 @@ This section records the native Qt implementation of the supplied Material Desig
 - [`RuntimeCapture.md`](RuntimeCapture.md) records the genuine native screenshot contract and the current COM/service blocker.
 - [`AppIcon.md`](AppIcon.md) documents the original Material mark, its committed SVG master and reproducible raster generator, the real multi-resolution Windows `.ico`, every chrome/executable wiring point, and the outstanding Squirrel `--icon` flag needed in the packaging scripts.
 - [`CaptureMatrix.md`](CaptureMatrix.md) is the enumerated capture tracking table: every manager, settings, wizard, tool, runtime, and installer surface and state that must be photographed, each currently `Not captured`, with the exact blocker (missing COM/SDS registration or no verified installer yet) named per row.
+- [`CompletenessInventory.md`](CompletenessInventory.md) is the hand-written, per-surface completeness
+  inventory the release gate requires: every canonical house-contract feature checked against this
+  repository's actual source, for every identified user-facing surface including the documentation
+  site, with implementation paths, docs, localization, tests, build/interaction proof, capture
+  status, and the exact blocker named per row. Most rows are gaps, and it explains why that is the
+  correct and expected result of a genuinely hand-written audit rather than a generated checklist.
 
 Build and runtime evidence must name the exact target, commit, host, Qt version, and whether the result is source-only, built, headless, or release-verified. Missing `svn`, `kmk`, or `scm` tools are reported as environment blockers rather than inferred passes.
 
