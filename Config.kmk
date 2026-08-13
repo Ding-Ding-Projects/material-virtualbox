@@ -3815,6 +3815,10 @@ endif
 #    -wd4548: socket.cpp(1931): warning C4548: expression before comma has no effect; expected expression with side-effect
 VBOX_VCC_WARN_ALL += -wd4548
 if "$(VBOX_VCC_TOOL_STEM)" >= "VCC143"
+ #    -wd4865: wingdi.h(2806): warning C4865: the underlying type of '<unnamed-enum-DISPLAYCONFIG_OUTPUT_TECHNOLOGY_OTHER>'
+ #             will change when '/Zc:enumTypes' is specified on the command line.  Emitted by the Windows 10 SDK
+ #             10.0.26100.0 headers when compiled by VCC 14.5x, which we build with -Wall -WX.
+ VBOX_VCC_WARN_ALL += -wd4865
  if "$(KBUILD_TARGET_ARCH)" == "arm64"
   VBOX_VCC_WARN_ALL += -wd4746
  endif
