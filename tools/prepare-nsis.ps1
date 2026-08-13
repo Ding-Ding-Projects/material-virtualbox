@@ -169,15 +169,37 @@ $peForScons = $peTool.FullName.Replace('\', '/')
 $sconsForCmd = $scons.Replace('\', '/')
 $sourceForCmd = $source.Replace('\', '/')
 $vcvarsForCmd = $vcvars.FullName
-$sconsCommand = "call $quote$vcvarsForCmd$quote x86 && set $quote" + 'CODESIGNER=' + "$quote && set $quote" + "MY_VBOX_PE_SET_VERSION=$peForScons$quote && cd /d $quote$sourceForCmd$quote && $quote$sconsForCmd$quote MSVC_USE_SCRIPT=None MSTOOLKIT=yes MSVS_VERSION=14.3 TARGET_ARCH=x86 UNICODE=yes SKIPUTILS=$quote" + 'NSIS Menu' + "$quote SKIPTESTS=all SKIPDOC=all APPEND_CCFLAGS=-arch:IA32 STRIP=1 STRIP_W32=1 NSIS_CONFIG_LOG=1 ZLIB_W32=$zlibForScons dist-zip > $quote$sconsLog$quote 2>&1"
-$instdist = Join-Path $source '.instdist'
+$sconsCommand = "call $quote$vcvarsForCmd$quote x86 && set $quote" + 'CODESIGNER=' + "$quote && set $quote" + "MY_VBOX_PE_SET_VERSION=$peForScons$quote && cd /d $quote$sourceForCmd$quote && $quote$sconsForCmd$quote VERSION=3.10 MSVC_USE_SCRIPT=None MSTOOLKIT=yes MSVS_VERSION=14.3 TARGET_ARCH=x86 UNICODE=yes SKIPUTILS=$quote" + 'NSIS Menu' + "$quote SKIPTESTS=all SKIPDOC=all APPEND_CCFLAGS=-arch:IA32 STRIP=1 STRIP_W32=1 NSIS_CONFIG_LOG=1 ZLIB_W32=$zlibForScons dist-zip > $quote$sconsLog$quote 2>&1"
+$distributionArchive = Join-Path $source 'nsis-3.10.zip'
+Remove-Item -LiteralPath $distributionArchive -Force -ErrorAction SilentlyContinue
+if (Test-Path -LiteralPath $distributionArchive) { throw "The stale NSIS distribution archive could not be removed: $distributionArchive" }
 Invoke-Checked 'Build the NSIS 3.10 log-enabled distribution' { & cmd.exe /d /c $sconsCommand }
 
-$builtMakensis = Join-Path $instdist 'makensis.exe'
-if (-not (Test-Path -LiteralPath $builtMakensis)) { throw 'The NSIS source build did not produce .instdist\makensis.exe.' }
+$distributionArchives = @(Get-ChildItem -LiteralPath $source -Filter 'nsis-*.zip' -File)
+$distributionArchiveCount = $distributionArchives.Count
+if ($distributionArchiveCount -ne 1 -or $distributionArchives[0].FullName -ne $distributionArchive) {
+    throw "The NSIS source build must produce only nsis-3.10.zip; found $($distributionArchives.Name -join ', ')."
+}
+$distributionExtract = Join-Path $sourceWork 'dist-zip-extract'
+Remove-Item -LiteralPath $distributionExtract -Recurse -Force -ErrorAction SilentlyContinue
+New-Item -ItemType Directory -Force $distributionExtract | Out-Null
+Expand-Archive -LiteralPath $distributionArchive -DestinationPath $distributionExtract -Force
+$distributionDirectories = @($distributionExtract) + @(Get-ChildItem -LiteralPath $distributionExtract -Recurse -Directory)
+$distributionRoots = @($distributionDirectories | Where-Object {
+        (Test-Path -LiteralPath (Join-Path $_ 'makensis.exe') -PathType Leaf) -and
+        (Test-Path -LiteralPath (Join-Path $_ 'nsisconf.nsh') -PathType Leaf) -and
+        (Test-Path -LiteralPath (Join-Path $_ 'Include') -PathType Container) -and
+        (Test-Path -LiteralPath (Join-Path $_ 'Plugins') -PathType Container) -and
+        (Test-Path -LiteralPath (Join-Path $_ 'Contrib') -PathType Container)
+    })
+$expectedDistributionRoot = Join-Path $distributionExtract 'nsis-3.10'
+if ($distributionRoots.Count -ne 1 -or $distributionRoots[0].FullName -ne $expectedDistributionRoot) {
+    throw "The NSIS archive must contain exactly one canonical nsis-3.10 distribution root; found $($distributionRoots.FullName -join ', ')."
+}
+$distributionRoot = $distributionRoots[0].FullName
 Remove-Item -LiteralPath $target -Recurse -Force -ErrorAction SilentlyContinue
 New-Item -ItemType Directory -Force $target | Out-Null
-Copy-Item -Path (Join-Path $instdist '*') -Destination $target -Recurse -Force
+Copy-Item -Path (Join-Path $distributionRoot '*') -Destination $target -Recurse -Force
 
 function Install-NsisPlugin {
     param(
@@ -233,7 +255,7 @@ Install-NsisPlugin @accessControlPluginSpec
 
 $probeScript = Join-Path $sourceWork 'log-probe.nsi'
 $probeOutput = Join-Path $sourceWork 'log-probe.exe'
-Write-Utf8NoBom -Path $probeScript -Value ('OutFile ' + $quote + $probeOutput + $quote + $nl + 'LogText ' + $quote + 'VirtualBox NSIS_CONFIG_LOG probe' + $quote + $nl)
+Write-Utf8NoBom -Path $probeScript -Value ('Name ' + $quote + 'VirtualBox NSIS_CONFIG_LOG probe' + $quote + $nl + 'OutFile ' + $quote + $probeOutput + $quote + $nl + 'Section' + $nl + '    LogText ' + $quote + 'VirtualBox NSIS_CONFIG_LOG probe' + $quote + $nl + 'SectionEnd' + $nl)
 & (Join-Path $target 'makensis.exe') $probeScript
 if ($LASTEXITCODE -ne 0) { throw 'The built makensis.exe rejected LogText; NSIS_CONFIG_LOG is not enabled.' }
 Remove-Item -LiteralPath $probeScript, $probeOutput -Force -ErrorAction SilentlyContinue
