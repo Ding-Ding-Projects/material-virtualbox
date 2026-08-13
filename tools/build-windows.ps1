@@ -31,7 +31,7 @@ function Invoke-Checked {
     )
     $timer = [Diagnostics.Stopwatch]::StartNew()
     Write-Host "==> $Name"
-    & $Action
+    & $Action | Out-Host
     if ($LASTEXITCODE -ne 0) {
         throw "$Name failed with exit code $LASTEXITCODE."
     }
@@ -59,7 +59,7 @@ function Ensure-WingetPackage {
     param([Parameter(Mandatory = $true)] [string] $Id)
     $winget = Get-Winget
     Write-Host "Installing missing dependency $Id through the canonical package source."
-    & $winget install --id $Id --scope user --accept-package-agreements --accept-source-agreements --silent
+    & $winget install --id $Id --scope user --accept-package-agreements --accept-source-agreements --silent | Out-Host
     if ($LASTEXITCODE -ne 0) {
         throw "winget could not install $Id (exit code $LASTEXITCODE)."
     }
@@ -235,12 +235,12 @@ function Ensure-Vcpkg {
         $git = Get-Command git.exe -ErrorAction SilentlyContinue
         if (-not $git) { throw 'git.exe is required to obtain vcpkg from its canonical upstream.' }
         if (-not (Test-Path -LiteralPath $vcpkgRoot)) {
-            & $git.Path clone --depth 1 https://github.com/microsoft/vcpkg.git $vcpkgRoot
+            & $git.Path clone --depth 1 https://github.com/microsoft/vcpkg.git $vcpkgRoot | Out-Host
             if ($LASTEXITCODE -ne 0) { throw "vcpkg clone failed with exit code $LASTEXITCODE." }
         }
         Push-Location $vcpkgRoot
         try {
-            & .\bootstrap-vcpkg.bat -disableMetrics
+            & .\bootstrap-vcpkg.bat -disableMetrics | Out-Host
             if ($LASTEXITCODE -ne 0) { throw "vcpkg bootstrap failed with exit code $LASTEXITCODE." }
         } finally {
             Pop-Location
@@ -290,13 +290,13 @@ function Ensure-Zip {
     if (-not $zip) {
         New-Item -ItemType Directory -Force $installRoot | Out-Null
         $zipOutput = '-o' + $installRoot
-        & $sevenZip x $archive $zipOutput '-y'
+        & $sevenZip x $archive $zipOutput '-y' | Out-Host
         if ($LASTEXITCODE -ne 0) { throw "Info-ZIP LZMA extraction failed with exit code $LASTEXITCODE." }
         $tarArchive = Get-ChildItem -LiteralPath $installRoot -Filter '*.tar' -File | Select-Object -First 1
         if (-not $tarArchive) { throw 'Info-ZIP bootstrap did not produce its tar payload.' }
-        & $sevenZip t $tarArchive.FullName
+        & $sevenZip t $tarArchive.FullName | Out-Host
         if ($LASTEXITCODE -ne 0) { throw "Info-ZIP tar payload validation failed with exit code $LASTEXITCODE." }
-        & $sevenZip x $tarArchive.FullName $zipOutput '-y'
+        & $sevenZip x $tarArchive.FullName $zipOutput '-y' | Out-Host
         if ($LASTEXITCODE -ne 0) { throw "Info-ZIP tar payload extraction failed with exit code $LASTEXITCODE." }
         $zipBinary = Get-ChildItem -LiteralPath $installRoot -Recurse -Filter miktex-zip.exe -File -ErrorAction SilentlyContinue | Select-Object -First 1
         if ($zipBinary) {
@@ -399,7 +399,7 @@ function Ensure-Squirrel {
     $squirrelRoot = Join-Path $toolRoot 'squirrel'
     $squirrel = Join-Path $squirrelRoot 'Squirrel\tools\Squirrel.exe'
     if (-not (Test-Path -LiteralPath $squirrel)) {
-        & $nuget install Squirrel -Version 1.9.1 -OutputDirectory $squirrelRoot -ExcludeVersion -NonInteractive
+        & $nuget install Squirrel -Version 1.9.1 -OutputDirectory $squirrelRoot -ExcludeVersion -NonInteractive | Out-Host
         if ($LASTEXITCODE -ne 0) { throw "NuGet Squirrel installation failed with exit code $LASTEXITCODE." }
     }
     if (-not (Test-Path -LiteralPath $squirrel)) { throw 'NuGet did not provide Squirrel.exe.' }
