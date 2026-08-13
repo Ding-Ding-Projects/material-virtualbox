@@ -412,6 +412,7 @@ $attribution = [ordered]@{
     AgentCommits       = 0
     CandidateFiles     = 0
     BlamedFiles        = 0
+    BinaryCandidates   = 0
     SkippedFiles       = [System.Collections.Generic.List[string]]::new()
     FailedFiles        = [System.Collections.Generic.List[string]]::new()
     AgentTotal         = [long]0
@@ -492,7 +493,9 @@ try {
             try { $ourScan = [VBoxReleaseLineScanner]::ScanFile($full) } catch { $ourScan = $null }
             if ($null -eq $ourScan -or $ourScan[0] -eq 1) {
                 # Binary or unreadable: it contributes no lines to any total, so there is
-                # nothing to attribute.
+                # nothing to attribute. Counted so the caption can account for every
+                # candidate rather than leaving a gap between candidates and blames.
+                $attribution.BinaryCandidates++
                 continue
             }
 
@@ -623,43 +626,68 @@ function Format-Number {
     return ('{0:N0}' -f [long]$Value)
 }
 
+function Add-TableRow {
+    <#
+        Builds one Markdown row from already-formatted cells.
+
+        This exists because of a parse that is easy to write and hard to see. Inside
+        the parentheses of a .NET method call, a comma separates method arguments, so
+        $builder.AppendLine('{0}-{1}' -f 'a', 'b') hands AppendLine two arguments and
+        gives the format operator only 'a' — every placeholder past {0} then fails with
+        an argument-list index error. It is the method-call parentheses that do it, not
+        the line break: the same expression assigned to a variable first works fine on
+        one line or five. Building the row here, away from any method call, removes the
+        trap rather than tiptoeing around it.
+    #>
+    param(
+        [Parameter(Mandatory)][System.Text.StringBuilder] $Builder,
+        [Parameter(Mandatory)][string] $Label,
+        [Parameter(Mandatory)][AllowEmptyCollection()][string[]] $Cells,
+        [switch] $Strong
+    )
+
+    $renderedCells = if ($Strong) { @($Cells | ForEach-Object { "**$_**" }) } else { @($Cells) }
+    $renderedLabel = if ($Strong) { "**$Label**" } else { $Label }
+    $line = (@($renderedLabel) + $renderedCells) -join ' | '
+    [void]$Builder.AppendLine('| ' + $line + ' |')
+}
+
 $builder = [System.Text.StringBuilder]::new()
 [void]$builder.AppendLine('| Category | Files | Binary files | Total lines | Non-blank lines |')
 [void]$builder.AppendLine('| --- | ---: | ---: | ---: | ---: |')
 
 foreach ($row in $rows) {
-    [void]$builder.AppendLine(
-        '| {0} | {1} | {2} | {3} | {4} |' -f
-            $row.Label,
-            (Format-Number $row.Files),
-            (Format-Number $row.BinaryFiles),
-            (Format-Number $row.TotalLines),
-            (Format-Number $row.NonBlank))
+    Add-TableRow -Builder $builder -Label $row.Label -Cells @(
+        (Format-Number $row.Files),
+        (Format-Number $row.BinaryFiles),
+        (Format-Number $row.TotalLines),
+        (Format-Number $row.NonBlank)
+    )
 }
 
-[void]$builder.AppendLine(
-    '| **Project total (vendored excluded)** | **{0}** | **{1}** | **{2}** | **{3}** |' -f
-        (Format-Number $projectFiles),
-        (Format-Number $projectBinary),
-        (Format-Number $projectTotal),
-        (Format-Number $projectNonBlank))
-[void]$builder.AppendLine(
-    '| **Grand total (everything tracked)** | **{0}** | **{1}** | **{2}** | **{3}** |' -f
-        (Format-Number $grandFiles),
-        (Format-Number $grandBinary),
-        (Format-Number $grandTotal),
-        (Format-Number $grandNonBlank))
+Add-TableRow -Builder $builder -Label 'Project total (vendored excluded)' -Strong -Cells @(
+    (Format-Number $projectFiles),
+    (Format-Number $projectBinary),
+    (Format-Number $projectTotal),
+    (Format-Number $projectNonBlank)
+)
+Add-TableRow -Builder $builder -Label 'Grand total (everything tracked)' -Strong -Cells @(
+    (Format-Number $grandFiles),
+    (Format-Number $grandBinary),
+    (Format-Number $grandTotal),
+    (Format-Number $grandNonBlank)
+)
 
 if ($attribution.Available) {
-    [void]$builder.AppendLine(
-        '| Agent-written (surviving lines) | – | – | {0} | {1} |' -f
-            (Format-Number $attribution.AgentTotal), (Format-Number $attribution.AgentNonBlank))
-    [void]$builder.AppendLine(
-        '| Human-written (surviving lines) | – | – | {0} | {1} |' -f
-            (Format-Number $attribution.HumanTotal), (Format-Number $attribution.HumanNonBlank))
-    [void]$builder.AppendLine(
-        '| Unattributed (not blamed) | – | – | {0} | {1} |' -f
-            (Format-Number $attribution.UnattributedTotal), (Format-Number $attribution.UnattributedNonBlank))
+    Add-TableRow -Builder $builder -Label 'Agent-written (surviving lines)' -Cells @(
+        '–', '–', (Format-Number $attribution.AgentTotal), (Format-Number $attribution.AgentNonBlank)
+    )
+    Add-TableRow -Builder $builder -Label 'Human-written (surviving lines)' -Cells @(
+        '–', '–', (Format-Number $attribution.HumanTotal), (Format-Number $attribution.HumanNonBlank)
+    )
+    Add-TableRow -Builder $builder -Label 'Unattributed (not blamed)' -Cells @(
+        '–', '–', (Format-Number $attribution.UnattributedTotal), (Format-Number $attribution.UnattributedNonBlank)
+    )
 } else {
     [void]$builder.AppendLine('| Agent-written (surviving lines) | – | – | not measured | not measured |')
     [void]$builder.AppendLine('| Human-written (surviving lines) | – | – | not measured | not measured |')
@@ -675,7 +703,7 @@ $captions.Add('Binary files are detected by a known binary extension or by a NUL
 
 if ($attribution.Available -and $attribution.AgentCommits -gt 0) {
     $captions.Add("Attribution rule: a surviving line is agent-written when the commit ``git blame`` attributes it to has author ``Claude Fable 5`` or carries a ``Co-Authored-By`` trailer naming a Claude agent. $($attribution.AgentCommits) such commit(s) were found.")
-    $captions.Add("To keep the run bounded on this tree, ``git blame`` was restricted to the $($attribution.CandidateFiles) tracked file(s) that at least one of those commits touched; $($attribution.BlamedFiles) were blamed. Every other tracked file has no such commit in its history, so its surviving lines are reported as human-written.")
+    $captions.Add("To keep the run bounded on this tree, ``git blame`` was restricted to the $($attribution.CandidateFiles) tracked file(s) that at least one of those commits touched: $($attribution.BlamedFiles) carry lines and were blamed, and $($attribution.BinaryCandidates) are binary and carry none. Every other tracked file has no such commit in its history, so its surviving lines are reported as human-written.")
 } elseif ($attribution.Available) {
     $captions.Add('Attribution rule: a surviving line is agent-written when the commit `git blame` attributes it to has author `Claude Fable 5` or carries a `Co-Authored-By` trailer naming a Claude agent. No such commit exists in the available history, so every surviving line is reported as human-written.')
 } else {
