@@ -2465,7 +2465,13 @@ class ToolCheck(CheckBase):
                 "14.3x": ( "VCC143", "Visual Studio 2022"),
                 # Newer vswhere versions report the same VS 2022 toolset as
                 # 17.x; keep the kBuild stem identical to the 14.3x form.
-                "17.*": ( "VCC143", "Visual Studio 2022")
+                "17.*": ( "VCC143", "Visual Studio 2022"),
+                # Visual Studio 2026 reports 18.x and ships MSVC 14.5x.  kBuild
+                # carries no toolset stem newer than VCC143, so keep the stem
+                # identical to the 14.3x form as above.  Without a match here the
+                # whole compiler probe below is skipped, which leaves
+                # config_cpp_compiler empty and every test program unbuildable.
+                "18.*": ( "VCC143", "Visual Studio 2026")
             };
 
             sVCPPVer    = '.'.join(sVCPPVer.split('.')[:2]); # Strip build #.
