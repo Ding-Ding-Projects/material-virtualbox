@@ -1,0 +1,43 @@
+﻿[
+    {
+        "surface":  "manager-shell",
+        "status":  "harness_error",
+        "error":  "TargetPath does not exist: C:\\Users\\cntow\\AppData\\Local\\VirtualBox\\app-7.2.97\\VirtualBox.exe",
+        "appPath":  "C:\\Users\\cntow\\AppData\\Local\\VirtualBox\\app-7.2.97\\VirtualBox.exe",
+        "pid":  null,
+        "desktopName":  null,
+        "timestampUtc":  "2026-08-13T21:01:52.6755512Z"
+    },
+    {
+        "surface":  "manager-shell",
+        "status":  "harness_error",
+        "error":  "TargetPath does not exist: C:\\Users\\cntow\\AppData\\Local\\VirtualBox\\app-7.2.97\\VirtualBox.exe",
+        "appPath":  "C:\\Users\\cntow\\AppData\\Local\\VirtualBox\\app-7.2.97\\VirtualBox.exe",
+        "pid":  null,
+        "desktopName":  null,
+        "timestampUtc":  "2026-08-13T21:03:47.6550487Z"
+    },
+    {
+        "surface":  "manager-shell",
+        "status":  "captured",
+        "windowClass":  "Qt683QWindowIcon",
+        "windowTitle":  "Material Virtual Machine Manager",
+        "width":  1024,
+        "height":  975,
+        "outputPath":  "C:\\Users\\cntow\\Documents\\GitHub\\vbx-wt-capture-harness\\doc\\md3\\captures\\manager-shell--01--Qt683QWindowIcon--Material-Virtual-Machine-Manager.png",
+        "appPath":  "C:\\Users\\cntow\\AppData\\Local\\VirtualBox\\app-7.2.97\\VirtualBox.exe",
+        "pid":  50080,
+        "desktopName":  "WinSta0\\VbxCaptureHarness-47872-269028",
+        "timestampUtc":  "2026-08-13T21:08:01.9354848Z",
+        "distinctSampleColors":  18,
+        "totalSamples":  144,
+        "printWindowSucceeded":  true,
+        "error":  null,
+        "commit":  "cb9f573030e",
+        "qtVersion":  null,
+        "displayScale":  "100%",
+        "languageMode":  "English",
+        "profileState":  "default user profile, no VMs registered",
+        "notes":  "Squirrel-installed app-7.2.97 build at C:\\Users\\cntow\\AppData\\Local\\VirtualBox\\app-7.2.97\\VirtualBox.exe; source commit of THIS specific binary is not independently verified by this lane (a separate installer lane owns that build and was observed actively rewriting this install directory during harness development) -- Commit above is this capture-harness worktree own tip at capture time, recorded for traceability, not asserted as the exact build commit of the binary."
+    }
+]
