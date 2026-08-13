@@ -169,7 +169,7 @@ $peForScons = $peTool.FullName.Replace('\', '/')
 $sconsForCmd = $scons.Replace('\', '/')
 $sourceForCmd = $source.Replace('\', '/')
 $vcvarsForCmd = $vcvars.FullName
-$sconsCommand = "call $quote$vcvarsForCmd$quote x86 && set $quote" + 'CODESIGNER=' + "$quote && set $quote" + "MY_VBOX_PE_SET_VERSION=$peForScons$quote && cd /d $quote$sourceForCmd$quote && $quote$sconsForCmd$quote MSVC_USE_SCRIPT=None MSTOOLKIT=yes MSVS_VERSION=14.3 TARGET_ARCH=x86 UNICODE=yes SKIPUTILS=$quote" + 'NSIS Menu' + "$quote SKIPTESTS=all SKIPDOC=all APPEND_CCFLAGS=-arch:IA32 STRIP=1 STRIP_W32=1 NSIS_CONFIG_LOG=1 ZLIB_W32=$zlibForScons dist-zip > $quote$sconsLog$quote 2>&1"
+$sconsCommand = "call $quote$vcvarsForCmd$quote x86 && set $quote" + 'CODESIGNER=' + "$quote && set $quote" + "MY_VBOX_PE_SET_VERSION=$peForScons$quote && cd /d $quote$sourceForCmd$quote && $quote$sconsForCmd$quote VERSION=3.10 MSVC_USE_SCRIPT=None MSTOOLKIT=yes MSVS_VERSION=14.3 TARGET_ARCH=x86 UNICODE=yes SKIPUTILS=$quote" + 'NSIS Menu' + "$quote SKIPTESTS=all SKIPDOC=all APPEND_CCFLAGS=-arch:IA32 STRIP=1 STRIP_W32=1 NSIS_CONFIG_LOG=1 ZLIB_W32=$zlibForScons dist-zip > $quote$sconsLog$quote 2>&1"
 $distributionArchive = Join-Path $source 'nsis-3.10.zip'
 Remove-Item -LiteralPath $distributionArchive -Force -ErrorAction SilentlyContinue
 if (Test-Path -LiteralPath $distributionArchive) { throw "The stale NSIS distribution archive could not be removed: $distributionArchive" }
