@@ -434,7 +434,7 @@ function Invoke-VirtualBoxBuild {
         "--with-qt-path=$QtRoot", "--with-sdk10=$SdkRoot",
         "--with-win-vcpkg-root=$VcpkgRoot", "--with-python-path=$pythonRoot"
     )
-    Invoke-Checked 'Configure the unsigned Windows build' { & .\configure.ps1 @arguments }
+    Invoke-Checked 'Configure the unsigned Windows build' { & .\configure.ps1 -PythonPath $Python @arguments }
     if (-not (Test-Path -LiteralPath .\env.bat)) { throw 'configure.py did not generate env.bat.' }
     $null = Ensure-Nsis
     $revisionMatch = Select-String configure.py -Pattern '\$Id: configure.py (\d+)'
