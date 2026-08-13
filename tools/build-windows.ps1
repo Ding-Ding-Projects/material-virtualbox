@@ -396,9 +396,22 @@ function Ensure-Qt {
     param([Parameter(Mandatory = $true)] [string] $Python)
     $qtRoot = Join-Path $dependencyRoot 'virtualbox-qt'
     $qmake = Get-ChildItem -LiteralPath $qtRoot -Recurse -Filter qmake.exe -File -ErrorAction SilentlyContinue | Select-Object -First 1
-    if (-not $qmake) {
+    # UICommon_QT_MODULES needs the StateMachine and Help add-on modules (aqtinstall
+    # names: qtscxml, qttools) on top of the qtbase that ships qmake.exe.  A cache
+    # from before those modules were requested still satisfies a qmake.exe-only
+    # check, which would skip the install below, leave the modules missing, and
+    # fail the build 33 minutes later on "No rule to make target ...Qt6StateMachine.lib".
+    # So require their import libraries too before treating Qt as already installed.
+    $needsInstall = $true
+    if ($qmake) {
+        $qtInstallRoot = Split-Path -Parent (Split-Path -Parent $qmake.FullName)
+        $stateMachineLib = Join-Path $qtInstallRoot 'lib\Qt6StateMachine.lib'
+        $helpLib = Join-Path $qtInstallRoot 'lib\Qt6Help.lib'
+        $needsInstall = -not ((Test-Path -LiteralPath $stateMachineLib) -and (Test-Path -LiteralPath $helpLib))
+    }
+    if ($needsInstall) {
         Invoke-Checked 'Install aqtinstall' { & $Python -m pip install --disable-pip-version-check --user aqtinstall }
-        Invoke-Checked 'Install Qt 6.8.3 MSVC 2022' { & $Python -m aqt install-qt windows desktop 6.8.3 win64_msvc2022_64 --outputdir $qtRoot }
+        Invoke-Checked 'Install Qt 6.8.3 MSVC 2022' { & $Python -m aqt install-qt windows desktop 6.8.3 win64_msvc2022_64 --outputdir $qtRoot --modules qtscxml qttools }
         $qmake = Get-ChildItem -LiteralPath $qtRoot -Recurse -Filter qmake.exe -File | Select-Object -First 1
     }
     if (-not $qmake) { throw 'Qt installation did not provide qmake.exe.' }
