@@ -117,3 +117,30 @@ ENDPROC   supdrvNtQueryVirtualMemory_Xxx
 
 %endif ; VBOX_WITH_HARDENING
 
+
+%ifndef VBOX_WITH_HARDENING
+;;
+; Dummy byte so the .text section is not completely empty when hardening is disabled.
+;
+; With VBOX_WITH_HARDENING undefined, the whole body of this file above compiles out, leaving
+; BEGINCODE's "section .text" with no content whatsoever. That is harmless for every assembler
+; and every debug format except the one this driver's build template hands nasm unconditionally
+; on Windows: CodeView 8 (-F cv8, see TEMPLATE_VBoxR0Drv_ASFLAGS.win.* / VBOX_NASM_ASFLAGS.pe.*
+; in Config.kmk). Nasm's CodeView-8 writer never gets a single source-line record to attach to
+; the file and asserts instead of just emitting an empty table:
+;   panic: SUPDrvA-win.asm: assertion cv8_state.source_files != NULL failed at output/codeview.c:515
+; This was verified against nasm 2.16.01 and 2.16.03 alike, so it is not a nasm version
+; regression - upgrading nasm does not help. A per-source kBuild ASFLAGS override to drop -F cv8
+; for just this file was investigated and rejected: kBuild's per-source FLAGS/ASFLAGS properties
+; only ever *add* to the template-level flags (see kbuild_collect_source_prop() in kBuild's own
+; kmk sources), they cannot subtract the -F cv8 that TEMPLATE_VBoxR0Drv_ASFLAGS already bakes in
+; for every source in this target, and nasm has no "-F none" to cancel a format once given.
+;
+; A single unreferenced, unexported byte gives the CodeView writer the source-file record it
+; wants. It changes nothing about the driver: nothing calls it, nothing exports it, and the
+; hardened build (which always has real code above) never assembles this branch at all - the
+; preprocessed output of this file is byte-for-byte identical with and without this block
+; whenever VBOX_WITH_HARDENING is defined.
+db 0
+%endif ; !VBOX_WITH_HARDENING
+
