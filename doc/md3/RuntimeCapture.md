@@ -2,6 +2,8 @@
 
 This document defines the evidence required before a native GUI image is added to the project gallery. A design prototype, static HTML preview, or image from another build is not a runtime capture.
 
+[`CaptureMatrix.md`](CaptureMatrix.md) is the enumerated tracking table built on top of this contract: every surface and state that must be captured, and its current `Not captured` status with the exact blocker named. Read this document for what counts as evidence; read that one for what still needs taking.
+
 ## Capture contract
 
 Capture the exact built `VirtualBox.exe` through the cheap headless Windows desktop route. Resolve the top-level window handle at capture time, capture the client and non-client surface, and record the commit, target, Qt version, display scale, language mode, and profile state beside the image. Drive settings, wizard, manager tools, notifications, and runtime windows from the real application; do not seed fake machines or replace an unavailable surface with a mock.
