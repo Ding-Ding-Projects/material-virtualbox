@@ -427,16 +427,20 @@ function Invoke-VirtualBoxBuild {
     $env:Path = "$ZipRoot;$NasmRoot;$env:Path"
     $pythonRoot = (Split-Path -Parent $Python).Replace('\', '/')
     $env:Path = "$pythonRoot;$env:Path"
-    $arguments = @(
+    $commonArguments = @(
         '--disable-hardening', '--disable-python_c_api', '--disable-win-ddk',
         '--disable-win-msi', '--disable-win-wix',
         "--with-kbuild-path=$($repoRoot.Replace('\', '/'))/kBuild/kBuild",
         "--with-qt-path=$QtRoot", "--with-sdk10=$SdkRoot",
         "--with-win-vcpkg-root=$VcpkgRoot", "--with-python-path=$pythonRoot"
     )
-    Invoke-Checked 'Configure the unsigned Windows build' { & .\configure.ps1 -PythonPath $Python @arguments }
+    $bootstrapArguments = @($commonArguments) + '--disable-win-nsis'
+    Invoke-Checked 'Bootstrap the unsigned Windows build environment' { & .\configure.ps1 -PythonPath $Python @bootstrapArguments }
     if (-not (Test-Path -LiteralPath .\env.bat)) { throw 'configure.py did not generate env.bat.' }
-    $null = Ensure-Nsis
+    $nsisRoot = Ensure-Nsis
+    $finalArguments = @($commonArguments) + "--with-win-nsis-path=$nsisRoot"
+    Invoke-Checked 'Configure the unsigned Windows build' { & .\configure.ps1 -PythonPath $Python @finalArguments }
+    if (-not (Test-Path -LiteralPath .\env.bat)) { throw 'Final configure.py pass did not generate env.bat.' }
     $revisionMatch = Select-String configure.py -Pattern '\$Id: configure.py (\d+)'
     if (-not $revisionMatch) { throw 'configure.py does not expose a numeric source revision for the Git mirror build.' }
     $revision = $revisionMatch.Matches[0].Groups[1].Value
