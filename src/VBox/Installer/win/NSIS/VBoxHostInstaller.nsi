@@ -193,19 +193,18 @@ Section "-VirtualBox" SecMain
   ; own COM registration, and the VBoxSDS Windows service are all
   ; unregistered on a bare file copy (which is all Squirrel.Windows, a
   ; per-user unpacker with no elevation, is able to do).
+  ; Register through regsvr32 rather than NSIS's RegDLL.  RegDLL calls plain
+  ; LoadLibrary, which resolves a DLL's own dependencies from the process
+  ; directory, System32 and PATH -- but NOT from the directory the DLL itself
+  ; lives in.  VBoxProxyStub.dll imports VBoxRT.dll, which only exists beside
+  ; it in $INSTDIR, so RegDLL fails with ERROR_MOD_NOT_FOUND (126) even though
+  ; nothing is actually missing.  Verified on a real install: LoadLibraryExW
+  ; with LOAD_WITH_ALTERED_SEARCH_PATH loads all three DLLs cleanly while plain
+  ; LoadLibraryW fails on every one.  regsvr32 uses the altered search path, so
+  ; it resolves siblings correctly.
   ${HostLog} "Registering COM in-process servers (VBoxProxyStub.dll, VBoxC.dll)..."
-  ClearErrors
-  RegDLL "$INSTDIR\VBoxProxyStub.dll"
-  ${If} ${Errors}
-    ${HostLog} "ERROR: RegDLL failed for VBoxProxyStub.dll."
-    Abort "Failed to register VBoxProxyStub.dll. ${PRODUCT_NAME} cannot run without this component. See $\"$G_LogFile$\"."
-  ${EndIf}
-  ClearErrors
-  RegDLL "$INSTDIR\VBoxC.dll"
-  ${If} ${Errors}
-    ${HostLog} "ERROR: RegDLL failed for VBoxC.dll."
-    Abort "Failed to register VBoxC.dll. ${PRODUCT_NAME} cannot run without this component. See $\"$G_LogFile$\"."
-  ${EndIf}
+  ${HostExecAbort} "$\"$SYSDIR\regsvr32.exe$\" /s $\"$INSTDIR\VBoxProxyStub.dll$\""
+  ${HostExecAbort} "$\"$SYSDIR\regsvr32.exe$\" /s $\"$INSTDIR\VBoxC.dll$\""
 
   ${HostLog} "Registering the VBoxSVC out-of-process COM server (VBoxSVC.exe /RegServer)..."
   ${HostExecAbort} "$\"$INSTDIR\VBoxSVC.exe$\" /RegServer"
@@ -298,11 +297,13 @@ Section "Uninstall"
   ${If} ${FileExists} "$INSTDIR\VBoxSVC.exe"
     ${HostExecLogOnly} "Unregister VBoxSVC COM server" "$\"$INSTDIR\VBoxSVC.exe$\" /UnregServer"
   ${EndIf}
+  ; regsvr32 /u for the same reason RegDLL is not used above: UnRegDLL calls
+  ; plain LoadLibrary and cannot resolve VBoxRT.dll sitting beside these two.
   ${If} ${FileExists} "$INSTDIR\VBoxC.dll"
-    UnRegDLL "$INSTDIR\VBoxC.dll"
+    ${HostExecLogOnly} "Unregister VBoxC.dll" "$\"$SYSDIR\regsvr32.exe$\" /s /u $\"$INSTDIR\VBoxC.dll$\""
   ${EndIf}
   ${If} ${FileExists} "$INSTDIR\VBoxProxyStub.dll"
-    UnRegDLL "$INSTDIR\VBoxProxyStub.dll"
+    ${HostExecLogOnly} "Unregister VBoxProxyStub.dll" "$\"$SYSDIR\regsvr32.exe$\" /s /u $\"$INSTDIR\VBoxProxyStub.dll$\""
   ${EndIf}
 
   ; ---- Shortcuts and registry -----------------------------------------------
