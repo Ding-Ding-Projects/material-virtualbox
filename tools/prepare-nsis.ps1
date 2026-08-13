@@ -169,42 +169,7 @@ $peForScons = $peTool.FullName.Replace('\', '/')
 $sconsForCmd = $scons.Replace('\', '/')
 $sourceForCmd = $source.Replace('\', '/')
 $vcvarsForCmd = $vcvars.FullName
-$sourceLicense = Join-Path $source 'COPYING'
-$exampleInstaller = Join-Path $source 'Examples\makensis.nsi'
-if (-not (Test-Path -LiteralPath $sourceLicense -PathType Leaf)) { throw 'The verified NSIS source tree does not contain COPYING.' }
-if (-not (Test-Path -LiteralPath $exampleInstaller -PathType Leaf)) { throw 'The verified NSIS source tree does not contain Examples\makensis.nsi.' }
-$exampleText = [IO.File]::ReadAllText($exampleInstaller)
-$licensePatches = @(
-    @{ Name = 'license page'; Old = '!insertmacro MUI_PAGE_LICENSE "..\COPYING"'; New = '!insertmacro MUI_PAGE_LICENSE "..\..\COPYING"' },
-    @{ Name = 'license file'; Old = '  File ..\COPYING'; New = '  File ..\..\COPYING' }
-)
-$exampleChanged = $false
-foreach ($patch in $licensePatches) {
-    $oldPattern = '(?m)^' + [regex]::Escape($patch.Old) + '(?=\r?$)'
-    $newPattern = '(?m)^' + [regex]::Escape($patch.New) + '(?=\r?$)'
-    $oldCount = ([regex]::Matches($exampleText, $oldPattern)).Count
-    $newCount = ([regex]::Matches($exampleText, $newPattern)).Count
-    if ($oldCount -eq 1 -and $newCount -eq 0) {
-        $exampleText = [regex]::Replace($exampleText, $oldPattern, $patch.New, 1)
-        $exampleChanged = $true
-    } elseif ($oldCount -ne 0 -or $newCount -ne 1) {
-        throw "The NSIS example installer $($patch.Name) path is ambiguous: old=$oldCount, new=$newCount."
-    }
-}
-if ($exampleChanged) {
-    Write-Utf8NoBom -Path $exampleInstaller -Value $exampleText
-}
-$patchedExampleText = [IO.File]::ReadAllText($exampleInstaller)
-foreach ($patch in $licensePatches) {
-    $oldPattern = '(?m)^' + [regex]::Escape($patch.Old) + '(?=\r?$)'
-    $newPattern = '(?m)^' + [regex]::Escape($patch.New) + '(?=\r?$)'
-    $oldCount = ([regex]::Matches($patchedExampleText, $oldPattern)).Count
-    $newCount = ([regex]::Matches($patchedExampleText, $newPattern)).Count
-    if ($oldCount -ne 0 -or $newCount -ne 1) {
-        throw "The NSIS example installer $($patch.Name) path was not patched exactly once: old=$oldCount, new=$newCount."
-    }
-}
-$sconsCommand = "call $quote$vcvarsForCmd$quote x86 && set $quote" + 'CODESIGNER=' + "$quote && set $quote" + "MY_VBOX_PE_SET_VERSION=$peForScons$quote && cd /d $quote$sourceForCmd$quote && $quote$sconsForCmd$quote MSVC_USE_SCRIPT=None MSTOOLKIT=yes MSVS_VERSION=14.3 TARGET_ARCH=x86 UNICODE=yes SKIPUTILS=$quote" + 'NSIS Menu' + "$quote SKIPTESTS=all SKIPDOC=all APPEND_CCFLAGS=-arch:IA32 STRIP=1 STRIP_W32=1 NSIS_CONFIG_LOG=1 ZLIB_W32=$zlibForScons dist > $quote$sconsLog$quote 2>&1"
+$sconsCommand = "call $quote$vcvarsForCmd$quote x86 && set $quote" + 'CODESIGNER=' + "$quote && set $quote" + "MY_VBOX_PE_SET_VERSION=$peForScons$quote && cd /d $quote$sourceForCmd$quote && $quote$sconsForCmd$quote MSVC_USE_SCRIPT=None MSTOOLKIT=yes MSVS_VERSION=14.3 TARGET_ARCH=x86 UNICODE=yes SKIPUTILS=$quote" + 'NSIS Menu' + "$quote SKIPTESTS=all SKIPDOC=all APPEND_CCFLAGS=-arch:IA32 STRIP=1 STRIP_W32=1 NSIS_CONFIG_LOG=1 ZLIB_W32=$zlibForScons dist-zip > $quote$sconsLog$quote 2>&1"
 $instdist = Join-Path $source '.instdist'
 Invoke-Checked 'Build the NSIS 3.10 log-enabled distribution' { & cmd.exe /d /c $sconsCommand }
 
