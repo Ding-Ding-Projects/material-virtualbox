@@ -165,6 +165,8 @@ build and environment this harness was proven against.
 | 43 | Unsigned-publisher warning | OS unknown-publisher / SmartScreen dialog (expected and disclosed, not hidden, per the permanent no-signing policy) | Not captured | A |
 | 44 | Auto-update | Non-blocking "ready to restart" banner | Not captured | A |
 | 45 | Auto-update | Offline / invalid-feed fallback state | Not captured | A |
+| 46 | Changelog viewer (new this pass, `doc/md3/Changelog.md`) | `Ctrl+Shift+L`, no filter applied (cold open) | Not captured | New surface added in this pass; not attempted. Also blocked behind a rebuild — the installed binary referenced by rows 1/5/31 above predates `UIMd3Changelog` and does not contain this code, so no capture of it is possible without a full `kmk` build this lane explicitly excludes. |
+| 47 | Changelog viewer | Search + category + date filter applied, showing a per-row commit button and the off-default-branch marker | Not captured | Same as row 46. |
 
 ## How a row gets closed
 

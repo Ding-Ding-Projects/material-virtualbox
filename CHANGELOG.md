@@ -138,6 +138,24 @@ for screenshot evidence.
   `HANDOFF.md`, `ROADMAP.md`, and `README.md` current with the build/packaging
   state above.
 
+### Added — In-app changelog viewer
+
+- Added an in-app changelog viewer (`UIMd3Changelog`, reachable from the
+  Manager with `Ctrl+Shift+L` or the command palette's "Open changelog")
+  that compiles in every entry this file records, with plain-text/regex
+  search, version/category/date filters that compose, clickable per-entry
+  commit references, and filtered Markdown export/copy. See
+  [`doc/md3/Changelog.md`](doc/md3/Changelog.md) for the full contract,
+  including why the entry set is a verified compiled-in transcription of
+  this file rather than a runtime parser, and the exact maintenance duty
+  that follows from that choice: every future edit to this file's entries
+  must be mirrored into `UIMd3Changelog::prepareEntries()` in the same task.
+  (This bullet is intentionally not itself an entry inside the viewer yet —
+  it describes the commit that adds the viewer, and a viewer cannot cite its
+  own not-yet-created commit hash without inventing one, which the viewer's
+  own contract forbids. A later task should add this bullet's real commit
+  once known.)
+
 ## Related work not yet on `main`
 
 Commit

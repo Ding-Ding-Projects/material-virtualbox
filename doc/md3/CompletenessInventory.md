@@ -226,11 +226,29 @@ far from universal."
 
 ## 15. Changelog viewer with date picker and commit links
 
-**Not implemented on any surface.** Searched for `changelog`/`Changelog`/`ChangeLog` under
-`src/VBox/Frontends`: zero matches. There is a top-level `CHANGELOG.md` in the repository (out of
-this lane's edit scope) that records Windows build/packaging fixes, but there is no in-app viewer
-of any kind — no date filter, no search, no per-entry commit links rendered in the UI. Docs: none
-(the file exists but an in-app viewer article does not). Tests: T0. Build proof: B0. Capture: C0.
+**Partial (S1 Manager only).** `UIMd3Changelog`
+(`src/VBox/Frontends/VirtualBox/src/md3/UIMd3Changelog.{h,cpp}`) is a new process-wide singleton,
+created/destroyed in `main.cpp` alongside `UIMd3History`/`UIMd3NotificationCentre`, reachable from
+the Manager via <kbd>Ctrl+Shift+L</kbd> and a "Open changelog" command-palette entry. It compiles
+in every entry from the repository's own `CHANGELOG.md` (ten entries as of this audit, each
+independently verified against a real commit hash and date in this checkout — see
+`doc/md3/Changelog.md` for the exact `git cat-file`/`git log` verification record) rather than
+inventing example data, and provides a `UIMd3SearchField` (plain text + the shared anchored regex
+builder), native `QDateEdit` `From`/`To` calendar filters that also accept typed dates (mirroring
+`UIMd3History`'s pattern), a category filter, a version filter, per-entry commit references
+rendered as real keyboard-operable `QPushButton`s that open the commit on GitHub, and filtered
+Markdown export/copy that both honor the active search/category/version/date filter together.
+
+| Surface | Status | Implementation | Docs | Localized copy | Tests | Interaction proof | Capture | Blocker |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| Engine (compiled-in entry set) | Implemented | `UIMd3Changelog::prepareEntries()`; ten entries transcribed from `CHANGELOG.md`, each commit hash verified with `git cat-file -e` and dated with `git log` against this checkout | [`Changelog.md`](Changelog.md) | N/A (engine) | T0 | B0 | None (C0) | No source-wiring CI step covers this file yet (not in `md3-validation.yml`'s fixed list); no `kmk` toolchain in this lane, see `LocalGates.md` |
+| Browser UI (S1 Manager) | Implemented | `Ctrl+Shift+L` and command-palette route; plain-text + regex search, version/category filters, native calendar From/To date pickers with "Any date", per-row clickable commit buttons, filtered Markdown export + clipboard copy | [`Changelog.md`](Changelog.md) | EN+ZH registered via `UIMd3Language::registerText()` for every UI string; changelog content itself is factual data and intentionally not funny-level-styled (see `Changelog.md`) | T0 | B0 | None (C0) | Same as above — mechanical brace/paren-balance and symbol review only (documented in `Changelog.md`), not a compile |
+| S2–S7 | Not implemented | No changelog surface outside the Manager | — | N/A | T0 | B0/N/A | None (C0) | Matches every other `UIMd3*` singleton's current Manager-only scope; not attempted this pass |
+
+This keeps the same honesty discipline as row 14 (History) above: implemented, documented, and
+localized, but with no compiled build evidence and no real capture, because this lane explicitly
+excludes the full Windows build and the installed binary at
+`C:\Program Files\VirtualBox\VirtualBox.exe` predates this change.
 
 ## 16. External-editor handoff
 
