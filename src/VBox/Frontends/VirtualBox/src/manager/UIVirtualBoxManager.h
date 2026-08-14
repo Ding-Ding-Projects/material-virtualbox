@@ -360,6 +360,13 @@ private:
         void prepareIcon();
         /** Prepares menu-bar. */
         void prepareMenuBar();
+        /** Re-grabs the keyboard shortcut of every leaf action reachable from @a pMenu
+          * (recursing into submenus) directly on this always-visible window.  Qt's default
+          * Qt::WindowShortcut context needs a visible owner to resolve a shortcut, and the
+          * legacy menu-bar built by prepareMenuBar() is kept hidden behind the Material
+          * header, so without this every accelerator that only ever lived on a menu action
+          * (Ctrl+G for Preferences, for example) would silently stop firing. */
+        void reclaimMenuActionShortcuts(QMenu *pMenu);
         /** Prepares status-bar. */
         void prepareStatusBar();
         /** Prepares toolbar. */

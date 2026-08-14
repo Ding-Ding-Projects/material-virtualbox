@@ -2641,7 +2641,30 @@ void UIVirtualBoxManager::prepareMenuBar()
     /* Keep the action-backed menu model, but do not stack legacy chrome above
      * the frameless Material header.  The header exposes these menus on demand. */
     menuBar()->hide();
+    /* Hiding the menu-bar strips every one of its actions of the only visible
+     * owner their Qt::WindowShortcut context could resolve against, so their
+     * keyboard accelerators (Ctrl+G for Preferences, and so on) would silently
+     * go dead.  Re-grab each leaf action directly on this window, which stays
+     * visible for as long as the manager is open: */
+    foreach (QMenu *pTopLevelMenu, actionPool()->menus())
+        reclaimMenuActionShortcuts(pTopLevelMenu);
 #endif
+}
+
+void UIVirtualBoxManager::reclaimMenuActionShortcuts(QMenu *pMenu)
+{
+    if (!pMenu)
+        return;
+
+    foreach (QAction *pAction, pMenu->actions())
+    {
+        if (!pAction || pAction->isSeparator())
+            continue;
+        if (pAction->menu())
+            reclaimMenuActionShortcuts(pAction->menu());
+        else
+            addAction(pAction);
+    }
 }
 
 void UIVirtualBoxManager::prepareStatusBar()
