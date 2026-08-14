@@ -90,6 +90,7 @@
 #include "UIMd3Button.h"
 #include "UIMd3Changelog.h"
 #include "UIMd3CommandPalette.h"
+#include "UIMd3EmojiSetting.h"
 #include "UIMd3ExternalEditor.h"
 #include "UIMd3History.h"
 #include "UIMd3Language.h"
@@ -2720,6 +2721,10 @@ void UIVirtualBoxManager::registerCommandPaletteCommands()
     registerManagerText("md3.manager.import-appliance", QStringLiteral("Import an appliance"), QStringLiteral("匯入裝置"));
     registerManagerText("md3.manager.open-history", QStringLiteral("Open local history"), QStringLiteral("開啟本機歷史"));
     registerManagerText("md3.manager.open-changelog", QStringLiteral("Open changelog"), QStringLiteral("開啟更新日誌"));
+    registerManagerText("md3.manager.toggle-emoji", QStringLiteral("Show emojis in dialogs and message boxes: %1"),
+                        QStringLiteral("喺對話框同訊息方塊度顯示表情符號：%1"));
+    registerManagerText("md3.manager.emoji-state-on", QStringLiteral("On"), QStringLiteral("開"));
+    registerManagerText("md3.manager.emoji-state-off", QStringLiteral("Off"), QStringLiteral("關"));
     registerManagerText("md3.manager.export-appliance", QStringLiteral("Export an appliance"), QStringLiteral("匯出裝置"));
     registerManagerText("md3.manager.add-machine", QStringLiteral("Add an existing virtual machine"), QStringLiteral("加入現有虛擬機器"));
     registerManagerText("md3.manager.new-cloud-machine", QStringLiteral("Create a cloud virtual machine"), QStringLiteral("建立雲端虛擬機器"));
@@ -2788,6 +2793,24 @@ void UIVirtualBoxManager::registerCommandPaletteCommands()
                                                                UIMd3Changelog::instance()->showCentre(this);
                                                        }, 0, strManagerCategory,
                                                        QStringLiteral("open-changelog")));
+
+    /* Persisted "show emojis in dialogs and message boxes" toggle. The row's own
+     * title is recomputed from the live persisted state every time this method
+     * runs, exactly like registerGlobalToolCommand()'s live-state rows below;
+     * the handler flips the state and re-registers so the palette immediately
+     * shows the new On/Off label without needing to be reopened. */
+    const QString strEmojiState = UIMd3EmojiSetting::isEnabled()
+                                 ? managerText("md3.manager.emoji-state-on", tr("On"))
+                                 : managerText("md3.manager.emoji-state-off", tr("Off"));
+    UIMd3CommandPalette::registerCommand(UIMd3Command(
+        managerText("md3.manager.toggle-emoji", tr("Show emojis in dialogs and message boxes: %1")).arg(strEmojiState),
+        strManagerSource,
+        [this]()
+        {
+            UIMd3EmojiSetting::toggle();
+            registerCommandPaletteCommands();
+        }, 0, strManagerCategory,
+        QStringLiteral("toggle-emoji")));
 
     const auto registerGlobalToolCommand = [this, &strManagerSource, &strManagerCategory, &managerText]
         (const char *pszKey, const QString &strFallback, const QString &strCantonese,
