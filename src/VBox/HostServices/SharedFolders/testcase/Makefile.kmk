@@ -31,7 +31,14 @@ include $(KBUILD_PATH)/subheader.kmk
 #
 # Structure size testcase.
 #
+# Set VBOX_WITHOUT_RUN_BUILD_TESTCASES (see Config.kmk) to stop kmk from
+# auto-executing tstShflSizes.exe as part of the ordinary build. The
+# executable is still built and staged exactly as before (and can still be
+# run by hand, e.g. "kmk $(tstShflSizes_0_OUTDIR)/tstShflSizes.run"); only
+# the automatic execution during the build is skipped.
+#
 PROGRAMS += tstShflSizes
+ifndef VBOX_WITHOUT_RUN_BUILD_TESTCASES
 TESTING  += $(tstShflSizes_0_OUTDIR)/tstShflSizes.run
 ifndef VBOX_ONLY_SDK
  ifeq ($(KBUILD_TARGET),$(KBUILD_HOST))
@@ -40,6 +47,7 @@ ifndef VBOX_ONLY_SDK
   endif
  endif
 endif
+endif # !VBOX_WITHOUT_RUN_BUILD_TESTCASES
 tstShflSizes_TEMPLATE = VBoxR3AutoTest
 tstShflSizes_DEFS     = VBOX_WITH_HGCM
 tstShflSizes_SOURCES  = tstShflSizes.cpp

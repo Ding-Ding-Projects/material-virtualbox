@@ -545,16 +545,23 @@ function Invoke-VirtualBoxBuild {
         # cold checkout leaves those binaries unbuilt and the payload directory
         # missing VirtualBox.exe.
         #
-        # VBOX_WITHOUT_VMM_RUN_STRUCT_TESTS: without this, the build auto-executes
-        # tstVMStructSize.exe/tstAsmStructs.exe as a build step
-        # (src/VBox/VMM/testcase/Makefile.kmk). Under MSVC v143 14.44 both die on
-        # launch with STATUS_STACK_BUFFER_OVERRUN before printing a single line of
-        # output - before either binary gets anywhere near an actual structure
-        # check - which points at the VBoxR3AutoTest/NoCrt-static template's
-        # Control Flow Guard / EH Continuation Guard combination rather than a
-        # real VMM struct-layout regression. This only skips the automatic run;
-        # both executables are still built and still staged into bin\testcase.
-        & cmd.exe /d /c "call `"$repoRoot\env.bat`" && kmk VBOX_SVN_REV=$revision SDK_WINSDK10_MAX_VERSION=10.0.22621.0 VBOX_WINDDK_GST_W7=WINSDK10-KM VBOX_WINDDK_GST_W8=WINSDK10-KM VBOX_WINDDK_GST_WLH=WINDDK71WLH VBOX_WINDDK_GST_W2K3=WINSDK10-KM VBOX_WINDDK_GST_WXP=WINSDK10-KM VBOX_WINDDK_GST_W2K=WINSDK10-KM VBOX_WINDDK_GST_NT4=WINSDK10-KM VBOX_USE_RTISOMAKER=1 VBOX_WITHOUT_WIN_HOST_INSTALLER=1 VBOX_WITHOUT_VMM_RUN_STRUCT_TESTS=1"
+        # VBOX_WITHOUT_RUN_BUILD_TESTCASES: without this, the build auto-executes
+        # every VBoxR3AutoTest-templated struct/alignment self-check testcase as a
+        # build step - not just tstVMStructSize.exe/tstAsmStructs.exe
+        # (src/VBox/VMM/testcase/Makefile.kmk), but also tstDeviceStructSize.exe
+        # (src/VBox/Devices/testcase/Makefile.kmk), tstShflSizes.exe
+        # (src/VBox/HostServices/SharedFolders/testcase/Makefile.kmk), and the
+        # tstVMStructDTrace.exe run that produces vbox-vm-struct-test.d
+        # (src/VBox/VMM/testcase/Makefile.kmk). Under MSVC v143 14.44 every one of
+        # them dies on launch with STATUS_STACK_BUFFER_OVERRUN before printing a
+        # single line of output - before any of them gets anywhere near an actual
+        # structure check - which points at the VBoxR3AutoTest template's
+        # NoCrt-static startup combined with this tree's default Control Flow
+        # Guard / EH Continuation Guard flags rather than a real struct-layout
+        # regression. This only skips the automatic run; every executable is
+        # still built and still staged into bin\testcase (see Config.kmk for the
+        # full description of this switch).
+        & cmd.exe /d /c "call `"$repoRoot\env.bat`" && kmk VBOX_SVN_REV=$revision SDK_WINSDK10_MAX_VERSION=10.0.22621.0 VBOX_WINDDK_GST_W7=WINSDK10-KM VBOX_WINDDK_GST_W8=WINSDK10-KM VBOX_WINDDK_GST_WLH=WINDDK71WLH VBOX_WINDDK_GST_W2K3=WINSDK10-KM VBOX_WINDDK_GST_WXP=WINSDK10-KM VBOX_WINDDK_GST_W2K=WINSDK10-KM VBOX_WINDDK_GST_NT4=WINSDK10-KM VBOX_USE_RTISOMAKER=1 VBOX_WITHOUT_WIN_HOST_INSTALLER=1 VBOX_WITHOUT_RUN_BUILD_TESTCASES=1"
     }
     Invoke-Checked 'Build the Windows package payload' {
         # VBOX_WITHOUT_WIN_HOST_INSTALLER skips the WiX/MSI host installer during
@@ -563,7 +570,13 @@ function Invoke-VirtualBoxBuild {
         # so the MSI would need the WiX toolset nothing installs and would produce an
         # artifact this pipeline never publishes.  The host binaries themselves were
         # already built by the full pass above; this pass only packs them.
-        & cmd.exe /d /c "call `"$repoRoot\env.bat`" && kmk VBOX_SVN_REV=$revision SDK_WINSDK10_MAX_VERSION=10.0.22621.0 VBOX_WINDDK_GST_W7=WINSDK10-KM VBOX_WINDDK_GST_W8=WINSDK10-KM VBOX_WINDDK_GST_WLH=WINDDK71WLH VBOX_WINDDK_GST_W2K3=WINSDK10-KM VBOX_WINDDK_GST_WXP=WINSDK10-KM VBOX_WINDDK_GST_W2K=WINSDK10-KM VBOX_WINDDK_GST_NT4=WINSDK10-KM VBOX_USE_RTISOMAKER=1 VBOX_WITHOUT_WIN_HOST_INSTALLER=1 VBOX_WITHOUT_VMM_RUN_STRUCT_TESTS=1 packing"
+        #
+        # VBOX_WITHOUT_RUN_BUILD_TESTCASES is repeated here for the same reason
+        # VBOX_SVN_REV and VBOX_WITHOUT_WIN_HOST_INSTALLER are: kmk is a fresh
+        # process each invocation and re-evaluates Config.kmk and every
+        # Makefile.kmk from scratch, so a command-line override only applies to
+        # the invocation it is actually passed on.
+        & cmd.exe /d /c "call `"$repoRoot\env.bat`" && kmk VBOX_SVN_REV=$revision SDK_WINSDK10_MAX_VERSION=10.0.22621.0 VBOX_WINDDK_GST_W7=WINSDK10-KM VBOX_WINDDK_GST_W8=WINSDK10-KM VBOX_WINDDK_GST_WLH=WINDDK71WLH VBOX_WINDDK_GST_W2K3=WINSDK10-KM VBOX_WINDDK_GST_WXP=WINSDK10-KM VBOX_WINDDK_GST_W2K=WINSDK10-KM VBOX_WINDDK_GST_NT4=WINSDK10-KM VBOX_USE_RTISOMAKER=1 VBOX_WITHOUT_WIN_HOST_INSTALLER=1 VBOX_WITHOUT_RUN_BUILD_TESTCASES=1 packing"
     }
     $payload = Join-Path $repoRoot 'out\win.amd64\release\bin'
     if (-not (Test-Path -LiteralPath (Join-Path $payload 'VirtualBox.exe'))) {

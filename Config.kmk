@@ -1102,6 +1102,33 @@ VBOX_WITH_EXTPACK_VBOXDTRACE = 1
 VBOX_WITH_ALL_DOXYGEN_TARGETS = 1
 # Set this to skip installing the redistributable compiler runtime.
 #VBOX_WITHOUT_COMPILER_REDIST = 1
+# Set this to stop kmk from auto-executing the VBoxR3AutoTest-templated
+# struct/alignment self-check testcases (tstVMStructSize, tstAsmStructs,
+# tstDeviceStructSize, tstShflSizes, tstVMStructDTrace) as part of the
+# ordinary build. The executables are still built and staged exactly as
+# before; only the automatic "build it, then run it and check the exit
+# code" step is skipped. Each testcase's own makefile still lets you run
+# it by hand once the toolchain can execute it (e.g. the 'run-struct-tests'
+# alias in src/VBox/VMM/testcase/Makefile.kmk and
+# src/VBox/Devices/testcase/Makefile.kmk).
+#
+# This is a narrow escape hatch for toolchains where the *build machine
+# itself* cannot run these executables (observed: MSVC v143 14.44 +
+# VBOX_WITH_NOCRT_STATIC's "only tested with Visual C++ 2019" NoCrt-static
+# startup combined with this tree's default Control Flow Guard and EH
+# Continuation Guard flags produce a binary that __fastfail()s with
+# STATUS_STACK_BUFFER_OVERRUN before printing a single line of its own
+# output - i.e. before the testcase even gets to check anything).
+#
+# Note: gating tstVMStructDTrace also skips producing
+# out/.../dtrace/testcase/<arch>/vbox-vm-struct-test.d, which the classic
+# Windows host installer's WiX packaging (src/VBox/Installer/win/Makefile.kmk)
+# references as a Vital="yes" source file when VBOX_WITHOUT_WIN_HOST_INSTALLER
+# is *not* set. Pair this switch with VBOX_WITHOUT_WIN_HOST_INSTALLER=1 (as
+# tools/build-windows.ps1 and .github/workflows/windows-package-release.yml
+# already do) if you need the classic WiX-based installer built too.
+#
+#VBOX_WITHOUT_RUN_BUILD_TESTCASES = 1
 # Enables VMMR0.r0 (++) loading using the native loader on solaris.
 # Good for debugging and analysis.  Experimental.
 #VBOX_WITH_NATIVE_SOLARIS_LOADING = 1
