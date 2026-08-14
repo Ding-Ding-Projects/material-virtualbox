@@ -142,6 +142,14 @@ Rules for adding a changelog entry to make them look more uniform:
       </listitem>
 
       <listitem>
+        <para>GUI: Added one bounded Material search and appearance card over
+          the existing Extensions, Media, Network, Cloud, and VM Activity
+          Overview records, preserving prior hidden-row state and live model
+          ownership while removing the duplicate embedded Media toolbar search
+          action</para>
+      </listitem>
+
+      <listitem>
         <para>GUI: Added native snap hit testing with non-client maximize-click
           forwarding, screen-bounded restored geometry, searchable application
           and toolbar menus, accessible Material buttons and page tabs, and
@@ -222,6 +230,19 @@ Rules for adding a changelog entry to make them look more uniform:
           wizard shell and native page stack, including current/completed/upcoming
           step descriptions, live page context, and truthful Help, Back, Next,
           Finish, and Cancel action announcements</para>
+      </listitem>
+
+      <listitem>
+        <para>GUI: Reworked native wizards into a responsive Material 3 step rail
+          and bounded page card, with hidden-page reconciliation, compact rail
+          collapse, internal page scrolling, and the existing 48-pixel action row
+          integrated without replacing page validation or progress ownership</para>
+      </listitem>
+
+      <listitem>
+        <para>GUI: Made searchable-menu setup and modeless notification-history
+          signal wiring idempotent, preventing stale action callbacks and duplicate
+          list refreshes after menus or notification review surfaces are reopened</para>
       </listitem>
 
       <listitem>

@@ -1102,6 +1102,33 @@ VBOX_WITH_EXTPACK_VBOXDTRACE = 1
 VBOX_WITH_ALL_DOXYGEN_TARGETS = 1
 # Set this to skip installing the redistributable compiler runtime.
 #VBOX_WITHOUT_COMPILER_REDIST = 1
+# Set this to stop kmk from auto-executing the VBoxR3AutoTest-templated
+# struct/alignment self-check testcases (tstVMStructSize, tstAsmStructs,
+# tstDeviceStructSize, tstShflSizes, tstVMStructDTrace) as part of the
+# ordinary build. The executables are still built and staged exactly as
+# before; only the automatic "build it, then run it and check the exit
+# code" step is skipped. Each testcase's own makefile still lets you run
+# it by hand once the toolchain can execute it (e.g. the 'run-struct-tests'
+# alias in src/VBox/VMM/testcase/Makefile.kmk and
+# src/VBox/Devices/testcase/Makefile.kmk).
+#
+# This is a narrow escape hatch for toolchains where the *build machine
+# itself* cannot run these executables (observed: MSVC v143 14.44 +
+# VBOX_WITH_NOCRT_STATIC's "only tested with Visual C++ 2019" NoCrt-static
+# startup combined with this tree's default Control Flow Guard and EH
+# Continuation Guard flags produce a binary that __fastfail()s with
+# STATUS_STACK_BUFFER_OVERRUN before printing a single line of its own
+# output - i.e. before the testcase even gets to check anything).
+#
+# Note: gating tstVMStructDTrace also skips producing
+# out/.../dtrace/testcase/<arch>/vbox-vm-struct-test.d, which the classic
+# Windows host installer's WiX packaging (src/VBox/Installer/win/Makefile.kmk)
+# references as a Vital="yes" source file when VBOX_WITHOUT_WIN_HOST_INSTALLER
+# is *not* set. Pair this switch with VBOX_WITHOUT_WIN_HOST_INSTALLER=1 (as
+# tools/build-windows.ps1 and .github/workflows/windows-package-release.yml
+# already do) if you need the classic WiX-based installer built too.
+#
+#VBOX_WITHOUT_RUN_BUILD_TESTCASES = 1
 # Enables VMMR0.r0 (++) loading using the native loader on solaris.
 # Good for debugging and analysis.  Experimental.
 #VBOX_WITH_NATIVE_SOLARIS_LOADING = 1
@@ -3814,7 +3841,31 @@ if "$(VBOX_VCC_TOOL_STEM)" >= "VCC142"  # With v16.11.9, not with v16.6.0 4242
 endif
 #    -wd4548: socket.cpp(1931): warning C4548: expression before comma has no effect; expected expression with side-effect
 VBOX_VCC_WARN_ALL += -wd4548
+#    -wd4388: VBoxCaps.cpp(231): warning C4388: '<': signed/unsigned mismatch.  The companion of the -wd4365
+#             conversion warning already disabled above, raised where a signed index or status is range checked
+#             against an unsigned count such as RT_ELEMENTS().  -Wall enables it and -WX makes it fatal.
+VBOX_VCC_WARN_ALL += -wd4388
+#    -wd4319: dvmgpt.cpp(313): warning C4319: '~': zero extending 'size_t' to 'uint64_t' of greater size.  Raised
+#             throughout the 32-bit builds by RT_ALIGN_Z(), where a 32-bit size_t meets a 64-bit sector or offset.
+#             The zero extension is what the macro intends; -Wall enables the warning and -WX makes it fatal.
+VBOX_VCC_WARN_ALL += -wd4319
+#    -wd5286/-wd5287: formats.h(192): warning C5287: operands are different enum types.  Raised in bulk by the
+#             vendored Mesa sources, which mask and combine values from separate enums by design.  Newer MSVC
+#             reports the pair; -Wall enables them and -WX makes them fatal.
+VBOX_VCC_WARN_ALL += -wd5286 -wd5287
+#    -wd4668: qnumeric.h(96): warning C4668: 'Q_CC_GNU' is not defined as a preprocessor macro,
+#             replacing with '0' for '#if/#elif'.  Raised inside Qt 6's own QtCore header, which
+#             tests the GCC-only Q_CC_GNU macro with a bare #if; under MSVC it is simply undefined,
+#             which is exactly the case the warning reports and exactly what Qt intends.  Hits every
+#             VBoxDbg translation unit that includes QtCore.  Already disabled for the same reason in
+#             the vendored Mesa build's VBOXGL_DISABLED_WARNINGS (src/VBox/Additions/3D/win/VBoxGL/
+#             Makefile.kmk).  -Wall enables the warning and -WX makes it fatal.
+VBOX_VCC_WARN_ALL += -wd4668
 if "$(VBOX_VCC_TOOL_STEM)" >= "VCC143"
+ #    -wd4865: wingdi.h(2806): warning C4865: the underlying type of '<unnamed-enum-DISPLAYCONFIG_OUTPUT_TECHNOLOGY_OTHER>'
+ #             will change when '/Zc:enumTypes' is specified on the command line.  Emitted by the Windows 10 SDK
+ #             10.0.26100.0 headers when compiled by VCC 14.5x, which we build with -Wall -WX.
+ VBOX_VCC_WARN_ALL += -wd4865
  if "$(KBUILD_TARGET_ARCH)" == "arm64"
   VBOX_VCC_WARN_ALL += -wd4746
  endif
@@ -5173,7 +5224,10 @@ SDK_VBoxLzf-x86_LIBS          ?= $(PATH_STAGE_LIB)/VBox-liblzf-x86$(VBOX_SUFF_LI
 SDK_VBoxLzfStatic             := lzf compressor/decompressor for static linking.
 SDK_VBoxLzfStatic_EXTENDS     := VBoxLzf
 if1of ($(KBUILD_TARGET), os2 win)
- SDK_VBoxLzfStatic_LIBS       := $(PATH_STAGE_LIB)/VBox-liblzf-static$(VBOX_SUFF_LIB)
+ # kBuild normalizes library producer paths to forward slashes.  Keep this
+ # dependency in the same spelling so a Windows nested Validation Kit build
+ # does not treat the backslash form as a different, missing target.
+ SDK_VBoxLzfStatic_LIBS       := $(subst \,/,$(PATH_STAGE_LIB))/VBox-liblzf-static$(VBOX_SUFF_LIB)
 endif
 
 # openssl

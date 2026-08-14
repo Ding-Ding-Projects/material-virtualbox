@@ -162,8 +162,9 @@ private:
 
     /** Rebuilds every tonal palette from the current seed and scheme. */
     void regenerate();
-    /** Returns the tone @a iTone (0..100) of the tonal palette built from @a base. */
-    static QColor tone(const QColor &base, int iTone);
+    /** Returns the tone @a iTone (0..100) of the HCT tonal palette at @a dHue and @a dChroma.
+      * Tone is CIE L*, so the same tone number means the same contrast for every palette. */
+    static QColor paletteTone(double dHue, double dChroma, int iTone);
     /** Returns the effective scheme, resolving UIMd3Scheme_System against the host. */
     UIMd3Scheme effectiveScheme() const;
     /** Records a validated theme change without making history persistence fatal. */

@@ -39,8 +39,11 @@
 #include "UIMd3Theme.h"
 #include "UIMd3Style.h"
 #include "UIMd3Language.h"
+#include "UIMd3Changelog.h"
+#include "UIMd3DimSumSurprise.h"
 #include "UIMd3History.h"
 #include "UIMd3NotificationCentre.h"
+#include "UIMd3PersonalVocabulary.h"
 #include "UILoggingDefs.h"
 #include "UIModalWindowManager.h"
 #include "UIStarter.h"
@@ -598,6 +601,9 @@ extern "C" DECLEXPORT(int) TrustedMain(int argc, char **argv, char ** /*envp*/)
         UIMd3Language::create();
         UIMd3History::create();
         UIMd3NotificationCentre::create();
+        UIMd3Changelog::create();
+        UIMd3DimSumSurprise::create();
+        UIMd3PersonalVocabulary::create();
 
         /* Simulate try-catch block: */
         do
@@ -629,6 +635,9 @@ extern "C" DECLEXPORT(int) TrustedMain(int argc, char **argv, char ** /*envp*/)
 
         /* Persist and destroy the process-wide Material 3 theme before the
          * extra-data manager and UICommon are torn down. */
+        UIMd3PersonalVocabulary::destroy();
+        UIMd3DimSumSurprise::destroy();
+        UIMd3Changelog::destroy();
         UIMd3NotificationCentre::destroy();
         UIMd3History::destroy();
         UIMd3Theme::destroy();

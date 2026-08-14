@@ -23,25 +23,40 @@
 # SPDX-License-Identifier: GPL-3.0-only
 #
 
-$python = Get-Command python3 -ErrorAction SilentlyContinue
-if (-not $python)
+param([string] $PythonPath)
+
+if ($PythonPath)
 {
-    $python = Get-Command python -ErrorAction SilentlyContinue
+    if (-not [System.IO.File]::Exists($PythonPath))
+    {
+        Write-Host "The requested Python 3 executable does not exist: $PythonPath" -ForegroundColor Red
+        exit 1
+    }
+    $pythonExecutable = [System.IO.Path]::GetFullPath($PythonPath)
+}
+else
+{
+    $python = Get-Command python3 -ErrorAction SilentlyContinue
+    if (-not $python)
+    {
+        $python = Get-Command python -ErrorAction SilentlyContinue
+    }
+
+    if (-not $python)
+    {
+        Write-Host "Python 3 is required in order to build VirtualBox." -ForegroundColor Red
+        Write-Host "Please install Python 3 and ensure it is in your PATH." -ForegroundColor Red
+        exit 1
+    }
+    $pythonExecutable = $python.Path
 }
 
-if (-not $python)
-{
-    Write-Host "Python 3 is required in order to build VirtualBox." -ForegroundColor Red
-    Write-Host "Please install Python 3 and ensure it is in your PATH." -ForegroundColor Red
-    exit 1
-}
-
-$version = & $python.Path --version 2>&1
+$version = & $pythonExecutable --version 2>&1
 if ($version -notmatch "Python 3")
 {
     Write-Host "Python 3 is required. Found: $version" -ForegroundColor Red
     exit 1
 }
 
-& $python.Path configure.py @args
+& $pythonExecutable configure.py @args
 exit $LASTEXITCODE

@@ -202,7 +202,9 @@ endif
 VBOX_WINDOWS_ADDITIONS_OTHER_FILES := \
 	$(PATH_STAGE_BIN)/additions/VBoxService.exe \
 	$(PATH_STAGE_BIN)/additions/VBoxHook.dll \
-	$(PATH_STAGE_BIN)/additions/VBoxDrvInst.exe
+	$(PATH_STAGE_BIN)/additions/VBoxDrvInst.exe \
+	$(PATH_STAGE_BIN)/additions/VBoxGINA.dll \
+	$(PATH_STAGE_BIN)/additions/VBoxCredProv.dll
 
 ifeq ($(KBUILD_TARGET_ARCH),x86)
  VBOX_WINDOWS_ADDITIONS_OTHER_FILES += \
@@ -319,6 +321,7 @@ $(PATH_STAGE_BIN)/additions/VBoxWindowsAdditions-$(KBUILD_TARGET_ARCH).exe: \
 		$(if $(VBOX_WIN_ATTESTATION_SIGNING),$(PATH_OUT)/repackadd/$(VBOX_SIGNED_DRIVERS_ZIP_NAME)) \
 		$(VBOX_VERSION_STAMP) \
 		$$(VBoxGuestInstallHelper_1_STAGE_TARGET) \
+		$(if $(VBOX_WITH_GUEST_INSTALL_HELPER),$$(VBoxGuestInstallHelperDll_1_TARGET)) \
 		| $(VBOX_SIGN_IMAGE_ORDERDEPS)
 	$(call MSG_L1,Creating $@, from $<)
 ifdef VBOX_WIN_ATTESTATION_SIGNING # Unpack the attestation signed drivers - this is an ugly as 'ing heck hack!

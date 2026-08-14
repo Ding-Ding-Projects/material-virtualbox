@@ -25,6 +25,7 @@
 
 #include "UIMd3AppearanceEditor.h"
 #include "UIMd3Button.h"
+#include "UIMd3Hct.h"
 #include "UIMd3Language.h"
 #include "UIMd3SearchField.h"
 #include "UIMd3Theme.h"
@@ -521,9 +522,20 @@ namespace
             const QColor seed(m_pSeed->text().trimmed());
             QPalette palette = m_pPreview->palette();
             const QColor background = seed.isValid() ? seed : md3(UIMd3ColorRole_SecondaryContainer);
-            const QColor foreground = background.lightnessF() > 0.55
-                                    ? md3(UIMd3ColorRole_OnSurface)
-                                    : md3(UIMd3ColorRole_OnPrimary);
+            /* The swatch shows whatever colour the user typed, so neither on-colour is
+             * safe to assume: pick the one that is perceptually furthest from it. HSL
+             * lightness would answer this wrongly for saturated seeds, where it reports
+             * a bright yellow and a mid blue as equally light. */
+            const QColor onSurface = md3(UIMd3ColorRole_OnSurface).toRgb();
+            const QColor onPrimary = md3(UIMd3ColorRole_OnPrimary).toRgb();
+            const QColor opaqueBackground = background.toRgb();
+            const double dBackgroundTone =
+                md3LstarFromRgb(opaqueBackground.red(), opaqueBackground.green(), opaqueBackground.blue());
+            const double dOnSurfaceDistance =
+                qAbs(md3LstarFromRgb(onSurface.red(), onSurface.green(), onSurface.blue()) - dBackgroundTone);
+            const double dOnPrimaryDistance =
+                qAbs(md3LstarFromRgb(onPrimary.red(), onPrimary.green(), onPrimary.blue()) - dBackgroundTone);
+            const QColor foreground = dOnSurfaceDistance >= dOnPrimaryDistance ? onSurface : onPrimary;
             palette.setColor(QPalette::Window, background);
             palette.setColor(QPalette::WindowText, foreground);
             m_pPreview->setAutoFillBackground(true);

@@ -46,6 +46,11 @@ VBox-liblzf_SOURCES = \
 
 VBox-liblzf-static_TEMPLATE   = VBoxR3StaticNonPedantic
 VBox-liblzf-static_EXTENDS    = VBox-liblzf
+VBox-liblzf-static_BLD_TYPE   = $(VBox-liblzf_BLD_TYPE)
+VBox-liblzf-static_DEFS       = $(VBox-liblzf_DEFS)
+VBox-liblzf-static_DEFS.x86   = $(VBox-liblzf_DEFS.x86)
+VBox-liblzf-static_DEFS.amd64 = $(VBox-liblzf_DEFS.amd64)
+VBox-liblzf-static_SOURCES    = $(VBox-liblzf_SOURCES)
 ifdef VBOX_WITH_NOCRT_STATIC
  VBox-liblzf-static_DEFS      = $(VBox-liblzf_DEFS) IPRT_NO_CRT_FOR_3RD_PARTY
 endif

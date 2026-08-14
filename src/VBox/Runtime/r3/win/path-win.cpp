@@ -107,7 +107,7 @@ RTDECL(int) RTPathReal(const char *pszPath, char *pszRealPath, size_t cchRealPat
         LPWSTR lpFile;
         WCHAR  wsz[RTPATH_MAX];
         rc = GetFullPathNameW((LPCWSTR)pwszPath, RT_ELEMENTS(wsz), &wsz[0], &lpFile);
-        if (rc > 0 && rc < RT_ELEMENTS(wsz))
+        if (rc > 0 && rc < (int)RT_ELEMENTS(wsz))
         {
             /* Check that it exists. (Use RTPathAbs() to just resolve the name.) */
             DWORD dwAttr = GetFileAttributesW(wsz);

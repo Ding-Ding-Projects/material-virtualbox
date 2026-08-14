@@ -88,10 +88,14 @@
 #include "UITranslationEventListener.h"
 #include "UIVirtualBoxManager.h"
 #include "UIMd3Button.h"
+#include "UIMd3Changelog.h"
 #include "UIMd3CommandPalette.h"
+#include "UIMd3EmojiSetting.h"
+#include "UIMd3ExternalEditor.h"
 #include "UIMd3History.h"
 #include "UIMd3Language.h"
 #include "UIMd3ManagerHeader.h"
+#include "UIMd3PersonalVocabulary.h"
 #include "UIMd3Theme.h"
 #include "UIVirtualBoxWidget.h"
 #include "UIVirtualMachineItemCloud.h"
@@ -2641,7 +2645,30 @@ void UIVirtualBoxManager::prepareMenuBar()
     /* Keep the action-backed menu model, but do not stack legacy chrome above
      * the frameless Material header.  The header exposes these menus on demand. */
     menuBar()->hide();
+    /* Hiding the menu-bar strips every one of its actions of the only visible
+     * owner their Qt::WindowShortcut context could resolve against, so their
+     * keyboard accelerators (Ctrl+G for Preferences, and so on) would silently
+     * go dead.  Re-grab each leaf action directly on this window, which stays
+     * visible for as long as the manager is open: */
+    foreach (QMenu *pTopLevelMenu, actionPool()->menus())
+        reclaimMenuActionShortcuts(pTopLevelMenu);
 #endif
+}
+
+void UIVirtualBoxManager::reclaimMenuActionShortcuts(QMenu *pMenu)
+{
+    if (!pMenu)
+        return;
+
+    foreach (QAction *pAction, pMenu->actions())
+    {
+        if (!pAction || pAction->isSeparator())
+            continue;
+        if (pAction->menu())
+            reclaimMenuActionShortcuts(pAction->menu());
+        else
+            addAction(pAction);
+    }
 }
 
 void UIVirtualBoxManager::prepareStatusBar()
@@ -2694,6 +2721,13 @@ void UIVirtualBoxManager::registerCommandPaletteCommands()
     registerManagerText("md3.manager.open-media", QStringLiteral("Open virtual media manager"), QStringLiteral("開啟虛擬媒體管理員"));
     registerManagerText("md3.manager.import-appliance", QStringLiteral("Import an appliance"), QStringLiteral("匯入裝置"));
     registerManagerText("md3.manager.open-history", QStringLiteral("Open local history"), QStringLiteral("開啟本機歷史"));
+    registerManagerText("md3.manager.open-external-editor", QStringLiteral("Open the VirtualBox configuration folder in an external editor"), QStringLiteral("用外部編輯器開啟 VirtualBox 設定資料夾"));
+    registerManagerText("md3.manager.open-changelog", QStringLiteral("Open changelog"), QStringLiteral("開啟更新日誌"));
+    registerManagerText("md3.manager.toggle-emoji", QStringLiteral("Show emojis in dialogs and message boxes: %1"),
+                        QStringLiteral("喺對話框同訊息方塊度顯示表情符號：%1"));
+    registerManagerText("md3.manager.emoji-state-on", QStringLiteral("On"), QStringLiteral("開"));
+    registerManagerText("md3.manager.emoji-state-off", QStringLiteral("Off"), QStringLiteral("關"));
+    registerManagerText("md3.manager.open-vocabulary", QStringLiteral("Open personal vocabulary"), QStringLiteral("開啟個人詞彙"));
     registerManagerText("md3.manager.export-appliance", QStringLiteral("Export an appliance"), QStringLiteral("匯出裝置"));
     registerManagerText("md3.manager.add-machine", QStringLiteral("Add an existing virtual machine"), QStringLiteral("加入現有虛擬機器"));
     registerManagerText("md3.manager.new-cloud-machine", QStringLiteral("Create a cloud virtual machine"), QStringLiteral("建立雲端虛擬機器"));
@@ -2747,6 +2781,48 @@ void UIVirtualBoxManager::registerCommandPaletteCommands()
                                                                UIMd3History::instance()->showCentre(this);
                                                        }, 0, strManagerCategory,
                                                        QStringLiteral("open-history")));
+    UIMd3CommandPalette::registerCommand(UIMd3Command(managerText("md3.manager.open-external-editor",
+                                                                  tr("Open the VirtualBox configuration folder in an external editor")),
+                                                       strManagerSource,
+                                                       [this]() { UIMd3ExternalEditor::openConfigFolder(this); }, 0,
+                                                       strManagerCategory,
+                                                       QStringLiteral("open-external-editor")));
+
+    UIMd3CommandPalette::registerCommand(UIMd3Command(managerText("md3.manager.open-changelog", tr("Open changelog")),
+                                                       strManagerSource,
+                                                       [this]()
+                                                       {
+                                                           if (UIMd3Changelog::instance())
+                                                               UIMd3Changelog::instance()->showCentre(this);
+                                                       }, 0, strManagerCategory,
+                                                       QStringLiteral("open-changelog")));
+
+    /* Persisted "show emojis in dialogs and message boxes" toggle. The row's own
+     * title is recomputed from the live persisted state every time this method
+     * runs, exactly like registerGlobalToolCommand()'s live-state rows below;
+     * the handler flips the state and re-registers so the palette immediately
+     * shows the new On/Off label without needing to be reopened. */
+    const QString strEmojiState = UIMd3EmojiSetting::isEnabled()
+                                 ? managerText("md3.manager.emoji-state-on", tr("On"))
+                                 : managerText("md3.manager.emoji-state-off", tr("Off"));
+    UIMd3CommandPalette::registerCommand(UIMd3Command(
+        managerText("md3.manager.toggle-emoji", tr("Show emojis in dialogs and message boxes: %1")).arg(strEmojiState),
+        strManagerSource,
+        [this]()
+        {
+            UIMd3EmojiSetting::toggle();
+            registerCommandPaletteCommands();
+        }, 0, strManagerCategory,
+        QStringLiteral("toggle-emoji")));
+
+    UIMd3CommandPalette::registerCommand(UIMd3Command(managerText("md3.manager.open-vocabulary", tr("Open personal vocabulary")),
+                                                       strManagerSource,
+                                                       [this]()
+                                                       {
+                                                           if (UIMd3PersonalVocabulary::instance())
+                                                               UIMd3PersonalVocabulary::instance()->showCentre(this);
+                                                       }, 0, strManagerCategory,
+                                                       QStringLiteral("open-vocabulary")));
 
     const auto registerGlobalToolCommand = [this, &strManagerSource, &strManagerCategory, &managerText]
         (const char *pszKey, const QString &strFallback, const QString &strCantonese,
@@ -2840,6 +2916,13 @@ void UIVirtualBoxManager::prepareConnections()
     {
         if (UIMd3History::instance())
             UIMd3History::instance()->showCentre(this);
+    });
+    QShortcut *pChangelogShortcut = new QShortcut(QKeySequence(Qt::CTRL | Qt::SHIFT | Qt::Key_L), this);
+    pChangelogShortcut->setContext(Qt::ApplicationShortcut);
+    connect(pChangelogShortcut, &QShortcut::activated, this, [this]()
+    {
+        if (UIMd3Changelog::instance())
+            UIMd3Changelog::instance()->showCentre(this);
     });
     registerCommandPaletteCommands();
     if (UIMd3Language::instance())

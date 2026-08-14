@@ -86,4 +86,4 @@ long bilingual labels, and 100/125/150/200-percent scaling.
 
 Suggested articles: [Material 3 GUI overview](README.md),
 [Manager shell](ManagerShell.md), [Design coverage ledger](DesignCoverage.md), and the repository
-[build instructions](../README.md#build-and-prerequisites).
+[build instructions](../../README.md#build-and-prerequisites).

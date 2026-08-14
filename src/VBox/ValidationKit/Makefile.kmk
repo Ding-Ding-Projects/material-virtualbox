@@ -42,6 +42,13 @@ ifndef VBOX_VALIDATIONKIT_CONFIG_KMK_INCLUDED
  include $(PATH_SUB_CURRENT)/Config.kmk
 endif
 
+# The validation-only packing sub-build enters this directory directly, so it
+# does not traverse src/Makefile.kmk and would otherwise leave the static LZF
+# library dependency from VBoxValidationKitR3 without a producing target.
+if1of ($(KBUILD_TARGET), os2 win)
+ include $(PATH_ROOT)/src/libs/liblzf-3.6/Makefile.kmk
+endif
+
 # Collect install targets
 VBOX_VALIDATIONKIT_INSTALLS := $(INSTALLS)
 

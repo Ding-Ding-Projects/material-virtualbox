@@ -497,7 +497,7 @@ DECLHIDDEN(int) rtR0InitNative(void)
             /* Try all sets: iBest -> End; iBest -> Start. */
             bool    fDone = false;
             int32_t i     = iBest;
-            while (   i < RT_ELEMENTS(g_artNtSdbSets)
+            while (   i < (int32_t)RT_ELEMENTS(g_artNtSdbSets)
                    && !(fDone = rtR0NtTryMatchSymSet(&g_artNtSdbSets[i], pbPrcb, u.szVendor, &OsVerInfo)))
                 i++;
             if (!fDone)

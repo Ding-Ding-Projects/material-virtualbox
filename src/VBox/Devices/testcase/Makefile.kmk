@@ -64,6 +64,13 @@ VBOX_DEVICES_TESTS_FEATURES = \
 # We setup one 'other' target for executing the structure & alignment
 # validation testcases. Perhaps a bit hackish, but extremely useful.
 #
+# Set VBOX_WITHOUT_RUN_BUILD_TESTCASES (see Config.kmk) to stop kmk from
+# auto-executing tstDeviceStructSize.exe as part of the ordinary build (the
+# 'run-struct-tests' alias below still lets you run it by hand). The
+# executable is still built and staged exactly as before; only the
+# automatic execution during the build is skipped.
+#
+ifndef VBOX_WITHOUT_RUN_BUILD_TESTCASES
 ifeq ($(KBUILD_TARGET),$(KBUILD_HOST))
  ifeq ($(filter-out x86.x86 amd64.amd64 x86.amd64, $(KBUILD_TARGET_ARCH).$(KBUILD_HOST_ARCH)),)
   OTHERS += \
@@ -74,6 +81,7 @@ endif
 # The normal testing pass.
 TESTING += \
 	$(VBOX_DEVICES_TEST_OUT_DIR)/tstDeviceStructSize.run
+endif # !VBOX_WITHOUT_RUN_BUILD_TESTCASES
 
 ifdef VBOX_WITH_RAW_MODE
  #
