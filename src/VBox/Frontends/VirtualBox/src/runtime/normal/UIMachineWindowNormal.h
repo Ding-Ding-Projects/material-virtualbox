@@ -36,6 +36,7 @@
 
 /* Forward declarations: */
 class CMediumAttachment;
+class QMenu;
 class UIIndicatorsPool;
 class UIAction;
 class UIMd3RuntimeHeader;
@@ -95,6 +96,14 @@ private:
 #endif /* !VBOX_WS_MAC */
     /** Prepares the Material 3 runtime header on Windows hosts. */
     void prepareRuntimeHeader();
+#ifdef VBOX_WS_WIN
+    /** Recursively walks @a pMenu, registering every leaf action directly on
+      * this window as well.  A hidden menu bar stops being a visible owner
+      * for Qt::WindowShortcut-context accelerators (Host-key toggles among
+      * them), so each leaf action needs this always-visible second owner to
+      * keep firing once the menu bar disappears behind the Material header. */
+    void registerMenuActionShortcuts(QMenu *pMenu);
+#endif /* VBOX_WS_WIN */
     /** Prepare status-bar routine. */
     void prepareStatusBar() RT_OVERRIDE;
     /** Prepare notification-center routine. */

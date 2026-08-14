@@ -239,6 +239,22 @@ void UIMachineWindowNormal::prepareMenu()
 }
 #endif /* !VBOX_WS_MAC */
 
+#ifdef VBOX_WS_WIN
+void UIMachineWindowNormal::registerMenuActionShortcuts(QMenu *pMenu)
+{
+    AssertPtrReturnVoid(pMenu);
+    foreach (QAction *pAction, pMenu->actions())
+    {
+        if (!pAction || pAction->isSeparator())
+            continue;
+        if (pAction->menu())
+            registerMenuActionShortcuts(pAction->menu());
+        else
+            addAction(pAction);
+    }
+}
+#endif /* VBOX_WS_WIN */
+
 void UIMachineWindowNormal::prepareRuntimeHeader()
 {
 #ifdef VBOX_WS_WIN
@@ -248,6 +264,14 @@ void UIMachineWindowNormal::prepareRuntimeHeader()
     /* Keep QMenu/QAction ownership in the existing hidden menu bar while the
      * Material header supplies the production window chrome and menu entry. */
     menuBar()->hide();
+    /* The menu bar just lost the one property (visibility) Qt's shortcut map
+     * checks before honouring a Qt::WindowShortcut-context action, so every
+     * Host-key toggle and every other accelerator bound only through these
+     * menus would otherwise go silent from here on.  Give each leaf action a
+     * second, always-visible owner on this window so the same QAction still
+     * has somewhere Qt is willing to match the key press against. */
+    foreach (QMenu *pMenu, actionPool()->menus())
+        registerMenuActionShortcuts(pMenu);
     m_pTopSpacer->changeSize(0, 0, QSizePolicy::Fixed, QSizePolicy::Fixed);
     m_pMainLayout->setRowStretch(0, 0);
     m_pMainLayout->setRowMinimumHeight(0, 48);
