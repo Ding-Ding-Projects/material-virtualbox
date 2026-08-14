@@ -324,3 +324,25 @@ jobs:
           }
           if ($themeSource -match 'fromHsvF') { throw 'Palette bases must be derived in HCT, not HSV' }
           if (-not (Test-Path doc/md3/TonalPalette.md)) { throw 'Missing tonal-palette article' }
+      - name: Collect safe validation evidence
+        if: ${{ always() }}
+        continue-on-error: true
+        shell: pwsh
+        run: |
+          # This job is pure source/text-contract checking against the already
+          # checked-out tree -- it builds nothing and its every failure already
+          # names the exact missing pattern in the job's own log. There is no
+          # build artifact to preserve, so this records only which commit was
+          # actually checked, matching the sibling archive-and-source-contract
+          # job's evidence for consistency.
+          New-Item -ItemType Directory -Force artifacts | Out-Null
+          git status --short | Set-Content artifacts/git-status.txt
+          git rev-parse HEAD | Set-Content artifacts/revision.txt
+      - uses: actions/upload-artifact@v4
+        if: ${{ always() }}
+        continue-on-error: true
+        with:
+          name: tonal-palette-validation-evidence
+          path: artifacts
+          if-no-files-found: warn
+          retention-days: 7

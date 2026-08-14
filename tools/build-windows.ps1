@@ -1,5 +1,24 @@
 # $Id$
-# Windows build and unsigned Squirrel.Windows packaging helper.
+# Windows build and unsigned NSIS host installer packaging helper.
+#
+# -Mode Build builds the Windows host binaries into out\win.amd64\release\bin.
+# -Mode Installer does that, then compiles the single elevated NSIS installer
+# (src\VBox\Installer\win\NSIS\VBoxHostInstaller.nsi, via
+# tools\build-windows-nsis-installer.ps1) from that payload. This project
+# shipped an unsigned Squirrel.Windows package here until 2026-08; Squirrel is
+# a per-user file unpacker with no elevation, so it could not register COM
+# classes, install the VBoxSDS Windows service, or install kernel drivers --
+# VirtualBox.exe installed via Squirrel started and then immediately died with
+# REGDB_E_CLASSNOTREG ("The VBoxSDS windows service was not found"). The NSIS
+# installer requests Administrator elevation and performs the COM/service
+# registration and driver installation Squirrel structurally could not, so it
+# replaced Squirrel as the one and only installer this script and the release
+# workflow produce, rather than shipping two installers side by side. See
+# doc\installer\WindowsHostInstallerNSIS.md for the full story. The Squirrel
+# packaging code (Ensure-Squirrel, New-SquirrelInstaller) was deleted outright
+# rather than left unreferenced dead code: it built a known-broken installer,
+# and dead packaging code is exactly the kind of thing a future edit
+# copy-pastes from by accident.
 #
 # Copyright (C) 2026 Oracle and/or its affiliates.
 # SPDX-License-Identifier: GPL-3.0-only
@@ -458,24 +477,6 @@ function Ensure-MesaPython {
     }
 }
 
-function Ensure-Squirrel {
-    $nuget = Join-Path $toolRoot 'nuget.exe'
-    if (-not (Test-Path -LiteralPath $nuget)) {
-        Invoke-WebRequest -UseBasicParsing -Uri 'https://dist.nuget.org/win-x86-commandline/v6.11.1/nuget.exe' -OutFile $nuget
-    }
-    $squirrelRoot = Join-Path $toolRoot 'squirrel'
-    # The NuGet package is "squirrel.windows"; a package named "Squirrel" does not
-    # exist.  -ExcludeVersion drops the version from the directory but keeps the
-    # package id, so the tool lands in <root>\squirrel.windows\tools.
-    $squirrel = Join-Path $squirrelRoot 'squirrel.windows\tools\Squirrel.exe'
-    if (-not (Test-Path -LiteralPath $squirrel)) {
-        & $nuget install squirrel.windows -Version 1.9.1 -OutputDirectory $squirrelRoot -ExcludeVersion -NonInteractive | Out-Host
-        if ($LASTEXITCODE -ne 0) { throw "NuGet Squirrel installation failed with exit code $LASTEXITCODE." }
-    }
-    if (-not (Test-Path -LiteralPath $squirrel)) { throw 'NuGet did not provide Squirrel.exe.' }
-    return @{ NuGet = $nuget; Squirrel = $squirrel }
-}
-
 function Invoke-VirtualBoxBuild {
     param(
         [Parameter(Mandatory = $true)] [string] $Python,
@@ -565,11 +566,12 @@ function Invoke-VirtualBoxBuild {
     }
     Invoke-Checked 'Build the Windows package payload' {
         # VBOX_WITHOUT_WIN_HOST_INSTALLER skips the WiX/MSI host installer during
-        # "packing".  This package ships the unsigned Squirrel installer built from
-        # out\win.amd64\release\bin further down, not the traditional VirtualBox MSI,
-        # so the MSI would need the WiX toolset nothing installs and would produce an
-        # artifact this pipeline never publishes.  The host binaries themselves were
-        # already built by the full pass above; this pass only packs them.
+        # "packing".  This package ships the unsigned NSIS installer built from
+        # out\win.amd64\release\bin further down (tools\build-windows-nsis-installer.ps1),
+        # not the traditional VirtualBox MSI, so the MSI would need the WiX toolset
+        # nothing installs and would produce an artifact this pipeline never publishes.
+        # The host binaries themselves were already built by the full pass above;
+        # this pass only packs them.
         #
         # VBOX_WITHOUT_RUN_BUILD_TESTCASES is repeated here for the same reason
         # VBOX_SVN_REV and VBOX_WITHOUT_WIN_HOST_INSTALLER are: kmk is a fresh
@@ -610,72 +612,6 @@ function Invoke-VirtualBoxBuild {
     return $payload
 }
 
-function New-SquirrelInstaller {
-    param(
-        [Parameter(Mandatory = $true)] [string] $Payload,
-        [Parameter(Mandatory = $true)] [hashtable] $Tools
-    )
-    $major = (Select-String Version.kmk -Pattern '^VBOX_VERSION_MAJOR\s*=\s*(\d+)' | ForEach-Object { $_.Matches[0].Groups[1].Value })
-    $minor = (Select-String Version.kmk -Pattern '^VBOX_VERSION_MINOR\s*=\s*(\d+)' | ForEach-Object { $_.Matches[0].Groups[1].Value })
-    $build = (Select-String Version.kmk -Pattern '^VBOX_VERSION_BUILD\s*=\s*(\d+)' | ForEach-Object { $_.Matches[0].Groups[1].Value })
-    if (-not $major -or -not $minor -or -not $build) { throw 'Version.kmk did not provide a numeric VirtualBox version.' }
-    $version = "$major.$minor.$build"
-    $workRoot = Join-Path ([IO.Path]::GetTempPath()) ("virtualbox-squirrel-" + [guid]::NewGuid().ToString('N'))
-    $stage = Join-Path $workRoot 'stage'
-    $release = Join-Path $workRoot 'release'
-    New-Item -ItemType Directory -Force (Join-Path $stage 'lib\net45'), $release | Out-Null
-    Copy-Item (Join-Path $Payload '*') (Join-Path $stage 'lib\net45') -Recurse -Force
-    $nuspec = @"
-<?xml version="1.0"?>
-<package>
-  <metadata>
-    <id>VirtualBox</id>
-    <version>$version</version>
-    <authors>Oracle</authors>
-    <description>Unsigned VirtualBox Windows package.</description>
-  </metadata>
-  <files><file src="lib\net45\**\*" target="lib\net45" /></files>
-</package>
-"@
-    $nuspecPath = Join-Path $stage 'VirtualBox.nuspec'
-    Set-Content -LiteralPath $nuspecPath -Value $nuspec -Encoding UTF8
-    Push-Location $stage
-    try {
-        & $Tools.NuGet pack $nuspecPath -NoPackageAnalysis -NonInteractive | Out-Host
-        if ($LASTEXITCODE -ne 0) { throw "NuGet package creation failed with exit code $LASTEXITCODE." }
-    } finally {
-        Pop-Location
-    }
-    $package = Get-ChildItem -LiteralPath $stage -Filter '*.nupkg' -File | Select-Object -First 1
-    if (-not $package) { throw 'NuGet did not produce the Squirrel input package.' }
-    & $Tools.Squirrel --releasify $package.FullName --releaseDir $release --no-msi | Out-Host
-    if ($LASTEXITCODE -ne 0) { throw "Squirrel releasify failed with exit code $LASTEXITCODE." }
-    $setup = Join-Path $release 'Setup.exe'
-    $releases = Join-Path $release 'RELEASES'
-    $fullPackage = Get-ChildItem -LiteralPath $release -Filter '*-full.nupkg' -File | Select-Object -First 1
-    if (-not (Test-Path -LiteralPath $setup) -or -not (Test-Path -LiteralPath $releases) -or -not $fullPackage) {
-        throw 'Squirrel did not produce Setup.exe, RELEASES, and a full .nupkg.'
-    }
-    foreach ($file in Get-ChildItem -LiteralPath $release -File) {
-        if ($file.Extension -eq '.exe') {
-            $signature = Get-AuthenticodeSignature -LiteralPath $file.FullName
-            if ($signature.Status -ne 'NotSigned') { throw "Expected unsigned installer asset: $($file.Name) ($($signature.Status))." }
-        }
-    }
-    $hashes = Get-ChildItem -LiteralPath $release -File | ForEach-Object {
-        [pscustomobject]@{
-            Hash = Get-Sha256File -Path $_.FullName
-            Path = $_.FullName
-        }
-    }
-    $hashes | ForEach-Object { "{0}  {1}" -f $_.Hash.ToLowerInvariant(), $_.Path.Substring($release.Length + 1) } | Set-Content -LiteralPath (Join-Path $release 'SHA256SUMS.txt') -Encoding UTF8
-    Write-Host "Unsigned Squirrel installer: $setup"
-    Write-Host "RELEASES index: $releases"
-    Write-Host "Full package: $($fullPackage.FullName)"
-    $hashes | Where-Object { $_.Path -eq $setup } | ForEach-Object { Write-Host "Setup.exe SHA-256: $($_.Hash)" }
-    return $release
-}
-
 $python = Get-RequiredPython
 Invoke-Checked 'Bootstrap Windows SDK and WDK' { $script:SdkRoot = Ensure-WindowsKits }
 $wdk71Root = $script:Wdk71Root
@@ -691,9 +627,15 @@ $qtRoot = Ensure-Qt $python
 $payload = Invoke-VirtualBoxBuild -Python $python -QtRoot $qtRoot -SdkRoot $SdkRoot -Wdk71Root $wdk71Root -VcpkgRoot $vcpkgRoot -NasmRoot $nasmRoot -ZipRoot $zipRoot
 
 if ($Mode -eq 'Installer') {
-    $squirrelTools = Ensure-Squirrel
-    $releaseDir = New-SquirrelInstaller -Payload $payload -Tools $squirrelTools
-    Write-Host "Installer artifacts remain at $releaseDir for inspection."
+    # This is the ONE Windows installer this project ships: the elevated NSIS
+    # installer, which -- unlike the retired Squirrel path -- can actually
+    # register COM, install the VBoxSDS service, and attempt kernel driver
+    # installation. It builds straight from $payload; there is no separate
+    # staging copy the way Squirrel's NuGet packaging needed.
+    $nsisInstallerScript = Join-Path $repoRoot 'tools\build-windows-nsis-installer.ps1'
+    Write-Host "==> Build the unsigned NSIS host installer"
+    & $nsisInstallerScript -PayloadDir $payload
+    Write-Host "Installer artifacts remain at $(Join-Path $repoRoot 'out\win.amd64\release\nsis-installer') for inspection."
 } elseif (-not $Silent) {
     $answer = Read-Host 'Build succeeded. Launch VirtualBox.exe now? [y/N]'
     if ($answer -match '^(y|yes)$') {

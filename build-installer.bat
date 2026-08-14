@@ -1,6 +1,10 @@
 @echo off
 rem $Id$
-rem One-click unsigned Squirrel.Windows installer wrapper for VirtualBox.
+rem One-click unsigned NSIS host installer wrapper for VirtualBox. Builds the
+rem single elevated VirtualBox-<version>-Setup.exe (host binaries, Guest
+rem Additions ISO, and host kernel drivers where present) -- not a Squirrel
+rem package, which this project retired because it cannot elevate or register
+rem COM/services/drivers.
 rem
 rem Copyright (C) 2026 Oracle and/or its affiliates.
 rem SPDX-License-Identifier: GPL-3.0-only

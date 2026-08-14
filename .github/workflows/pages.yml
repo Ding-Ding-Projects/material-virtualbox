@@ -26,6 +26,31 @@ jobs:
           Copy-Item docs\* _site -Recurse -Force
           Copy-Item doc\md3\*.md _site -Force
           Copy-Item doc\md3\ArchiveManifest.sha256 _site -Force
+      - name: Collect assembly evidence on failure
+        # This step's only purpose is a failed run: on success _site is already
+        # uploaded below, and re-listing it would just duplicate that upload.
+        # A failed Copy-Item here is almost always "the expected source path
+        # does not exist", so the useful evidence is exactly what did and did
+        # not exist at the two source roots this step reads from.
+        if: ${{ failure() }}
+        continue-on-error: true
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force artifacts | Out-Null
+          "Commit: $env:GITHUB_SHA" | Set-Content artifacts/context.txt
+          "docs/ present: $(Test-Path docs)" | Add-Content artifacts/context.txt
+          "doc/md3/ present: $(Test-Path doc\md3)" | Add-Content artifacts/context.txt
+          if (Test-Path docs) { Get-ChildItem docs -Recurse | Select-Object -ExpandProperty FullName | Set-Content artifacts/docs-listing.txt }
+          if (Test-Path doc\md3) { Get-ChildItem doc\md3 -Filter *.md | Select-Object -ExpandProperty Name | Set-Content artifacts/doc-md3-listing.txt }
+          "doc/md3/ArchiveManifest.sha256 present: $(Test-Path doc\md3\ArchiveManifest.sha256)" | Add-Content artifacts/context.txt
+      - uses: actions/upload-artifact@v4
+        if: ${{ failure() }}
+        continue-on-error: true
+        with:
+          name: pages-assembly-evidence-${{ github.run_id }}
+          path: artifacts
+          if-no-files-found: warn
+          retention-days: 7
       - uses: actions/upload-pages-artifact@v3
         with:
           path: _site

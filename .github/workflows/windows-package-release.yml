@@ -431,7 +431,7 @@ jobs:
           & cmd.exe /d /c "call `"$PWD\env.bat`" && kmk VBOX_SVN_REV=$revision SDK_WINSDK10_MAX_VERSION=10.0.22621.0 VBOX_WINDDK_GST_W7=WINSDK10-KM VBOX_WINDDK_GST_W8=WINSDK10-KM VBOX_WINDDK_GST_WLH=WINDDK71WLH VBOX_WINDDK_GST_W2K3=WINSDK10-KM VBOX_WINDDK_GST_WXP=WINSDK10-KM VBOX_WINDDK_GST_W2K=WINSDK10-KM VBOX_WINDDK_GST_NT4=WINSDK10-KM VBOX_USE_RTISOMAKER=1 VBOX_WITHOUT_WIN_HOST_INSTALLER=1 VBOX_WITHOUT_RUN_BUILD_TESTCASES=1 packing"
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
-      - name: Build unsigned Squirrel full installer
+      - name: Verify host driver files were produced
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
@@ -443,7 +443,9 @@ jobs:
           # SYSMODS gated only by VBOX_WITH_VBOXDRV/_USB/_NETFLT/_NETADP, which all default to 1
           # for a Windows build (Config.kmk) and are untouched by any flag this workflow passes.
           # Fail loudly rather than shipping an installer with nothing for VBoxDrvInst.exe to
-          # install.
+          # install. These land directly at the payload root (Config.kmk: INST_VBOXDRV = INST_BIN),
+          # which is exactly the first candidate path VBoxHostInstallerCommon.nsh's
+          # ${FindDriverInf} probes for each driver, so no further staging is needed.
           $expectedHostDrivers = @(
             'VBoxSup.sys', 'VBoxSup.inf',
             'VBoxUSBMon.sys', 'VBoxUSBMon.inf',
@@ -456,90 +458,148 @@ jobs:
             $missingList = $missingHostDrivers -join ', '
             throw "The packaged Windows payload is missing host driver file(s): $missingList."
           }
-          $nugetCommand = Get-Command nuget.exe -ErrorAction SilentlyContinue
-          if ($nugetCommand) {
-            $nugetPath = $nugetCommand.Path
-          } else {
-            $nugetPath = Join-Path $env:RUNNER_TEMP 'nuget.exe'
-            Invoke-WebRequest 'https://dist.nuget.org/win-x86-commandline/v6.11.1/nuget.exe' -OutFile $nugetPath
+          $additionsIso = Join-Path $payload 'additions\VBoxGuestAdditions.iso'
+          if (-not (Test-Path $additionsIso)) {
+            throw "The packaged Windows payload is missing the Guest Additions ISO at $additionsIso."
           }
-          $squirrelRoot = Join-Path $env:RUNNER_TEMP 'squirrel-tools'
-          & $nugetPath install squirrel.windows -Version 1.9.1 -OutputDirectory $squirrelRoot -ExcludeVersion -NonInteractive
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          $squirrel = Join-Path $squirrelRoot 'squirrel.windows\tools\Squirrel.exe'
-          if (-not (Test-Path $squirrel)) { throw 'NuGet did not provide Squirrel.exe.' }
-          $major = (Select-String Version.kmk -Pattern '^VBOX_VERSION_MAJOR\s*=\s*(\d+)' | ForEach-Object { $_.Matches[0].Groups[1].Value })
-          $minor = (Select-String Version.kmk -Pattern '^VBOX_VERSION_MINOR\s*=\s*(\d+)' | ForEach-Object { $_.Matches[0].Groups[1].Value })
-          $version = "$major.$minor.$env:GITHUB_RUN_NUMBER"
-          $stage = Join-Path $env:RUNNER_TEMP 'squirrel-stage'
-          $releaseDir = Join-Path $env:RUNNER_TEMP 'squirrel-release'
-          New-Item -ItemType Directory -Force (Join-Path $stage 'lib\net45'),$releaseDir | Out-Null
-          Copy-Item (Join-Path $payload '*') (Join-Path $stage 'lib\net45') -Recurse -Force
-          $nuspec = @"
-          <?xml version="1.0"?>
-          <package>
-            <metadata>
-              <id>VirtualBox</id>
-              <version>$version</version>
-              <authors>Oracle</authors>
-              <description>Unsigned VirtualBox Windows package.</description>
-            </metadata>
-            <files><file src="lib\net45\**\*" target="lib\net45" /></files>
-          </package>
-          "@
-          $nuspecPath = Join-Path $stage 'VirtualBox.nuspec'
-          Set-Content -LiteralPath $nuspecPath -Value $nuspec -Encoding utf8
-          Push-Location $stage
-          try {
-            & $nugetPath pack $nuspecPath -NoPackageAnalysis -NonInteractive
-          } finally {
-            Pop-Location
-          }
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          $package = Join-Path $stage "VirtualBox.$version.nupkg"
-          if (-not (Test-Path $package)) { throw 'NuGet did not produce the Squirrel input package.' }
-          # The pipe to Out-Host is load-bearing, not decoration. Squirrel.exe is a
-          # windowed (WINDOWS_GUI subsystem) executable, and PowerShell does not wait
-          # for one of those: `& $squirrel ...` returns immediately, $LASTEXITCODE is
-          # 0 because nothing has failed yet, the script sails on, and the very next
-          # step finds no Setup.exe. Piping a native command forces PowerShell to
-          # attach to its output and therefore wait for it to exit.
-          # tools/build-windows.ps1 has always piped this call, which is why the local
-          # build produces a real Setup.exe and this one produced nothing at all.
-          & $squirrel --releasify $package --releaseDir $releaseDir --no-msi | Out-Host
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          Write-Host "Payload verified: VirtualBox.exe, all five host driver file pairs, and $additionsIso are present."
 
-      - name: Verify unsigned package inputs
+      - name: Build the unsigned NSIS host installer
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
-          $releaseDir = Join-Path $env:RUNNER_TEMP 'squirrel-release'
-          $setup = Join-Path $releaseDir 'Setup.exe'
-          $releases = Join-Path $releaseDir 'RELEASES'
-          $fullPackage = Get-ChildItem $releaseDir -Filter '*-full.nupkg' -File | Select-Object -First 1
-          if (-not (Test-Path $setup) -or -not (Test-Path $releases) -or -not $fullPackage) {
-            throw 'Squirrel did not produce Setup.exe, RELEASES, and a full .nupkg.'
+          # This is the ONE Windows installer this project ships. It requests
+          # Administrator elevation and installs the complete host product --
+          # VirtualBox Manager, VBoxSVC, the VBoxSDS service and its COM
+          # registration, the Guest Additions ISO (staged under
+          # out\win.amd64\release\bin\additions\, swept up by the installer's
+          # `File /r` of the whole payload), and the host kernel drivers just
+          # verified above -- from a single `File /r` of the staged payload.
+          # It replaces the retired unsigned Squirrel.Windows package, which
+          # was a per-user file unpacker with no elevation and therefore could
+          # not register COM classes, install the VBoxSDS Windows service, or
+          # install kernel drivers at all. See
+          # doc\installer\WindowsHostInstallerNSIS.md for the full story.
+          #
+          # Nested pwsh.exe invocation (not an in-process `&` call) so this
+          # step's own console output -- including the native makensis.exe
+          # compiler output the script pipes through -- can be teed to a real
+          # log file for the failure-evidence collector below, the same way
+          # the "Build the custom NSIS log packaging tool" step already does.
+          & pwsh.exe -NoLogo -NoProfile -ExecutionPolicy Bypass -File .\tools\build-windows-nsis-installer.ps1 2>&1 |
+            Tee-Object -FilePath "$env:RUNNER_TEMP\nsis-installer-build.log" | Out-Host
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: Verify unsigned installer
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $releaseDir = Join-Path $PWD 'out\win.amd64\release\nsis-installer'
+          $installer = Get-ChildItem $releaseDir -Filter 'VirtualBox-*-Setup.exe' -File -ErrorAction SilentlyContinue | Select-Object -First 1
+          $sha256sums = Join-Path $releaseDir 'SHA256SUMS.txt'
+          if (-not $installer -or -not (Test-Path $sha256sums)) {
+            throw "The NSIS build did not produce a VirtualBox-*-Setup.exe and SHA256SUMS.txt under $releaseDir."
           }
-          $packages = Get-ChildItem $releaseDir -File
-          $packages | ForEach-Object {
-            if ($_.Extension -eq '.exe') {
-              $signature = Get-AuthenticodeSignature $_.FullName
-              if ($signature.Status -ne 'NotSigned') { throw "Expected unsigned asset: $($_.FullName) ($($signature.Status))" }
-            }
-            Get-FileHash $_.FullName -Algorithm SHA256 | Format-List | Out-String | Add-Content "$env:RUNNER_TEMP\package-hashes.txt"
-          }
-          $packages.FullName | Set-Content "$env:RUNNER_TEMP\package-files.txt"
+          $signature = Get-AuthenticodeSignature $installer.FullName
+          if ($signature.Status -ne 'NotSigned') { throw "Expected unsigned installer asset: $($installer.FullName) ($($signature.Status))" }
+          Get-FileHash $installer.FullName -Algorithm SHA256 | Format-List | Out-String | Add-Content "$env:RUNNER_TEMP\package-hashes.txt"
+          @($installer.FullName, $sha256sums) | Set-Content "$env:RUNNER_TEMP\package-files.txt"
+          Write-Host "Unsigned NSIS installer verified: $($installer.FullName) ($([Math]::Round($installer.Length / 1MB, 1)) MiB)"
 
       - name: Collect build evidence
         if: ${{ always() }}
         continue-on-error: true
         shell: pwsh
+        env:
+          JOB_STATUS: ${{ job.status }}
         run: |
-          New-Item -ItemType Directory -Force "$env:RUNNER_TEMP\evidence" | Out-Null
-          Copy-Item configure.log,AutoConfig.kmk -Destination "$env:RUNNER_TEMP\evidence" -ErrorAction SilentlyContinue
-          Copy-Item "$env:LOCALAPPDATA\VirtualBox\build-tools\nsis-3.10-source\scons.log" -Destination "$env:RUNNER_TEMP\evidence" -ErrorAction SilentlyContinue
-          Copy-Item "$env:RUNNER_TEMP\package-hashes.txt","$env:RUNNER_TEMP\package-files.txt" -Destination "$env:RUNNER_TEMP\evidence" -ErrorAction SilentlyContinue
-          Copy-Item "$env:RUNNER_TEMP\squirrel-release\*" -Destination "$env:RUNNER_TEMP\evidence" -ErrorAction SilentlyContinue
+          # A failed run must still leave something a person can read without
+          # re-running a ~90 minute build. Every block below is independently
+          # wrapped so one missing/erroring source never skips the rest of the
+          # collection, and every copy is bounded to small, safe text/manifest
+          # content -- never the out\ tree, source, dependency caches, or
+          # anything that could carry a credential.
+          $evidence = "$env:RUNNER_TEMP\evidence"
+          New-Item -ItemType Directory -Force $evidence | Out-Null
+
+          # --- Run context: what this evidence is from, even if nothing else collects.
+          try {
+            $context = @(
+              "Run ID: $env:GITHUB_RUN_ID (run number $env:GITHUB_RUN_NUMBER, attempt $env:GITHUB_RUN_ATTEMPT)"
+              "Job: $env:GITHUB_JOB (status as observed by this step: $env:JOB_STATUS)"
+              "Workflow: $env:GITHUB_WORKFLOW"
+              "Commit SHA: $env:GITHUB_SHA"
+              "Ref: $env:GITHUB_REF"
+              "Repository: $env:GITHUB_REPOSITORY"
+              "Runner: $env:RUNNER_NAME ($env:RUNNER_OS/$env:RUNNER_ARCH)"
+              "Collected at (UTC): $((Get-Date).ToUniversalTime().ToString('o'))"
+            )
+            Set-Content -LiteralPath "$evidence\run-context.txt" -Value $context -Encoding utf8
+          } catch { Write-Host "run-context.txt collection failed: $($_.Exception.Message)" }
+
+          # --- Build/configure logs and the generated environment.
+          try {
+            Copy-Item configure.log,AutoConfig.kmk,env.bat -Destination $evidence -ErrorAction SilentlyContinue
+          } catch { Write-Host "configure/env log collection failed: $($_.Exception.Message)" }
+
+          # --- NSIS: the custom log-enabled packaging tool's own SCons build log
+          # (only exists on a cache-miss run that actually built it from source --
+          # a cache-hit run's "Build the custom NSIS log packaging tool" step exits
+          # before ever invoking SCons, so no scons.log exists in that case, which
+          # is correct, not a collection bug) and the installer compile log written
+          # by the "Build the unsigned NSIS host installer" step above.
+          try {
+            $sconsLog = Get-ChildItem -Path $env:LOCALAPPDATA,$env:RUNNER_TEMP -Recurse -Filter 'scons.log' -File -ErrorAction SilentlyContinue | Select-Object -First 1
+            if ($sconsLog) { Copy-Item $sconsLog.FullName -Destination "$evidence\nsis-tool-scons.log" -ErrorAction SilentlyContinue }
+          } catch { Write-Host "scons.log collection failed: $($_.Exception.Message)" }
+          try {
+            Copy-Item "$env:RUNNER_TEMP\nsis-installer-build.log" -Destination $evidence -ErrorAction SilentlyContinue
+          } catch { Write-Host "NSIS installer build log collection failed: $($_.Exception.Message)" }
+
+          # --- Verified-installer hashes/paths (only exist once "Verify unsigned
+          # installer" ran) and the installer(s) actually produced, even partial --
+          # out\win.amd64\release\nsis-installer holds only the single Setup.exe and
+          # SHA256SUMS.txt, never the source payload, so it is safe to copy whole.
+          try {
+            Copy-Item "$env:RUNNER_TEMP\package-hashes.txt","$env:RUNNER_TEMP\package-files.txt" -Destination $evidence -ErrorAction SilentlyContinue
+          } catch { Write-Host "package hash/file list collection failed: $($_.Exception.Message)" }
+          try {
+            $nsisOut = Join-Path $PWD 'out\win.amd64\release\nsis-installer'
+            if (Test-Path -LiteralPath $nsisOut) {
+              New-Item -ItemType Directory -Force "$evidence\nsis-installer" | Out-Null
+              Copy-Item "$nsisOut\*" -Destination "$evidence\nsis-installer" -Recurse -Force -ErrorAction SilentlyContinue
+            }
+          } catch { Write-Host "NSIS installer output collection failed: $($_.Exception.Message)" }
+
+          # --- Payload manifest: names and sizes of everything that landed in
+          # out\win.amd64\release\bin, so a failure investigation can answer "did
+          # VBoxSup.sys build?" from this artifact alone instead of re-running the
+          # build. Names and sizes only -- never the binaries themselves.
+          try {
+            $payload = 'out\win.amd64\release\bin'
+            if (Test-Path -LiteralPath $payload) {
+              $payloadFull = (Resolve-Path -LiteralPath $payload).Path
+              Get-ChildItem -LiteralPath $payload -Recurse -File -ErrorAction SilentlyContinue |
+                Select-Object @{N='RelativePath';E={$_.FullName.Substring($payloadFull.Length + 1)}}, Length |
+                Sort-Object RelativePath |
+                Export-Csv -LiteralPath "$evidence\payload-manifest.csv" -NoTypeInformation -Encoding utf8
+              $driverFiles = Get-ChildItem -LiteralPath $payload -File -ErrorAction SilentlyContinue |
+                Where-Object { $_.Extension -in '.sys', '.inf' } |
+                Select-Object -ExpandProperty Name | Sort-Object
+              if ($driverFiles) {
+                Set-Content -LiteralPath "$evidence\driver-files-found.txt" -Value $driverFiles -Encoding utf8
+              } else {
+                Set-Content -LiteralPath "$evidence\driver-files-found.txt" -Value 'No .sys/.inf files were found in the payload.' -Encoding utf8
+              }
+              $additionsIso = Join-Path $payload 'additions\VBoxGuestAdditions.iso'
+              if (Test-Path -LiteralPath $additionsIso) {
+                $isoInfo = Get-Item -LiteralPath $additionsIso
+                Add-Content -LiteralPath "$evidence\driver-files-found.txt" -Value "Guest Additions ISO present: additions\VBoxGuestAdditions.iso ($($isoInfo.Length) bytes)"
+              }
+            } else {
+              Set-Content -LiteralPath "$evidence\payload-manifest.csv" -Value "$payload does not exist -- the build did not reach the packing step." -Encoding utf8
+            }
+          } catch { Write-Host "Payload manifest collection failed: $($_.Exception.Message)" }
 
       - name: Upload build evidence
         if: ${{ always() }}
@@ -733,12 +793,25 @@ jobs:
           if ($titleSuffix) { $title = "$title $titleSuffix" }
 
           $notes = @"
-          ## Windows Squirrel package
+          ## Windows installer
 
-          This release contains an unsigned Squirrel.Windows full installer built from $env:GITHUB_SHA.
+          This release contains ONE unsigned Windows installer built from $env:GITHUB_SHA -- no
+          separate Squirrel package. ``VirtualBox-<version>-Setup.exe`` requests Administrator
+          elevation and installs the complete host product from a single staged payload: VirtualBox
+          Manager, ``VBoxSVC``, the ``VBoxSDS`` Windows service and its COM registration, the Guest
+          Additions ISO (``additions\VBoxGuestAdditions.iso``, ready to mount in a guest), and the
+          host kernel drivers (``VBoxSup``, ``VBoxUSBMon``, ``VBoxUSB``) when Windows accepts them.
 
-          - Squirrel assets: `Setup.exe`, `RELEASES`, and a full `.nupkg` (plus delta packages when generated).
+          - Installer assets: ``VirtualBox-<version>-Setup.exe`` and ``SHA256SUMS.txt``.
           - The installer is unsigned and may trigger Windows SmartScreen or unknown-publisher warnings.
+          - Kernel driver installation is attempted and honestly reported, but is expected to be refused
+            by Driver Signature Enforcement on a default 64-bit Windows system, since this project
+            permanently does not code-sign. VirtualBox Manager still installs and runs either way; see
+            the installer's own log for the exact per-driver outcome.
+          - ``VBoxNetAdp6`` (host-only networking) and ``VBoxNetLwf`` (bridged networking) are not
+            installed by this installer; see ``doc/installer/WindowsHostInstallerNSIS.md``.
+          - Silent install: ``VirtualBox-<version>-Setup.exe /S``. Silent uninstall:
+            ``"C:\Program Files\VirtualBox\uninstall.exe" /S``.
 
           - Workflow started: $($run.run_started_at)
           - Workflow completed: $completed

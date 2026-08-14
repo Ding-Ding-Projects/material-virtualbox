@@ -1,14 +1,17 @@
 # $Id$
 # Build the unsigned NSIS installer for the VirtualBox Windows HOST product
 # (src\VBox\Installer\win\NSIS\VBoxHostInstaller.nsi) from an already staged
-# release payload.
+# release payload. This is the one and only Windows installer this project
+# ships (see doc\installer\WindowsHostInstallerNSIS.md); an unsigned
+# Squirrel.Windows package was retired outright in favour of it.
 #
 # This is a companion to tools\build-windows.ps1, not a replacement for it:
 # that script still builds the Windows host binaries (VirtualBox.exe,
-# VBoxSVC.exe, VBoxSDS.exe, ...) into out\win.amd64\release\bin and packages
-# the existing unsigned Squirrel.Windows installer from that same payload.
-# This script compiles the NSIS installer from that payload instead. Run
-# `tools\build-windows.ps1 -Mode Build` (or an equivalent full build) first.
+# VBoxSVC.exe, VBoxSDS.exe, ...) into out\win.amd64\release\bin. This script
+# compiles the NSIS installer from that same payload; `tools\build-windows.ps1
+# -Mode Installer` (and the release workflow) call it directly, so it does
+# not usually need to be run standalone. Run `tools\build-windows.ps1 -Mode
+# Build` (or an equivalent full build) first if invoking it directly.
 #
 # Copyright (C) 2026 Oracle and/or its affiliates.
 # SPDX-License-Identifier: GPL-3.0-only
@@ -93,10 +96,10 @@ if ($missingPayload.Count -gt 0) {
 Write-Host "Using payload at $PayloadDir"
 
 # ---------------------------------------------------------------------------
-# Product version and branding, read from the same source files
-# tools\build-windows.ps1's New-SquirrelInstaller uses (Version.kmk), plus
-# Config.kmk for the vendor/product strings Version.kmk does not carry.
-# Neither file is modified here.
+# Product version and branding, read from the same source file
+# tools\build-windows.ps1 itself reads for its own packaging metadata
+# (Version.kmk), plus Config.kmk for the vendor/product strings Version.kmk
+# does not carry. Neither file is modified here.
 # ---------------------------------------------------------------------------
 function Get-KmkValue {
     param(

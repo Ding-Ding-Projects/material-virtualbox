@@ -1,15 +1,20 @@
 ; $Id$
 ;; @file
-; VBoxHostInstaller.nsi - NSIS installer for the VirtualBox Windows HOST
-; product (VirtualBox Manager, VBoxSVC, VBoxSDS, and the host kernel drivers).
+; VBoxHostInstaller.nsi - the one and only Windows installer this project
+; ships, for the VirtualBox Windows HOST product (VirtualBox Manager,
+; VBoxSVC, VBoxSDS, the Guest Additions ISO, and the host kernel drivers).
+; It replaced an unsigned Squirrel.Windows package this project shipped here
+; until 2026-08-14; Squirrel is a per-user file unpacker with no elevation
+; and could not register COM, install VBoxSDS, or install kernel drivers.
 ;
 ; This is deliberately NOT wired into the kBuild "packing" pipeline. It is a
 ; standalone script compiled directly against an already staged release
-; payload by tools\build-windows-nsis-installer.ps1, the same way
-; tools\build-windows.ps1 packages the existing unsigned Squirrel.Windows
-; installer from out\win.amd64\release\bin. See doc\installer for the full
-; write-up: what this installer does, what it deliberately cannot do without
-; code signing, and how it was verified.
+; payload by tools\build-windows-nsis-installer.ps1, which
+; tools\build-windows.ps1 -Mode Installer and
+; .github/workflows/windows-package-release.yml both invoke as their one
+; installer-build step from out\win.amd64\release\bin. See doc\installer for
+; the full write-up: what this installer does, what it deliberately cannot
+; do without code signing, and how it was verified.
 ;
 
 ;
@@ -108,6 +113,14 @@ VIAddVersionKey "LegalCopyright"  "(C) ${VBOX_VENDOR}"
 ; ---------------------------------------------------------------------------
 !include "MUI2.nsh"
 !define MUI_ABORTWARNING
+
+; Embed the same icon VirtualBox.exe itself carries (offline, no URL involved,
+; unlike an <iconUrl> that would need a live reachable HTTPS endpoint) so the
+; installer, its Start Menu/Desktop shortcuts, and the installed app agree.
+; ${__FILEDIR__} is this script's own directory, five levels below the
+; repository root -- same relative depth as the license file included below.
+!define MUI_ICON   "${__FILEDIR__}\..\..\..\..\..\src\VBox\Artwork\win\OSE\VirtualBox_win.ico"
+!define MUI_UNICON "${__FILEDIR__}\..\..\..\..\..\src\VBox\Artwork\win\OSE\VirtualBox_win.ico"
 
 ; Make the unsigned-build fact impossible to miss: it is stated on the very
 ; first page, not only in the log and the Finish-page driver summary.
