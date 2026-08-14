@@ -89,6 +89,7 @@
 #include "UIVirtualBoxManager.h"
 #include "UIMd3Button.h"
 #include "UIMd3CommandPalette.h"
+#include "UIMd3ExternalEditor.h"
 #include "UIMd3History.h"
 #include "UIMd3Language.h"
 #include "UIMd3ManagerHeader.h"
@@ -2770,6 +2771,12 @@ void UIVirtualBoxManager::registerCommandPaletteCommands()
                                                                UIMd3History::instance()->showCentre(this);
                                                        }, 0, strManagerCategory,
                                                        QStringLiteral("open-history")));
+    UIMd3CommandPalette::registerCommand(UIMd3Command(managerText("md3.manager.open-external-editor",
+                                                                  tr("Open the VirtualBox configuration folder in an external editor")),
+                                                       strManagerSource,
+                                                       [this]() { UIMd3ExternalEditor::openConfigFolder(this); }, 0,
+                                                       strManagerCategory,
+                                                       QStringLiteral("open-external-editor")));
 
     const auto registerGlobalToolCommand = [this, &strManagerSource, &strManagerCategory, &managerText]
         (const char *pszKey, const QString &strFallback, const QString &strCantonese,
