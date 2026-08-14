@@ -372,6 +372,20 @@ function Ensure-WinFlexBison {
     return $target
 }
 
+function Ensure-LibXslt {
+    param([Parameter(Mandatory = $true)] [string] $VcpkgRoot)
+    $vcpkg = Join-Path $VcpkgRoot 'vcpkg.exe'
+    if (-not (Test-Path -LiteralPath $vcpkg)) { throw "The verified vcpkg executable is missing: $vcpkg" }
+    $installRoot = Join-Path $dependencyRoot 'vcpkg-installed'
+    $xsltproc = Join-Path $installRoot 'x64-windows\tools\libxslt\xsltproc.exe'
+    if (-not (Test-Path -LiteralPath $xsltproc)) {
+        & $vcpkg install 'libxslt[tools]:x64-windows' --x-install-root=$installRoot --disable-metrics | Out-Host
+        if ($LASTEXITCODE -ne 0) { throw "vcpkg could not install libxslt with xsltproc (exit code $LASTEXITCODE)." }
+    }
+    if (-not (Test-Path -LiteralPath $xsltproc)) { throw "The libxslt tools package did not provide xsltproc.exe under $installRoot." }
+    return (Get-ShortPath (Join-Path $installRoot 'x64-windows'))
+}
+
 function Ensure-Nsis {
     $target = Join-Path $repoRoot 'tools\win.x86\nsis\v3.10-log-r1'
     $required = @(
@@ -498,12 +512,14 @@ function Invoke-VirtualBoxBuild {
     $env:Path = "$ZipRoot;$NasmRoot;$env:Path"
     $pythonRoot = (Split-Path -Parent $Python).Replace('\', '/')
     $env:Path = "$pythonRoot;$env:Path"
+    $libXsltRoot = Ensure-LibXslt -VcpkgRoot $VcpkgRoot
     $commonArguments = @(
         '--disable-hardening', '--disable-python_c_api', '--disable-win-ddk',
         '--disable-win-msi', '--disable-win-wix',
         "--with-kbuild-path=$($repoRoot.Replace('\', '/'))/kBuild/kBuild",
         "--with-qt-path=$QtRoot", "--with-sdk10=$SdkRoot",
-        "--with-win-vcpkg-root=$VcpkgRoot", "--with-python-path=$pythonRoot"
+        "--with-win-vcpkg-root=$VcpkgRoot", "--with-python-path=$pythonRoot",
+        "--with-libxslt-path=$libXsltRoot"
     )
     $visualCppRoot = Get-PreferredVisualCppRoot
     if ($visualCppRoot) { $commonArguments += "--with-vc=$visualCppRoot" }
@@ -534,7 +550,7 @@ function Invoke-VirtualBoxBuild {
     $revisionFile = Join-Path $repoRoot 'out\win.amd64\release\revision.kmk'
     New-Item -ItemType Directory -Force -Path (Split-Path -Parent $revisionFile) | Out-Null
     Set-Content -LiteralPath $revisionFile -Value "export VBOX_SVN_REV=$revision" -Encoding ascii
-    Invoke-Checked 'Stage OpenSSL headers' {
+    Invoke-Checked 'Build prerequisite headers' {
         & cmd.exe /d /c "call `"$repoRoot\env.bat`" && kmk crypto-headers"
     }
     Invoke-Checked 'Build the Windows host binaries' {
