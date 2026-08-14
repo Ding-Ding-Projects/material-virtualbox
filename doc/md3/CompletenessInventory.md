@@ -294,9 +294,19 @@ excludes the full Windows build and the installed binary at
 
 ## 16. External-editor handoff
 
-**Not implemented on any surface.** Searched for `external editor`, `externalEditor`, `code.exe`,
-`Visual Studio Code`: zero matches. No editor detection, no "open in VS Code" action anywhere.
-Docs: none. Tests: T0. Build proof: B0. Capture: C0.
+**Partial — a working core shipped; the persisted user choice and per-VM targets did not.** This
+row was stale: it read "Not implemented on any surface" long after `UIMd3ExternalEditor` landed in
+commit `9688db3a`. Corrected here against the tree rather than left to mislead the next reader,
+which is the specific failure this document exists to prevent.
+
+| Item | Status | Implementation | Docs | Localized copy | Tests | Interaction proof | Capture | Blocker |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| Engine (`UIMd3ExternalEditor`) | Implemented | Detects Visual Studio Code and its Insiders build by name (on `PATH`, then the usual per-user and machine install paths), falling back to the operating system's own default handler. `src/VBox/Frontends/VirtualBox/src/md3/UIMd3ExternalEditor.{h,cpp}`, wired into `Makefile.kmk` | `doc/md3/ExternalEditor.md` | N/A (engine) | T0 | B1 — compiled on the Windows workflow at merge (run 31779193415 green) | None (C0) | — |
+| S1 Manager (command-palette action) | Implemented | "Open the VirtualBox configuration folder in an external editor" registered in `registerCommandPaletteCommands()`; a folder handed to Code opens as a workspace root rather than a lone file | Same | EN+ZH via `registerManagerText` | T0 | B1 | None (C0) | — |
+| Persisted user-chosen editor | Not implemented | Always uses the best detected editor; no stored preference | — | — | T0 | B0 | None (C0) | Documented follow-up in `doc/md3/ExternalEditor.md` |
+| In-settings editor picker | Not implemented | No settings surface exposes the choice | — | — | T0 | B0 | None (C0) | Same |
+| Per-VM / per-file targets | Not implemented | Only the configuration folder can be opened | — | — | T0 | B0 | None (C0) | Same |
+| Detection tests | Not implemented | No test exercises detection or the fallback chain | — | — | T0 | B0 | None (C0) | Same |
 
 ## 17. Exports in every representable format
 
@@ -435,16 +445,28 @@ oversight.
 ## Summary
 
 Counting every row above as one assessed unit (a wholly-absent feature counts once; a
-per-surface-broken-out feature counts each surface row, including its "engine" row where present),
-recounted directly from the tables in this document rather than estimated:
+per-surface-broken-out feature counts each surface row, including its "engine" row where present).
+
+**These counts are produced by a committed script, not by hand.** Reproduce them with:
+
+```
+python3 tools/md3/count-inventory-rows.py
+```
 
 | Status | Count |
-| --- | --- |
-| Implemented | 26 |
+| --- | ---: |
+| Implemented | 33 |
 | Partial | 17 |
-| Not implemented | 39 |
-| N/A (justified) | 2 |
-| **Total rows** | **84** |
+| Not implemented | 40 |
+| N/A (justified) | 1 |
+| **Total rows** | **91** |
+
+The rows above stay hand-written, and must: a generated checklist cannot look for a feature that
+has no implementation anywhere, which is the entire reason this document exists. Only the
+*arithmetic over those rows* is now mechanical, because that is the part that had already gone
+stale — three sections changed status in one pass while the Implemented count stayed at 26,
+producing a table that summed correctly and described the tree incorrectly. The script exits
+non-zero if its own buckets do not sum to its own total.
 
 One row (section 9, "Same, reachable from S6 Runtime") is recorded with the honest status
 "Unconfirmed / likely absent" rather than a clean bucket, because the underlying question — whether
@@ -467,12 +489,21 @@ found the twenty `UIMd3*` components under `src/VBox/Frontends/VirtualBox/src/md
 describe*. It would never have looked for a text-to-speech narrator, an Ollama manager, a file
 converter, toy locks, dim sum, School mode, scheduled settings, a changelog viewer,
 external-editor handoff, or an infinite color picker, because nothing in the repository suggested
-searching for them. Eleven of the twenty-five canonical features audited here (sections 3–7,
-15–16, and 21–24 above) have precisely zero implementation anywhere in this codebase — and every
-one of those eleven would have been invisible to a checklist built only from what already exists.
-A twelfth, section 20 (personal-vocabulary upload), now has a real engine and control behind a
-command-palette entry but is still unwired into any other surface's rendered text, uncompiled, and
-uncaptured — see that row for the honest accounting.
+searching for them. **Seven** of the twenty-five canonical features audited here — sections 4, 5, 6,
+21, 22, 23 and 24 — still have precisely zero implementation anywhere in this codebase, and every
+one of them would have been invisible to a checklist built only from what already exists.
+
+That number was twelve when this document was first written, and each step down is recorded here
+rather than quietly absorbed into a smaller figure. Sections 15 (changelog viewer) and 16
+(external-editor handoff) shipped working cores; sections 3 (emoji-in-dialogs), 7 (dim sum
+surprise) and 20 (personal-vocabulary upload) gained engines and reachable controls but remain
+unwired into the surfaces their contracts describe, uncompiled at the time of writing, and
+uncaptured. Their rows carry that accounting individually; none of them should be read as finished.
+
+Section 16 is worth naming twice, because it demonstrates the failure mode this document is meant
+to defend against from the other direction: its row claimed zero implementation for some time after
+the feature had actually landed. A stale row that *understates* the tree is no more honest than one
+that overstates it, and only a check against the tree finds either.
 
 ## Suggested articles
 
