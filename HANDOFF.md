@@ -1,8 +1,49 @@
 # Handoff
 
-Last updated: 2026-08-14, after the ultra-speed pass that landed the changelog viewer on `main`.
+Last updated: 2026-08-14, after two ultra-speed passes that landed four features on `main`.
 
-## What this pass did, and what it deliberately did not check
+Read the two "what this pass did" sections below together. The first round landed the in-app
+changelog viewer; the second landed three more features on top of it. Neither ran tests or captures,
+and both say so.
+
+## Round two: three previously-absent features
+
+A second ultra-speed round implemented three canonical features that this repository's own
+`doc/md3/CompletenessInventory.md` recorded as **"Not implemented on any surface"** — each written
+in its own isolated worktree, each statically compile-guarded, none compiled or tested:
+
+| Feature | Class | Inventory section |
+|---|---|---|
+| Emoji-in-dialogs toggle | `UIMd3EmojiSetting` | 3 |
+| Dim sum startup surprise | `UIMd3DimSumSurprise` | 7 |
+| Personal-vocabulary JSON upload | `UIMd3PersonalVocabulary` | 20 |
+
+**Each carries an honest limit, recorded in its own inventory row rather than glossed:**
+
+- The emoji setting is infrastructure only. No dialog in the frontend calls its decorate helper yet,
+  so enabling it changes nothing visible except the palette row's own label. Retrofitting the real
+  message boxes is the follow-up.
+- The dim sum surprise ships **no photograph, deliberately.** Images belong to a separate public
+  catalog and must never be vendored, generated, or downloaded into this repository, so the toast
+  renders an explicit "photo not included in this build" placeholder. That is the correct
+  implementation, not a shortfall.
+- The vocabulary service is real and validated, but no other surface routes its text through it yet,
+  so a valid file currently has no visible effect outside the control's own status line.
+
+### One risk was investigated rather than shipped on a hunch
+
+A reviewer flagged that the emoji literals are astral-plane (4-byte UTF-8) characters, that
+`Config.kmk` sets no MSVC `/utf-8`, and that no existing frontend source contains any astral-plane
+character — so there was no precedent. That was checked before integrating rather than left to a
+90-minute build: **22 non-ASCII sources already compile green with no byte-order mark**, including
+`UIMd3Language.cpp`'s Cantonese, and the new files match that precedent exactly. How the compiler
+decodes the file does not change between 3-byte and 4-byte sequences, so this is a runtime-rendering
+question that already applies to every Cantonese string in the tree, not a build blocker.
+
+If a future build does fail on source encoding, that is where to look first, and the fix is
+tree-wide rather than specific to these files.
+
+## Round one: the changelog viewer, and what it deliberately did not check
 
 This was an ultra-speed feature pass: one feature, its directly related records, integration and a
 release. **No tests and no captures were run, by that pass's own rule.** That is stated here rather
@@ -126,20 +167,28 @@ Its genuinely durable contributions, independent of build age:
 
 ## Next actions, in order
 
-1. **Read the verdict of the Windows package and release run triggered by this integration.** It is
-   the first compilation the changelog viewer has ever had. If it is red, the fix belongs in
-   `UIMd3Changelog.cpp`/`.h` or in the `UIVirtualBoxManager.cpp` conflict resolution that kept both
-   the external-editor and changelog palette commands — that resolution is the specific thing only a
-   compile can prove.
-2. Confirm the release that run publishes: a new unique tag, non-draft, targeting the integrated
-   commit, with its installer and checksum attached.
-3. **Run the tests and captures this pass skipped**, against the merged tree. The ultra-speed pass
-   deliberately ran none, so the changelog viewer has no test or capture evidence of any kind yet.
-4. Re-verify the three `UsabilityProbe.md` defects against a current installer before treating any
+1. **Read two build verdicts, and keep them apart — they bisect the work for you.** Two runs are in
+   flight against different commits, and the release workflow has no `concurrency` block, so the
+   first was not cancelled by the second:
+   - the run on `bb63f016` compiles the **changelog viewer alone**;
+   - the run on `d548859c` compiles the **three features above, on top of it**.
+
+   Green then red means the three new features broke it. Red on the first means the changelog viewer
+   did. Do not push again before reading them, or that separation is lost.
+2. Confirm the release each successful run publishes: a new unique tag, non-draft, targeting the
+   intended commit, with its installer and checksum attached.
+3. **Run the tests and captures these passes skipped**, against the merged tree. Four features —
+   the changelog viewer, the emoji setting, the dim sum surprise and the vocabulary upload — now sit
+   on `main` with no test and no capture evidence of any kind. That is the largest outstanding debt
+   in this repository and it was taken on deliberately, not by accident.
+4. Recompute the summary counts table at the foot of `doc/md3/CompletenessInventory.md`. Three rows
+   changed status in this pass and each lane deliberately left the aggregate alone rather than
+   guessing at a total it could not verify from its own worktree.
+5. Re-verify the three `UsabilityProbe.md` defects against a current installer before treating any
    of them as open, and re-verify the `Ctrl+G` finding against `66c701d6`/`90aedcff`.
-5. Work through `doc/md3/CompletenessInventory.md` and `doc/md3/CaptureMatrix.md`. Both are
+6. Work through `doc/md3/CompletenessInventory.md` and `doc/md3/CaptureMatrix.md`. Both are
    deliberate, honest gap lists rather than checklists of what already exists.
-6. Leave the unsigned-driver ceiling alone unless the machine's owner decides to permit unsigned
+7. Leave the unsigned-driver ceiling alone unless the machine's owner decides to permit unsigned
    drivers. Nothing in this repository can move it.
 
 ## Documentation
