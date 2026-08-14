@@ -63,8 +63,12 @@ git cat-file -e <sha>              # confirms the object exists locally
 git log -1 --format="%H|%ad" --date=short <sha>   # confirms the real date
 ```
 
-All ten entries currently compiled in trace back to commits dated
-`2026-08-13`, matching `CHANGELOG.md`'s own dated section headers; the
+Fifteen entries are currently compiled in: the original ten dated
+`2026-08-13`, plus five dated `2026-08-14` covering the changelog viewer
+itself, the emoji-in-dialogs toggle, the dim sum startup surprise, the
+personal-vocabulary upload, and the completeness inventory's counter. Every
+one traces back to a real commit, matching `CHANGELOG.md`'s own dated section
+headers; the
 "Documentation" entry's commit
 (`51ed3bc2ae78940357e56f5043a18ddbc9108123`) was located independently with
 `git log --oneline --follow -- CHANGELOG.md`, since the changelog prose does

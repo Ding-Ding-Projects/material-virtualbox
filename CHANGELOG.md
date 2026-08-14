@@ -202,11 +202,12 @@ for screenshot evidence.
   this file rather than a runtime parser, and the exact maintenance duty
   that follows from that choice: every future edit to this file's entries
   must be mirrored into `UIMd3Changelog::prepareEntries()` in the same task.
-  (This bullet is intentionally not itself an entry inside the viewer yet —
-  it describes the commit that adds the viewer, and a viewer cannot cite its
-  own not-yet-created commit hash without inventing one, which the viewer's
-  own contract forbids. A later task should add this bullet's real commit
-  once known.)
+  (This bullet was originally not an entry inside the viewer, because it
+  describes the commit that adds the viewer and no viewer can cite its own
+  not-yet-created hash without inventing one. That hash now exists —
+  `aa52c21c9f4d3b1ac1fa961ed9fee70c75f91cb5` — so the entry has been added
+  and cites it, exactly as this note asked a later task to do. The rule it
+  was protecting is unchanged: the hash was waited for, never invented.)
 
 ## Related work not yet on `main`
 

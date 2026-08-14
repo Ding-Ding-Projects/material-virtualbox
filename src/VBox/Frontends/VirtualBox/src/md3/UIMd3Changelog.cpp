@@ -148,11 +148,12 @@ void UIMd3Changelog::create()
                                                  QStringLiteral("Copied %1 entries to the clipboard."),
                                                  QStringLiteral("已將 %1 項紀錄複製到剪貼簿。"));
         UIMd3Language::instance()->registerText(QStringLiteral("md3.changelog.unreleasedNotice"),
-                                                 QStringLiteral("No release has been published from this repository yet. "
-                                                                 "Every entry below is recorded under Unreleased; a dated "
-                                                                 "release section will replace it once a verified installer ships."),
-                                                 QStringLiteral("呢個倉庫仲未出過正式版本。以下每一項暫時都歸類做「未發佈」，"
-                                                                 "一旦有驗證過嘅安裝程式推出，就會換返有日期嘅發佈章節。"));
+                                                 QStringLiteral("Every entry below is listed under the commit that made it. "
+                                                                 "Published releases exist for this repository; open any "
+                                                                 "entry's commit link to see exactly where it landed."),
+                                                 QStringLiteral("以下每一項都係按住做出嗰個改動嘅提交嚟列。"
+                                                                 "呢個倉庫已經有發佈咗嘅版本；打開任何一項嘅提交連結，"
+                                                                 "就可以睇到佢實際去咗邊。"));
         UIMd3Language::instance()->registerText(QStringLiteral("md3.changelog.openCommit"),
                                                  QStringLiteral("Open commit %1 in your browser"),
                                                  QStringLiteral("喺瀏覽器開啟提交 %1"));
@@ -203,6 +204,72 @@ void UIMd3Changelog::prepareEntries()
     const QString strUnreleased = QStringLiteral("Unreleased");
     const QDate pipelineDate(2026, 8, 13);
     const QString strPipelineSection = QStringLiteral("Windows build and packaging pipeline");
+    const QDate featuresDate(2026, 8, 14);
+    const QString strFeaturesSection = QStringLiteral("Three canonical features that had no implementation at all");
+
+    addEntry(m_entries, strUnreleased, featuresDate, QStringLiteral("Added"), QString(),
+             QStringLiteral("Add an in-app changelog viewer"),
+             QStringLiteral(
+                 "Added the changelog viewer itself (UIMd3Changelog, reachable from the "
+                 "Manager with Ctrl+Shift+L or the command palette's \"Open changelog\") "
+                 "that compiles in every entry this file records, with plain-text/regex "
+                 "search, version/category/date filters that compose, clickable per-entry "
+                 "commit references, and filtered Markdown export/copy. See "
+                 "doc/md3/Changelog.md for the full contract, including why the entry set "
+                 "is a verified compiled-in transcription of CHANGELOG.md rather than a "
+                 "runtime parser, and the maintenance duty that follows: every future edit "
+                 "to CHANGELOG.md's entries must be mirrored into "
+                 "UIMd3Changelog::prepareEntries() in the same task -- this entry is the "
+                 "first one added under that duty."),
+             QStringLiteral("aa52c21c9f4d3b1ac1fa961ed9fee70c75f91cb5"));
+
+    addEntry(m_entries, strUnreleased, featuresDate, QStringLiteral("Added"), strFeaturesSection,
+             QStringLiteral("Emoji-in-dialogs toggle"),
+             QStringLiteral(
+                 "UIMd3EmojiSetting adds a persisted toggle, default off, mapping eight "
+                 "dialog tones to one decorative emoji each and returning text untouched "
+                 "when disabled. Reachable from the command palette. Limit: no dialog or "
+                 "message box in the frontend calls the decoration helper yet, so enabling "
+                 "it changes nothing visible except the palette row's own label."),
+             QStringLiteral("72b74ebcaa2e686aca23c19d820bda795fc5a55b"));
+
+    addEntry(m_entries, strUnreleased, featuresDate, QStringLiteral("Added"), strFeaturesSection,
+             QStringLiteral("Dim sum startup surprise"),
+             QStringLiteral(
+                 "UIMd3DimSumSurprise draws once per launch with a 10% chance and shows a "
+                 "non-blocking, auto-dismissing toast naming a dish in English and "
+                 "Cantonese. It cannot gate startup, cannot steal focus, and cannot be "
+                 "turned off. By design it ships no photograph: those images belong to a "
+                 "separate public catalog and are never vendored, generated, or downloaded "
+                 "into this repository, so the toast renders an explicit placeholder where "
+                 "a picture would go."),
+             QStringLiteral("2792e4038262470bfc3db592e88ec4437bbca636"));
+
+    addEntry(m_entries, strUnreleased, featuresDate, QStringLiteral("Added"), strFeaturesSection,
+             QStringLiteral("Local personal-vocabulary JSON upload"),
+             QStringLiteral(
+                 "UIMd3PersonalVocabulary adds an always-visible file picker and a "
+                 "bounded, versioned, all-or-nothing validator: file size, schema "
+                 "version, nesting depth, entry count, key and value lengths and value "
+                 "types are all bounded, and nesting is checked by scanning raw bytes "
+                 "before any parser builds a tree. Nothing ships preloaded -- no samples, "
+                 "no templates, no defaults. Limit: no other surface routes its rendered "
+                 "text through the service yet."),
+             QStringLiteral("804587eb558ca774ef04454f691ad89c7a8f25f9"));
+
+    addEntry(m_entries, strUnreleased, featuresDate, QStringLiteral("Changed"), QString(),
+             QStringLiteral("The completeness inventory counts itself now"),
+             QStringLiteral(
+                 "The inventory's summary table had drifted from the rows it summarises "
+                 "-- three sections changed status while the Implemented count stayed "
+                 "put, producing a table that added up correctly and described the tree "
+                 "incorrectly. The rows stay hand-written, because a generated checklist "
+                 "cannot look for a feature that has no implementation anywhere; only the "
+                 "arithmetic became mechanical, through tools/md3/count-inventory-rows.py, "
+                 "which fails closed when its own buckets disagree with its own total. "
+                 "The same commit corrects section 16, which had claimed the "
+                 "external-editor handoff was unimplemented long after it shipped."),
+             QStringLiteral("8034b1cacb17c610f1afaec8fc99459dcfdc8f20"));
 
     addEntry(m_entries, strUnreleased, pipelineDate, QStringLiteral("Fixed"), strPipelineSection,
              QStringLiteral("Build the host binaries before packing them"),
@@ -785,9 +852,9 @@ void UIMd3Changelog::retranslateCentre()
     if (m_pUnreleasedNotice)
     {
         const QString strNotice = md3ChangelogText("md3.changelog.unreleasedNotice",
-                                                    tr("No release has been published from this repository yet. "
-                                                       "Every entry below is recorded under Unreleased; a dated "
-                                                       "release section will replace it once a verified installer ships."));
+                                                    tr("Every entry below is listed under the commit that made it. "
+                                                       "Published releases exist for this repository; open any "
+                                                       "entry's commit link to see exactly where it landed."));
         m_pUnreleasedNotice->setText(strNotice);
         m_pUnreleasedNotice->setAccessibleName(strNotice);
     }
@@ -808,12 +875,20 @@ void UIMd3Changelog::retranslateCentre()
         m_pToLabel->setText(md3ChangelogText("md3.changelog.to", tr("To")));
     if (m_pVersion && m_pVersion->count())
         m_pVersion->setItemText(0, md3ChangelogText("md3.changelog.allVersions", tr("All versions")));
+    if (m_pVersion)
+        m_pVersion->setAccessibleName(md3ChangelogText("md3.changelog.version", tr("Version")));
     if (m_pCategory && m_pCategory->count())
         m_pCategory->setItemText(0, md3ChangelogText("md3.changelog.allCategories", tr("All categories")));
+    if (m_pCategory)
+        m_pCategory->setAccessibleName(md3ChangelogText("md3.changelog.category", tr("Category")));
     if (m_pFrom)
         m_pFrom->setSpecialValueText(md3ChangelogText("md3.changelog.anyDate", tr("Any date")));
+    if (m_pFrom)
+        m_pFrom->setAccessibleName(md3ChangelogText("md3.changelog.from", tr("From")));
     if (m_pTo)
         m_pTo->setSpecialValueText(md3ChangelogText("md3.changelog.anyDate", tr("Any date")));
+    if (m_pTo)
+        m_pTo->setAccessibleName(md3ChangelogText("md3.changelog.to", tr("To")));
     if (m_pExport)
     {
         const QString strExport = md3ChangelogText("md3.changelog.export", tr("Export Markdown"));

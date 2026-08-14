@@ -39,11 +39,20 @@
 
 /* GUI includes: */
 #include "UIMd3DimSumSurprise.h"
+#include "UIMd3Language.h"
 #include "UIMd3Theme.h"
 
 /* Other VBox includes: */
 #include <iprt/buildconfig.h>
 
+namespace
+{
+    QString md3DimSumText(const char *pszKey, const QString &strFallback)
+    {
+        UIMd3Language *pLanguage = UIMd3Language::instance();
+        return pLanguage ? pLanguage->text(QString::fromLatin1(pszKey)) : strFallback;
+    }
+}
 
 QString UIMd3DimSumDish::displayName() const
 {
@@ -70,6 +79,21 @@ void UIMd3DimSumSurprise::create()
     if (s_pInstance)
         return;
     s_pInstance = new UIMd3DimSumSurprise;
+    if (UIMd3Language::instance())
+    {
+        UIMd3Language::instance()->registerText(QStringLiteral("md3.dimsum.kicker"),
+                                                 QStringLiteral("Dim sum of the moment"),
+                                                 QStringLiteral("呢刻嘅點心"));
+        UIMd3Language::instance()->registerText(QStringLiteral("md3.dimsum.photoPlaceholder"),
+                                                 QStringLiteral("Photo not included\nin this build"),
+                                                 QStringLiteral("呢個版本\n未有相"));
+        UIMd3Language::instance()->registerText(QStringLiteral("md3.dimsum.accessibleName"),
+                                                 QStringLiteral("Dim sum surprise"),
+                                                 QStringLiteral("點心驚喜"));
+        UIMd3Language::instance()->registerText(QStringLiteral("md3.dimsum.accessibleDescription"),
+                                                 QStringLiteral("Dim sum of the moment: %1. Photo not included in this build."),
+                                                 QStringLiteral("呢刻嘅點心：%1。呢個版本未有相。"));
+    }
 }
 
 /* static */
@@ -229,14 +253,14 @@ void UIMd3DimSumSurprise::sltShowToast()
     pLayout->setContentsMargins(iGutter, iGutter, iGutter, iGutter);
     pLayout->setSpacing(iGutter / 2);
 
-    QLabel *pKicker = new QLabel(tr("Dim sum of the moment"), pToast);
+    QLabel *pKicker = new QLabel(md3DimSumText("md3.dimsum.kicker", tr("Dim sum of the moment")), pToast);
     pKicker->setFont(md3Theme().font(UIMd3TypeRole_LabelSmall));
     QPalette kickerPalette = pKicker->palette();
     kickerPalette.setColor(QPalette::WindowText, onSurfaceVariant);
     pKicker->setPalette(kickerPalette);
     pKicker->setWordWrap(true);
 
-    QLabel *pPhoto = new QLabel(tr("Photo not included\nin this build"), pToast);
+    QLabel *pPhoto = new QLabel(md3DimSumText("md3.dimsum.photoPlaceholder", tr("Photo not included\nin this build")), pToast);
     pPhoto->setObjectName(QStringLiteral("md3DimSumPhoto"));
     pPhoto->setAlignment(Qt::AlignCenter);
     pPhoto->setWordWrap(true);
@@ -260,9 +284,10 @@ void UIMd3DimSumSurprise::sltShowToast()
 
     /* Meaningful accessible text carries the whole delight even though the
      * toast intentionally never takes focus and shows no real picture. */
-    const QString strAccessible = tr("Dim sum of the moment: %1. Photo not included in this build.")
+    const QString strAccessible = md3DimSumText("md3.dimsum.accessibleDescription",
+                                                 tr("Dim sum of the moment: %1. Photo not included in this build."))
                                        .arg(dish.displayName());
-    pToast->setAccessibleName(tr("Dim sum surprise"));
+    pToast->setAccessibleName(md3DimSumText("md3.dimsum.accessibleName", tr("Dim sum surprise")));
     pToast->setAccessibleDescription(strAccessible);
     pHeading->setAccessibleName(strAccessible);
 
