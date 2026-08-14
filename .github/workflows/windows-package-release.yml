@@ -122,8 +122,10 @@ jobs:
           if ((Get-FileHash $wdkSetup -Algorithm SHA256).Hash -ne 'A891543C0EAF610757EE7852F515C5CE89D0202F22A15DFA31C4D49F2BAFDF27') { throw 'Windows Driver Kit bootstrap hash did not match the canonical manifest.' }
           $wdkInstall = Start-Process -FilePath $wdkSetup -ArgumentList '/quiet','/norestart' -Wait -PassThru -WindowStyle Hidden
           if ($wdkInstall.ExitCode -ne 0) { throw "Windows Driver Kit installation failed with exit code $($wdkInstall.ExitCode)." }
-          if (-not (Test-Path 'C:\Program Files (x86)\Windows Kits\10\Include')) {
-            throw 'Windows Driver Kit installation did not create the expected Windows Kits include directory.'
+          $wdkIncludeMarker = Get-ChildItem 'C:\Program Files (x86)\Windows Kits\10\Include' -Directory -ErrorAction SilentlyContinue |
+            Where-Object { Test-Path (Join-Path $_.FullName 'km') } | Select-Object -First 1
+          if (-not $wdkIncludeMarker) {
+            throw 'Windows Driver Kit installation did not create the expected Windows Kits Include\<version>\km directory.'
           }
           $windowsSdkRoot = 'C:\Program Files (x86)\Windows Kits\10'
           $windowsSdkRoot = (cmd /c "for %I in (`"$windowsSdkRoot`") do @echo %~sI").Trim() -replace '\\','/'

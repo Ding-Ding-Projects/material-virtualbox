@@ -14,20 +14,26 @@ CI, documentation, and capture evidence exists.
    fatal MSVC warning on a GCC-only macro). Every fix is linked to its
    verified commit SHA in [`CHANGELOG.md`](CHANGELOG.md). The **Material 3
    validation** workflow is green at the current commit; the **Windows
-   package and release** workflow is still red, now failing later in the
+   package and release** workflow previously failed later in the
    pipeline on `STATUS_STACK_BUFFER_OVERRUN` in the packaging step's own
-   `tstVMStructSize`/`tstAsmStructs` self-check — a new, not-yet-root-caused
-   failure. No release has been published and no verified installer exists.
+   `tstVMStructSize`/`tstAsmStructs` self-check. That blocker has since been
+   fixed: published non-draft releases `v7.2.97-ci.96` through
+   `v7.2.97-ci.101` each carry a real unsigned NSIS installer
+   (`VirtualBox-7.2.97-Setup.exe`, ~106.9 MB), and the newest,
+   `v7.2.97-ci.101`, targets commit `bb63f016` with a Windows build that
+   completed successfully.
    See [`HANDOFF.md`](HANDOFF.md#windows-build-and-packaging-pipeline-2026-08-13)
    for the full current-state summary and exact CI run links.
 1. **Real capture evidence** — [`doc/md3/CaptureMatrix.md`](doc/md3/CaptureMatrix.md)
    enumerates every manager, settings, wizard, tool, runtime, and installer
-   surface and state that still needs a genuine screenshot. Every row is
-   currently `Not captured`, blocked either by the missing verified
-   installer above or by this environment's unregistered COM/SDS classes
-   (`REGDB_E_CLASSNOTREG`, tracked in
-   [`doc/md3/RuntimeCapture.md`](doc/md3/RuntimeCapture.md)). Closing rows is
-   the next gate after the packaging pipeline goes green.
+   surface and state that still needs a genuine screenshot, and is the
+   authority for the current captured/open count. Several rows are now
+   captured with the manager shell reached and photographed; the rest
+   remain `Not captured`, blocked either by needing a running VM or an
+   installed host service (kernel drivers, `VBoxSDS`) that this lane cannot
+   provision (`REGDB_E_CLASSNOTREG`, tracked in
+   [`doc/md3/RuntimeCapture.md`](doc/md3/RuntimeCapture.md)), or simply not
+   yet attempted. Closing the remaining rows is the next gate.
 
 ## In progress
 

@@ -20,7 +20,9 @@ The required baseline set is:
 
 The native target linked successfully at commit `97c15bcc188012121935716d856f600d149df589` with the shared MD3 export fix. Static validation run `31303204687` and Pages run `31303204697` both passed.
 
-The capture gate is still open. The real executable reaches the COM boundary and reports `REGDB_E_CLASSNOTREG` because the host has no registered `VBoxSDS` Windows service for this checkout. Running the locally built `VBoxSDS.exe` as a console process exits with `ERROR_FAILED_SERVICE_CONTROLLER_CONNECT (0x427)`, which is expected for a service-only entry point. No machine-wide service or COM registration has been attempted. Until an approved registration or another sanctioned runtime host is available, the README must continue to show no finished native GUI gallery.
+The capture gate has partially opened. The real installed manager shell was reached and photographed — see [`CaptureMatrix.md`](CaptureMatrix.md) rows 1, 5, 6, 16, 22, 24, 27, and 31, closed by driving the live application (including via background input delivered to its off-screen HWND) once a genuine unsigned NSIS installer was available. The earlier `REGDB_E_CLASSNOTREG` failure, previously seen on every launch in this environment, did **not** reproduce when the manager shell was captured; row 3 in `CaptureMatrix.md` is left open pending re-verification of whether/when that failure state still occurs.
+
+The gate is not fully open, however. Rows that require a registered virtual machine, a running VM session, or the VirtualBox host kernel drivers remain blocked: this lane is prohibited from creating/starting a VM, and even where drivers could be built, Windows refuses to load unsigned kernel drivers, so no runtime-window capture can be taken here regardless. Those rows, plus several simply not yet attempted, stay `Not captured` in `CaptureMatrix.md`, which is the authority for the current count.
 
 ## Failure handling
 

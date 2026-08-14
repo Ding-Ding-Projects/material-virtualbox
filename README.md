@@ -11,8 +11,10 @@ application-owned presentation toward one coherent Qt 6 design system.
 [changelog](CHANGELOG.md) ·
 [native implementation authority](doc/md3/CodexHandoff.md)
 
-**Install status:** no verified installer is published yet. Build from source
-with the [canonical VirtualBox prerequisites and commands](#build-and-prerequisites).
+**Install status:** verified unsigned NSIS installers are published as GitHub
+releases (`VirtualBox-7.2.97-Setup.exe`); see the [Releases page](https://github.com/Ding-Ding-Projects/material-virtualbox/releases)
+for the current one, or build from source with the
+[canonical VirtualBox prerequisites and commands](#build-and-prerequisites).
 
 > **Implementation status:** the shared theme, style, language, persisted brand,
 > native manager title bar, manager navigation rail, manager tab strip,
@@ -75,12 +77,15 @@ notification, and runtime captures from the rewritten build.
 
 The capture contract and current COM/service evidence are maintained in
 [`doc/md3/RuntimeCapture.md`](doc/md3/RuntimeCapture.md). The full enumerated
-tracking table — every surface and state that must be captured, each
-currently `Not captured` with its exact blocker named — is
-[`doc/md3/CaptureMatrix.md`](doc/md3/CaptureMatrix.md). As of this writing
-every row in that table is open: no verified Windows installer has been
-built yet (see the CI status below), and this environment's unregistered
-COM/SDS classes independently block reaching the manager shell at all.
+tracking table — every surface and state that must be captured, its current
+`Captured`/`Not captured` status, and its exact blocker where still open — is
+[`doc/md3/CaptureMatrix.md`](doc/md3/CaptureMatrix.md); that document is the
+authority for the current count, not this paragraph. As of commit
+`cb9f573030e3f27d7b13314d90234e2b8de873c9`, the manager shell has been
+reached and photographed and several rows are captured; most rows remain
+open, blocked either by needing a running VM or an installed host service
+(kernel drivers, `VBoxSDS`) that this lane cannot provision, or simply not
+yet attempted.
 
 Global Preferences and per-machine Settings now compose their existing page
 models inside a bounded Material selector, one selected page card, and a compact
@@ -337,14 +342,17 @@ register COM, install `VBoxSDS`, or install kernel drivers at all -- see
 Neither script ever publishes, tags, pushes, or invokes a signer.
 
 **Current CI status, stated honestly:** the **Windows package and release**
-workflow this script mirrors is not green yet. As of commit
-[`9efa7f522c69f3ce1b99940d13e96d534ee2a0c3`](https://github.com/Ding-Ding-Projects/material-virtualbox/commit/9efa7f522c69f3ce1b99940d13e96d534ee2a0c3),
-[run 31731859854](https://github.com/Ding-Ding-Projects/material-virtualbox/actions/runs/31731859854)
-gets through Qt setup, MSVC toolset selection, and the full build before
+workflow this script mirrors previously failed at commit
+[`9efa7f522c69f3ce1b99940d13e96d534ee2a0c3`](https://github.com/Ding-Ding-Projects/material-virtualbox/commit/9efa7f522c69f3ce1b99940d13e96d534ee2a0c3)
+([run 31731859854](https://github.com/Ding-Ding-Projects/material-virtualbox/actions/runs/31731859854)),
+getting through Qt setup, MSVC toolset selection, and the full build before
 failing in its own packaging self-check with `STATUS_STACK_BUFFER_OVERRUN`.
-No release has been published and no verified installer exists yet. See
-[`CHANGELOG.md`](CHANGELOG.md) for the fix history and the exact current
-blocker, and [`HANDOFF.md`](HANDOFF.md) for the full state summary. No local
+That blocker has since been fixed: published non-draft releases
+`v7.2.97-ci.96` through `v7.2.97-ci.101` each carry a real unsigned NSIS
+installer (`VirtualBox-7.2.97-Setup.exe`, ~106.9 MB), and the newest,
+`v7.2.97-ci.101`, targets commit `bb63f016` with a Windows build that
+completed successfully. See [`CHANGELOG.md`](CHANGELOG.md) for the fix
+history and [`HANDOFF.md`](HANDOFF.md) for the full state summary. No local
 artifact produced on a warm, already-built tree is accepted as evidence that
 either script works from a genuinely clean checkout — only a passing run of
 that same CI job, or an equivalent from-empty local run, counts.

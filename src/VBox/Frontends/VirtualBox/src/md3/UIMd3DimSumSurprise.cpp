@@ -178,11 +178,22 @@ bool UIMd3DimSumSurprise::shouldSkipThisLaunch()
 /* static */
 bool UIMd3DimSumSurprise::prefersReducedMotion()
 {
-#if QT_VERSION >= QT_VERSION_CHECK(6, 6, 0)
-    if (qApp && qApp->styleHints())
-        return qApp->styleHints()->reduceMotion();
-#endif
-    /* No reliable cross-platform signal available from this Qt: assume motion is fine. */
+    /* Qt exposes no reduced-motion accessor on QStyleHints at the version this
+     * project builds against (6.8.3), so there is no reliable cross-platform
+     * signal to read here and this returns false.
+     *
+     * This function previously called QStyleHints::reduceMotion() behind a
+     * QT_VERSION_CHECK(6, 6, 0) guard. That guard was the defect rather than the
+     * protection it looked like: the build Qt is NEWER than 6.6, so the guard
+     * admitted the call, and the method still does not exist -- C2039, after a
+     * fifty-one minute compile. A version guard only protects against a version
+     * that is too OLD; it says nothing about whether the API was ever added.
+     * Verify the symbol exists in the exact Qt being built against before
+     * reintroducing it, and do not simply raise the number in the guard.
+     *
+     * When a real signal is available, this is the single place to add it: every
+     * animation in this class is already routed through the caller of this
+     * function. */
     return false;
 }
 

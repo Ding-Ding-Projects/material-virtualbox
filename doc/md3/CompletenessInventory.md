@@ -66,12 +66,15 @@ rather than repeated as a discovery in every row. `CodexHandoff.md`'s own "Open 
 - **B1** — compiles and links locally (`UICommon`/`VirtualBox`/`VirtualBoxVM` kBuild targets exit 0)
   at a cited commit; the resulting binary has never been launched or interacted with as a running
   process for this feature.
-- **C0** — no real capture exists. This applies to literally every row in this document. Per
-  [`CaptureMatrix.md`](CaptureMatrix.md), **0 of 47** tracked surface/state rows are captured,
-  blocked by an unregistered `VBoxSDS` COM service (`REGDB_E_CLASSNOTREG`, see
-  [`RuntimeCapture.md`](RuntimeCapture.md)) for every pre-launch surface, and by the absence of any
-  published release for installer/update surfaces. No row in this inventory can honestly claim a
-  capture until that blocker clears.
+- **C0** — no real capture exists for this row. This applies to every row in this document: none of
+  them is individually tied to a captured `CaptureMatrix.md` row. Per
+  [`CaptureMatrix.md`](CaptureMatrix.md), which is the authority for the current count, 8 of 47
+  tracked surface/state rows are captured — the manager shell, navigation rail, command palette,
+  Global Preferences, New VM wizard, Extensions, and VM Activity Overview have been reached and
+  photographed — but the remaining 39 stay `Not captured`, blocked by needing a running VM or an
+  installed host service this lane cannot provision, or simply not yet attempted. No row in this
+  inventory can honestly claim a capture until the MD3 code for that specific feature is compiled
+  into the exact binary a capture is taken from, which none of the features audited here are yet.
 
 Wholly-absent features (no implementation on any surface) are recorded as **one row covering all
 surfaces** rather than seven duplicate "Not implemented" rows, with the search performed to confirm
@@ -474,9 +477,11 @@ the Runtime window's notification button opens the MD3-enhanced review surface o
 one — was not resolved by source inspection alone. It is counted conservatively as **Not
 implemented** in the table above; its own row states the uncertainty plainly rather than guessing.
 
-No row in this document claims a real capture. `CaptureMatrix.md` independently confirms 0 of 47
-tracked surface/state captures exist, blocked by an unregistered COM/SDS service for every
-pre-launch surface and by the absence of any published release for installer/update surfaces.
+No row in this document claims a real capture. `CaptureMatrix.md` is the authority for the current
+count: 8 of 47 tracked surface/state rows are captured (the manager shell and several of its tools
+and wizards), but none of those captures are of MD3 code covering the features audited in this
+inventory, and the remaining 39 rows stay blocked by needing a running VM or an installed host
+service this lane cannot provision, or are simply not yet attempted.
 Nearly every "Implemented" row above is qualified as compiling and linking locally (B1) rather
 than having been run as a live process — this document does not, and cannot yet, claim otherwise.
 
@@ -509,5 +514,6 @@ that overstates it, and only a check against the tree finds either.
 
 [`CodexHandoff.md`](CodexHandoff.md) (the standing implementation contract and open-lanes order),
 [`DesignCoverage.md`](DesignCoverage.md) (the 69-entry archive ledger this inventory cross-checked
-against), [`CaptureMatrix.md`](CaptureMatrix.md) and [`RuntimeCapture.md`](RuntimeCapture.md) (why
-zero captures exist), and every per-feature article linked from the tables above.
+against), [`CaptureMatrix.md`](CaptureMatrix.md) and [`RuntimeCapture.md`](RuntimeCapture.md) (the
+current capture count and why most rows remain open), and every per-feature article linked from
+the tables above.

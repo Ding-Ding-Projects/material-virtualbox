@@ -2721,6 +2721,7 @@ void UIVirtualBoxManager::registerCommandPaletteCommands()
     registerManagerText("md3.manager.open-media", QStringLiteral("Open virtual media manager"), QStringLiteral("開啟虛擬媒體管理員"));
     registerManagerText("md3.manager.import-appliance", QStringLiteral("Import an appliance"), QStringLiteral("匯入裝置"));
     registerManagerText("md3.manager.open-history", QStringLiteral("Open local history"), QStringLiteral("開啟本機歷史"));
+    registerManagerText("md3.manager.open-external-editor", QStringLiteral("Open the VirtualBox configuration folder in an external editor"), QStringLiteral("用外部編輯器開啟 VirtualBox 設定資料夾"));
     registerManagerText("md3.manager.open-changelog", QStringLiteral("Open changelog"), QStringLiteral("開啟更新日誌"));
     registerManagerText("md3.manager.toggle-emoji", QStringLiteral("Show emojis in dialogs and message boxes: %1"),
                         QStringLiteral("喺對話框同訊息方塊度顯示表情符號：%1"));
