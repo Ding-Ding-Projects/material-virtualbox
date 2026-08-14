@@ -159,9 +159,9 @@ build and environment this harness was proven against.
 
 | # | Surface | State / variant | Status | Blocker |
 | --- | --- | --- | --- | --- |
-| 40 | Squirrel installer | `Setup.exe` first-run screen | Not captured | A |
-| 41 | Squirrel installer | Install progress | Not captured | A |
-| 42 | Squirrel installer | Completion screen | Not captured | A |
+| 40 | NSIS installer (`VirtualBox-<version>-Setup.exe`, the one and only Windows installer; Squirrel was retired 2026-08-14) | Welcome/license/directory pages | Not captured | A |
+| 41 | NSIS installer | Install progress (`InstFiles` page, elevated) | Not captured | A |
+| 42 | NSIS installer | Finish page, including the driver-refused summary `MessageBox` when a kernel driver was refused | Not captured | A |
 | 43 | Unsigned-publisher warning | OS unknown-publisher / SmartScreen dialog (expected and disclosed, not hidden, per the permanent no-signing policy) | Not captured | A |
 | 44 | Auto-update | Non-blocking "ready to restart" banner | Not captured | A |
 | 45 | Auto-update | Offline / invalid-feed fallback state | Not captured | A |

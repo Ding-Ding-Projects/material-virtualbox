@@ -325,9 +325,16 @@ build-installer.bat /s
 tree, and builds the runnable `VirtualBox.exe` payload. Without `/s` it offers
 one final choice to launch that payload; `/s`, `--silent`, or `SILENT=1` keeps
 the entire run non-interactive. `build-installer.bat` runs the same path and
-then creates a complete unsigned Squirrel.Windows set containing `Setup.exe`,
-`RELEASES`, the full `.nupkg`, generated deltas when available, and
-`SHA256SUMS.txt`. It never publishes, tags, pushes, or invokes a signer.
+then builds the single unsigned elevated NSIS installer
+(`VirtualBox-<version>-Setup.exe` plus `SHA256SUMS.txt`) that installs the
+complete host product -- VirtualBox Manager, `VBoxSVC`, the `VBoxSDS` service
+and its COM registration, the Guest Additions ISO, and the host kernel
+drivers when Windows accepts them. This project shipped a separate unsigned
+Squirrel.Windows package here until 2026-08-14; Squirrel was retired outright
+because it is a per-user file unpacker with no elevation and could not
+register COM, install `VBoxSDS`, or install kernel drivers at all -- see
+[`doc/installer/WindowsHostInstallerNSIS.md`](doc/installer/WindowsHostInstallerNSIS.md).
+Neither script ever publishes, tags, pushes, or invokes a signer.
 
 **Current CI status, stated honestly:** the **Windows package and release**
 workflow this script mirrors is not green yet. As of commit

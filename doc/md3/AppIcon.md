@@ -263,36 +263,25 @@ deliverables"), these are recorded here rather than silently left
 undocumented, so a future lane that reopens non-Windows scope has a
 starting list instead of having to re-run this sweep.
 
-## Outstanding change needed in files this lane could not edit
+## Resolved: the shipped installer now embeds this icon
 
-The Squirrel.Windows packaging path
-(`.github/workflows/windows-package-release.yml` and
-`tools/build-windows.ps1`, both out of bounds for this lane) generates a
-NuGet `.nuspec` with an `<id>`, `<version>`, `<authors>`, and `<description>`
-but **no icon reference at all** -- not a broken/mutable `<iconUrl>`, simply
-none. `<iconUrl>` itself would be the wrong fix even if this lane could edit
-those files: it requires a live, reachable HTTPS URL, which fails the "not a
-mutable or unreachable icon URL" half of the release gate outright.
+This section originally flagged that the then-shipped unsigned
+Squirrel.Windows package generated a NuGet `.nuspec` with no icon reference
+at all, and that Squirrel's own `--icon <path>` flag (not a broken/mutable
+`<iconUrl>`, which needs a live reachable HTTPS URL and fails the release
+gate outright) was the fix a future lane owning those files would need to
+apply.
 
-The correct fix is to pass Squirrel's own `--icon <path>` flag to
-`Squirrel.exe --releasify`, pointing at this repository's
-`src/VBox/Artwork/win/OSE/VirtualBox_win.ico` (the same file now embedded in
-`VirtualBox.exe` itself, so the installer and the installed app agree). That
-embeds the icon directly into the generated `Setup.exe`, the Start Menu
-shortcut, and the Programs-and-Features entry -- fully offline, no URL
-involved. Concretely, both of the following calls need the added flag:
-
-- `tools/build-windows.ps1`, `New-SquirrelInstaller`, the
-  `& $Tools.Squirrel --releasify $package.FullName --releaseDir $release --no-msi`
-  line.
-- `.github/workflows/windows-package-release.yml`, the "Build unsigned
-  Squirrel full installer" step's
-  `& $squirrel --releasify $package --releaseDir $releaseDir --no-msi` line.
-
-Both need `--icon "<repo-root>\src\VBox\Artwork\win\OSE\VirtualBox_win.ico"`
-appended. Neither file was edited by this lane, per its scope boundary; this
-is reported here so the lane that owns those files can make the one-line
-change.
+Squirrel was retired outright (see `doc/installer/WindowsHostInstallerNSIS.md`)
+in favour of a single elevated NSIS installer
+(`src/VBox/Installer/win/NSIS/VBoxHostInstaller.nsi`), which is the shipped
+installer as of this writing. That file now sets
+`!define MUI_ICON "...\src\VBox\Artwork\win\OSE\VirtualBox_win.ico"` and the
+matching `MUI_UNICON`, embedding the same icon `VirtualBox.exe` itself
+carries into the installer executable, its uninstaller, and (via
+`DisplayIcon` in the Add/Remove Programs registration) the Programs-and-
+Features entry -- fully offline, no URL involved, same as the fix originally
+proposed here, just applied to the installer that actually ships.
 
 ## Suggested articles
 
