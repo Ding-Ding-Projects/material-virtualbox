@@ -88,6 +88,7 @@
 #include "UITranslationEventListener.h"
 #include "UIVirtualBoxManager.h"
 #include "UIMd3Button.h"
+#include "UIMd3Changelog.h"
 #include "UIMd3CommandPalette.h"
 #include "UIMd3ExternalEditor.h"
 #include "UIMd3History.h"
@@ -2718,6 +2719,7 @@ void UIVirtualBoxManager::registerCommandPaletteCommands()
     registerManagerText("md3.manager.open-media", QStringLiteral("Open virtual media manager"), QStringLiteral("開啟虛擬媒體管理員"));
     registerManagerText("md3.manager.import-appliance", QStringLiteral("Import an appliance"), QStringLiteral("匯入裝置"));
     registerManagerText("md3.manager.open-history", QStringLiteral("Open local history"), QStringLiteral("開啟本機歷史"));
+    registerManagerText("md3.manager.open-changelog", QStringLiteral("Open changelog"), QStringLiteral("開啟更新日誌"));
     registerManagerText("md3.manager.export-appliance", QStringLiteral("Export an appliance"), QStringLiteral("匯出裝置"));
     registerManagerText("md3.manager.add-machine", QStringLiteral("Add an existing virtual machine"), QStringLiteral("加入現有虛擬機器"));
     registerManagerText("md3.manager.new-cloud-machine", QStringLiteral("Create a cloud virtual machine"), QStringLiteral("建立雲端虛擬機器"));
@@ -2777,6 +2779,15 @@ void UIVirtualBoxManager::registerCommandPaletteCommands()
                                                        [this]() { UIMd3ExternalEditor::openConfigFolder(this); }, 0,
                                                        strManagerCategory,
                                                        QStringLiteral("open-external-editor")));
+
+    UIMd3CommandPalette::registerCommand(UIMd3Command(managerText("md3.manager.open-changelog", tr("Open changelog")),
+                                                       strManagerSource,
+                                                       [this]()
+                                                       {
+                                                           if (UIMd3Changelog::instance())
+                                                               UIMd3Changelog::instance()->showCentre(this);
+                                                       }, 0, strManagerCategory,
+                                                       QStringLiteral("open-changelog")));
 
     const auto registerGlobalToolCommand = [this, &strManagerSource, &strManagerCategory, &managerText]
         (const char *pszKey, const QString &strFallback, const QString &strCantonese,
@@ -2870,6 +2881,13 @@ void UIVirtualBoxManager::prepareConnections()
     {
         if (UIMd3History::instance())
             UIMd3History::instance()->showCentre(this);
+    });
+    QShortcut *pChangelogShortcut = new QShortcut(QKeySequence(Qt::CTRL | Qt::SHIFT | Qt::Key_L), this);
+    pChangelogShortcut->setContext(Qt::ApplicationShortcut);
+    connect(pChangelogShortcut, &QShortcut::activated, this, [this]()
+    {
+        if (UIMd3Changelog::instance())
+            UIMd3Changelog::instance()->showCentre(this);
     });
     registerCommandPaletteCommands();
     if (UIMd3Language::instance())
