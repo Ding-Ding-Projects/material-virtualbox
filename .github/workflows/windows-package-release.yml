@@ -498,7 +498,15 @@ jobs:
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           $package = Join-Path $stage "VirtualBox.$version.nupkg"
           if (-not (Test-Path $package)) { throw 'NuGet did not produce the Squirrel input package.' }
-          & $squirrel --releasify $package --releaseDir $releaseDir --no-msi
+          # The pipe to Out-Host is load-bearing, not decoration. Squirrel.exe is a
+          # windowed (WINDOWS_GUI subsystem) executable, and PowerShell does not wait
+          # for one of those: `& $squirrel ...` returns immediately, $LASTEXITCODE is
+          # 0 because nothing has failed yet, the script sails on, and the very next
+          # step finds no Setup.exe. Piping a native command forces PowerShell to
+          # attach to its output and therefore wait for it to exit.
+          # tools/build-windows.ps1 has always piped this call, which is why the local
+          # build produces a real Setup.exe and this one produced nothing at all.
+          & $squirrel --releasify $package --releaseDir $releaseDir --no-msi | Out-Host
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
       - name: Verify unsigned package inputs
