@@ -741,6 +741,7 @@ UICommon_QT_MOCHDRS = \
 	src/md3/UIMd3DimSumSurprise.h \
 	src/md3/UIMd3EmojiSetting.h \
 	src/md3/UIMd3ExternalEditor.h \
+	src/md3/UIMd3PersonalVocabulary.h \
 	src/md3/UIMd3RuntimeHeader.h \
 	src/md3/UIMd3History.h \
 	src/md3/UIMd3NotificationCentre.h \
@@ -1345,6 +1346,7 @@ UICommon_SOURCES = \
 	src/md3/UIMd3EmojiSetting.cpp \
 	src/md3/UIMd3ExternalEditor.cpp \
 	src/md3/UIMd3History.cpp \
+	src/md3/UIMd3PersonalVocabulary.cpp \
 	src/md3/UIMd3ManagerToolSearch.cpp \
 	src/md3/UIMd3RuntimeHeader.cpp \
 	src/md3/UIMd3MenuSearch.cpp \
