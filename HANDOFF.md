@@ -60,6 +60,45 @@ declared Qt modules, one on the singleton/lifecycle pattern. All three returned 
 does not prove the code compiles. The Windows workflow triggered by this integration is the first
 real compile this code has ever had, and its verdict is the one that counts.
 
+## Yum tong gate audit — what a release-grade shutdown would still need
+
+The pass was escalated from ultra-speed to release-grade shutdown. That contract has fourteen
+non-negotiable gates and **it is not satisfied**, so this section records each one honestly instead
+of declaring a finish. Several are blocked by this environment rather than by the repository, and
+those are marked as such so the next owner knows which are real work and which are just a machine
+away.
+
+| # | Gate | State | Evidence or blocker |
+|---|---|---|---|
+| 1 | Full inventory of jers, worktrees, stashes, tags, releases, divergence | **met** | Recorded in "Repository state" below |
+| 2 | Every valid change committed on its owning jer | **met** | All worktrees clean, nothing excluded silently |
+| 3 | Recoverable work pushed before integration | **met** | Every lane pushed before any deletion |
+| 4 | Remote not ahead of the working jer | **met** | `main` fast-forwarded; no Fay Gay encountered |
+| 5 | Hand-written local-suite inventory, every suite passing | **NOT met** | `doc/md3/LocalGates.md` records 8 gates runnable and 10 blocked on the Windows/kBuild/Qt toolchain. This container additionally has no `pwsh`, so even the 8 could not be re-run here — CI's `md3-validation` covers their contracts and is green |
+| 6 | Installable artifacts built locally and validated | **NOT met — environment** | No Windows toolchain, no Qt, no `kmk`. Artifacts are built by CI only |
+| 7 | Original logo and packaged application icon verified in the artifact | **NOT met** | Not audited in this pass; requires the built artifact |
+| 8 | Every canonical feature implemented per surface with full evidence | **NOT met** | 40 rows still "Not implemented"; 7 features have zero implementation anywhere. See `CompletenessInventory.md` |
+| 9 | README and landing page carry a current real-capture matrix | **NOT met** | `CaptureMatrix.md` records 0 of 47 captures; blocked by an unregistered COM/SDS service and, here, by having no Windows host at all |
+| 10 | Exactly one new non-draft release representing this pass | **NOT met** | The workflow publishes a release on every push to `main`, and this pass made several pushes. Intermediate releases exist by design |
+| 11 | Dewed `main` has a green remote CI verdict | **pending** | Material 3 validation and Pages are green on the integrated tip; the Windows build had not returned when this was written |
+| 12 | Every source jer tip proved an ancestor before deletion | **met** | Proved for all seven deleted items |
+| 13 | Fresh mat day supplied before any deletion | **met** | Supplied for this pass; applied to the cleanup half only |
+| 14 | Only `main` and the primary checkout remain | **NOT met** | Three merged jers remain on the hui because remote jer deletion is refused by this environment's permission classifier |
+
+**The honest summary: 7 of 14 gates met.** Gates 6, 7 and 9 need a Windows host and cannot be
+closed from here at all. Gate 14 needs one permission. Gates 5, 8 and 10 need real work in the
+repository. None of them should be marked done by weakening the gate.
+
+### "Make the app work" — the part that is not a defect
+
+The application builds, installs, launches and reaches a working Manager. **It cannot start a
+virtual machine, and no change in this repository can make it.** The host hypervisor driver ships
+unsigned, 64-bit Windows refuses to load an unsigned kernel driver, and code signing is permanently
+prohibited for this project. That is a policy consequence with an owner outside this codebase — only
+the machine's owner choosing to permit unsigned drivers moves it. The installer already reports the
+real per-driver outcome rather than failing silently or implying success, which is the correct
+behaviour under that ceiling.
+
 ## Current state, in one line
 
 The Windows pipeline builds VirtualBox 7.2.97 end to end on a cold CI runner and publishes a real

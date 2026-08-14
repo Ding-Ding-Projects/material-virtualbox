@@ -7,12 +7,64 @@ made the change; every linked SHA was verified with `git cat-file -e` against
 this repository before publication, so a broken link here is a defect to
 report rather than a typo to route around.
 
-No release has been published from this repository yet (`gh release list`
-returns empty as of this writing). Everything below is therefore recorded
-under **[Unreleased]**; a dated release section will replace it once a
-verified installer ships.
+**Correction:** an earlier version of this file stated that no release had ever
+been published from this repository. That is no longer true and had not been
+for some time — `v7.2.97-ci.96` through `v7.2.97-ci.100` are published,
+non-draft releases carrying real NSIS installers, the most recent of them
+`VirtualBox-7.2.97-Setup.exe` at 106,872,738 bytes. The claim is corrected here
+rather than deleted, because a changelog that silently rewrites its own past
+is the one document a reader has no way to check.
+
+Entries below remain under **[Unreleased]** when they have not yet appeared in
+a published release.
 
 ## [Unreleased]
+
+### Added — Three canonical features that had no implementation at all (2026-08-14)
+
+Each of these was recorded in `doc/md3/CompletenessInventory.md` as
+"Not implemented on any surface" before this pass. Each shipped with an honest
+limit recorded in its own inventory row; none of them is finished, and none of
+them has been compiled or captured at the time of writing.
+
+1. **Emoji-in-dialogs toggle** —
+   [`72b74ebcaa2e686aca23c19d820bda795fc5a55b`](https://github.com/Ding-Ding-Projects/material-virtualbox/commit/72b74ebcaa2e686aca23c19d820bda795fc5a55b)
+   `UIMd3EmojiSetting` adds a persisted toggle, default off, mapping eight
+   dialog tones to one decorative emoji each and returning text untouched when
+   disabled. Reachable from the command palette. **Limit:** no dialog or message
+   box in the frontend calls the decoration helper yet, so enabling it changes
+   nothing visible except the palette row's own label.
+
+2. **Dim sum startup surprise** —
+   [`2792e4038262470bfc3db592e88ec4437bbca636`](https://github.com/Ding-Ding-Projects/material-virtualbox/commit/2792e4038262470bfc3db592e88ec4437bbca636)
+   `UIMd3DimSumSurprise` draws once per launch with a 10% chance and shows a
+   non-blocking, auto-dismissing toast naming a dish in English and Cantonese.
+   It cannot gate startup, cannot steal focus, and cannot be turned off.
+   **By design it ships no photograph:** those images belong to a separate
+   public catalog and are never vendored, generated, or downloaded into this
+   repository, so the toast renders an explicit placeholder where a picture
+   would go.
+
+3. **Local personal-vocabulary JSON upload** —
+   [`804587eb558ca774ef04454f691ad89c7a8f25f9`](https://github.com/Ding-Ding-Projects/material-virtualbox/commit/804587eb558ca774ef04454f691ad89c7a8f25f9)
+   `UIMd3PersonalVocabulary` adds an always-visible file picker and a bounded,
+   versioned, all-or-nothing validator: file size, schema version, nesting
+   depth, entry count, key and value lengths and value types are all bounded,
+   and nesting is checked by scanning raw bytes before any parser builds a tree.
+   Nothing ships preloaded — no samples, no templates, no defaults. **Limit:**
+   no other surface routes its rendered text through the service yet.
+
+### Changed — The completeness inventory counts itself now (2026-08-14)
+
+[`8034b1cacb17c610f1afaec8fc99459dcfdc8f20`](https://github.com/Ding-Ding-Projects/material-virtualbox/commit/8034b1cacb17c610f1afaec8fc99459dcfdc8f20)
+The inventory's summary table had drifted from the rows it summarises — three
+sections changed status while the Implemented count stayed put, producing a
+table that added up correctly and described the tree incorrectly. The rows stay
+hand-written, because a generated checklist cannot look for a feature that has
+no implementation anywhere; only the arithmetic became mechanical, through
+`tools/md3/count-inventory-rows.py`, which fails closed when its own buckets
+disagree with its own total. The same commit corrects section 16, which had
+claimed the external-editor handoff was unimplemented long after it shipped.
 
 ### Fixed — Windows build and packaging pipeline (2026-08-13)
 
