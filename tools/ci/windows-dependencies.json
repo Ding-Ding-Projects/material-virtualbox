@@ -1,0 +1,46 @@
+{
+  "schemaVersion": 1,
+  "platform": "windows-2022",
+  "jobs": {
+    "archive-and-source-contract": {
+      "workflow": ".github/workflows/md3-validation.yml",
+      "bootstrap": "actions/checkout provides the source checkout; windows-2022 supplies Git and PowerShell.",
+      "executables": [
+        { "name": "git.exe", "source": "GitHub-hosted windows-2022 image", "version": "image-managed", "invokedBy": ["workflow"] },
+        { "name": "pwsh.exe", "source": "GitHub-hosted windows-2022 image", "version": "7.x", "invokedBy": ["workflow", "tools/md3/generate-design-coverage.ps1"] }
+      ]
+    },
+    "native-build": {
+      "workflow": ".github/workflows/md3-validation.yml",
+      "bootstrap": "build.bat delegates exclusively to tools/md3/build-windows.ps1, which validates or obtains every lane dependency.",
+      "executables": [
+        { "name": "cmd.exe", "source": "Windows operating system", "version": "windows-2022", "invokedBy": ["build.bat", "tools/md3/build-windows.ps1"] },
+        { "name": "powershell.exe", "source": "Windows operating system", "version": "5.1", "invokedBy": ["build.bat", "tools/md3/build-windows.ps1"] },
+        { "name": "pwsh.exe", "source": "GitHub-hosted windows-2022 image", "version": "7.x", "invokedBy": ["workflow", "tools/ci/test-dependency-completeness.ps1", "tools/ci/collect-safe-artifacts.ps1"] },
+        { "name": "git.exe", "source": "GitHub-hosted windows-2022 image", "version": "image-managed", "invokedBy": ["tools/md3/build-windows.ps1"] },
+        { "name": "winget.exe", "source": "Microsoft App Installer on windows-2022", "version": "image-managed", "invokedBy": ["tools/md3/build-windows.ps1"], "conditional": "Only when exact SDK/WDK 10.0.22621.0 files are absent and the job is elevated." },
+        { "name": "python.exe", "source": "https://www.python.org/ftp/python/3.13.15/python-3.13.15-amd64.exe", "version": "3.13.15 x64", "sha256": "edec09c4853aeae9ac36efb8c9f95b6b8e2fee65eee56d9767a8b7c69c574403", "invokedBy": ["tools/md3/build-windows.ps1", "configure.py", "aqtinstall 3.3.0"] },
+        { "name": "vswhere.exe", "source": "Visual Studio 2022 installer", "version": "Visual Studio 2022", "invokedBy": ["tools/md3/build-windows.ps1"] },
+        { "name": "cl.exe", "source": "Visual Studio 2022 component Microsoft.VisualStudio.Component.VC.Tools.x86.x64", "version": "VCC143", "invokedBy": ["configure.py", "kBuild"] },
+        { "name": "link.exe", "source": "Visual Studio 2022 component Microsoft.VisualStudio.Component.VC.Tools.x86.x64", "version": "VCC143", "invokedBy": ["configure.py", "kBuild"] },
+        { "name": "rc.exe", "source": "Microsoft.WindowsSDK.10.0.22621", "version": "10.0.22621.0", "invokedBy": ["configure.py", "kBuild"] },
+        { "name": "midl.exe", "source": "Microsoft.WindowsSDK.10.0.22621", "version": "10.0.22621.0", "invokedBy": ["configure.py", "kBuild"] },
+        { "name": "signtool.exe", "source": "Microsoft.WindowsSDK.10.0.22621", "version": "10.0.22621.0", "invokedBy": ["tools/md3/build-windows.ps1"], "purpose": "Presence check only; signing is prohibited and the executable is never invoked." },
+        { "name": "nasm.exe", "source": "https://www.nasm.us/pub/nasm/releasebuilds/2.16.03/win64/nasm-2.16.03-win64.zip", "version": "2.16.03", "sha256": "3ee4782247bcb874378d02f7eab4e294a84d3d15f3f6ee2de2f47a46aa7226e6", "invokedBy": ["configure.py", "kBuild"] },
+        { "name": "aqtinstall", "source": "tools/ci/aqt-requirements.txt via PyPI", "version": "3.3.0", "invokedBy": ["tools/md3/build-windows.ps1"] },
+        { "name": "qmake.exe", "source": "Qt online repository via aqtinstall", "version": "6.8.3 msvc2022_64", "invokedBy": ["tools/md3/build-windows.ps1", "configure.py", "kBuild"] },
+        { "name": "moc.exe", "source": "Qt online repository via aqtinstall", "version": "6.8.3 msvc2022_64", "invokedBy": ["kBuild"] },
+        { "name": "rcc.exe", "source": "Qt online repository via aqtinstall", "version": "6.8.3 msvc2022_64", "invokedBy": ["kBuild"] },
+        { "name": "uic.exe", "source": "Qt online repository via aqtinstall", "version": "6.8.3 msvc2022_64", "invokedBy": ["kBuild"] },
+        { "name": "lrelease.exe", "source": "Qt online repository via aqtinstall", "version": "6.8.3 msvc2022_64", "invokedBy": ["kBuild"] },
+        { "name": "kmk.exe", "source": "pinned kBuild gitlink", "version": "exact repository gitlink", "invokedBy": ["tools/md3/build-windows.ps1"] },
+        { "name": "kmk_ash.exe", "source": "pinned kBuild gitlink", "version": "exact repository gitlink", "invokedBy": ["configure.py", "kBuild"] }
+      ],
+      "packages": [
+        { "id": "Microsoft.WindowsSDK.10.0.22621", "source": "winget canonical source", "version": "10.0.22621.2428", "requiredFilesVersion": "10.0.22621.0" },
+        { "id": "Microsoft.WindowsWDK.10.0.22621", "source": "winget canonical source", "version": "10.1.22621.2428", "requiredFilesVersion": "10.0.22621.0" },
+        { "id": "Qt", "source": "official Qt online repository via aqtinstall", "version": "6.8.3", "architecture": "win64_msvc2022_64", "modules": ["qtscxml"] }
+      ]
+    }
+  }
+}

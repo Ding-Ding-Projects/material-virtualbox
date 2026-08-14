@@ -15,7 +15,10 @@ jobs:
   archive-and-source-contract:
     runs-on: windows-2022
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          fetch-depth: 0
+          submodules: recursive
       - name: Validate design ledger and manifest
         shell: pwsh
         run: |
@@ -255,11 +258,40 @@ jobs:
           New-Item -ItemType Directory -Force artifacts | Out-Null
           git status --short | Set-Content artifacts/git-status.txt
           git rev-parse HEAD | Set-Content artifacts/revision.txt
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         if: ${{ always() }}
         continue-on-error: true
         with:
           name: md3-validation-evidence
           path: artifacts
+          if-no-files-found: warn
+          retention-days: 7
+
+  native-build:
+    runs-on: windows-2022
+    timeout-minutes: 360
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          fetch-depth: 0
+          submodules: recursive
+      - name: Validate native dependency completeness
+        shell: pwsh
+        run: ./tools/ci/test-dependency-completeness.ps1
+      - name: Build unsigned native Qt desktop application
+        shell: cmd
+        run: .\build.bat /s
+      - name: Collect safe native build evidence
+        if: ${{ always() }}
+        continue-on-error: true
+        shell: pwsh
+        run: ./tools/ci/collect-safe-artifacts.ps1
+      - name: Upload safe native build evidence
+        if: ${{ always() }}
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        continue-on-error: true
+        with:
+          name: native-build-evidence-${{ github.run_id }}-${{ github.run_attempt }}
+          path: artifacts/native-build-evidence
           if-no-files-found: warn
           retention-days: 7
