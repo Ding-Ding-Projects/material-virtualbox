@@ -115,10 +115,30 @@ and error copy" the contract singles out.
 
 ## 3. Emoji-in-dialogs toggle
 
-**Not implemented on any surface.** Searched `src/VBox/Frontends/VirtualBox/src` for `emoji`
-(case-insensitive): zero matches anywhere in the repository. No toggle, no per-dialog emoji
-decoration, no setting of any kind. Docs: none. Tests: T0. Build proof: B0. Capture: C0 (N/A —
-nothing to capture).
+**Partial — engine and command-palette toggle exist; no dialog or message box in the app calls
+it.** `UIMd3EmojiSetting` (`src/VBox/Frontends/VirtualBox/src/md3/UIMd3EmojiSetting.{h,cpp}`) is a
+new static-only class, following `UIMd3ExternalEditor`'s pattern: `isEnabled()`/`setEnabled()`/
+`toggle()` persist a boolean through the same `gEDataManager`/`UIExtraDataManager` extra-data store
+`UIMd3Theme` already uses (`GUI/Md3/EmojiDialogs`, default **disabled**, no separate persistence
+layer), and `emojiFor(UIMd3EmojiKind)`/`decorate(strText, enmKind)` supply one relevant, decorative
+emoji per broad dialog tone (information/question/warning/error/success/destructive/progress/
+general) that is prefixed onto a caller-supplied heading/title string only when the toggle is on,
+and left completely untouched when it is off. `decorate()` is documented as only ever applying to a
+dialog's own decorative heading/title text, never to button text, action labels, field labels, or
+accessible names.
+
+| Surface | Status | Implementation | Docs | Localized copy | Tests | Interaction proof | Capture | Blocker |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| Engine (`UIMd3EmojiSetting`) | Implemented | Persisted toggle + per-kind emoji + `decorate()` helper. `src/VBox/Frontends/VirtualBox/src/md3/UIMd3EmojiSetting.{h,cpp}`, wired into `Makefile.kmk`'s `UICommon_QT_MOCHDRS`/`UICommon_SOURCES` in alphabetical position | This row only — no dedicated `doc/md3/*.md` article was written | N/A (engine; the emoji glyphs themselves are not language-dependent text) | T0 — no test of any kind exists for this class | B0 — not compiled in this lane (no `kmk` toolchain available here; see `LocalGates.md`); the class was written to mirror `UIMd3ExternalEditor`'s already-B1 shape but has not itself been built | None (C0) | — |
+| S1 Manager (command-palette toggle) | Implemented | A "Show emojis in dialogs and message boxes: On/Off" row registered in `UIVirtualBoxManager::registerCommandPaletteCommands()` alongside the existing Preferences/changelog/history entries, following the exact same `UIMd3CommandPalette::registerCommand(UIMd3Command(...))` call shape; the handler calls `UIMd3EmojiSetting::toggle()` then re-runs `registerCommandPaletteCommands()` so the row's own label immediately reflects the new state, matching how `sltRetranslateUI()` already refreshes the whole palette on a language change. Reachable via keyboard through the existing `Ctrl+Shift+F` palette (no new shortcut added; the palette's own Up/Down/Enter handling makes the row keyboard-operable) | Same as above | EN+ZH via `registerManagerText("md3.manager.toggle-emoji", ...)` and matching `emoji-state-on`/`emoji-state-off` keys, registered the same way as every other row in that function | T0 | B0, same reason as above | None (C0) | — |
+| **Actual dialogs and message boxes app-wide** (VM delete/unregister confirmations, medium/snapshot removal, `UIMessageCenter` warnings/errors, wizard pages, Settings validation messages, etc.) | **Not implemented** | Confirmed by inspection: `decorate()` has zero call sites anywhere in the tree outside `UIMd3EmojiSetting.cpp` itself. Enabling the toggle today changes nothing visible except the command-palette row's own "On"/"Off" label — no real dialog or `QMessageBox` in the frontend has been touched to call `decorate()` on its heading | — | N/A | T0 | B0 | None (C0) | This is the largest and most consequential gap in this section: the contract describes emoji appearing on "each dialog or message box"; this change delivers the on/off mechanism and the decoration helper but does not wire a single one of the app's actual dialogs to use it |
+| S2–S7 | Not implemented | No settings-panel checkbox, no per-surface UI beyond the one S1 command-palette row | — | N/A | T0 | B0 | None (C0) | — |
+
+**Explicitly not done in this pass:** no dialog/message box anywhere in the frontend was modified to
+call `decorate()`; no settings-dialog checkbox was added (the command palette is the only reachable
+control); no automated test was written for `UIMd3EmojiSetting`; no compile was run against a real
+Qt/MSVC toolchain (unavailable in this lane); no capture (screenshot/interaction recording) of the
+toggle, the command-palette row, or any emoji-decorated dialog was taken.
 
 ## 4. School mode (renamable, shared, credential-locked)
 
