@@ -94,6 +94,7 @@
 #include "UIMd3History.h"
 #include "UIMd3Language.h"
 #include "UIMd3ManagerHeader.h"
+#include "UIMd3PersonalVocabulary.h"
 #include "UIMd3Theme.h"
 #include "UIVirtualBoxWidget.h"
 #include "UIVirtualMachineItemCloud.h"
@@ -2720,6 +2721,7 @@ void UIVirtualBoxManager::registerCommandPaletteCommands()
     registerManagerText("md3.manager.import-appliance", QStringLiteral("Import an appliance"), QStringLiteral("匯入裝置"));
     registerManagerText("md3.manager.open-history", QStringLiteral("Open local history"), QStringLiteral("開啟本機歷史"));
     registerManagerText("md3.manager.open-changelog", QStringLiteral("Open changelog"), QStringLiteral("開啟更新日誌"));
+    registerManagerText("md3.manager.open-vocabulary", QStringLiteral("Open personal vocabulary"), QStringLiteral("開啟個人詞彙"));
     registerManagerText("md3.manager.export-appliance", QStringLiteral("Export an appliance"), QStringLiteral("匯出裝置"));
     registerManagerText("md3.manager.add-machine", QStringLiteral("Add an existing virtual machine"), QStringLiteral("加入現有虛擬機器"));
     registerManagerText("md3.manager.new-cloud-machine", QStringLiteral("Create a cloud virtual machine"), QStringLiteral("建立雲端虛擬機器"));
@@ -2788,6 +2790,15 @@ void UIVirtualBoxManager::registerCommandPaletteCommands()
                                                                UIMd3Changelog::instance()->showCentre(this);
                                                        }, 0, strManagerCategory,
                                                        QStringLiteral("open-changelog")));
+
+    UIMd3CommandPalette::registerCommand(UIMd3Command(managerText("md3.manager.open-vocabulary", tr("Open personal vocabulary")),
+                                                       strManagerSource,
+                                                       [this]()
+                                                       {
+                                                           if (UIMd3PersonalVocabulary::instance())
+                                                               UIMd3PersonalVocabulary::instance()->showCentre(this);
+                                                       }, 0, strManagerCategory,
+                                                       QStringLiteral("open-vocabulary")));
 
     const auto registerGlobalToolCommand = [this, &strManagerSource, &strManagerCategory, &managerText]
         (const char *pszKey, const QString &strFallback, const QString &strCantonese,

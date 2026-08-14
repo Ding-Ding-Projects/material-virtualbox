@@ -291,9 +291,58 @@ Docs: none. Tests: T0. Build proof: B0. Capture: C0.
 
 ## 20. Local personal-vocabulary JSON upload
 
-**Not implemented on any surface.** Searched for `personal.vocabulary`, `PersonalVocabulary`,
-`PERSONAL_VOCABULARY`: zero matches. No file picker, no schema, no cached-replacement mechanism.
-Docs: none. Tests: T0. Build proof: B0. Capture: C0.
+**Partial — engine and control implemented, but unwired and unverified.**
+`UIMd3PersonalVocabulary` (`src/VBox/Frontends/VirtualBox/src/md3/UIMd3PersonalVocabulary.{h,cpp}`)
+is a new process-wide singleton, following the exact `instance()`/`create()`/`destroy()` shape of
+`UIMd3Changelog`/`UIMd3History`. It owns:
+
+- A visible, always-present file-picker control (a modeless dialog: heading, privacy explanation,
+  a "Choose file..." / "Replace file..." button, a "Clear" button, and a status label) opened from a
+  new S1 Manager command-palette entry, `md3.manager.open-vocabulary` /
+  `open-vocabulary`, registered in `UIVirtualBoxManager::registerCommandPaletteCommands()`
+  following the exact pattern of the sibling `open-changelog`/`open-history` entries. The picker
+  button and its Clear button are always constructed and shown — never hidden behind an
+  intermediate step — before any file has ever been chosen.
+- Bounded, versioned, all-or-nothing validation of the *complete* payload in
+  `UIMd3PersonalVocabulary::validateFile()`, using `QJsonDocument`/`QJsonObject`/`QJsonValue` (Qt
+  module already linked by `UICommon`; no new Qt module added): a hard 512 KiB file-size ceiling
+  checked before and after the read, a raw byte-level nesting-depth scan (`payloadNestingWithinLimit()`,
+  skips quoted string content, rejects depth > 2) run *before* any JSON parser builds a tree from
+  the bytes, a single supported `schemaVersion` (`1`), rejection of any top-level object that is not
+  exactly `{"schemaVersion", "entries"}`, a 2000-entry cap, 200-character key / 1000-character value
+  bounds, and rejection of any non-string replacement value. Any single violation rejects the whole
+  file — nothing is committed to the active vocabulary until every check has passed (see the
+  function's own doc comment and `sltChooseFile()`, which only calls `applyEntries()` after
+  `validateFile()` returns `true`).
+- Honest states (`State_NoFile`, `State_Loaded`, `State_Invalid`), a `Clear` action that purges both
+  the in-memory map and a local, app-data-directory JSON cache (`personal-vocabulary-cache.json`,
+  validated through the identical `validateFile()` path on every startup) and restores original
+  wording immediately, and a `replace` action reusing the same picker button (relabeled) rather than
+  a second control. No mapping, sample, template, or default vocabulary of any kind is compiled in;
+  `replacement()` is the identity function whenever no valid file is active. No network code exists
+  anywhere in the file.
+
+**What was deliberately not done, and is the real gap this row must report:**
+
+- **Nothing in the rest of the app calls `UIMd3PersonalVocabulary::replacement()`.** The engine and
+  its own dialog are real, but no other surface (Manager chrome, Settings, Wizards, Notification
+  Centre, Changelog, History, Runtime window) routes any of its rendered text through it yet. Until
+  that wiring exists, a validly loaded file has no visible effect anywhere outside the control's own
+  status line — it does not yet replace a single word on any other screen. This mirrors the same
+  "engine implemented, consuming call sites mostly absent" gap already recorded for language modes
+  and funny levels in rows 1–2 above.
+- Accessible names/descriptions and localized (English + Cantonese) copy were written for every
+  string the control itself renders, following the house `registerText()` pattern, but this was
+  never verified against a real screen reader.
+- **No tests and no captures were run.** This lane's environment has no Windows toolchain and no Qt
+  installation, so the code has never been compiled, linked, launched, or interacted with as a
+  running process. There is no `tstUIMd3PersonalVocabulary` unit test for the validator (the bounds
+  above were reasoned through by hand, not exercised against real malformed/oversized/deeply-nested
+  fixture files). No accessibility tree was inspected. No screenshot or recording exists.
+
+Docs: none dedicated (this row is the only record). Localized copy: English + Cantonese for every
+string the control renders, unverified. Tests: T0. Build proof: B0 (not even compiled locally).
+Capture: C0.
 
 ## 21. Per-element toy locks and Support Tickets
 
@@ -350,8 +399,8 @@ recounted directly from the tables in this document rather than estimated:
 | Status | Count |
 | --- | --- |
 | Implemented | 26 |
-| Partial | 16 |
-| Not implemented | 40 |
+| Partial | 17 |
+| Not implemented | 39 |
 | N/A (justified) | 2 |
 | **Total rows** | **84** |
 
@@ -374,12 +423,14 @@ found the twenty `UIMd3*` components under `src/VBox/Frontends/VirtualBox/src/md
 21 `doc/md3/*.md` articles (22 including this one), and the passing
 `md3-validation.yml` workflow, and could have reported near-total coverage of *what those files
 describe*. It would never have looked for a text-to-speech narrator, an Ollama manager, a file
-converter, a personal-vocabulary uploader, toy locks, dim sum, School mode, scheduled settings, a
-changelog viewer, external-editor handoff, or an infinite color picker, because nothing in the
-repository suggested searching for them. Twelve of the twenty-five canonical features audited
-here (sections 3–7, 15–16, and 20–24 above) have precisely zero implementation anywhere in this
-codebase — and every one of those twelve would have been invisible to a checklist built only from
-what already exists.
+converter, toy locks, dim sum, School mode, scheduled settings, a changelog viewer,
+external-editor handoff, or an infinite color picker, because nothing in the repository suggested
+searching for them. Eleven of the twenty-five canonical features audited here (sections 3–7,
+15–16, and 21–24 above) have precisely zero implementation anywhere in this codebase — and every
+one of those eleven would have been invisible to a checklist built only from what already exists.
+A twelfth, section 20 (personal-vocabulary upload), now has a real engine and control behind a
+command-palette entry but is still unwired into any other surface's rendered text, uncompiled, and
+uncaptured — see that row for the honest accounting.
 
 ## Suggested articles
 
