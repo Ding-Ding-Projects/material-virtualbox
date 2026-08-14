@@ -161,9 +161,31 @@ entity binding, no versioned schedule schema. Docs: none. Tests: T0. Build proof
 
 ## 7. Dim sum startup surprise
 
-**Not implemented on any surface.** Searched for `dim sum` / `dimsum` (case-insensitive): zero
-matches. No 10%-chance startup surface, no bundled dish assets, no bilingual dish names. Docs:
-none. Tests: T0. Build proof: B0. Capture: C0.
+**Implemented as a process-wide singleton, S1/S6-shared, not yet compiled or captured.**
+`UIMd3DimSumSurprise` (`src/VBox/Frontends/VirtualBox/src/md3/UIMd3DimSumSurprise.{h,cpp}`) is
+created/destroyed in `main.cpp` alongside `UIMd3History`/`UIMd3NotificationCentre`/
+`UIMd3Changelog` (same file, same lifecycle pattern). On roughly one launch in ten it schedules a
+small, non-blocking, auto-dismissing, un-opt-out-able toast naming one of twelve compiled-in
+bilingual dish names (e.g. `"Shrimp dumpling - Har Gow"`), drawn fresh once per launch and shown
+at most once per launch. It never gates startup or steals focus (the timer is armed before
+`QApplication::exec()` runs and only ever fires once that loop is already up; the toast is a
+`Qt::Tool`/`Qt::WindowDoesNotAcceptFocus` window shown with `Qt::WA_ShowWithoutActivating`), never
+appears on a first run or the launch immediately after an update (a small local marker file
+records the last-seen `RTBldCfgVersion()` build string and skips the draw when it is missing or
+changed), and structurally cannot appear on `main.cpp`'s existing fatal-error/`!uiCommon().isValid()`
+paths, since those either predate the singleton's creation or break out before `a.exec()` is ever
+called. It carries meaningful accessible name/description text naming the dish and posts a
+`QAccessible::Alert` event so assistive technology can announce it despite never taking focus, and
+it best-effort honors `QStyleHints::reduceMotion()` where the built Qt exposes it.
+
+| Item | Status | Implementation | Docs | Localized copy | Tests | Interaction proof | Capture | Blocker |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| Engine + toast (S1/S6, process-wide) | Implemented | `UIMd3DimSumSurprise::{create,destroy,sltShowToast}`, wired in `main.cpp` next to the other MD3 singletons; `Makefile.kmk`'s `UICommon_SOURCES` updated | [`DimSumSurprise.md`](DimSumSurprise.md) | Bilingual by construction (every dish name and the accessible sentence are English+Cantonese in one string); UI chrome (kicker/placeholder text) is plain English `tr()`, not routed through `UIMd3Language` | T0 — no automated test exists | B0 — no local Windows/Qt toolchain in this lane, see `LocalGates.md`; not yet run through the Windows packaging workflow either | None (C0) — no screenshot or recording of the toast, its fade, or its accessible announcement was taken | Compile verification and a real capture are both open |
+| Bundled dish photography | **Deliberately not implemented, by house rule** | `dishes()` carries only compiled-in bilingual text; every toast renders an explicit "Photo not included in this build" placeholder instead of any picture. This repository must not vendor, generate, or fetch dim-sum photographs — those belong to the separate public-catalog project, and this build environment has no network access regardless | [`DimSumSurprise.md`](DimSumSurprise.md) | N/A | T0 | B0 | None (C0) | Not a gap against this repository's contract — the explicit placeholder *is* the correct implementation here, not a stand-in for one |
+
+This keeps the same honesty discipline as rows 15/16 above: implemented, documented, and reasoned
+about carefully, but with no compiled build evidence, no automated test, and no real capture,
+because this lane has neither a Windows/Qt toolchain nor a display to capture from.
 
 ## 8. Full regex builder, reachable from every search bar, dropdown, and context menu
 
