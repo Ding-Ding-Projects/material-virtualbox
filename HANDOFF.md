@@ -6,6 +6,27 @@ Read the two "what this pass did" sections below together. The first round lande
 changelog viewer; the second landed three more features on top of it. Neither ran tests or captures,
 and both say so.
 
+## The changelog viewer compiles, and shipped
+
+**This is the headline, and it is verified rather than expected.** Run `31840815630` on `bb63f016`
+completed **success** after 01:26:08 — the first time `UIMd3Changelog` had ever been compiled by
+anything. It published `v7.2.97-ci.101`, non-draft, targeting that commit:
+
+| Evidence | Value |
+|---|---|
+| Installer | `VirtualBox-7.2.97-Setup.exe`, **106,884,648 bytes** |
+| Size delta vs `ci.100` | **+11,910 bytes**, consistent with a ~1,010-line class landing |
+| SHA-256 | `bc9f86cbd21885e17837b438414ab4d61f51918e1ef59501be4bc58feb94f7db` |
+| Also attached | `SHA256SUMS.txt`, dim-sum photo (Spinach Shrimp Dumpling · 菠菜蝦餃) |
+
+The size arithmetic matters as much as the green tick. A build can go green having quietly packaged
+nothing new; an installer that grew by about the right amount for the code added is the cheap second
+signal that the artifact really contains the feature.
+
+**Still unproven:** the three features landed after that commit (emoji toggle, dim sum surprise,
+personal-vocabulary upload) are compiled by *later* runs, whose verdicts were not in when this was
+written. A green verdict for `bb63f016` says nothing about them.
+
 ## Round two: three previously-absent features
 
 A second ultra-speed round implemented three canonical features that this repository's own
@@ -78,7 +99,7 @@ away.
 | 6 | Installable artifacts built locally and validated | **NOT met — environment** | No Windows toolchain, no Qt, no `kmk`. Artifacts are built by CI only |
 | 7 | Original logo and packaged application icon verified in the artifact | **NOT met** | Not audited in this pass; requires the built artifact |
 | 8 | Every canonical feature implemented per surface with full evidence | **NOT met** | 40 rows still "Not implemented"; 7 features have zero implementation anywhere. See `CompletenessInventory.md` |
-| 9 | README and landing page carry a current real-capture matrix | **NOT met** | `CaptureMatrix.md` records 0 of 47 captures; blocked by an unregistered COM/SDS service and, here, by having no Windows host at all |
+| 9 | README and landing page carry a current real-capture matrix | **NOT met** | `doc/md3/CaptureMatrix.md` records **8 of 47 rows captured** as of `5f1adfac`; the remaining 39 need a Windows host this container does not have |
 | 10 | Exactly one new non-draft release representing this pass | **NOT met** | The workflow publishes a release on every push to `main`, and this pass made several pushes. Intermediate releases exist by design |
 | 11 | Dewed `main` has a green remote CI verdict | **pending** | Material 3 validation and Pages are green on the integrated tip; the Windows build had not returned when this was written |
 | 12 | Every source jer tip proved an ancestor before deletion | **met** | Proved for all seven deleted items |
@@ -151,8 +172,10 @@ Every row below was checked against the live repository and the GitHub API durin
   policy consequence, not a defect, and no installer change can resolve it.
 - **`VBoxNetAdp6` (host-only networking) and `VBoxNetLwf` (bridged networking) are not installed**
   by the installer. See `doc/installer/WindowsHostInstallerNSIS.md`.
-- **The capture matrix is mostly empty.** `doc/md3/CaptureMatrix.md` still carries 44 rows marked
-  `Not captured`, each with its blocker named.
+- **The capture matrix is mostly, but not entirely, empty.** `doc/md3/CaptureMatrix.md` carries 39
+  rows marked `Not captured` and **8 genuinely captured** (rows 1, 5, 6, 16, 22, 24, 27, 31), each
+  uncaptured row naming its blocker. Read that file for the count rather than trusting this one — an
+  earlier version of this handoff stated the figure two different ways and got both wrong.
 - **Many canonical features remain absent or partial.** `doc/md3/CompletenessInventory.md` is the
   authority and is hand-written on purpose. Do not restate its counts from memory or by hand-counting
   — read the document.
@@ -189,7 +212,9 @@ Its genuinely durable contributions, independent of build age:
 
 ## Repository state
 
-- `main` is `8850ddb7efb`, clean.
+- `main` was `5f1adfac63` and clean when this section was written. **Check the tree rather than
+  trusting this line** — every previous version of it named a commit that had already moved on, which
+  is exactly why the sentence now says so.
 - Four branches existed on the remote at the start of this pass:
   - `main`
   - `claude/external-editor-20260814` — **already merged**, proved an ancestor of `main`.
