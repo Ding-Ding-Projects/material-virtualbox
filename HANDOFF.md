@@ -1,6 +1,23 @@
 # Handoff
 
-Last updated: 2026-08-14, after the branch-integration and reality-reconciliation pass.
+Last updated: 2026-08-14, after the ultra-speed pass that landed the changelog viewer on `main`.
+
+## What this pass did, and what it deliberately did not check
+
+This was an ultra-speed feature pass: one feature, its directly related records, integration and a
+release. **No tests and no captures were run, by that pass's own rule.** That is stated here rather
+than left for a reader to infer from their absence.
+
+The one feature: the in-app changelog viewer (`UIMd3Changelog`) reached `main`, so it ships in a
+real release instead of sitting on a side jer.
+
+Before integrating, three independent reviewers checked the never-compiled C++ against working
+sibling sources in `src/md3/` — one on build wiring and includes, one on Qt API signatures and
+declared Qt modules, one on the singleton/lifecycle pattern. All three returned no build blockers.
+
+**That is a static review, not a compilation.** It lowers the risk that the release build fails; it
+does not prove the code compiles. The Windows workflow triggered by this integration is the first
+real compile this code has ever had, and its verdict is the one that counts.
 
 ## Current state, in one line
 
@@ -102,24 +119,27 @@ Its genuinely durable contributions, independent of build age:
     (~1,010 lines) with the date filter, text search and per-entry commit links the house contract
     requires, plus its manager wiring, lifecycle and build entry. A cleanup pass that deleted merged
     branches without reading them would have thrown a whole feature away.
-- Both integrations landed on `claude/virtualbox-agent-memory-oabvhw`, not on `main`, because this
-  pass had no authorization to push to the default branch. **Merging them into `main` is the next
-  owner's first action.**
-- No linked worktrees, no stashes.
+- All of that work is now **merged into `main` and pushed**, which is what triggered the release
+  build for this pass.
+- Merged task branches and their worktrees were removed after each tip was proved an ancestor of the
+  pushed `main`. No stashes existed at any point.
 
 ## Next actions, in order
 
-1. Merge `claude/virtualbox-agent-memory-oabvhw` into `main` and push, so the changelog viewer and
-   the audit stop living on a side branch.
-2. **Compile-verify the changelog viewer on the Windows workflow.** It was merged and statically
-   checked only — no Windows toolchain existed in the environment that integrated it. The conflict
-   resolution in `UIVirtualBoxManager.cpp` (both the external-editor and changelog palette commands
-   kept) is the specific thing a compile would prove.
-3. Re-verify the three `UsabilityProbe.md` defects against a current installer before treating any
+1. **Read the verdict of the Windows package and release run triggered by this integration.** It is
+   the first compilation the changelog viewer has ever had. If it is red, the fix belongs in
+   `UIMd3Changelog.cpp`/`.h` or in the `UIVirtualBoxManager.cpp` conflict resolution that kept both
+   the external-editor and changelog palette commands — that resolution is the specific thing only a
+   compile can prove.
+2. Confirm the release that run publishes: a new unique tag, non-draft, targeting the integrated
+   commit, with its installer and checksum attached.
+3. **Run the tests and captures this pass skipped**, against the merged tree. The ultra-speed pass
+   deliberately ran none, so the changelog viewer has no test or capture evidence of any kind yet.
+4. Re-verify the three `UsabilityProbe.md` defects against a current installer before treating any
    of them as open, and re-verify the `Ctrl+G` finding against `66c701d6`/`90aedcff`.
-4. Work through `doc/md3/CompletenessInventory.md` and `doc/md3/CaptureMatrix.md`. Both are
+5. Work through `doc/md3/CompletenessInventory.md` and `doc/md3/CaptureMatrix.md`. Both are
    deliberate, honest gap lists rather than checklists of what already exists.
-5. Leave the unsigned-driver ceiling alone unless the machine's owner decides to permit unsigned
+6. Leave the unsigned-driver ceiling alone unless the machine's owner decides to permit unsigned
    drivers. Nothing in this repository can move it.
 
 ## Documentation
