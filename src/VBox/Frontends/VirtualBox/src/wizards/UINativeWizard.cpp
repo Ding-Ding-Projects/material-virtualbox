@@ -88,7 +88,7 @@ namespace
         REGISTER_NATIVE_WIZARD_TEXT("md3.wizard.cancel-description", "Cancel this wizard without committing its data.", "取消呢個精靈而唔套用資料。");
         REGISTER_NATIVE_WIZARD_TEXT("md3.wizard.pages", "Wizard pages", "精靈頁面");
         REGISTER_NATIVE_WIZARD_TEXT("md3.wizard.pages-description", "Current wizard page content.", "目前精靈頁面內容。");
-        REGISTER_NATIVE_WIZARD_TEXT("md3.wizard.current-page-description", "Current wizard page: %1", "目前精靈頁面：%1");
+        REGISTER_NATIVE_WIZARD_TEXT("md3.wizard.page-stack-description", "Current wizard page: %1", "目前精靈頁面：%1");
         REGISTER_NATIVE_WIZARD_TEXT("md3.wizard.incomplete-description", "Complete the current wizard page before continuing.", "完成目前精靈頁面先可以繼續。");
 #undef REGISTER_NATIVE_WIZARD_TEXT
     }
@@ -406,7 +406,7 @@ void UINativeWizard::sltCurrentIndexChanged(int iIndex /* = -1 */)
     UINativeWizardPage *pPage = qobject_cast<UINativeWizardPage*>(m_pWidgetStack->widget(iIndex));
     AssertPtrReturnVoid(pPage);
     m_pLabelPageTitle->setText(pPage->title());
-    m_pWidgetStack->setAccessibleDescription(nativeWizardText("md3.wizard.current-page-description",
+    m_pWidgetStack->setAccessibleDescription(nativeWizardText("md3.wizard.page-stack-description",
                                                               tr("Current wizard page: %1"))
                                                .arg(pPage->title()));
     if (iIndex > m_iLastIndex)

@@ -163,10 +163,22 @@ jobs:
           if (-not (Test-Path doc/md3/ManagerShell.md)) { throw 'Missing manager-shell article' }
           if (-not (Test-Path doc/md3/CommandPalette.md)) { throw 'Missing command-palette article' }
           $readme = Get-Content README.md -Raw
-          foreach ($pattern in @('https://ding-ding-projects.github.io/material-virtualbox/', 'no verified installer is published yet', '<details>', '<summary><strong>Build from source and local prerequisites</strong></summary>')) {
-            if ($readme -notmatch [regex]::Escape($pattern)) { throw "Compact README contract missing: $pattern" }
+          # The former 'no verified installer is published yet' assertion went
+          # stale when real unsigned NSIS installers were published; it asserted
+          # the opposite of the truth. The replacement pins the claim that is
+          # true now -- published, verified, and UNSIGNED, named artifact, real
+          # Releases link -- and adds negative guards so the claim cannot be
+          # upgraded to a signed one without signing evidence.
+          # Assertions run against a whitespace-flattened copy so they survive
+          # re-wrapping of the prose.
+          $readmeFlat = $readme -replace '\s+', ' '
+          foreach ($pattern in @('https://ding-ding-projects.github.io/material-virtualbox/', '**Install status:**', 'unsigned NSIS installers are published as GitHub releases', 'VirtualBox-7.2.97-Setup.exe', 'https://github.com/Ding-Ding-Projects/material-virtualbox/releases', 'no mock screenshot is counted as GUI proof', 'SmartScreen warning', '<summary><strong>Build from source and local prerequisites</strong></summary>')) {
+            if ($readmeFlat -notmatch [regex]::Escape($pattern)) { throw "Compact README contract missing: $pattern" }
           }
           if ([regex]::Matches($readme, '<details>').Count -lt 7) { throw 'README reference sections are not fully collapsible' }
+          if ($readmeFlat -match '(?<!un)signed installer') { throw 'README must not claim a signed installer' }
+          if ($readmeFlat -match '(?<!un)signed NSIS') { throw 'README must not claim a signed NSIS package' }
+          if ($readmeFlat -notmatch 'Screenshots in this section are reserved for captures from the built native application') { throw 'README must keep the runtime-capture gate' }
           $pagesIndex = Get-Content docs/index.html -Raw
           foreach ($pattern in @('id="tab-overview"', 'tabindex="-1"', 'role="tabpanel" tabindex="0"', '.panel:focus-visible', 'minmax(min(230px,100%),1fr)', '@media(max-width:480px)', 'aria-labelledby="tab-coverage"', 'aria-labelledby="tab-verification"', 'event.key === ''ArrowRight''', 'event.key === ''ArrowLeft''', 'event.key === ''Home''', 'event.key === ''End''', 'panel.hidden = !selected', 'ManagerTools.md')) {
             if ($pagesIndex -notmatch [regex]::Escape($pattern)) { throw "Accessible Pages tabs contract missing: $pattern" }
@@ -267,6 +279,16 @@ jobs:
             if (($tabHeader + $tabSource) -notmatch [regex]::Escape($pattern)) { throw "Tab group picker contract missing: $pattern" }
           }
           if (-not (Test-Path doc/md3/TabNavigation.md)) { throw 'Missing tab-navigation article' }
+      - name: Validate MD3 language registry completeness
+        shell: pwsh
+        run: |
+          # Executable localization gate: every registered UIMd3Language key must
+          # have a non-empty English and a non-empty Cantonese string, and no key
+          # may be registered twice with conflicting text. The parser is
+          # literal-only; -MaxUnparseable freezes the two known runtime-computed
+          # call sites in UIVirtualBoxManager.cpp so a new invisible call shape
+          # cannot be added unnoticed.
+          ./tools/md3/check-language-registry.ps1 -MaxUnparseable 2
       - name: Collect safe validation evidence
         if: ${{ always() }}
         continue-on-error: true
