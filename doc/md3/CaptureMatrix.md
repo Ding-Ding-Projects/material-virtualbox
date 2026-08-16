@@ -111,10 +111,11 @@ runtime-window rows and is now named explicitly instead of being left inside row
 | **C. No virtual machine can start, permanently.** | Rows 32–35 (every runtime-window surface) | The host hypervisor driver `VBoxSup.sys` ships **unsigned**, 64-bit Windows refuses to load an unsigned kernel driver, and **code signing is permanently prohibited for this project**. No change in this repository can move this. Only the machine's owner choosing to permit unsigned drivers would, and that is a decision with an owner outside this codebase. Rows 32–35 therefore cannot be closed from a normal Windows host at all, and should not be re-labelled "unattempted" — they are ceilinged. |
 | **D. No auto-updater is implemented.** | Rows 44–45 | These two rows were parked under blocker A ("no installer exists"), which was never their real blocker and is now cleared anyway. A search of `src/VBox/Frontends/VirtualBox/src/md3/` for updater sources on 2026-08-16 matched only `UIMd3Changelog.{h,cpp}`; there is no update-feed client, no ready-to-restart banner, and no offline/invalid-feed fallback to photograph, in this or any shipped installer. `LocalGates.md` records the same absence from the gate side. |
 
-A prior session's genuine `REGDB_E_CLASSNOTREG` failure capture is described
-in `README.md` as "retained in the session evidence" from an earlier run.
-This audit did not find that image file committed anywhere in this
-repository (a repository-wide search for capture-shaped `.png`/`.jpg` files
+A prior session's genuine `REGDB_E_CLASSNOTREG` failure capture was once
+described in `README.md` as "retained in the session evidence" from an earlier
+run. That sentence has since been withdrawn from `README.md`, which now agrees
+with this document. This audit did not find that image file committed anywhere
+in this repository (a repository-wide search for capture-shaped `.png`/`.jpg` files
 turned up only pre-existing upstream documentation diagrams and vendored
 third-party assets, none of which are application captures), so it is not
 counted as evidence here and is not linked from any row below.

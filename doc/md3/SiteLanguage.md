@@ -122,15 +122,17 @@ Cantonese string fails the build.
   themselves, but the three labels are literal DOM text and inherited the
   document's `<html lang="en">`. A screen reader with an English voice
   therefore mispronounced the very control a Cantonese-seeking reader needs.
-  Measured `[lang="zh-HK"]` element counts on a fresh, untouched load — at
-  `7d5c9dece14`: English **0**, Cantonese **41**, bilingual **41**; at this
-  commit: English **3**, Cantonese **45**, bilingual **45**. The `+4` in the
-  translated modes is the three label spans plus the status line's own
-  Cantonese run, which now exists on load. (An independent verifier reported
-  42/42/0 for the old page; that is the same page measured *after* touching the
-  control, which added the status line's one Cantonese run. Both numbers are
-  reproduced above: `[lang="zh-HK"] on load 41` / `after click 42`.) The
-  visible text is unchanged. CI asserts the shape of all three labels and that
+  Before the fix, a fresh untouched load measured **0** `[lang="zh-HK"]`
+  elements in English mode — the three switcher labels carried visible CJK and
+  none of it was tagged. After it, English mode measures exactly the three
+  label spans, and both translated modes gain those three plus the status
+  line's own Cantonese run, which now exists on load rather than only after the
+  control is touched. (An independent verifier's differing figure for the old
+  page was the same page measured *after* clicking, which had already added the
+  status line's run.) Absolute totals are deliberately not recorded here: they
+  move whenever any Cantonese run is added to the page, and this paragraph has
+  already been stale once. The visible text is unchanged. CI asserts the shape
+  of all three labels and that
   the source contains exactly three literal `lang="zh-HK"` occurrences.
 
 ## No JavaScript, no network, no motion
@@ -292,14 +294,21 @@ host still has no C++ toolchain.
    from running the same harness against `git show 7d5c9dece14:docs/index.html`.
    This harness is **not checked in and is therefore not a repeatable gate.**
 
-**Technical facts still do not diverge between modes**, re-measured on this
-tree: the distinct sets of `<code>` values (14), `href` values (23) and `<kbd>`
-values (3) are byte-identical in all three modes, and each of the nine pinned
-facts occurs once in `document.body.textContent` in English and in Cantonese.
-The one honest exception is arithmetic, not drift: in **bilingual** mode
-`#6750A4` occurs **twice**, because bilingual renders the English run and the
-Cantonese run of the same paragraph and `%1` clones the `<code>` element into
-both. The *value* is the same clone in both places, which is the property that
-matters and the reason the source still contains it exactly once. This is the
-same cloning already recorded for five facts in gate 20 of
-[`LocalGates.md`](LocalGates.md).
+**Technical facts still do not diverge between modes.** The distinct sets of
+`<code>`, `href` and `<kbd>` values are byte-identical in all three modes, and
+every fact pinned by `$pagesFacts` in `md3-validation.yml` occurs the same
+number of times in English and in Cantonese.
+
+No count is recorded here on purpose. Each of these totals moves whenever a
+fact is added to the page — the ceiling paragraph added in this same branch
+changed three of them at once, and an earlier revision of this paragraph was
+already stale by the time it was committed. The invariant is what matters and
+the invariant is what CI pins; `$pagesFacts` is the authority for which facts
+are covered, and it is checked in.
+
+The one honest exception is arithmetic, not drift: in **bilingual** mode a fact
+that sits inside a translated paragraph occurs twice, because bilingual renders
+both the English run and the Cantonese run and `%N` clones the `<code>` element
+into each. The *value* is the same clone in both places, which is the property
+that matters and the reason the source still contains it exactly once. This is
+the same cloning recorded in gate 20 of [`LocalGates.md`](LocalGates.md).

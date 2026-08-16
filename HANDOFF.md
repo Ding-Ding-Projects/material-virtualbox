@@ -271,7 +271,7 @@ repository, and those are marked as such.
 | 11 | Dewed `main` has a green remote CI verdict | **NOT met** | Windows build **green** and Pages **green** at `fe321a4`; **Material 3 validation red**, and red since `8762579` — three commits and three releases before `fe321a4`. Repaired locally by `ca97ec93ccc`, **not pushed**, so this gate stays NOT met until it is |
 | 12 | Every source jer tip proved an ancestor before deletion | **met** | Proved for all seven deleted items |
 | 13 | Fresh mat day supplied before any deletion | **met** | Supplied; applied to the cleanup half only |
-| 14 | Only `main` and the primary checkout remain | **NOT met** | Three merged jers remain on the hui because remote jer deletion is refused by this environment's permission classifier |
+| 14 | Only `main` and the primary checkout remain | **NOT met** | Six merged branches remain on the remote (`git ls-remote --heads origin` returns seven heads; all six non-`main` heads are proved ancestors of `origin/main`). Cleanup is pending, not blocked by ancestry |
 
 **7 of 14 gates met.** Gates 6, 7 and 9 need a Windows host and cannot be closed
 from here at all. Gate 14 needs one permission. Gates 5, 8 and 10 need real work
