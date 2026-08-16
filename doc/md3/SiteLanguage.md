@@ -138,7 +138,7 @@ below and every linked document stay in English for now." appears at the top of
 each panel in Cantonese and bilingual modes. It is shown to the reader, not
 buried in this file.
 
-Beyond the page itself, `pages.yml` publishes 29 `doc/md3/*.md` articles
+Beyond the page itself, `pages.yml` publishes 30 `doc/md3/*.md` articles
 alongside `index.html`. They are English-only raw Markdown and the switcher
 cannot reach them. `index.html` is a small fraction of the published site by
 bytes. The correct word for S7 in

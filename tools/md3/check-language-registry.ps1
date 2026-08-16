@@ -291,8 +291,14 @@ foreach ($g in $records | Group-Object Key | Where-Object Count -gt 1) {
     $violations.Add("CONFLICTING KEY  '$($g.Name)' registered $($g.Count)x with $($variants.Count) different texts:`n                     $sites")
 }
 
+# Every allow-list hit is recorded so an exemption can never be silent: the
+# summary below prints the count and names each exempted key with its reason.
+$allowListed = [System.Collections.Generic.List[string]]::new()
 foreach ($r in $records | Where-Object { $_.En -eq $_.Zh -and $_.En.Trim() }) {
-    if ($IdenticalAllowList.ContainsKey($r.Key)) { continue }
+    if ($IdenticalAllowList.ContainsKey($r.Key)) {
+        $allowListed.Add("'$($r.Key)' = '$($r.En)'  $($r.File):$($r.Line)  -- $($IdenticalAllowList[$r.Key])")
+        continue
+    }
     $msg = "IDENTICAL EN/ZH  '$($r.Key)' = '$($r.En)'  $($r.File):$($r.Line)"
     if ($StrictIdentical) { $violations.Add($msg) } else { $warnings.Add($msg) }
 }
@@ -306,6 +312,8 @@ foreach ($u in $unparseable) {
     Write-Host ("    ? $($u.File):$($u.Line)  $($u.Reason)")
     Write-Host ("        $($u.Snippet)")
 }
+Write-Host ("  identical-allow-listed: {0}" -f $allowListed.Count)
+foreach ($a in $allowListed) { Write-Host "    = $a" }
 foreach ($w in $warnings)   { Write-Host "  WARN  $w" }
 foreach ($v in $violations) { Write-Host "  FAIL  $v" }
 Write-Host ("  violations: {0}   warnings: {1}" -f $violations.Count, $warnings.Count)

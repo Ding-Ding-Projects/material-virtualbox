@@ -36,9 +36,29 @@ be read as claiming CI is green until that lands.
 file.** The host hypervisor driver `VBoxSup.sys` ships unsigned, 64-bit Windows
 refuses to load an unsigned kernel driver, and code signing is permanently
 prohibited for this project. **No virtual machine can start**, in any release
-listed below, and no change in this repository can alter that. Every installer
-named here installs, registers COM and reaches a working Manager; none of them
-can run a VM.
+listed below, and no change in this repository can alter that.
+
+**Nothing is claimed about whether the installers named below install, register
+COM, or reach a working Manager.** No release listed in this file — `ci.96`
+through `ci.101`, `ci.106` through `ci.108` — has been downloaded, installed or
+launched by any recorded pass in this repository, and this file's own entries
+state that nothing was compiled, built, installed or launched. The claim this
+paragraph used to make rested on exactly one image. `doc/md3/CaptureMatrix.md`
+records 8 captured rows in total (1, 5, 6, 16, 22, 24, 27, 31), but the only one
+that speaks to reaching a Manager without a COM error is row 1:
+[`doc/md3/CaptureMatrix.md`](doc/md3/CaptureMatrix.md)'s
+`doc/md3/captures/manager-shell--01--Qt683QWindowIcon--Material-Virtual-Machine-Manager.png`,
+taken at worktree tip `cb9f573030e` against an **already-present**
+`%LOCALAPPDATA%\VirtualBox\app-7.2.97\VirtualBox.exe` — not against any release
+asset named here. In that one capture, on that one build, in that one
+environment, the Manager shell rendered and no COM error appeared in the
+window. That is one image, and it does not generalise to the nine releases.
+**It does not lift blocker B**, which stands unchanged: `CaptureMatrix.md`
+records that the built `VirtualBox.exe` fails at the COM boundary with
+`REGDB_E_CLASSNOTREG` because no `VBoxSDS` service is registered for this
+checkout, and that the Manager shell therefore cannot currently be reached to
+photograph. Blocker B is real but not universal — that is the whole of what row
+1 shows, and nothing more.
 
 Entries below remain under **[Unreleased]** when they have not yet appeared in
 a published release.
@@ -157,7 +177,7 @@ its page title, or the wizard's title label announced a literal `%1`. The
 native wizard's key is renamed to `md3.wizard.page-stack-description`.
 
 **Limits:** this is a text gate. Nothing here was compiled — there is no C++
-toolchain on the host that produced it. The gate cannot see the 41
+toolchain on the host that produced it. The gate cannot see the 40
 registrations behind the two runtime-parameterised call sites in
 `UIVirtualBoxManager.cpp`; it reports them as unchecked on every run rather
 than passing them. See [`doc/md3/LocalGates.md`](doc/md3/LocalGates.md) row 19.
@@ -439,8 +459,13 @@ The `STATUS_STACK_BUFFER_OVERRUN` blocker was worked around with
 was **not** proved by the next run — [run 31740515001](https://github.com/Ding-Ding-Projects/material-virtualbox/actions/runs/31740515001)
 at `cb9f573030e3f27d7b13314d90234e2b8de873c9` completed **failure**, and `doc/md3/LocalGates.md`
 recorded it as "in_progress / do not infer a result" and then never resolved it, which is corrected
-there now. Five further runs failed after it (`31748469786`, `31748972511`, `31753303822`,
-`31758869634`, and the earlier chain above). **The first Windows packaging run that ever completed
+there now. Exactly four further runs failed after it and before the first success — `31748469786`,
+`31748972511`, `31753303822`, `31758869634` — read from `gh run list --workflow "Windows package
+and release" --json databaseId,conclusion,createdAt --limit 200`, which lists those four and no
+others between run `31740515001` (`2026-08-13T20:22:15Z`) and run `31762849415`
+(`2026-08-14T02:09:07Z`). The earlier chain of failures referred to previously ran *before*
+`31740515001`, so it cannot supply a fifth run after that point and is not counted here.
+**The first Windows packaging run that ever completed
 `success` was [run 31762849415](https://github.com/Ding-Ding-Projects/material-virtualbox/actions/runs/31762849415)
 at `0d9eda43cd0f8ba69cc32ba5fc865b90dca64218` on `2026-08-14T02:09:07Z`, which published
 `v7.2.97-ci.96`** — read from

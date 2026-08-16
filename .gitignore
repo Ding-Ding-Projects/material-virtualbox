@@ -11,3 +11,11 @@
 /tbox_patches
 /tinderclient.log
 .vscode
+
+# Transient build output and agent scratch. None of this is ever committed.
+# artifacts/ is created by md3-validation.yml's own "Collect safe validation
+# evidence" step and dirties any local reproduction of that workflow.
+/artifacts/
+/aqtinstall.log
+/testlib.obj
+/.claude/

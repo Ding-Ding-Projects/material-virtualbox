@@ -238,7 +238,7 @@ void UIMd3Changelog::prepareEntries()
                  "registered twice with different text, and registerText ends in "
                  "QHash::insert, which overwrites -- so one of the two readers was always "
                  "wrong. Limits: nothing was compiled; the gate is literal-only and reports 2 "
-                 "unparseable call sites and the 41 registrations behind them as NOT CHECKED; "
+                 "unparseable call sites and the 40 registrations behind them as NOT CHECKED; "
                  "Material 3 validation is still red on main until this is pushed."),
              QStringLiteral("ca97ec93ccc06559d1035dd039ef56ca7b000a93"));
 

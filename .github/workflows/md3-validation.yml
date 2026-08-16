@@ -318,7 +318,14 @@ jobs:
           # literal-only; -MaxUnparseable freezes the two known runtime-computed
           # call sites in UIVirtualBoxManager.cpp so a new invisible call shape
           # cannot be added unnoticed.
-          ./tools/md3/check-language-registry.ps1 -MaxUnparseable 2
+          # -StrictIdentical turns "English identical to Cantonese" from a WARN
+          # that still exits 0 into a build failure. That is the defect class
+          # that most directly means "this string was never translated", so it
+          # must be able to fail. The tree reports warnings: 0 today, so this is
+          # green on arrival; the two legitimately identical keys sit in the
+          # script's hand-maintained allow-list, which the script now prints as
+          # "identical-allow-listed: N" so no exemption is silent.
+          ./tools/md3/check-language-registry.ps1 -MaxUnparseable 2 -StrictIdentical
       - name: Collect safe validation evidence
         if: ${{ always() }}
         continue-on-error: true
