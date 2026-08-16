@@ -348,8 +348,11 @@ workflow this script mirrors previously failed at commit
 getting through Qt setup, MSVC toolset selection, and the full build before
 failing in its own packaging self-check with `STATUS_STACK_BUFFER_OVERRUN`.
 That blocker has since been fixed: published non-draft releases
-`v7.2.97-ci.96` through `v7.2.97-ci.101` each carry a real unsigned NSIS
-installer (`VirtualBox-7.2.97-Setup.exe`, ~106.9 MB), and the newest,
+`v7.2.97-ci.97` through `v7.2.97-ci.101` each carry a real unsigned NSIS
+installer (`VirtualBox-7.2.97-Setup.exe`, ~106.9 MB). `v7.2.97-ci.96`, the
+first release ever published, is **not** one of them — it is the retired
+Squirrel.Windows package (`Setup.exe`, `RELEASES`, a `.nupkg`) and carries no
+`VirtualBox-7.2.97-Setup.exe`; `ci.97` is the first NSIS release. The newest,
 `v7.2.97-ci.101`, targets commit `bb63f016` with a Windows build that
 completed successfully. See [`CHANGELOG.md`](CHANGELOG.md) for the fix
 history and [`HANDOFF.md`](HANDOFF.md) for the full state summary. No local

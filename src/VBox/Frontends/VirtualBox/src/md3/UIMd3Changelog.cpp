@@ -252,7 +252,9 @@ void UIMd3Changelog::prepareEntries()
                  "persistence with the same clamp as GUI/Md3/LanguageMode. English remains the "
                  "literal document text, so the page without JavaScript is exactly the page "
                  "that shipped before. No subresources, no innerHTML. Limits: nothing was "
-                 "compiled; only 14.9% of the page's visible characters get Cantonese; all 30 "
+                 "compiled; only part of the page gets Cantonese -- 18 of its 22 headings do, "
+                 "the h1 and the three Verification card h3s do not, and the body prose is only "
+                 "partly translated; all 30 "
                  "published doc/md3/*.md articles stay English; the behavioural harness that "
                  "drove it in a real browser is a scratch file outside the repository and is "
                  "not a repeatable gate; the deployed site was not fetched."),
@@ -295,7 +297,10 @@ void UIMd3Changelog::prepareEntries()
                  "Non-draft, published 2026-08-15T01:20:54Z by run 31851883237 (success, "
                  "1h27m26s). Installer 106,981,357 bytes, SHA-256 "
                  "a7540294d102bf31b4f009302dcee827d80549d678f77a5f1c7676597efe9237. Build "
-                 "tooling only: bootstraps libxslt for native Windows builds."),
+                 "tooling only: bootstraps libxslt for native Windows builds. Material 3 "
+                 "validation was already RED at this commit (run 31851883297, failure on main "
+                 "at 753602c), on the stale README assertion; this entry read green by "
+                 "omission until 2026-08-16."),
              QStringLiteral("753602ced18e50649ce0b0a3038cf7efd1ba97fe"));
 
     addEntry(m_entries, strCi106, releaseDate15, QStringLiteral("Released"), strReleaseSection,
@@ -309,7 +314,11 @@ void UIMd3Changelog::prepareEntries()
                  "integration commit d548859c25785ec20d61e56f018ba25da5d2bb70 had failed its "
                  "build (run 31843086131, at step \"Build and package the Windows "
                  "installer\"); this is the first commit carrying all three whose build went "
-                 "green. None of the three has been tested or captured."),
+                 "green. None of the three has been tested or captured. Material 3 validation "
+                 "was already RED at this commit (run 31848342250, failure on main at "
+                 "8762579), on the stale README assertion, and 8762579 is where that red "
+                 "streak starts -- not fe321a4, an hour and two releases later. This entry "
+                 "read green by omission until 2026-08-16."),
              QStringLiteral("8762579681594cf8ba6beb8ccec77576baa5199a"));
 
     addEntry(m_entries, strCi101, QDate(2026, 8, 14), QStringLiteral("Released"), strReleaseSection,
@@ -331,8 +340,12 @@ void UIMd3Changelog::prepareEntries()
                  "Non-draft, published 2026-08-14T03:35:09Z, target "
                  "0d9eda43cd0f8ba69cc32ba5fc865b90dca64218. Run 31762849415 is the first "
                  "Windows packaging run in this repository's history that ever completed "
-                 "success; every run before it failed or was cancelled. ci.97 through ci.100 "
-                 "followed the same day, ci.100 with an installer of 106,872,738 bytes. These "
+                 "success; every run before it failed or was cancelled. This release is the "
+                 "Squirrel.Windows package -- its assets are Setup.exe, RELEASES, "
+                 "VirtualBox-7.2.96-full.nupkg and a dim sum photograph -- and it carries NO "
+                 "VirtualBox-7.2.97-Setup.exe and no SHA256SUMS.txt. ci.97 is the first NSIS "
+                 "release and the first to carry both of those; ci.97 through ci.100 followed "
+                 "the same day, ci.100 with an installer of 106,872,738 bytes. These "
                  "carry the build and packaging fix chain recorded below."),
              QStringLiteral("0d9eda43cd0f8ba69cc32ba5fc865b90dca64218"));
 

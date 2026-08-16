@@ -421,12 +421,26 @@ The two fixes are `66c701d6` (Manager) and `90aedcff` (runtime window). Both are
   hidden menu bar stopped providing.
 
 **The walk cannot miss Preferences, because the File menu is fully populated before it runs.**
-`UIActionPoolManager.cpp:4288` does `pMenu->addAction(action(UIActionIndex_M_Application_S_Preferences));`
-inside `updateMenuFile()` (`UIActionPoolManager.cpp:4053`), which `UIActionPoolManager::updateMenus()`
-(`:4046`) calls, which `UIActionPool::updateConfiguration()` (`UIActionPool.cpp:3596`, the
-`updateMenus();` at `:3612`) calls, which runs from `UIActionPool::prepare()`
-(`UIActionPool.cpp:4001-4012`). The action pool is created at `UIVirtualBoxManager.cpp:2614` —
-thirty-nine lines *before* the reclaim walk at `:2653`.
+`UIActionPoolManager.cpp:4289` does `pMenu->addAction(action(UIActionIndex_M_Application_S_Preferences));`,
+inside `void UIActionPoolManager::updateMenuFile()` at `:4248`. The chain that reaches it, each link
+read at HEAD:
+
+- `UIActionPool::prepare()` (`UIActionPool.cpp:4001-4012`) calls `updateConfiguration()` at `:4009`;
+- `UIActionPool::updateConfiguration()` (`UIActionPool.cpp:3596`) calls `updateMenus()` at `:3612`;
+- `UIActionPoolManager::updateMenus()` (`UIActionPoolManager.cpp:4046`) calls `updateMenuFile()` at
+  `:4053`;
+- `updateMenuFile()` (`:4248`) adds the Preferences action at `:4289`, under
+  `#else /* !VBOX_WS_MAC */`.
+
+**Two coordinates in this paragraph were wrong until 2026-08-16 and are corrected in place.** It cited
+`:4288` for the `addAction` line — `:4288` is the `/* 'Preferences' action goes to 'File' menu: */`
+comment directly above it — and it described `:4053` as being "inside `updateMenuFile()`", when
+`:4053` is the *call site* inside `updateMenus()`. Neither error changes the conclusion, which is why
+they survived: the ordering argument holds either way. They are corrected because a line number that
+is off by one is a line number a reader stops trusting.
+
+The action pool is created at `UIVirtualBoxManager.cpp:2614` — thirty-nine lines *before* the reclaim
+walk at `:2653`.
 
 **Runtime window — the three sites §4a names, renumbered by the fix.**
 

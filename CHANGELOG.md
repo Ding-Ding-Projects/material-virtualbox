@@ -25,9 +25,40 @@ those releases — ci.101, ci.106, ci.107 and ci.108 — had never been recorded
 this file at all; they are recorded below. Read with
 `gh release list --repo Ding-Ding-Projects/material-virtualbox`.
 
-**A red gate this file also failed to record.** `Material 3 validation` is
-**failing on `main`** and has been since `fe321a4fd6f6bfc7c2fbd7e0704e3f72d0eb2eee`
-([run 31856303192](https://github.com/Ding-Ding-Projects/material-virtualbox/actions/runs/31856303192)).
+**Third correction, 2026-08-16 — `ci.96` is not an NSIS release.** The first
+block above says `ci.96` through `ci.100` carry "real NSIS installers". Four of
+those five do. `v7.2.97-ci.96` does not: it is the **Squirrel.Windows** package,
+and its four assets are `Setup.exe`, `RELEASES`,
+`VirtualBox-7.2.96-full.nupkg` and `hk-dish-0001-classic-har-gow.png`. It has
+**no `VirtualBox-7.2.97-Setup.exe` and no `SHA256SUMS.txt`**.
+**`v7.2.97-ci.97` is the first NSIS release** and the first to carry either of
+those two files; every release from `ci.97` onward carries both. This correction
+is worth its own paragraph because the same pass that wrote these blocks also
+scrubbed the word "Squirrel" out of several documents as stale — while the very
+first release this file records *is* the Squirrel package. Check any release's
+real assets with
+`gh release view v7.2.97-ci.96 --repo Ding-Ding-Projects/material-virtualbox --json assets`.
+
+**A red gate this file also failed to record, and it is older than this file
+first admitted.** `Material 3 validation` is **failing on `main`** and has been
+since `8762579681594cf8ba6beb8ccec77576baa5199a` — not since `fe321a4`, which
+is an hour and two releases later. It has failed on `main` at three consecutive
+commits:
+
+| Commit on `main` | Run | Started |
+| --- | --- | --- |
+| `8762579681594cf8ba6beb8ccec77576baa5199a` | [31848342250](https://github.com/Ding-Ding-Projects/material-virtualbox/actions/runs/31848342250) | `2026-08-14T22:53:24Z` |
+| `753602ced18e50649ce0b0a3038cf7efd1ba97fe` | [31851883297](https://github.com/Ding-Ding-Projects/material-virtualbox/actions/runs/31851883297) | `2026-08-14T23:53:35Z` |
+| `fe321a4fd6f6bfc7c2fbd7e0704e3f72d0eb2eee` | [31851996370](https://github.com/Ding-Ding-Projects/material-virtualbox/actions/runs/31851996370) | `2026-08-14T23:55:34Z` |
+
+`gh run list --repo Ding-Ding-Projects/material-virtualbox --workflow "Material 3 validation" --branch main --limit 15`
+— the last green run on `main` is [31846486407](https://github.com/Ding-Ding-Projects/material-virtualbox/actions/runs/31846486407)
+at `5f1adfac63246fcd97bf4a34f13813c563f60afe`.
+
+**`v7.2.97-ci.106` and `v7.2.97-ci.107` therefore shipped with this gate already
+red**, not just `ci.108`: ci.106 targets `8762579` and ci.107 targets `753602c`.
+Their sections below used to read green by omission and now say so.
+
 It is repaired by `ca97ec93ccc06559d1035dd039ef56ca7b000a93`, recorded under
 `[Unreleased]` below, which is **not yet pushed**. Nothing in this file should
 be read as claiming CI is green until that lands.
@@ -64,6 +95,87 @@ Entries below remain under **[Unreleased]** when they have not yet appeared in
 a published release.
 
 ## [Unreleased]
+
+### Fixed — A second round of wrong numbers, and the brittle claims that produced them (2026-08-16)
+
+*No commit link yet.* This entry describes the commit that adds it.
+
+The previous repair pass fixed eleven findings and introduced several new wrong
+numbers doing it. That is a loop, and it does not end by re-deriving figures more
+carefully. **The default action here was to delete a fragile derived figure, not
+to update it.** A number survives only if it is stable, load-bearing, and printed
+with the exact command that produces it; otherwise the sentence now says the
+qualitative thing, which needs no maintenance.
+
+**Deleted rather than re-derived.** "1,248 of the page's 8,355 visible characters
+(14.9%)" and "383,925 bytes against `index.html`'s 24,642, so the page is 6% of
+the published site" are gone from `doc/md3/CompletenessInventory.md`, from this
+file, and from the compiled-in viewer in `UIMd3Changelog.cpp`. Neither
+reproduced; neither named a command; the byte ratio moved when this branch's own
+previous commit edited `docs/index.html`. What replaces them is checkable with one
+line: **18 of the page's 22 headings carry Cantonese**, the `<h1>` and the three
+Verification card `<h3>`s do not, and the body prose is only partly translated
+(`grep -oE '<h[1-3][ >]' docs/index.html | wc -l` → 22;
+`grep -oE '<h[1-3] data-md3-zh' docs/index.html | wc -l` → 18). Likewise
+`doc/md3/LocalGates.md` gate 2 no longer records "257 lines of YAML" or "lines
+30–286" for its CI step — that evidence was borrowed from a tree the row was never
+run against — and the running "N commits ahead of `main`" tally is gone from
+`HANDOFF.md` in favour of `git log --oneline origin/main..HEAD`.
+
+**`v7.2.97-ci.96` is not an NSIS release.** The previous pass wrote "Six releases,
+all non-draft, all carrying an unsigned NSIS `VirtualBox-7.2.97-Setup.exe`" and
+then listed five, the first of which is the **Squirrel.Windows** package —
+`Setup.exe`, `RELEASES`, `VirtualBox-7.2.96-full.nupkg`, and no
+`VirtualBox-7.2.97-Setup.exe` or `SHA256SUMS.txt` at all. It said six twice over:
+wrong count, wrong package. `ci.97` is the first NSIS release. Corrected in this
+file's correction blocks and release section, in `README.md`, in `ROADMAP.md` and
+in the compiled-in viewer.
+
+**The red gate is older than every document admitted.** `Material 3 validation`
+has been failing on `main` since `8762579681594cf8ba6beb8ccec77576baa5199a`
+([31848342250](https://github.com/Ding-Ding-Projects/material-virtualbox/actions/runs/31848342250)),
+not since `fe321a4` — an hour and two releases earlier. It also failed at
+`753602c` ([31851883297](https://github.com/Ding-Ding-Projects/material-virtualbox/actions/runs/31851883297))
+and at `fe321a4` ([31851996370](https://github.com/Ding-Ding-Projects/material-virtualbox/actions/runs/31851996370)).
+**`v7.2.97-ci.106` and `v7.2.97-ci.107` therefore both shipped with the gate
+already red**, and their entries in this file read green by omission until now;
+they carry the same note `ci.108` already had. Corrected in this file,
+`doc/md3/LocalGates.md`, `HANDOFF.md` and `ROADMAP.md`.
+
+**Two coordinates and one attribution.** `doc/md3/WiringAudit.md` §4a cited
+`UIActionPoolManager.cpp:4288` for a statement at `:4289` (`:4288` is the comment
+above it) and called `:4053` "inside `updateMenuFile()`" when it is the call site
+inside `updateMenus()`; both are corrected and the call chain is now listed link by
+link. `HANDOFF.md` said 10 local gates were "blocked on the Windows/kBuild/Qt
+toolchain"; gate 18 (Doxygen) is not blocked — `doxygen` is installed on this host
+and the pass judged a four-Doxyfile run over the whole product not cheap and did
+not attempt it. That is a choice, and converting a choice into an impossibility is
+its own kind of inflation. Nine gates are toolchain-blocked; one was declined.
+
+**Two real defects in `.github/workflows/md3-validation.yml`, not just prose.**
+
+1. `doc/md3/SiteLanguage.md` claimed CI rejects `url()` and web fonts. It did not:
+   the guard read `'<script src|<link |@import|fetch\(|XMLHttpRequest'`. Rather
+   than narrow the sentence to match the weaker guard, the guard was widened to
+   `'…|url\(|@font-face'`. `docs/index.html` has zero occurrences of either, so it
+   went green on arrival; injecting each construct into a scratch copy was
+   confirmed to make the step throw and exit 1.
+2. Both "Collect safe validation evidence" steps did
+   `git status --short | Set-Content artifacts/git-status.txt`. On a clean tree
+   `git status --short` emits nothing, an empty pipeline never invokes
+   `Set-Content`, and **the file was never created** — so the evidence bundle
+   silently omitted the cleanliness record it is named for, precisely when the news
+   was good, and a reader could not tell "clean tree" from "capture failed". Both
+   steps now capture into an array and write unconditionally, with an explicit
+   `# clean:` marker. Reproduced and fixed in a throwaway repository: old form
+   `Test-Path` → `False`, new form → `True`.
+
+**Limits.** Nothing was compiled, built, installed or launched; this pass is YAML,
+Markdown and C++ string literals, and this host has no C++ toolchain. The
+`Validate MD3 source wiring` step was re-extracted and re-run locally against this
+tree (exit 0), but **CI has still never executed the repaired step** — `main`
+stays red until `ca97ec93ccc` is pushed. No release asset was downloaded; release
+facts come from the GitHub API, not from installing anything.
 
 ### Fixed — Two accessibility defects in the documentation-site language switcher (2026-08-16)
 
@@ -205,9 +317,13 @@ against `innerHTML` and against any subresource, an exact count of three
 occurrence count for each of nine technical facts.
 
 **Limits:** nothing was compiled — this change is HTML, YAML and Markdown, and
-the host has no C++ toolchain. Only 14.9% of the page's visible characters get
-Cantonese; the long technical prose and all 30 published `doc/md3/*.md`
-articles stay English, and the page says so to the reader. The switcher's
+the host has no C++ toolchain. Only part of the page gets Cantonese: 18 of the
+page's 22 `<h1>`–`<h3>` headings carry it, the `<h1>` product name and the three
+Verification card `<h3>`s do not, and the body prose is only partly translated —
+the long technical prose and all 30 published `doc/md3/*.md` articles stay
+English, and the page says so to the reader. Check the heading fraction with
+`grep -oE '<h[1-3][ >]' docs/index.html | wc -l` (→ 22) and
+`grep -oE '<h[1-3] data-md3-zh' docs/index.html | wc -l` (→ 18). The switcher's
 behaviour was driven in a real headless browser (48 of 48 checks), but that
 harness is a scratch file outside the repository and is not a repeatable gate.
 The deployed site was not fetched and no claim is made about it. See
@@ -262,9 +378,11 @@ No new frontend feature. It carries the two build-bootstrap commits
 `896733c2e11` and `fe321a4fd6f` on top of ci.107, and therefore also carries everything in ci.107,
 ci.106 and ci.101.
 
-**`Material 3 validation` is red at this commit** — [run 31856303192](https://github.com/Ding-Ding-Projects/material-virtualbox/actions/runs/31856303192)
-— on the stale README assertion described at the top of this file. The Windows build and the Pages
-deploy are both green. **No virtual machine can start from this installer**, for the permanent
+**`Material 3 validation` is red at this commit** — [run 31851996370](https://github.com/Ding-Ding-Projects/material-virtualbox/actions/runs/31851996370)
+on `main`, re-run and failing again as [31856303192](https://github.com/Ding-Ding-Projects/material-virtualbox/actions/runs/31856303192)
+on the `v7.2.97-ci.108` tag ref — on the stale README assertion described at the top of this file.
+This is the **third** consecutive red commit on `main`, not the first; see the table at the top.
+The Windows build and the Pages deploy are both green. **No virtual machine can start from this installer**, for the permanent
 unsigned-driver reason stated at the top of this file.
 
 ## [v7.2.97-ci.107] — 2026-08-15
@@ -277,6 +395,13 @@ Non-draft. "Lobster Dumpling · 龍蝦餃". Target
 `a7540294d102bf31b4f009302dcee827d80549d678f77a5f1c7676597efe9237`.
 
 Build tooling only: bootstraps libxslt for native Windows builds (`3286ed09679`, `753602ced18`).
+
+**`Material 3 validation` was already red at this commit** —
+[run 31851883297](https://github.com/Ding-Ding-Projects/material-virtualbox/actions/runs/31851883297),
+**failure** on `main` at `753602c`, on the stale README assertion described at the top of this file.
+This entry read green by omission until 2026-08-16. The Windows build and the Pages deploy are both
+green. **No virtual machine can start from this installer**, for the permanent unsigned-driver reason
+stated at the top of this file.
 
 ## [v7.2.97-ci.106] — 2026-08-15
 
@@ -293,6 +418,14 @@ integration commit `d548859c25785ec20d61e56f018ba25da5d2bb70` had failed its own
 **failure** at step "Build and package the Windows installer"); `8762579681594` is the first commit
 containing all three whose build went green. Recorded because the failure is part of the story:
 these features did break a build before they shipped in one.
+
+**`Material 3 validation` was already red at this commit, and this is where the red streak starts** —
+[run 31848342250](https://github.com/Ding-Ding-Projects/material-virtualbox/actions/runs/31848342250),
+**failure** on `main` at `8762579`, on the stale README assertion described at the top of this file.
+`8762579` is the first commit on `main` at which that gate went red; it has been red at every commit
+since. This entry read green by omission until 2026-08-16. The Windows build and the Pages deploy are
+both green. **No virtual machine can start from this installer**, for the permanent unsigned-driver
+reason stated at the top of this file.
 
 The entry below was written under `[Unreleased]` on 2026-08-14 and moved here on 2026-08-16 without
 altering its text, per this file's own rule that entries leave `[Unreleased]` when they appear in a
@@ -385,11 +518,22 @@ text.
 
 ## [v7.2.97-ci.96] through [v7.2.97-ci.100] — 2026-08-14
 
-Six releases, all non-draft, all carrying an unsigned NSIS
-`VirtualBox-7.2.97-Setup.exe`: ci.96 (`2026-08-14T03:35:09Z`, "Classic Har Gow · 蝦餃"), ci.97
-(`04:56:36Z`), ci.98 (`05:33:59Z`), ci.99 (`08:40:25Z`) and ci.100 (`10:06:47Z`, target
-`8850ddb7efb248e79dddd697118517d426bb61c4`, installer 106,872,738 bytes). The tag counter is the
-GitHub Actions run number, so it skips: **`ci.102` through `ci.105` were never created.**
+**Five releases, all non-draft — and they are not all the same kind of package.** This heading
+previously said "six", listed five, and called all of them NSIS. Both halves were wrong.
+
+| Release | Published | Installer asset |
+| --- | --- | --- |
+| `ci.96` "Classic Har Gow · 蝦餃" | `2026-08-14T03:35:09Z` | **Squirrel.Windows**: `Setup.exe`, `RELEASES`, `VirtualBox-7.2.96-full.nupkg` |
+| `ci.97` | `04:56:36Z` | **First NSIS release** — `VirtualBox-7.2.97-Setup.exe` + `SHA256SUMS.txt` |
+| `ci.98` | `05:33:59Z` | NSIS `VirtualBox-7.2.97-Setup.exe` |
+| `ci.99` | `08:40:25Z` | NSIS `VirtualBox-7.2.97-Setup.exe` |
+| `ci.100` | `10:06:47Z` | NSIS `VirtualBox-7.2.97-Setup.exe`, 106,872,738 bytes; target `8850ddb7efb248e79dddd697118517d426bb61c4` |
+
+**`ci.96` has no `VirtualBox-7.2.97-Setup.exe` and no `SHA256SUMS.txt`**; `ci.97` is where the NSIS
+path starts, and every release from `ci.97` onward carries both files. Read any row back with
+`gh release view v7.2.97-ci.96 --repo Ding-Ding-Projects/material-virtualbox --json assets`. Each
+release also carries one dim-sum photograph. The tag counter is the GitHub Actions run number, so it
+skips: **`ci.102` through `ci.105` were never created.**
 
 These are the first releases the repository ever published, and the sections below are the record of
 how the pipeline got to them. They were written under `[Unreleased]` while the build was still red

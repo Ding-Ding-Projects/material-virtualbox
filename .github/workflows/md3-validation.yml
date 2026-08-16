@@ -218,7 +218,13 @@ jobs:
             if ($pagesIndex -notmatch [regex]::Escape($pattern)) { throw "Pages status line must render without announcing on load: $pattern" }
           }
           if ($pagesIndex -match 'innerHTML') { throw 'Pages language switcher must build nodes, not inject markup' }
-          if ($pagesIndex -match '<script src|<link |@import|fetch\(|XMLHttpRequest') { throw 'The documentation site must stay network-free' }
+          # "Network-free" means every construct that can issue a request, not
+          # just the obvious four. url( covers CSS background images, cursors and
+          # @font-face src; @font-face covers a web font declared any other way.
+          # docs/index.html contains zero of either today, so this went green on
+          # arrival -- it exists so the guarantee SiteLanguage.md states is the
+          # guarantee CI actually pins, rather than a superset of it.
+          if ($pagesIndex -match '<script src|<link |@import|fetch\(|XMLHttpRequest|url\(|@font-face') { throw 'The documentation site must stay network-free' }
           if ([regex]::Matches($pagesIndex, 'role="tab"').Count -ne 3) { throw 'The language switcher must not join the tablist' }
           # Every technical fact keeps its exact source occurrence count, so no
           # language mode can carry a second, drifting copy of it. The commit SHAs
@@ -357,7 +363,15 @@ jobs:
         shell: pwsh
         run: |
           New-Item -ItemType Directory -Force artifacts | Out-Null
-          git status --short | Set-Content artifacts/git-status.txt
+          # `git status --short` emits NOTHING on a clean tree, and a pipeline
+          # that yields no object never invokes Set-Content -- so the file this
+          # step is named for was silently absent exactly when it had the most
+          # reassuring thing to say. Capture into a variable and write
+          # unconditionally, so a reader can tell "clean tree" from "capture
+          # failed" instead of guessing from a missing file.
+          $status = @(git status --short)
+          if ($status.Count -eq 0) { '# clean: git status --short produced no output' | Set-Content artifacts/git-status.txt }
+          else { $status | Set-Content artifacts/git-status.txt }
           git rev-parse HEAD | Set-Content artifacts/revision.txt
       - uses: actions/upload-artifact@v4
         if: ${{ always() }}
@@ -420,7 +434,12 @@ jobs:
           # actually checked, matching the sibling archive-and-source-contract
           # job's evidence for consistency.
           New-Item -ItemType Directory -Force artifacts | Out-Null
-          git status --short | Set-Content artifacts/git-status.txt
+          # Same clean-tree capture defect as the sibling job; see the comment
+          # there. An empty pipeline never reaches Set-Content, so the file was
+          # missing precisely when the tree was clean.
+          $status = @(git status --short)
+          if ($status.Count -eq 0) { '# clean: git status --short produced no output' | Set-Content artifacts/git-status.txt }
+          else { $status | Set-Content artifacts/git-status.txt }
           git rev-parse HEAD | Set-Content artifacts/revision.txt
       - uses: actions/upload-artifact@v4
         if: ${{ always() }}

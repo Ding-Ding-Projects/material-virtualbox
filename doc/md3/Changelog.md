@@ -87,6 +87,25 @@ that edits `CHANGELOG.md` must add the matching entries to
 current in the same task" rule applies to this compiled-in mirror exactly as
 it applies to any other documentation surface.
 
+**The mirror duty covers corrections, not just additions (2026-08-16).** A
+repair pass corrected three compiled-in entry texts without adding or removing
+any entry, so the count above is unchanged at 22:
+
+- the `ci.96` entry now says that release is the **Squirrel.Windows** package
+  (`Setup.exe`, `RELEASES`, `VirtualBox-7.2.96-full.nupkg`) with **no**
+  `VirtualBox-7.2.97-Setup.exe` and no `SHA256SUMS.txt`, and that `ci.97` is
+  the first NSIS release;
+- the `ci.106` and `ci.107` entries now record that `Material 3 validation` was
+  **already red** at their target commits (runs `31848342250` and
+  `31851883297`), which they previously omitted, making them read green;
+- the documentation-site language-switcher entry no longer quotes a translated
+  character percentage, because that figure did not reproduce and expired
+  whenever `docs/index.html` changed.
+
+A wrong number inside a compiled-in string is harder to notice than a wrong
+number in Markdown, not easier, which is why corrections are mirrored on the
+same schedule as additions.
+
 Nothing in this viewer invents a version, a date, or a change. **Updated
 2026-08-16:** this paragraph used to say that `CHANGELOG.md` offers no version
 bucket at all because "No release has been published from this repository yet",

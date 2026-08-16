@@ -139,11 +139,24 @@ Cantonese string fails the build.
   end-of-document script removes it, so a dead control is never painted. The
   three "the sections below stay in English" notes also ship `hidden`.
 - **No network.** The page has zero subresources: no `<script src>`, no
-  `<link>`, no `@import`, no `url()`, no web font, no `fetch`. The strings are
-  not split into a JSON file — `pages.yml` copies all of `docs/` to the site,
-  so a strings file would have silently become an HTTP request. CI rejects any
-  of those constructs appearing in the file. Measured in a real browser: one
-  request across a page load plus two mode changes, and it is the page itself.
+  `<link>`, no `@import`, no `url()`, no `@font-face`, no `fetch`, no
+  `XMLHttpRequest`. The strings are not split into a JSON file — `pages.yml`
+  copies all of `docs/` to the site, so a strings file would have silently
+  become an HTTP request. **CI rejects every one of those constructs**, and
+  that is now literally true rather than approximately true: the guard at
+  `.github/workflows/md3-validation.yml`'s "Validate MD3 source wiring" step
+  used to read `'<script src|<link |@import|fetch\(|XMLHttpRequest'` — it did
+  not check `url(` or `@font-face`, so this bullet was claiming two guards CI
+  did not have. Rather than narrow the sentence, the two missing alternatives
+  were added to the guard: it now reads
+  `'<script src|<link |@import|fetch\(|XMLHttpRequest|url\(|@font-face'`.
+  `docs/index.html` contains zero occurrences of either
+  (`grep -c 'url(' docs/index.html` → `0`,
+  `grep -c '@font-face' docs/index.html` → `0`), so the widened guard went
+  green on arrival; injecting either construct into a scratch copy was
+  confirmed to make the step throw `The documentation site must stay
+  network-free` and exit 1. Measured in a real browser: one request across a
+  page load plus two mode changes, and it is the page itself.
 - **No motion.** The switcher introduces no transition and no animation, and
   the stylesheet carries an explicit
   `@media(prefers-reduced-motion:reduce)` block that neutralises animation,

@@ -13,13 +13,18 @@ CI, documentation, and capture evidence exists.
    toolset-selection loop bug, a mixed-separator redistributable path, and a
    fatal MSVC warning on a GCC-only macro). Every fix is linked to its
    verified commit SHA in [`CHANGELOG.md`](CHANGELOG.md). The **Material 3
-   validation** workflow is green at the current commit; the **Windows
+   validation** workflow is **red on `main`** and has been since
+   `8762579681594cf8ba6beb8ccec77576baa5199a` — this line claimed it was green
+   until 2026-08-16; see the state table at the top of
+   [`HANDOFF.md`](HANDOFF.md) for the three failing runs. The **Windows
    package and release** workflow previously failed later in the
    pipeline on `STATUS_STACK_BUFFER_OVERRUN` in the packaging step's own
    `tstVMStructSize`/`tstAsmStructs` self-check. That blocker has since been
-   fixed: published non-draft releases `v7.2.97-ci.96` through
+   fixed: published non-draft releases `v7.2.97-ci.97` through
    `v7.2.97-ci.101` each carry a real unsigned NSIS installer
-   (`VirtualBox-7.2.97-Setup.exe`, ~106.9 MB), and the newest,
+   (`VirtualBox-7.2.97-Setup.exe`, ~106.9 MB). `v7.2.97-ci.96` is **not** one
+   of them — it is the retired Squirrel.Windows package and carries no
+   `VirtualBox-7.2.97-Setup.exe`; `ci.97` is the first NSIS release. The newest,
    `v7.2.97-ci.101`, targets commit `bb63f016` with a Windows build that
    completed successfully.
    See [`HANDOFF.md`](HANDOFF.md#windows-build-and-packaging-pipeline-2026-08-13)

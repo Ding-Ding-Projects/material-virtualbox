@@ -17,20 +17,25 @@ place further down rather than deleted.
 | Fact | Value | Command |
 |---|---|---|
 | Remote `main` | `fe321a4fd6f6bfc7c2fbd7e0704e3f72d0eb2eee` | `git rev-parse origin/main` |
-| This working branch | `claude/yum-tong-finish-20260816`. It was `992aa84304a62e60a2a532e3da2a3569cad480ad` and three commits ahead of `main` when this section was written; this pass adds a fourth. **None of them are pushed.** Check with `git log --oneline origin/main..HEAD` rather than trusting the count | `git rev-parse --abbrev-ref HEAD`, `git log --oneline -5` |
+| This working branch | `claude/yum-tong-finish-20260816`. **Nothing on it is pushed.** No commit count is recorded here: the previous version said "three commits ahead … this pass adds a fourth" when it was already four ahead and the pass made five, which is how a running tally always ends. Read it, don't trust it | `git rev-parse --abbrev-ref HEAD`, `git log --oneline origin/main..HEAD` |
 | Branches on the remote | **seven** — `main`, `codex/native-windows-ci-build-20260809` (= `fe321a4`), `claude/external-editor-20260814`, `claude/full-ui-rewrite-with-ultracode-77b55c`, `claude/reality-audit-20260814`, `claude/virtualbox-agent-memory-oabvhw`, `worktree-wf_97c547ae-f89-4` | `git ls-remote --heads origin` |
 | Latest release | **`v7.2.97-ci.108`** — "Dried Scallop Shrimp Dumpling · 瑤柱蝦餃", non-draft, target `fe321a4fd6f6bfc7c2fbd7e0704e3f72d0eb2eee`, published `2026-08-15T01:21:51Z` | `gh release view v7.2.97-ci.108 --json tagName,isDraft,targetCommitish,publishedAt` |
 | Its installer | `VirtualBox-7.2.97-Setup.exe`, **106,963,266 bytes**, SHA-256 `8a6e1e94bdd73c3a9c526b7b7e074521f06a2562b9f9020ea1a806f15fcda627` | `gh release view v7.2.97-ci.108 --json assets` |
 | Its other assets | `SHA256SUMS.txt` (95 bytes), `hk-dish-0009-dried-scallop-shrimp-dumpling.png` (2,436,523 bytes) | same command |
 | Windows package and release at `fe321a4` | **success**, run [`31851996367`](https://github.com/Ding-Ding-Projects/material-virtualbox/actions/runs/31851996367), 1h26m24s | `gh run list --commit fe321a4…` |
 | Material 3 documentation Pages at `fe321a4` | **success**, run [`31851996366`](https://github.com/Ding-Ding-Projects/material-virtualbox/actions/runs/31851996366) | same command |
-| Material 3 validation at `fe321a4` | **FAILURE**, runs [`31856303192`](https://github.com/Ding-Ding-Projects/material-virtualbox/actions/runs/31856303192), [`31851996370`](https://github.com/Ding-Ding-Projects/material-virtualbox/actions/runs/31851996370), [`31851966893`](https://github.com/Ding-Ding-Projects/material-virtualbox/actions/runs/31851966893) | same command |
+| Material 3 validation at `fe321a4` | **FAILURE**, runs [`31851996370`](https://github.com/Ding-Ding-Projects/material-virtualbox/actions/runs/31851996370) (on `main`), [`31856303192`](https://github.com/Ding-Ding-Projects/material-virtualbox/actions/runs/31856303192) (on the `v7.2.97-ci.108` tag ref), [`31851966893`](https://github.com/Ding-Ding-Projects/material-virtualbox/actions/runs/31851966893) (on `codex/native-windows-ci-build-20260809`) — `--commit` matches by `headSha` across every ref | same command |
+| How long that gate has been red on `main` | **Since `8762579681594cf8ba6beb8ccec77576baa5199a`**, not since `fe321a4`. Three consecutive failures on `main`: [`31848342250`](https://github.com/Ding-Ding-Projects/material-virtualbox/actions/runs/31848342250) at `8762579` (`22:53:24Z`), [`31851883297`](https://github.com/Ding-Ding-Projects/material-virtualbox/actions/runs/31851883297) at `753602c` (`23:53:35Z`), [`31851996370`](https://github.com/Ding-Ding-Projects/material-virtualbox/actions/runs/31851996370) at `fe321a4` (`23:55:34Z`). Last green on `main`: [`31846486407`](https://github.com/Ding-Ding-Projects/material-virtualbox/actions/runs/31846486407) at `5f1adfac63`. **`ci.106` (target `8762579`) and `ci.107` (target `753602c`) both shipped with the gate already red** | `gh run list --workflow "Material 3 validation" --branch main --limit 15` |
 | Releases that exist | ci.96, 97, 98, 99, 100, 101, 106, 107, 108. **ci.102–ci.105 were never created** | `gh release list --limit 10` |
 | Tracked files | **66,376** | `git ls-files \| wc -l` |
 
 **The single most misleading thing this repository said until this pass: `Material 3 validation` is
 red on `main`, and no committed document recorded it.** `HANDOFF.md`, `doc/md3/LocalGates.md` and
-`CHANGELOG.md` all described it as green. The cause is known and named: the workflow's "Compact
+`CHANGELOG.md` all described it as green. **And when they finally recorded it, they understated it:**
+all three said "red since `fe321a4`", the tip. It has been red since `8762579`, an hour and two
+releases earlier — see the row above — so `v7.2.97-ci.106` and `v7.2.97-ci.107` shipped with the gate
+already red, and their changelog entries read green by omission until this was corrected. The cause
+is known and named: the workflow's "Compact
 README contract" step demanded the literal `no verified installer is published yet`, and `README.md`
 had correctly stopped saying that once real installers were published, so CI failed with
 `Compact README contract missing: no verified installer is published yet`.
@@ -40,8 +45,9 @@ on this branch replaces the stale assertion with assertions that pin what is tru
 negative guards so the claim cannot be quietly upgraded to a signed installer. It is **not pushed**,
 so `main` is still red and will stay red until it is. What has been proved locally, on this host, is
 that the repaired step passes: the step was de-indented verbatim out of the YAML into a scratch file
-outside the repository and run from the repository root under PowerShell 7.6.5 — stdout `step2 PASSED`,
-exit 0, 0.48s.
+outside the repository and run from the repository root under PowerShell 7.6.5 — exit 0. That run was
+repeated at the current branch tip, because the earlier one predated two commits that changed the
+step itself; see gate 2 in [`doc/md3/LocalGates.md`](doc/md3/LocalGates.md).
 
 ### What this pass actually did
 
@@ -142,13 +148,13 @@ away.
 | 2 | Every valid change committed on its owning jer | **met** | All worktrees clean, nothing excluded silently |
 | 3 | Recoverable work pushed before integration | **met** | Every lane pushed before any deletion |
 | 4 | Remote not ahead of the working jer | **met** | `main` fast-forwarded; no Fay Gay encountered |
-| 5 | Hand-written local-suite inventory, every suite passing | **NOT met** | `doc/md3/LocalGates.md` now records 20 gates: 10 runnable and run, 10 blocked on the Windows/kBuild/Qt toolchain. **Corrected 2026-08-16:** the "this container has no `pwsh`" claim in the previous version of this row was wrong — this host has PowerShell 7.6.5, and gates 2 and 19 were re-run here this pass (`step2 PASSED` exit 0; `RESULT: clean` exit 0). Gates 9–18 remain genuinely unrunnable. CI's `md3-validation` is **red on `main`** — see the state section at the top of this file |
+| 5 | Hand-written local-suite inventory, every suite passing | **NOT met** | `doc/md3/LocalGates.md` now records 20 gates: 10 runnable and run, **9 blocked on the Windows/kBuild/Qt toolchain, and 1 (gate 18, Doxygen) not blocked at all — simply not attempted.** **Corrected 2026-08-16, twice:** first, the "this container has no `pwsh`" claim in an earlier version of this row was wrong — this host has PowerShell 7.6.5, and gates 2 and 19 were re-run here this pass (exit 0; `RESULT: clean` exit 0). Second, "10 blocked on the toolchain" converted a choice into an impossibility. `doxygen` **is installed on this host** (`LocalGates.md` row 18 resolves it at `/c/Strawberry/c/bin/doxygen`) and no workflow in this repository invokes it; the pass judged a full four-Doxyfile run over the whole product not cheap and did not attempt it. That is a decision, and it is recorded as one. Gates 9–17 remain genuinely unrunnable for want of the Windows/kBuild/Qt toolchain. CI's `md3-validation` is **red on `main`** — see the state section at the top of this file |
 | 6 | Installable artifacts built locally and validated | **NOT met — environment** | No Windows toolchain, no Qt, no `kmk`. Artifacts are built by CI only |
 | 7 | Original logo and packaged application icon verified in the artifact | **NOT met** | Not audited in this pass; requires the built artifact |
 | 8 | Every canonical feature implemented per surface with full evidence | **NOT met** | **39** rows "Not implemented", 18 "Partial"; 7 features have zero implementation anywhere. Counts from `python tools/md3/count-inventory-rows.py` run 2026-08-16, not from memory. See `CompletenessInventory.md` |
 | 9 | README and landing page carry a current real-capture matrix | **NOT met** | `doc/md3/CaptureMatrix.md` records **8 of 47 rows captured** (rows 1, 5, 6, 16, 22, 24, 27, 31) and 39 not; still true on 2026-08-16 by `grep -cE '^\| [0-9]+ \|' doc/md3/CaptureMatrix.md` → 47 and the `**Captured**` count → 8. The remaining 39 need a Windows host with a running VM or a registered host service |
 | 10 | Exactly one new non-draft release representing this pass | **NOT met** | The workflow publishes a release on every push to `main`, and this pass made several pushes. Intermediate releases exist by design |
-| 11 | Dewed `main` has a green remote CI verdict | **NOT met** — and the previous "pending" had it backwards | At `fe321a4` the Windows build is **green** (run `31851996367`, 1h26m24s, published `v7.2.97-ci.108`) and Pages is **green** (run `31851996366`), but **Material 3 validation is red** (runs `31856303192`, `31851996370`, `31851966893`) on the stale README assertion. Repaired locally by `ca97ec93ccc06559d1035dd039ef56ca7b000a93`, which is **not pushed**, so this gate stays NOT met until it is |
+| 11 | Dewed `main` has a green remote CI verdict | **NOT met** — and the previous "pending" had it backwards | At `fe321a4` the Windows build is **green** (run `31851996367`, 1h26m24s, published `v7.2.97-ci.108`) and Pages is **green** (run `31851996366`), but **Material 3 validation is red** — run `31851996370` on `main`, plus `31856303192` and `31851966893` on other refs at the same `headSha` — on the stale README assertion. **Red since `8762579`, three commits and three releases ago**, not since `fe321a4`; see the state table at the top. Repaired locally by `ca97ec93ccc06559d1035dd039ef56ca7b000a93`, which is **not pushed**, so this gate stays NOT met until it is |
 | 12 | Every source jer tip proved an ancestor before deletion | **met** | Proved for all seven deleted items |
 | 13 | Fresh mat day supplied before any deletion | **met** | Supplied for this pass; applied to the cleanup half only |
 | 14 | Only `main` and the primary checkout remain | **NOT met** | Three merged jers remain on the hui because remote jer deletion is refused by this environment's permission classifier |
