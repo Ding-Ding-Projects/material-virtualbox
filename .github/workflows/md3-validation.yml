@@ -192,6 +192,31 @@ jobs:
           }
           $bilingualJoin = 'BILINGUAL_JOIN = '' ' + [char]0x00B7 + ' '''
           if ($pagesIndex -notmatch [regex]::Escape($bilingualJoin)) { throw 'Pages bilingual join must stay the UIMd3Language "%1 · %2" middle dot' }
+          # WCAG 2.2 SC 3.1.2 Language of Parts. Everything else Cantonese on the
+          # page is built by the switcher, which sets lang="zh-HK" itself. The three
+          # switcher LABELS are literal DOM text, and they are the only Chinese that
+          # is visible in ALL three modes -- including English mode, where the page
+          # otherwise has zero zh-HK elements. So each label's Chinese half must be
+          # its own lang-tagged element, or an English synthetic voice reads the very
+          # control a Cantonese-seeking user is looking for. The Chinese words are
+          # deliberately NOT repeated here: this pins the structure, docs/index.html
+          # stays the single owner of the visible text, and the ASCII-only assertion
+          # matches how the middle dot is handled above.
+          $labelShape = 'data-md3-mode="{0}">[A-Za-z]+ ' + [char]0x00B7 + ' <span lang="zh-HK">[^<]+</span></button>'
+          foreach ($mode in @('english', 'cantonese', 'bilingual')) {
+            if ($pagesIndex -notmatch ($labelShape -f $mode)) { throw "Language switcher label must tag its Chinese half lang=zh-HK: $mode" }
+          }
+          $staticZhHK = [regex]::Matches($pagesIndex, 'lang="zh-HK"').Count
+          if ($staticZhHK -ne 3) { throw "Expected exactly 3 literal lang=""zh-HK"" switcher labels, found $staticZhHK" }
+          # The role="status" line must carry the restored mode as TEXT on load, but
+          # must not ANNOUNCE on load: nothing changed and the reader just arrived.
+          # The switcher gets both by lifting the live-region role off the node before
+          # the first write and restoring it on the next frame, so the accessibility
+          # tree adopts that text as the region's starting content instead of as a
+          # change. These three assertions are what makes that ordering non-optional.
+          foreach ($pattern in @('renderStatus(initialMode)', 'statusLine.removeAttribute(''role'')', 'requestAnimationFrame(() => statusLine.setAttribute(''role'', liveRole))')) {
+            if ($pagesIndex -notmatch [regex]::Escape($pattern)) { throw "Pages status line must render without announcing on load: $pattern" }
+          }
           if ($pagesIndex -match 'innerHTML') { throw 'Pages language switcher must build nodes, not inject markup' }
           if ($pagesIndex -match '<script src|<link |@import|fetch\(|XMLHttpRequest') { throw 'The documentation site must stay network-free' }
           if ([regex]::Matches($pagesIndex, 'role="tab"').Count -ne 3) { throw 'The language switcher must not join the tablist' }

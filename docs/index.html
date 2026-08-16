@@ -13,9 +13,9 @@
   <h1>Material Virtual Machine</h1>
   <p class="muted" data-md3-zh="喺現有嘅 VirtualBox Manager、運行視窗、設定、精靈同工具上面，加一層 Material Design 3 外觀。">A Material Design 3 presentation layer for the existing VirtualBox Manager, runtime, settings, wizards, and tools.</p>
   <div class="langbar" role="radiogroup" aria-label="Site language" data-md3-label-zh="網站語言" hidden>
-    <button type="button" role="radio" aria-checked="true" tabindex="0" data-md3-mode="english">English · 英文</button>
-    <button type="button" role="radio" aria-checked="false" tabindex="-1" data-md3-mode="cantonese">Cantonese · 粵語</button>
-    <button type="button" role="radio" aria-checked="false" tabindex="-1" data-md3-mode="bilingual">Bilingual · 雙語</button>
+    <button type="button" role="radio" aria-checked="true" tabindex="0" data-md3-mode="english">English · <span lang="zh-HK">英文</span></button>
+    <button type="button" role="radio" aria-checked="false" tabindex="-1" data-md3-mode="cantonese">Cantonese · <span lang="zh-HK">粵語</span></button>
+    <button type="button" role="radio" aria-checked="false" tabindex="-1" data-md3-mode="bilingual">Bilingual · <span lang="zh-HK">雙語</span></button>
   </div>
   <p id="lang-status" class="muted langstatus" role="status"></p>
   <nav role="tablist" aria-label="Documentation sections" data-md3-label-zh="文件分區" aria-orientation="horizontal">
@@ -193,7 +193,9 @@
       }
     }
 
-    function announce(mode) {
+    // Writes the visible status text. Whether that write is also announced is
+    // decided by the live-region role being on the node at the time, not here.
+    function renderStatus(mode) {
       if (!statusLine) return;
       const name = MODE_NAMES[mode];
       statusLine.replaceChildren();
@@ -205,7 +207,7 @@
     function selectMode(mode, moveFocus) {
       render(mode);
       storeMode(mode);
-      announce(mode);
+      renderStatus(mode);
       if (!moveFocus) return;
       const target = radios.find(radio => radio.dataset.md3Mode === mode);
       if (target) target.focus();
@@ -229,8 +231,21 @@
       });
     });
 
+    // Initial paint. The restored mode must be VISIBLE on the status line, but it
+    // must not be ANNOUNCED: nothing changed, the user did nothing, and a live
+    // region that speaks on load talks over the page the reader just opened.
+    // The role stays in the markup so it survives with JS disabled and so every
+    // later change is announced; it is lifted off the node before the first text
+    // is written and put back on the next animation frame, once the accessibility
+    // tree has already taken that text as the region's starting content. Result:
+    // text present from the first paint, first announcement only on a user change.
+    const initialMode = storedMode();
+    const liveRole = statusLine ? statusLine.getAttribute('role') : null;
+    if (statusLine) statusLine.removeAttribute('role');
     group.hidden = false;
-    render(storedMode());
+    render(initialMode);
+    renderStatus(initialMode);
+    if (statusLine && liveRole) requestAnimationFrame(() => statusLine.setAttribute('role', liveRole));
   })();
 </script>
 </body></html>

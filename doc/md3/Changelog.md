@@ -99,6 +99,22 @@ questions. Two entries remain genuinely `Unreleased` because their commits are
 not pushed. The rule is unchanged: a version bucket is only ever written when
 it can be proved.
 
+**Updated 2026-08-16 — the viewer is currently two entries behind
+`CHANGELOG.md`, and says so in its own source.** `addEntry(m_entries` still
+counts **22** (`grep -c 'addEntry(m_entries'
+src/VBox/Frontends/VirtualBox/src/md3/UIMd3Changelog.cpp` → 22, run
+2026-08-16), while `CHANGELOG.md` now carries two further `[Unreleased]`
+sections: the documentation-correction pass that added the release entries, and
+the pass that repaired the documentation-site language switcher's blank
+`role="status"` line and its untagged CJK button labels (WCAG 2.2 SC 3.1.2).
+Neither can be added yet for the same reason the viewer's own first entry could
+not: each *is* the commit that would have to cite it, and its hash does not
+exist until the commit does. The deferral is written into the comment block in
+`prepareEntries()` between the `Unreleased` and `Released` groups, naming both
+passes, so the gap is visible in the source a reader is most likely to open
+rather than only here. **This is the standing cost of the compiled-in mirror,
+paid twice in one day; it is not a claim that the viewer is live.**
+
 ## Behavior
 
 - **Version, date, category, and commit per entry.** Every

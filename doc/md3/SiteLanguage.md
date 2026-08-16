@@ -82,14 +82,54 @@ Cantonese string fails the build.
   Space select the focused mode. Arrow movement also selects, which is the
   standard radiogroup behaviour.
 - Changes are announced through a `role="status"` live region reading
-  `Language mode: …` / `語言模式：…`. It is empty on load, so nothing is
-  announced until the reader acts.
+  `Language mode: …` / `語言模式：…`. The restored mode is written into that
+  line as **text on load**, so the line is never blank, but it is deliberately
+  **not announced** on load — nothing changed, and a live region that speaks on
+  arrival talks over the page the reader just opened. The two are separated by
+  *when the role is on the node*, not by a flag: the script reads the `role`
+  off `#lang-status`, removes it, renders the text, and restores it in a
+  `requestAnimationFrame` callback, so the accessibility tree adopts that text
+  as the region's starting content instead of as a change. The attribute stays
+  in the markup, so a reader with JavaScript disabled still meets the role, and
+  every later mode change is a genuine live-region update.
+
+  **Corrected 2026-08-16.** This bullet previously read "It is empty on load,
+  so nothing is announced until the reader acts." The second clause was true;
+  the first was a defect, not a design. Measured in headless Chrome at
+  `7d5c9dece14`, reloading with `md3.language.mode=1` stored: the page was
+  fully Cantonese and the Cantonese radio was correctly checked, yet
+  `#lang-status` `textContent` on load was `""` in all three modes, and only
+  became `"語言模式：粵語"` after the control was clicked. At this commit it is
+  `"Language mode: English"`, `"語言模式：粵語"` and
+  `"Language mode: Bilingual · 語言模式：雙語"` on a fresh, untouched load.
+  A `MutationObserver` installed at document-start recorded the same three-step
+  order in every mode: `role attribute: "status" -> null`, then
+  `status text written: … while role=null`, then
+  `role attribute: null -> "status"`.
 - The buttons are labelled `English · 英文`, `Cantonese · 粵語`,
-  `Bilingual · 雙語` in **all three modes**. This is a deliberate deviation
+  `Bilingual · 雙語` in **all three modes**, and each Chinese half is its own
+  `<span lang="zh-HK">`. Showing them in every mode is a deliberate deviation
   from a pure mirror of the application: a Cantonese reader arriving on the
   English default has to be able to find the control. It is called out here
-  rather than hidden, and it is why the page's own CJK-free English mode has
-  six CJK characters in the switcher chrome.
+  rather than hidden, and it is why the page's own otherwise CJK-free English
+  mode has six CJK characters in the switcher chrome.
+
+  **Fixed 2026-08-16 — WCAG 2.2 SC 3.1.2 Language of Parts.** Those six
+  characters used to be the only untagged CJK on the page: everything else
+  Cantonese is built by `cantoneseRun()`/`slotNode()`, which set `lang="zh-HK"`
+  themselves, but the three labels are literal DOM text and inherited the
+  document's `<html lang="en">`. A screen reader with an English voice
+  therefore mispronounced the very control a Cantonese-seeking reader needs.
+  Measured `[lang="zh-HK"]` element counts on a fresh, untouched load — at
+  `7d5c9dece14`: English **0**, Cantonese **41**, bilingual **41**; at this
+  commit: English **3**, Cantonese **45**, bilingual **45**. The `+4` in the
+  translated modes is the three label spans plus the status line's own
+  Cantonese run, which now exists on load. (An independent verifier reported
+  42/42/0 for the old page; that is the same page measured *after* touching the
+  control, which added the status line's one Cantonese run. Both numbers are
+  reproduced above: `[lang="zh-HK"] on load 41` / `after click 42`.) The
+  visible text is unchanged. CI asserts the shape of all three labels and that
+  the source contains exactly three literal `lang="zh-HK"` occurrences.
 
 ## No JavaScript, no network, no motion
 
@@ -174,3 +214,42 @@ toolchain.**
 
 No claim is made here about the deployed site. Nothing in this pass fetched
 the published URL.
+
+### Re-verification of the two accessibility repairs (2026-08-16)
+
+Both repairs above were measured, not asserted. Nothing was compiled; this
+host still has no C++ toolchain.
+
+1. **Source contract.** The `docs/index.html` block of the
+   `Validate MD3 source wiring` step — now 59 lines, carrying the accessible-tabs
+   contract, the switcher contract, the new `lang="zh-HK"` label contract and
+   the new status-line ordering contract — was de-indented verbatim into a
+   scratch `docs-index-contract.ps1` outside the repository, with GitHub's own
+   `if ((Test-Path -LiteralPath variable:\LASTEXITCODE)) { exit $LASTEXITCODE }`
+   epilogue appended, and run from the repository root under PowerShell 7. It
+   printed nothing and exited **0**. It was also proved able to fail rather
+   than assumed to be: reverting the three label spans in a scratch copy made
+   it print `Language switcher label must tag its Chinese half lang=zh-HK:
+   english` and exit **1**, and deleting the single line
+   `if (statusLine) statusLine.removeAttribute('role');` made it print
+   `Pages status line must render without announcing on load:
+   statusLine.removeAttribute('role')` and exit **1**.
+2. **Real browser, before and after.** A scratch Node 26 script outside the
+   repository served `docs/` over `http://127.0.0.1` (HTTP, not `file://`, so
+   `localStorage` has a real origin) and drove Chrome `--headless=new` over the
+   DevTools Protocol. For each mode it stored the index, **reloaded**, and read
+   the fresh page. The pre-fix numbers quoted in the two bullets above come
+   from running the same harness against `git show 7d5c9dece14:docs/index.html`.
+   This harness is **not checked in and is therefore not a repeatable gate.**
+
+**Technical facts still do not diverge between modes**, re-measured on this
+tree: the distinct sets of `<code>` values (14), `href` values (23) and `<kbd>`
+values (3) are byte-identical in all three modes, and each of the nine pinned
+facts occurs once in `document.body.textContent` in English and in Cantonese.
+The one honest exception is arithmetic, not drift: in **bilingual** mode
+`#6750A4` occurs **twice**, because bilingual renders the English run and the
+Cantonese run of the same paragraph and `%1` clones the `<code>` element into
+both. The *value* is the same clone in both places, which is the property that
+matters and the reason the source still contains it exactly once. This is the
+same cloning already recorded for five facts in gate 20 of
+[`LocalGates.md`](LocalGates.md).

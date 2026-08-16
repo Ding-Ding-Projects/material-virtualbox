@@ -65,6 +65,67 @@ a published release.
 
 ## [Unreleased]
 
+### Fixed — Two accessibility defects in the documentation-site language switcher (2026-08-16)
+
+*No commit link yet.* This entry describes the commit that adds it.
+
+An independent verifier found two accessibility defects in the switcher that
+`docs/index.html` shipped with, in the same file a 48-of-48 headless-browser
+pass had just declared green. Both are repaired here, and both were measured
+in a real browser before and after rather than reasoned about.
+
+**A blank status line on load.** The switcher's end-of-document IIFE called
+`render(storedMode())` and never rendered the `role="status"` line, so a reader
+reloading with `md3.language.mode=1` stored got a fully Cantonese page and a
+correctly checked Cantonese radio above an **empty** `語言模式：粵語` line, until
+they touched the control. Measured at `7d5c9dece14`, `#lang-status`
+`textContent` on a fresh load was `""` in all three modes. It is now
+`"Language mode: English"`, `"語言模式：粵語"` and
+`"Language mode: Bilingual · 語言模式：雙語"` respectively.
+
+The text is now present on load **without announcing on load**, which is the
+point: nothing changed, the reader did nothing, and a live region that speaks
+on arrival talks over the page. The two are separated by *when the role is on
+the node*. The script reads `role` off `#lang-status`, removes it, renders the
+text, and restores it in a `requestAnimationFrame` callback, so the
+accessibility tree adopts that text as the region's starting content rather
+than as a change; the attribute stays in the markup, so the no-JavaScript
+reader still meets the role and every later mode change is a real announcement.
+A `MutationObserver` installed at document-start recorded the same order in all
+three modes: `role attribute: "status" -> null`, `status text written: … while
+role=null`, `role attribute: null -> "status"`.
+
+**WCAG 2.2 SC 3.1.2 Language of Parts.** The switcher's own labels —
+`English · 英文`, `Cantonese · 粵語`, `Bilingual · 雙語` — were the only untagged
+CJK on the page. Everything else Cantonese is built by the renderer, which sets
+`lang="zh-HK"` itself; these three are literal DOM text and inherited
+`<html lang="en">`, so an English synthetic voice mispronounced the very control
+a Cantonese-seeking reader is hunting for — and they are visible in **all three
+modes**, including English mode, where the page otherwise had zero `zh-HK`
+elements. Each Chinese half is now its own `<span lang="zh-HK">`. The visible
+text is unchanged. Fresh-load `[lang="zh-HK"]` element counts, before → after:
+English **0 → 3**, Cantonese **41 → 45**, bilingual **41 → 45**. The verifier's
+reported 42 reproduces as the *post-click* count on the old page (`on load 41`
+/ `after click 42`); the difference is the status line's own Cantonese run,
+which only existed once the control had been touched.
+
+`md3-validation.yml` gains the matching source contract in its `docs/index.html`
+list: the shape of all three labels, an exact count of three literal
+`lang="zh-HK"` occurrences in the source, and the three literals that pin the
+render-then-restore-the-role ordering. Both halves were proved able to fail:
+reverting the label spans and deleting the single `removeAttribute('role')`
+line each made the extracted contract exit 1 with its own message.
+
+**Limits:** nothing was compiled — this change is HTML, YAML and Markdown, and
+the host has no C++ toolchain. Technical facts still do not diverge between
+modes (re-measured: the distinct sets of 14 `<code>` values, 23 `href` values
+and 3 `<kbd>` values are byte-identical in all three modes), with the one
+arithmetic exception already on record — bilingual mode renders the English and
+Cantonese runs of the same paragraph, so `#6750A4` is *cloned* into both and
+occurs twice; the value is identical and the source still holds it once. The
+browser harness used for these measurements is a scratch script outside the
+repository and is **still not a repeatable gate**.
+
 ### Documentation — Bring every stale document back to the truth (2026-08-16)
 
 *No commit link yet.* This entry describes the commit that adds it, and no

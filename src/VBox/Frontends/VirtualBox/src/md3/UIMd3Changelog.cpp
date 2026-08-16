@@ -258,13 +258,19 @@ void UIMd3Changelog::prepareEntries()
                  "not a repeatable gate; the deployed site was not fetched."),
              QStringLiteral("2048ed0a7b651373a2707d30b4446a888861f33f"));
 
-    /* The 2026-08-16 documentation-correction pass that added the release
-     * entries below is deliberately NOT an entry here yet.  It is the commit
-     * that contains this very edit, and no viewer can cite its own
-     * not-yet-created hash without inventing one.  CHANGELOG.md records the
-     * pass; a later task adds the entry once the hash exists, exactly as was
-     * done for the viewer's own first entry.  The rule is unchanged: wait for
-     * the hash, never invent it. */
+    /* Two 2026-08-16 passes are deliberately NOT entries here yet:
+     *   - the documentation-correction pass that added the release entries
+     *     below, and
+     *   - the pass that repaired the documentation-site language switcher's two
+     *     accessibility defects (its role="status" line was blank on load, and
+     *     its own three button labels carried untagged CJK, violating WCAG 2.2
+     *     SC 3.1.2), which is the commit that contains this very edit.
+     * No viewer can cite its own not-yet-created hash without inventing one.
+     * CHANGELOG.md records both passes; a later task adds the entries once the
+     * hashes exist, exactly as was done for the viewer's own first entry.  The
+     * rule is unchanged: wait for the hash, never invent it.  This means the
+     * compiled-in viewer is two entries behind CHANGELOG.md right now, which is
+     * stated here rather than left for a reader to discover. */
 
     /* ---- Published releases. ---- */
 
