@@ -20,6 +20,43 @@ a published release.
 
 ## [Unreleased]
 
+### Added — A language switcher on the documentation site (2026-08-16)
+
+[`2048ed0a7b651373a2707d30b4446a888861f33f`](https://github.com/Ding-Ding-Projects/material-virtualbox/commit/2048ed0a7b651373a2707d30b4446a888861f33f)
+
+`docs/index.html` — the page published at
+<https://ding-ding-projects.github.io/material-virtualbox/> — now has an
+inline English / Cantonese / bilingual switcher. It mirrors
+`UIMd3LanguageMode`: same three modes in the same order, the same `%1 · %2`
+U+00B7 join as `UIMd3Language::text()`, the same empty-Cantonese-falls-back-to-
+English rule, the same English default, and persistence under a `localStorage`
+key with the same `qBound(0, toInt(), 2)` clamp as `GUI/Md3/LanguageMode`. The
+two playfulness levels are deliberately not mirrored.
+
+English remains the literal document text and Cantonese lives only in
+attributes, so the page without JavaScript is exactly the page that shipped
+before — complete, readable English, with the switcher hidden rather than
+painted dead. Technical facts are written once and cloned into place rather
+than retyped in a translation, so no hash, version string, file name or URL
+can differ between modes. The page still issues no subresource requests, uses
+no `innerHTML`, and carries an explicit `prefers-reduced-motion` block.
+
+The Material 3 validation workflow gains the matching source contract:
+required literals, the middle-dot join asserted by code point, negative guards
+against `innerHTML` and against any subresource, an exact count of three
+`role="tab"` elements so the switcher cannot join the tab strip, and an exact
+occurrence count for each of nine technical facts.
+
+**Limits:** nothing was compiled — this change is HTML, YAML and Markdown, and
+the host has no C++ toolchain. Only 14.9% of the page's visible characters get
+Cantonese; the long technical prose and all 30 published `doc/md3/*.md`
+articles stay English, and the page says so to the reader. The switcher's
+behaviour was driven in a real headless browser (48 of 48 checks), but that
+harness is a scratch file outside the repository and is not a repeatable gate.
+The deployed site was not fetched and no claim is made about it. See
+[`doc/md3/SiteLanguage.md`](doc/md3/SiteLanguage.md) and
+[`doc/md3/LocalGates.md`](doc/md3/LocalGates.md) rows 2 and 20.
+
 ### Fixed — A red CI contract and a conflicting accessibility string (2026-08-16)
 
 [`ca97ec93ccc06559d1035dd039ef56ca7b000a93`](https://github.com/Ding-Ding-Projects/material-virtualbox/commit/ca97ec93ccc06559d1035dd039ef56ca7b000a93)
