@@ -25,9 +25,11 @@ order and with the same semantics:
 Other behaviour copied from `UIMd3Language.cpp`:
 
 - **Fallback.** An element with no Cantonese counterpart renders English in
-  every mode. This is the site's equivalent of
-  `strCantonese.isEmpty() ? strEnglish` at `UIMd3Language.cpp:159-160`, and it
-  is how the untranslated bulk of the page stays readable in Cantonese mode.
+  every mode. This is the site's equivalent of `UIMd3Language.cpp:160`, which
+  reads verbatim
+  `const QString strCantonese = pair.second.isEmpty() ? strEnglish : pair.second;`,
+  and it is how the untranslated bulk of the page stays readable in Cantonese
+  mode.
 - **Default.** English, matching `m_enmMode(UIMd3LanguageMode_English)` at
   `UIMd3Language.cpp:77`.
 - **Persistence.** `localStorage` key `md3.language.mode`, holding the string
@@ -267,9 +269,11 @@ Both repairs above were measured, not asserted. Nothing was compiled; this
 host still has no C++ toolchain.
 
 1. **Source contract.** The `docs/index.html` block of the
-   `Validate MD3 source wiring` step — now 59 lines, carrying the accessible-tabs
-   contract, the switcher contract, the new `lang="zh-HK"` label contract and
-   the new status-line ordering contract — was de-indented verbatim into a
+   `Validate MD3 source wiring` step — the run of assertions that opens with
+   `$pagesIndex = Get-Content docs/index.html -Raw` and ends where the
+   `$managerWidget` assertions begin, carrying the accessible-tabs contract, the
+   switcher contract, the new `lang="zh-HK"` label contract and the new
+   status-line ordering contract — was de-indented verbatim into a
    scratch `docs-index-contract.ps1` outside the repository, with GitHub's own
    `if ((Test-Path -LiteralPath variable:\LASTEXITCODE)) { exit $LASTEXITCODE }`
    epilogue appended, and run from the repository root under PowerShell 7. It

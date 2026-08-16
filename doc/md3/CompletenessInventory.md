@@ -456,7 +456,10 @@ per-surface-broken-out feature counts each surface row, including its "engine" r
 python3 tools/md3/count-inventory-rows.py
 ```
 
-Verbatim output of that command, run 2026-08-16 at `992aa84304a`:
+Verbatim output of that command, re-run on this tree on 2026-08-16 and byte-identical to the output
+first recorded here. It carries no commit attribution on purpose: the script reads the working tree,
+so the only honest answer to "which commit?" is the one you run it on, and a pinned SHA here goes
+stale on the next commit that touches this file.
 
 ```
 Source: doc\md3\CompletenessInventory.md

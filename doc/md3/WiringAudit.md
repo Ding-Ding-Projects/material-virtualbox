@@ -445,30 +445,43 @@ walk at `:2653`.
 **Runtime window — the three sites §4a names, renumbered by the fix.**
 
 - Site A: `src/VBox/Frontends/VirtualBox/src/runtime/normal/UIMachineWindowNormal.cpp:128` —
-  `menuBar()->hide();` inside `sltHandleMenuBarConfigurationChange()` (`:107`). Registers nothing
-  itself.
+  `menuBar()->hide();` inside `sltHandleMenuBarConfigurationChange()`, whose signature is at
+  `:108` (`:107` is the `#ifndef RT_OS_DARWIN` guard above it). Registers nothing itself.
 - Site B: `:266` — `menuBar()->hide();` inside `prepareRuntimeHeader()` (`:258`), followed at
   `:273-274` by `foreach (QMenu *pMenu, actionPool()->menus()) registerMenuActionShortcuts(pMenu);`,
-  with the helper at `:243-254`.
+  with the helper at `:243-255`.
 - Site C: `:381` — `menuBar()->hide();` inside `loadSettings()` (`:370`). Registers nothing itself.
 
 **One registration covers all three**, by this order:
 `UIMachineWindow.cpp:116 prepareMenu()` → `:122 prepareVisualState()` →
 `UIMachineWindowNormal.cpp:342 prepareRuntimeHeader()` → `UIMachineWindow.cpp:137 loadSettings()`.
-Site A is a slot connected at `UIMachineWindowNormal.cpp:235` and driven by an asynchronous
+Site A is a slot connected at `UIMachineWindowNormal.cpp:234-235` and driven by an asynchronous
 extradata signal, so it cannot fire inside that synchronous `prepare()` run; site C runs after site
 B; and `QWidget::addAction()` de-duplicates, so a repeat is harmless.
 
-`UIMachineWindowNormal::updateMenu()` (`:760-766`) only re-adds the same top-level `QMenu` objects
-to the bar, and the pool's `updateMenuX()` handlers `pMenu->clear()` and then re-add pool-owned
-`UIAction` objects rather than constructing new ones, so a later rebuild does not produce
-unregistered leaves.
+`UIMachineWindowNormal::updateMenu()` (`:761-767`; `:760` is the `#ifndef VBOX_WS_MAC` guard above
+it) only re-adds the same top-level `QMenu` objects to the bar, and the pool's `updateMenuX()`
+handlers `pMenu->clear()` and then re-add pool-owned `UIAction` objects rather than constructing new
+ones, so a later rebuild does not produce unregistered leaves.
+
+**Four more coordinates in this block were wrong until 2026-08-16 and are corrected in place.**
+`sltHandleMenuBarConfigurationChange()` was cited as `:107` and `updateMenu()` as `:760-766`; in both
+cases the cited first line is the preprocessor guard directly above the function, not the function.
+`registerMenuActionShortcuts()` was cited as `:243-254`, one short of its closing brace at `:255`,
+and `UIActionPool::updateMenuApplication()` as `:3746-3799`, one short of its closing brace at
+`:3800`; the range convention used everywhere else in this block runs from the signature to the
+closing brace inclusive. The connect for site A was widened from `:235` to `:234-235`, which is the
+whole statement. Every remaining coordinate in §4a — including the ones above the re-verification
+heading, re-read against the pinned `0d9eda43cd0` rather than against HEAD — was checked line by line
+in this pass and is correct as printed. None of these errors changes any conclusion; they are
+corrected because a section that keeps shipping off-by-one line numbers teaches its reader to stop
+checking the ones that are right.
 
 **Residuals this re-read did NOT close, named rather than glossed:**
 
 1. **No runtime proof of any kind.** See the limitation above. This is the big one.
 2. **Only one pool update handler was actually read** — `UIActionPool::updateMenuApplication()`
-   (`UIActionPool.cpp:3746-3799`) — to confirm the clear-and-re-add pattern. The others were not.
+   (`UIActionPool.cpp:3746-3800`) — to confirm the clear-and-re-add pattern. The others were not.
    A handler somewhere that constructs a fresh `QAction` after `prepare()` would reintroduce the
    defect for that action, and this re-read cannot rule that out.
 3. **§4a's separate hamburger-route paragraph was not re-examined**, and neither were the three
