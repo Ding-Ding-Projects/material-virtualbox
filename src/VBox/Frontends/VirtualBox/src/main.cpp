@@ -41,6 +41,7 @@
 #include "UIMd3Language.h"
 #include "UIMd3History.h"
 #include "UIMd3NotificationCentre.h"
+#include "UIMd3DimSum.h"
 #include "UILoggingDefs.h"
 #include "UIModalWindowManager.h"
 #include "UIStarter.h"
@@ -598,6 +599,16 @@ extern "C" DECLEXPORT(int) TrustedMain(int argc, char **argv, char ** /*envp*/)
         UIMd3Language::create();
         UIMd3History::create();
         UIMd3NotificationCentre::create();
+#ifndef VBOX_RUNTIME_UI
+        /* Takes its one-shot per-launch 10% roll right here, so the draw
+         * genuinely happens once per process regardless of how many
+         * top-level windows later invite it to show.  Selector-UI-only for
+         * now: nothing in the Runtime UI (VirtualBoxVM.exe, one process per
+         * running VM) invites this service to show anything yet -- see
+         * doc/md3/DimSum.md for why that is an honest, stated gap rather
+         * than a silent one. */
+        UIMd3DimSum::create();
+#endif
 
         /* Simulate try-catch block: */
         do
@@ -629,6 +640,9 @@ extern "C" DECLEXPORT(int) TrustedMain(int argc, char **argv, char ** /*envp*/)
 
         /* Persist and destroy the process-wide Material 3 theme before the
          * extra-data manager and UICommon are torn down. */
+#ifndef VBOX_RUNTIME_UI
+        UIMd3DimSum::destroy();
+#endif
         UIMd3NotificationCentre::destroy();
         UIMd3History::destroy();
         UIMd3Theme::destroy();

@@ -89,6 +89,7 @@
 #include "UIVirtualBoxManager.h"
 #include "UIMd3Button.h"
 #include "UIMd3CommandPalette.h"
+#include "UIMd3DimSum.h"
 #include "UIMd3History.h"
 #include "UIMd3Language.h"
 #include "UIMd3ManagerHeader.h"
@@ -828,6 +829,13 @@ void UIVirtualBoxManager::polishEvent(QShowEvent *)
 
     /* Make sure user warned about inaccessible media: */
     QMetaObject::invokeMethod(this, "sltHandleMediumEnumerationFinish", Qt::QueuedConnection);
+
+    /* Startup only, non-blocking, never activating: the dim sum surprise
+     * decides for itself (one-shot roll, first-run skip, no opt-out) and
+     * only ever fires once per process no matter how many top-level windows
+     * invite it. */
+    if (UIMd3DimSum::instance())
+        UIMd3DimSum::instance()->maybeShowAtStartup(this);
 
 #ifdef VBOX_WS_MAC
     /* Make sure window is activated within the cocoa hierarchy: */
