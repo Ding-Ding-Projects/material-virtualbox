@@ -5,6 +5,18 @@ and remain independently buildable. Status is evidence-based; an implementation
 row remains open until its required source, interaction, runtime, accessibility,
 CI, documentation, and capture evidence exists.
 
+## The ceiling this roadmap can never cross
+
+**No virtual machine can start.** The host hypervisor driver `VBoxSup.sys` is
+unsigned, 64-bit Windows will not load an unsigned kernel driver, and code
+signing is permanently prohibited for this project. It is a policy consequence,
+not a defect, and no installer change can resolve it. No item below closes it,
+and none should be written as if it might: the only thing that moves it is the
+machine's owner choosing to permit unsigned drivers, which is a decision with an
+owner outside this codebase. Every runtime-window row in
+[`doc/md3/CaptureMatrix.md`](doc/md3/CaptureMatrix.md) is ceilinged by it rather
+than merely unattempted.
+
 ## Windows build and packaging (2026-08-13 status)
 
 0. **Pipeline hardening** — seven fixes landed today, each removing one
@@ -20,25 +32,31 @@ CI, documentation, and capture evidence exists.
    package and release** workflow previously failed later in the
    pipeline on `STATUS_STACK_BUFFER_OVERRUN` in the packaging step's own
    `tstVMStructSize`/`tstAsmStructs` self-check. That blocker has since been
-   fixed: published non-draft releases `v7.2.97-ci.97` through
-   `v7.2.97-ci.101` each carry a real unsigned NSIS installer
-   (`VirtualBox-7.2.97-Setup.exe`, ~106.9 MB). `v7.2.97-ci.96` is **not** one
+   fixed: every non-draft `v7.2.97-ci.*` release from `v7.2.97-ci.97` onward
+   carries a real unsigned NSIS installer named `VirtualBox-7.2.97-Setup.exe`
+   together with `SHA256SUMS.txt`. `v7.2.97-ci.96` is **not** one
    of them — it is the retired Squirrel.Windows package and carries no
-   `VirtualBox-7.2.97-Setup.exe`; `ci.97` is the first NSIS release. The newest,
-   `v7.2.97-ci.101`, targets commit `bb63f016` with a Windows build that
-   completed successfully.
-   See [`HANDOFF.md`](HANDOFF.md#windows-build-and-packaging-pipeline-2026-08-13)
-   for the full current-state summary and exact CI run links.
+   `VirtualBox-7.2.97-Setup.exe`; `ci.97` is the first NSIS release. **Which
+   release is newest, and what commit it targets, is answered by the
+   [Releases page](https://github.com/Ding-Ding-Projects/material-virtualbox/releases)
+   and not by this file** — no tag is pinned in this prose, because each earlier
+   attempt to pin one was stale within days. **Nothing here claims any of those
+   installers has been downloaded, installed, or launched**; see the retraction
+   at the head of [`CHANGELOG.md`](CHANGELOG.md).
+   See [`HANDOFF.md`](HANDOFF.md) for the full current-state summary and exact
+   CI run links.
 1. **Real capture evidence** — [`doc/md3/CaptureMatrix.md`](doc/md3/CaptureMatrix.md)
    enumerates every manager, settings, wizard, tool, runtime, and installer
    surface and state that still needs a genuine screenshot, and is the
-   authority for the current captured/open count. Several rows are now
-   captured with the manager shell reached and photographed; the rest
-   remain `Not captured`, blocked either by needing a running VM or an
-   installed host service (kernel drivers, `VBoxSDS`) that this lane cannot
-   provision (`REGDB_E_CLASSNOTREG`, tracked in
-   [`doc/md3/RuntimeCapture.md`](doc/md3/RuntimeCapture.md)), or simply not
-   yet attempted. Closing the remaining rows is the next gate.
+   authority for the current captured/open count. A few rows are captured. One
+   of them shows the manager shell, and it came from an **already-present
+   installed** `VirtualBox.exe` at worktree tip `cb9f573030e` — not from this
+   checkout's own build, which still fails at `REGDB_E_CLASSNOTREG` for want of
+   a registered `VBoxSDS` (tracked in
+   [`doc/md3/RuntimeCapture.md`](doc/md3/RuntimeCapture.md)). The rest remain
+   `Not captured`, blocked either by that COM boundary, by needing a running VM,
+   or simply not yet attempted. Closing the remaining rows is the next gate —
+   except the runtime-window rows, which the ceiling above closes permanently.
 
 ## In progress
 

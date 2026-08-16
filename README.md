@@ -12,9 +12,19 @@ application-owned presentation toward one coherent Qt 6 design system.
 [native implementation authority](doc/md3/CodexHandoff.md)
 
 **Install status:** verified unsigned NSIS installers are published as GitHub
-releases (`VirtualBox-7.2.97-Setup.exe`); see the [Releases page](https://github.com/Ding-Ding-Projects/material-virtualbox/releases)
-for the current one, or build from source with the
+releases (`VirtualBox-7.2.97-Setup.exe`); the [Releases page](https://github.com/Ding-Ding-Projects/material-virtualbox/releases)
+is the authority for which release is newest and what commit it targets, and no
+tag is pinned in this file's prose. You can also build from source with the
 [canonical VirtualBox prerequisites and commands](#build-and-prerequisites).
+
+> **The ceiling, stated before anything else: no virtual machine can start.**
+> The host hypervisor driver `VBoxSup.sys` is unsigned, 64-bit Windows will not
+> load an unsigned kernel driver, and code signing is permanently prohibited for
+> this project. It is a policy consequence, not a defect, and no installer change
+> can resolve it. Only the machine's owner choosing to permit unsigned drivers
+> moves it, and that decision has an owner outside this codebase. What this
+> project delivers is the Material 3 presentation of the Manager, settings,
+> wizards and tools — not a running guest.
 
 > **Implementation status:** the shared theme, style, language, persisted brand,
 > native manager title bar, manager navigation rail, manager tab strip,
@@ -32,6 +42,14 @@ for the current one, or build from source with the
 > browser now restores validated notification and appearance/theme revisions
 > through their owning services.
 > Build and release claims below are deliberately bounded.
+>
+> **How much is not done, beside that list:** the hand-maintained per-surface
+> inventory in [`doc/md3/CompletenessInventory.md`](doc/md3/CompletenessInventory.md)
+> holds **91 rows — 33 Implemented, 18 Partial, 39 Not implemented, 1 justified
+> N/A**, from `python tools/md3/count-inventory-rows.py` run on 2026-08-16. The
+> list above is the Implemented and Partial end of that inventory, not its whole.
+> Which gates this project can run at all, which are blocked and by what, is
+> [`doc/md3/LocalGates.md`](doc/md3/LocalGates.md).
 
 ## Contents
 
@@ -67,25 +85,42 @@ implementation handoff.
 ## Runtime screenshots
 
 Screenshots in this section are reserved for captures from the built native
-application. The current Windows runtime launch reaches the real executable but
-stops before the manager shell at `REGDB_E_CLASSNOTREG` because the checkout's
-`VirtualBoxClient` COM registration is incomplete. That genuine failure capture
-is retained in the session evidence, but it is not presented as a successful
-Material 3 manager screenshot. The design thumbnail and static HTML previews do
-not count. The gallery will grow only with real manager, settings, wizard, tool,
-notification, and runtime captures from the rewritten build.
+application. Two different observations live here and an earlier version of this
+section ran them together, so they are now separated and each one is labelled
+with which build it came from.
+
+- **What this checkout's own build does: it does not reach the manager shell.**
+  The Windows runtime launch reaches the real executable and then stops at
+  `REGDB_E_CLASSNOTREG`, because no `VBoxSDS` service is registered for this
+  checkout and its `VirtualBoxClient` COM registration is therefore incomplete.
+  **No image of that failure is committed anywhere in this repository.** A
+  repository-wide search recorded in
+  [`doc/md3/CaptureMatrix.md`](doc/md3/CaptureMatrix.md) found none, so it is not
+  counted as evidence and is not linked from any row. This paragraph previously
+  said the capture was "retained in the session evidence"; that claim is
+  withdrawn.
+- **Where the reached-and-photographed manager shell came from: a different
+  build.** One capture, taken at worktree tip
+  `cb9f573030e3f27d7b13314d90234e2b8de873c9` against an **already-present**
+  installed `%LOCALAPPDATA%\VirtualBox\app-7.2.97\VirtualBox.exe` — not against
+  this checkout's build and not against any published release asset — shows the
+  manager shell rendered with no COM error. It is one image, from one build, in
+  one environment. It does not generalise to any release, and it does not cancel
+  the failure above.
+
+The design thumbnail and static HTML previews do not count. The gallery will grow
+only with real manager, settings, wizard, tool, notification, and runtime
+captures from the rewritten build.
 
 The capture contract and current COM/service evidence are maintained in
 [`doc/md3/RuntimeCapture.md`](doc/md3/RuntimeCapture.md). The full enumerated
 tracking table — every surface and state that must be captured, its current
 `Captured`/`Not captured` status, and its exact blocker where still open — is
 [`doc/md3/CaptureMatrix.md`](doc/md3/CaptureMatrix.md); that document is the
-authority for the current count, not this paragraph. As of commit
-`cb9f573030e3f27d7b13314d90234e2b8de873c9`, the manager shell has been
-reached and photographed and several rows are captured; most rows remain
-open, blocked either by needing a running VM or an installed host service
-(kernel drivers, `VBoxSDS`) that this lane cannot provision, or simply not
-yet attempted.
+authority for the current count, not this paragraph. Most rows remain open,
+blocked either by needing a running VM or an installed host service (kernel
+drivers, `VBoxSDS`) that this lane cannot provision, or simply not yet
+attempted.
 
 Global Preferences and per-machine Settings now compose their existing page
 models inside a bounded Material selector, one selected page card, and a compact
@@ -347,14 +382,19 @@ workflow this script mirrors previously failed at commit
 ([run 31731859854](https://github.com/Ding-Ding-Projects/material-virtualbox/actions/runs/31731859854)),
 getting through Qt setup, MSVC toolset selection, and the full build before
 failing in its own packaging self-check with `STATUS_STACK_BUFFER_OVERRUN`.
-That blocker has since been fixed: published non-draft releases
-`v7.2.97-ci.97` through `v7.2.97-ci.101` each carry a real unsigned NSIS
-installer (`VirtualBox-7.2.97-Setup.exe`, ~106.9 MB). `v7.2.97-ci.96`, the
-first release ever published, is **not** one of them — it is the retired
+That blocker has since been fixed: every non-draft `v7.2.97-ci.*` release from
+`v7.2.97-ci.97` onward carries a real unsigned NSIS installer named
+`VirtualBox-7.2.97-Setup.exe` together with `SHA256SUMS.txt`. `v7.2.97-ci.96`,
+the first release ever published, is **not** one of them — it is the retired
 Squirrel.Windows package (`Setup.exe`, `RELEASES`, a `.nupkg`) and carries no
-`VirtualBox-7.2.97-Setup.exe`; `ci.97` is the first NSIS release. The newest,
-`v7.2.97-ci.101`, targets commit `bb63f016` with a Windows build that
-completed successfully. See [`CHANGELOG.md`](CHANGELOG.md) for the fix
+`VirtualBox-7.2.97-Setup.exe`; `ci.97` is the first NSIS release. **Which
+release is newest, and what commit it targets, is answered by the
+[Releases page](https://github.com/Ding-Ding-Projects/material-virtualbox/releases)
+and not by this file** — no tag is pinned here, because each previous attempt to
+pin one was stale within days. **Nothing on this page claims any of those
+installers has been downloaded, installed, or launched**; the retraction at the
+head of [`CHANGELOG.md`](CHANGELOG.md) states that limit in full. See
+[`CHANGELOG.md`](CHANGELOG.md) for the fix
 history and [`HANDOFF.md`](HANDOFF.md) for the full state summary. No local
 artifact produced on a warm, already-built tree is accepted as evidence that
 either script works from a genuinely clean checkout — only a passing run of

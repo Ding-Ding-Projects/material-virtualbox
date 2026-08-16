@@ -96,6 +96,113 @@ a published release.
 
 ## [Unreleased]
 
+### Fixed — The three surfaces a newcomer reads, and one handoff instead of three (2026-08-16)
+
+*No commit link yet.* This entry describes the commit that adds it.
+
+A fresh-eyes review found this branch's documents individually true and
+collectively misleading. Five blocking defects, each on a surface a newcomer
+lands on first.
+
+**The retracted runtime claim is gone from `HANDOFF.md`.** It said, in two
+places — one of them under a heading called `## Current state, in one line`, the
+single sentence a reader trusts most — that "the application builds, installs,
+launches and reaches a working Manager". This file retracts exactly that at its
+head. Both are replaced by a section that separates the four things that are
+actually known: the pipeline builds and publishes; nothing is claimed about any
+published installer being installed or launched; **this checkout's own build
+fails at `REGDB_E_CLASSNOTREG`**, and no image of that failure is committed
+anywhere; and exactly one capture shows a manager shell, taken at worktree tip
+`cb9f573030e` against an **already-present** installed `VirtualBox.exe`. This is
+the third time this overclaim class has been caught on this branch, so the whole
+tree was re-searched for it, multiline, and every surviving occurrence is now
+either the retraction itself or a quotation of the withdrawn sentence.
+
+**`README.md` no longer contradicts itself inside one section.** It said the
+Windows runtime launch "stops before the manager shell at
+`REGDB_E_CLASSNOTREG`" and, four lines later, that "the manager shell has been
+reached and photographed". Both observations are real and they came from
+different builds; each is now stated with which build it came from. It also
+claimed the failure capture "is retained in the session evidence", which
+`doc/md3/CaptureMatrix.md` contradicts — a repository-wide search found no such
+image committed anywhere, so it is not counted as evidence. That claim is
+withdrawn and README now agrees with the capture matrix.
+
+**No document pins a "newest release" tag in prose any more.** `README.md` and
+`ROADMAP.md` both said "the newest, `v7.2.97-ci.101`, targets commit
+`bb63f016`". The newest was `v7.2.97-ci.108`, non-draft, targeting `fe321a4`.
+Rather than move the pin, both now name the
+[Releases page](https://github.com/Ding-Ding-Projects/material-virtualbox/releases)
+as the authority and pin nothing — the same rule that deleted the other rotting
+figures on this branch. The durable claim that survives is the one that does not
+move: every non-draft release from `ci.97` onward carries
+`VirtualBox-7.2.97-Setup.exe` and `SHA256SUMS.txt`, and `ci.96` is the retired
+Squirrel package that carries neither.
+
+**The unsigned-driver ceiling is now on the front surfaces.** `docs/index.html`
+— the published site, and `README.md`'s very first link — contained **zero**
+mentions of `VBoxSup`, kernel drivers, or the fact that no virtual machine can
+start. README mentioned kernel drivers only in passing and never stated the
+ceiling; `ROADMAP.md` was likewise thin. All three now carry it plainly: the host
+hypervisor driver `VBoxSup.sys` is unsigned, 64-bit Windows will not load an
+unsigned kernel driver, code signing is permanently prohibited for this project,
+and it is a policy consequence rather than a defect that any installer change
+could resolve. On the site it renders in all three language modes following the
+existing `data-md3-zh` pattern, with `VBoxSup.sys` written **once** in the markup
+and pulled into the Cantonese run through a `%2` slot — so the identifier is
+byte-identical across modes by construction rather than by two copies that can
+drift. Verified by rendering all three modes in headless Chrome and reading the
+resulting DOM.
+
+**`md3-validation.yml` pins the ceiling so it cannot be silently dropped.** New
+contract literals cover the English sentence on both `README.md` and
+`docs/index.html`, a structural assertion that the Cantonese attribute references
+both slots, and an occurrence-count entry freezing `VBoxSup.sys` at exactly one
+in the page source. Each was proved able to fail before being committed: deleting
+the paragraph threw `Pages unsigned-driver ceiling contract missing:
+id="ceiling"`; adding a second copy of the identifier threw `Technical fact must
+appear exactly 1 time(s) … VBoxSup.sys (found 2)`; un-slotting it threw `The
+ceiling statement must render in all three language modes with the driver name
+slotted, not duplicated`; deleting the README blockquote threw `README
+unsigned-driver ceiling contract missing: no virtual machine can start`. All four
+exited 1, and the restored tree exits 0. The README assertions run against a copy
+with blockquote markers stripped before whitespace flattening, so they pin the
+sentence and not where its lines happen to wrap.
+
+**`HANDOFF.md` is one document again.** It had become three passes stacked on each
+other: a preamble pointing at two feature rounds that were neither the current
+pass, a `### What this pass actually did` describing 2026-08-16 sitting above a
+`## What changed in this pass` describing 2026-08-14, the changelog viewer
+narrated twice, the ceiling stated twice, and a superseded "What is verified"
+table sitting **above** the current one. `## Repository state` opened with a
+correction saying seven remote branches and then printed the stale four-branch
+list underneath it. It now reads current state → what this branch landed → what
+remains, with every superseded table and correction ledger moved into a clearly
+labelled trailing history section. No row of the correction ledger was edited or
+deleted; a fourth block was appended recording this document's own three errors.
+
+**`HANDOFF.md` also stopped underselling the branch.** It said "No product source
+was written… this pass audited every document", which omitted the executable
+localization gate that found a real duplicate-key accessibility defect
+(`md3.wizard.current-page-description` registered twice with two different English
+texts, where `registerText` ends in an overwriting `QHash::insert`), the two
+workflow defect fixes, and the two shipped WCAG 2.2 fixes in `docs/index.html`.
+All are recorded now. Its "Next action 0" said to push one commit when eight were
+unpushed; the tally is gone and the action names
+`git log --oneline origin/main..HEAD` instead.
+
+**`README.md` finally links its own gap lists.** It never linked
+`doc/md3/CompletenessInventory.md` or `doc/md3/LocalGates.md`, while listing
+around twenty surfaces as "wired into the existing VirtualBox frontend" with no
+adjacent statement of how much is not done. Both are linked, and the scale sits
+beside that blockquote with the command that produces it: **91 rows — 33
+Implemented, 18 Partial, 39 Not implemented, 1 justified N/A**, from
+`python tools/md3/count-inventory-rows.py`.
+
+Nothing was compiled. Gate 2 was re-extracted from `md3-validation.yml` and re-run
+from the repository root under PowerShell 7.6.5 against the tree these changes are
+committed in: exit 0.
+
 ### Fixed — A second round of wrong numbers, and the brittle claims that produced them (2026-08-16)
 
 *No commit link yet.* This entry describes the commit that adds it.

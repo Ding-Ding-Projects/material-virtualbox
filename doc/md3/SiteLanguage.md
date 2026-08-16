@@ -201,6 +201,39 @@ is what it says.
 The product name `Material Virtual Machine` in the `<h1>` is untranslated in
 all three modes, deliberately.
 
+### The unsigned-driver ceiling, and why its identifier is slotted
+
+Added 2026-08-16. The page's most important sentence — **no virtual machine can
+start**, because `VBoxSup.sys` is unsigned, 64-bit Windows will not load an
+unsigned kernel driver, and code signing is permanently prohibited for this
+project — sits outside the tab strip, so it is visible whichever panel is
+selected, and it is translated like everything else on this page.
+
+It is worth reading as the reference example of the `%N` slot mechanism, because
+it is the case where getting it wrong would matter most. The paragraph is:
+
+```html
+<p id="ceiling" class="ceiling" data-md3-zh="%1 主機虛擬化驅動程式 %2 未經簽署，…">
+  <strong data-md3-zh="冇任何虛擬機開得到。">No virtual machine can start.</strong>
+  The host hypervisor driver <code>VBoxSup.sys</code> is unsigned, …
+</p>
+```
+
+`%1` is the `<strong>`, which carries its own `data-md3-zh` and is therefore
+re-texted and `lang`-tagged in Cantonese. `%2` is the `<code>`, which carries
+none — so `slotNode()` clones it unchanged and the driver name is **the same
+element, written once in the markup**, in every mode. That is the point: a
+technical identifier that is typed twice can drift, and this one names the file
+whose signature status is the whole ceiling. `md3-validation.yml` freezes its
+source occurrence count at exactly one, and asserts the `%1`/`%2` shape, so
+un-slotting it fails the build rather than passing quietly with two copies.
+
+Rendered, all three modes confirmed in headless Chrome:
+
+- **English** — `<strong>No virtual machine can start.</strong> … <code>VBoxSup.sys</code> …`, one occurrence.
+- **Cantonese** — `<strong lang="zh-HK">冇任何虛擬機開得到。</strong><span lang="zh-HK"> 主機虛擬化驅動程式 </span><code>VBoxSup.sys</code><span lang="zh-HK"> 未經簽署，…</span>`, one occurrence, every Cantonese run `lang`-tagged.
+- **Bilingual** — the English run, the `·` join, then the Cantonese run; two rendered occurrences of the identifier, both clones of the one source element.
+
 ## Verification
 
 Two independent checks were run on a Windows 11 host. **Nothing was compiled;

@@ -179,6 +179,13 @@ jobs:
           if ($readmeFlat -match '(?<!un)signed installer') { throw 'README must not claim a signed installer' }
           if ($readmeFlat -match '(?<!un)signed NSIS') { throw 'README must not claim a signed NSIS package' }
           if ($readmeFlat -notmatch 'Screenshots in this section are reserved for captures from the built native application') { throw 'README must keep the runtime-capture gate' }
+          # The ceiling belongs on README too, not only on the published site.
+          # It lives in a blockquote, so the markers are stripped before flattening
+          # -- otherwise the assertion would encode where the lines happen to wrap.
+          $readmeProse = ($readme -replace '(?m)^> ?', '') -replace '\s+', ' '
+          foreach ($pattern in @('no virtual machine can start', 'The host hypervisor driver `VBoxSup.sys` is unsigned, 64-bit Windows will not load an unsigned kernel driver, and code signing is permanently prohibited for this project.', 'It is a policy consequence, not a defect, and no installer change can resolve it.')) {
+            if ($readmeProse -notmatch [regex]::Escape($pattern)) { throw "README unsigned-driver ceiling contract missing: $pattern" }
+          }
           $pagesIndex = Get-Content docs/index.html -Raw
           foreach ($pattern in @('id="tab-overview"', 'tabindex="-1"', 'role="tabpanel" tabindex="0"', '.panel:focus-visible', 'minmax(min(230px,100%),1fr)', '@media(max-width:480px)', 'aria-labelledby="tab-coverage"', 'aria-labelledby="tab-verification"', 'event.key === ''ArrowRight''', 'event.key === ''ArrowLeft''', 'event.key === ''Home''', 'event.key === ''End''', 'panel.hidden = !selected', 'ManagerTools.md')) {
             if ($pagesIndex -notmatch [regex]::Escape($pattern)) { throw "Accessible Pages tabs contract missing: $pattern" }
@@ -218,6 +225,28 @@ jobs:
             if ($pagesIndex -notmatch [regex]::Escape($pattern)) { throw "Pages status line must render without announcing on load: $pattern" }
           }
           if ($pagesIndex -match 'innerHTML') { throw 'Pages language switcher must build nodes, not inject markup' }
+          # The unsigned-driver ceiling. Until 2026-08-16 the published site --
+          # README's very first link, and the page a newcomer actually lands on --
+          # contained zero mentions of VBoxSup, kernel drivers, or the fact that no
+          # virtual machine can start. That is the single most important thing this
+          # project has to say about itself, and it was the one thing the front door
+          # did not say. These assertions pin the English sentence and its Cantonese
+          # counterpart so neither can be silently dropped again, and the structural
+          # assertion below pins the SLOT mechanism: the driver name is a %2 slot,
+          # written once in the markup and pulled into the Cantonese run, so it is
+          # byte-identical in all three modes by construction rather than by two
+          # copies that can drift. Its occurrence count is frozen at 1 in the
+          # $pagesFacts table further down, which is what makes "written once" true
+          # rather than aspirational.
+          foreach ($pattern in @('id="ceiling"', 'No virtual machine can start.', 'The host hypervisor driver <code>VBoxSup.sys</code> is unsigned, 64-bit Windows will not load an unsigned kernel driver, and code signing is permanently prohibited for this project.', 'It is a policy consequence, not a defect, and no installer change can resolve it.')) {
+            if ($pagesIndex -notmatch [regex]::Escape($pattern)) { throw "Pages unsigned-driver ceiling contract missing: $pattern" }
+          }
+          # The Cantonese half is pinned by structure, not by repeating its words
+          # here: docs/index.html stays the single owner of the visible text, the
+          # same way the switcher labels and the middle dot are handled above. The
+          # ceiling paragraph must carry a Cantonese attribute that references both
+          # slots, and the emphasised opening clause must carry its own.
+          if ($pagesIndex -notmatch '<p id="ceiling" class="ceiling" data-md3-zh="[^"]*%1[^"]*%2[^"]*"><strong data-md3-zh="[^"]+">') { throw 'The ceiling statement must render in all three language modes with the driver name slotted, not duplicated' }
           # "Network-free" means every construct that can issue a request, not
           # just the obvious four. url( covers CSS background images, cursors and
           # @font-face src; @font-face covers a web font declared any other way.
@@ -237,6 +266,7 @@ jobs:
             'Windows SDK 10.0.26100.0' = 1
             'Qt 6.8.3' = 1
             '#6750A4' = 1
+            'VBoxSup.sys' = 1
             '152327ec9fe04455de55def8bd8e943138b75737' = 2
             'f8c3bfffb55b8c8f0f0f884645afc1f0e99ade25' = 2
           }
