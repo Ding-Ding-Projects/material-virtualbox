@@ -20,6 +20,35 @@ a published release.
 
 ## [Unreleased]
 
+### Fixed — A red CI contract and a conflicting accessibility string (2026-08-16)
+
+[`ca97ec93ccc06559d1035dd039ef56ca7b000a93`](https://github.com/Ding-Ding-Projects/material-virtualbox/commit/ca97ec93ccc06559d1035dd039ef56ca7b000a93)
+
+The Material 3 validation workflow's "Compact README contract" required the
+literal `no verified installer is published yet`. That stopped being true when
+real unsigned NSIS installers were published, so the step was failing on an
+assertion that had inverted. It is repaired rather than removed: it now pins
+the Install status heading, the published-and-unsigned claim, the named
+`VirtualBox-7.2.97-Setup.exe` artifact, the Releases URL, the SmartScreen
+disclosure and the runtime-capture gate, and it refuses a README that claims a
+"signed installer" or "signed NSIS" package without the leading "un".
+
+The same commit adds `tools/md3/check-language-registry.ps1`, the first
+executable localization gate for the `UIMd3Language` registry, and wires it
+into CI with `-MaxUnparseable 2`. Its first run found a genuine defect:
+`md3.wizard.current-page-description` was registered twice with different
+text, once by the shared MD3 wizard shell and once by `UINativeWizard`. Since
+`registerText` ends in `QHash::insert`, which overwrites, one of the two
+readers was always wrong — either the page stack's accessible description lost
+its page title, or the wizard's title label announced a literal `%1`. The
+native wizard's key is renamed to `md3.wizard.page-stack-description`.
+
+**Limits:** this is a text gate. Nothing here was compiled — there is no C++
+toolchain on the host that produced it. The gate cannot see the 41
+registrations behind the two runtime-parameterised call sites in
+`UIVirtualBoxManager.cpp`; it reports them as unchecked on every run rather
+than passing them. See [`doc/md3/LocalGates.md`](doc/md3/LocalGates.md) row 19.
+
 ### Added — Three canonical features that had no implementation at all (2026-08-14)
 
 Each of these was recorded in `doc/md3/CompletenessInventory.md` as
