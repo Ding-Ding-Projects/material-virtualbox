@@ -4,36 +4,43 @@
   <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
   <title>Material Virtual Machine · VirtualBox GUI rewrite</title>
   <style>
-    :root{color-scheme:dark;--bg:#141218;--surface:#211f26;--surface2:#2b2930;--text:#e6e0e9;--muted:#cac4d0;--primary:#d0bcff;--outline:#938f99;--ok:#8ed49d}*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font:16px/1.55 system-ui,sans-serif}main{max-width:1100px;margin:auto;padding:28px}nav{display:flex;gap:8px;flex-wrap:wrap;margin:18px 0}a{color:var(--primary);text-underline-offset:.16em}button,a.primary{border:1px solid var(--outline);border-radius:999px;padding:10px 16px;color:var(--text);background:transparent;text-decoration:none;cursor:pointer}button{min-height:48px}button[aria-selected=true],a.primary{background:var(--primary);color:#332b41;border-color:var(--primary)}button:focus-visible,a:focus-visible,.panel:focus-visible{outline:3px solid var(--primary);outline-offset:2px}.panel{background:var(--surface);border:1px solid #49454f;border-radius:24px;padding:24px;margin-top:18px}.tab{display:none}.tab.active{display:block}.status{color:var(--ok);font-weight:700}.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(230px,100%),1fr));gap:14px}.card{min-width:0;background:var(--surface2);padding:18px;border-radius:18px}.muted{color:var(--muted)}code{color:var(--primary);overflow-wrap:anywhere}@media(max-width:480px){main{padding:12px}.panel{padding:14px;border-radius:18px}.card{padding:14px}nav{gap:6px}}
+    :root{color-scheme:dark;--bg:#141218;--surface:#211f26;--surface2:#2b2930;--text:#e6e0e9;--muted:#cac4d0;--primary:#d0bcff;--outline:#938f99;--ok:#8ed49d}*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font:16px/1.55 system-ui,sans-serif}main{max-width:1100px;margin:auto;padding:28px}nav{display:flex;gap:8px;flex-wrap:wrap;margin:18px 0}a{color:var(--primary);text-underline-offset:.16em}button,a.primary{border:1px solid var(--outline);border-radius:999px;padding:10px 16px;color:var(--text);background:transparent;text-decoration:none;cursor:pointer}button{min-height:48px}button[aria-selected=true],button[aria-checked=true],a.primary{background:var(--primary);color:#332b41;border-color:var(--primary)}button:focus-visible,a:focus-visible,.panel:focus-visible{outline:3px solid var(--primary);outline-offset:2px}.panel{background:var(--surface);border:1px solid #49454f;border-radius:24px;padding:24px;margin-top:18px}.tab{display:none}.tab.active{display:block}.status{color:var(--ok);font-weight:700}.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(230px,100%),1fr));gap:14px}.card{min-width:0;background:var(--surface2);padding:18px;border-radius:18px}.muted{color:var(--muted)}code{color:var(--primary);overflow-wrap:anywhere}.langbar{display:flex;gap:8px;flex-wrap:wrap;margin:18px 0 0}.langstatus{margin:8px 0 0}.langnote{margin-top:0}[hidden]{display:none}@media(max-width:480px){main{padding:12px}.panel{padding:14px;border-radius:18px}.card{padding:14px}nav{gap:6px}.langbar{gap:6px}}@media(prefers-reduced-motion:reduce){*{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important;scroll-behavior:auto!important}}
   </style>
 </head>
 <body>
 <main>
-  <p class="status">🏃 Native Qt rewrite in progress · evidence is labelled honestly</p>
+  <p class="status" data-md3-zh="🏃 原生 Qt 重寫進行緊 · 證據老實標明">🏃 Native Qt rewrite in progress · evidence is labelled honestly</p>
   <h1>Material Virtual Machine</h1>
-  <p class="muted">A Material Design 3 presentation layer for the existing VirtualBox Manager, runtime, settings, wizards, and tools.</p>
-  <nav role="tablist" aria-label="Documentation sections" aria-orientation="horizontal">
-    <button id="tab-overview" role="tab" tabindex="0" aria-selected="true" aria-controls="overview" data-tab="overview">Overview</button>
-    <button id="tab-coverage" role="tab" tabindex="-1" aria-selected="false" aria-controls="coverage" data-tab="coverage">Coverage</button>
-    <button id="tab-verification" role="tab" tabindex="-1" aria-selected="false" aria-controls="verification" data-tab="verification">Verification</button>
+  <p class="muted" data-md3-zh="喺現有嘅 VirtualBox Manager、運行視窗、設定、精靈同工具上面，加一層 Material Design 3 外觀。">A Material Design 3 presentation layer for the existing VirtualBox Manager, runtime, settings, wizards, and tools.</p>
+  <div class="langbar" role="radiogroup" aria-label="Site language" data-md3-label-zh="網站語言" hidden>
+    <button type="button" role="radio" aria-checked="true" tabindex="0" data-md3-mode="english">English · 英文</button>
+    <button type="button" role="radio" aria-checked="false" tabindex="-1" data-md3-mode="cantonese">Cantonese · 粵語</button>
+    <button type="button" role="radio" aria-checked="false" tabindex="-1" data-md3-mode="bilingual">Bilingual · 雙語</button>
+  </div>
+  <p id="lang-status" class="muted langstatus" role="status"></p>
+  <nav role="tablist" aria-label="Documentation sections" data-md3-label-zh="文件分區" aria-orientation="horizontal">
+    <button id="tab-overview" role="tab" tabindex="0" aria-selected="true" aria-controls="overview" data-tab="overview" data-md3-zh="概覽">Overview</button>
+    <button id="tab-coverage" role="tab" tabindex="-1" aria-selected="false" aria-controls="coverage" data-tab="coverage" data-md3-zh="覆蓋範圍">Coverage</button>
+    <button id="tab-verification" role="tab" tabindex="-1" aria-selected="false" aria-controls="verification" data-tab="verification" data-md3-zh="驗證">Verification</button>
   </nav>
-  <section id="overview" class="panel tab active" role="tabpanel" tabindex="0" aria-labelledby="tab-overview"><h2>One frontend, existing VirtualBox authority</h2><div class="grid"><article class="card"><h3>Shared theme</h3><p>Seed <code>#6750A4</code>, native HCT/CAM16 tonal palettes, density, font scale, and persisted appearance values are owned by <code>UICommon</code>.</p></article><article class="card"><h3>Native surfaces</h3><p>Manager, runtime, settings, tools, and wizards stay on their existing Qt models, action pools, COM/XPCOM contracts, and lifecycle. The <a href="CodexHandoff.md">native implementation handoff</a> records precedence, target ownership, evidence boundaries, and the remaining order.</p></article><article class="card"><h3>No fake evidence</h3><p>Runtime screenshots and installer links appear only after a built artifact is captured and independently verified.</p></article></div></section>
+  <section id="overview" class="panel tab active" role="tabpanel" tabindex="0" aria-labelledby="tab-overview"><h2 data-md3-zh="一個前端，權威照舊喺 VirtualBox 手上">One frontend, existing VirtualBox authority</h2><p class="muted langnote" hidden data-md3-zh="下面嘅詳細內容同所有連結去嘅文件，暫時仲係英文。">The detailed sections below and every linked document stay in English for now.</p><div class="grid"><article class="card"><h3 data-md3-zh="共用主題">Shared theme</h3><p data-md3-zh="種子色 %1、原生 HCT/CAM16 色調板、密度、字體比例，同埋已儲存嘅外觀數值，全部由 %2 話事。">Seed <code>#6750A4</code>, native HCT/CAM16 tonal palettes, density, font scale, and persisted appearance values are owned by <code>UICommon</code>.</p></article><article class="card"><h3 data-md3-zh="原生介面">Native surfaces</h3><p data-md3-zh="Manager、運行視窗、設定、工具同精靈，一律留喺原本嘅 Qt 模型、action pool、COM/XPCOM 合約同生命週期上面。%1 記錄咗優先次序、目標歸屬、證據界線，同埋餘下嘅工序。">Manager, runtime, settings, tools, and wizards stay on their existing Qt models, action pools, COM/XPCOM contracts, and lifecycle. The <a href="CodexHandoff.md" data-md3-zh="原生實作交接文件">native implementation handoff</a> records precedence, target ownership, evidence boundaries, and the remaining order.</p></article><article class="card"><h3 data-md3-zh="冇假證據">No fake evidence</h3><p data-md3-zh="要真係建置出嚟嘅產物影到相，又獨立驗證過，先會出運行截圖同安裝程式連結。">Runtime screenshots and installer links appear only after a built artifact is captured and independently verified.</p></article></div></section>
   <section id="coverage" class="panel tab" role="tabpanel" tabindex="0" aria-labelledby="tab-coverage" hidden>
-  <h2>Design coverage</h2>
-  <p>The checked-in archive has 69 entries. The ledger and reproducible hashes are maintained in <a href="DesignCoverage.md">DesignCoverage.md</a> and <a href="ArchiveManifest.sha256">ArchiveManifest.sha256</a>.</p>
+  <h2 data-md3-zh="設計覆蓋範圍">Design coverage</h2>
+  <p class="muted langnote" hidden data-md3-zh="下面嘅詳細內容同所有連結去嘅文件，暫時仲係英文。">The detailed sections below and every linked document stay in English for now.</p>
+  <p data-md3-zh="已入庫嘅封存有 %1 條記錄。帳目同可重現嘅雜湊值，喺 %2 同 %3 度維護。">The checked-in archive has <span>69</span> entries. The ledger and reproducible hashes are maintained in <a href="DesignCoverage.md">DesignCoverage.md</a> and <a href="ArchiveManifest.sha256">ArchiveManifest.sha256</a>.</p>
   <div class="grid">
-    <article class="card"><h3>Settings shell</h3><p>Global Preferences and per-machine Settings now show one real page at a time in a bounded Material selector and card. Search deliberately switches to cross-page results, while a collapsed global-only disclosure keeps language and appearance controls out of Machine Settings. Read <a href="SettingsShell.md">SettingsShell.md</a> and <a href="SettingsSearch.md">SettingsSearch.md</a>.</p></article>
-    <article class="card"><h3>Full regex builder</h3><p>Every Material search field owns a plain-text-first, adjacent builder with guided literals, classes, anchors, groups, alternation and numeric quantifiers; raw PCRE2-compatible syntax and flags; bounded asynchronous match/capture preview; copy and atomic JSON export; accessible announcements; and viewport-bounded scrolling. Read <a href="RegexBuilder.md">RegexBuilder.md</a>.</p></article>
-    <article class="card"><h3>Appearance settings</h3><p>Global Preferences exposes persisted scheme, seed, density, font-scale, installed font-family, global/inherited font-weight, and display-brand controls through a collapsed, single-column customization panel backed by the shared theme service. Read <a href="AppearanceSettings.md">AppearanceSettings.md</a>; native capture remains deferred in the current task.</p></article>
-    <article class="card"><h3>HCT tonal palettes</h3><p>Material color roles are generated through a native HCT/CAM16 core-palette implementation rather than an HSL stand-in. The compiled testcase exercises 127 reference, gamut, contrast, and stability checks. Read <a href="TonalPalette.md">TonalPalette.md</a>.</p></article>
-    <article class="card"><h3>Stock-control style</h3><p>The shared Qt proxy style applies Material semantic colors, typography, shape, state layers, focus treatment, disabled presentation, and bounded control anatomy to existing buttons, fields, choices, tabs, menus, lists, headers, sliders, scroll bars, progress, toolbars, status bars, and group-box frames without replacing their behavior. Read <a href="StockControlStyle.md">StockControlStyle.md</a>.</p></article>
-    <article class="card"><h3>Command palette</h3><p>The manager binds <kbd>Ctrl+Shift+F</kbd> to live, searchable commands with focus return and stale-handler cleanup. Read <a href="CommandPalette.md">CommandPalette.md</a>; native capture remains deferred in the current task.</p></article>
-    <article class="card"><h3>Manager shell</h3><p>The responsive production composition uses a 48-pixel title bar, 48-pixel on-demand workspace strip, 92-pixel desktop rail, compact searchable navigation below 1000 logical pixels, contextual destination actions, and bounded Machines cards without replacing existing VirtualBox models. Read <a href="ManagerShell.md">ManagerShell.md</a>.</p></article>
-    <article class="card"><h3>Manager tools</h3><p>Extensions, Media, Network, Cloud, and VM Activity Overview share one persistent Material plain-text/regex search and appearance card over their real item views. Original hidden rows are restored, live model refresh is bounded, and the embedded Media toolbar no longer repeats the search action. Read <a href="ManagerTools.md">ManagerTools.md</a>; bulk actions, export, Logs, detached managers, and native capture remain open.</p></article>
-    <article class="card"><h3>Manager navigation</h3><p>The 92-pixel Material rail uses stacked destinations in the prototype order, opens workspaces on demand, includes Preferences in focus traversal, explains unavailable destinations, recolors icons for the active Material role and display scale, and keeps the real tool model and restrictions authoritative. Stable <code>md3.tool.*</code> keys refresh English, Cantonese, bilingual, and independent funny-level presentation. Read <a href="NavigationRail.md">NavigationRail.md</a>.</p></article>
-    <article class="card"><h3>Tabbed manager</h3><p>The 48-pixel native strip opens destinations on demand, preserves customized state, reveals overflow and collapsed-group results, exposes real accessible page-tab/action controls, and persists a bounded reconciled model per surface. <kbd>Ctrl+Shift+T</kbd> opens independent current-strip, group-name, per-group, and all-window searches; two additional fields provide pinned-safe containing/inverse close previews that are re-resolved before execution. Read <a href="TabNavigation.md">TabNavigation.md</a>.</p></article>
-    <article class="card"><h3>Notification center</h3><p>The existing center filters real names, details, internal names, and help keywords, while non-blocking records are retained in a bounded searchable local history model. The manager header's Notifications button opens that review surface and shows an unread marker; rows support filtered selection, selected-read updates, bounded JSON export, an app-owned Clear history gate with two acknowledgements and a full-range slider, and one-step Undo last clear recovery. Persistent model, language, and theme connections are idempotent, and each mutation now reaches the modeless list through one <code>sigChanged()</code> refresh path. The shared <a href="History.md">local history journal</a> records clear/restore/change revisions with an atomic fallback; <kbd>Ctrl+H</kbd> or the command palette opens searchable action/date-filtered revisions with plain-text-first search, the anchored regex builder, JSONL export, integrity verification, and validated Restore selected state routing for notification and appearance/theme revisions. Read <a href="NotificationCentre.md">NotificationCentre.md</a> and <a href="History.md">History.md</a>; settings/runtime restore adapters, dismiss/delete, provider-authored rendering, and native capture remain open.</p></article>
-    <article class="card"><h3>Wizard shell</h3><p>Existing New VM/New VD/clone/import/export pages now sit inside a responsive Material 3 step rail and bounded page card. Below 720 logical pixels the rail collapses while the real page title, progress, scrollable page stack, and 48-pixel native action row remain available. Hidden Basic/Expert pages stay out of the visible step catalog without changing validation or progress ownership. Read <a href="WizardShell.md">WizardShell.md</a>; native capture remains deferred.</p></article>
+    <article class="card"><h3 data-md3-zh="設定外殼">Settings shell</h3><p>Global Preferences and per-machine Settings now show one real page at a time in a bounded Material selector and card. Search deliberately switches to cross-page results, while a collapsed global-only disclosure keeps language and appearance controls out of Machine Settings. Read <a href="SettingsShell.md">SettingsShell.md</a> and <a href="SettingsSearch.md">SettingsSearch.md</a>.</p></article>
+    <article class="card"><h3 data-md3-zh="完整正則表達式建立器">Full regex builder</h3><p>Every Material search field owns a plain-text-first, adjacent builder with guided literals, classes, anchors, groups, alternation and numeric quantifiers; raw PCRE2-compatible syntax and flags; bounded asynchronous match/capture preview; copy and atomic JSON export; accessible announcements; and viewport-bounded scrolling. Read <a href="RegexBuilder.md">RegexBuilder.md</a>.</p></article>
+    <article class="card"><h3 data-md3-zh="外觀設定">Appearance settings</h3><p>Global Preferences exposes persisted scheme, seed, density, font-scale, installed font-family, global/inherited font-weight, and display-brand controls through a collapsed, single-column customization panel backed by the shared theme service. Read <a href="AppearanceSettings.md">AppearanceSettings.md</a>; native capture remains deferred in the current task.</p></article>
+    <article class="card"><h3 data-md3-zh="HCT 色調板">HCT tonal palettes</h3><p>Material color roles are generated through a native HCT/CAM16 core-palette implementation rather than an HSL stand-in. The compiled testcase exercises 127 reference, gamut, contrast, and stability checks. Read <a href="TonalPalette.md">TonalPalette.md</a>.</p></article>
+    <article class="card"><h3 data-md3-zh="原生控制項樣式">Stock-control style</h3><p>The shared Qt proxy style applies Material semantic colors, typography, shape, state layers, focus treatment, disabled presentation, and bounded control anatomy to existing buttons, fields, choices, tabs, menus, lists, headers, sliders, scroll bars, progress, toolbars, status bars, and group-box frames without replacing their behavior. Read <a href="StockControlStyle.md">StockControlStyle.md</a>.</p></article>
+    <article class="card"><h3 data-md3-zh="命令面板">Command palette</h3><p>The manager binds <kbd>Ctrl+Shift+F</kbd> to live, searchable commands with focus return and stale-handler cleanup. Read <a href="CommandPalette.md">CommandPalette.md</a>; native capture remains deferred in the current task.</p></article>
+    <article class="card"><h3 data-md3-zh="管理員外殼">Manager shell</h3><p>The responsive production composition uses a 48-pixel title bar, 48-pixel on-demand workspace strip, 92-pixel desktop rail, compact searchable navigation below 1000 logical pixels, contextual destination actions, and bounded Machines cards without replacing existing VirtualBox models. Read <a href="ManagerShell.md">ManagerShell.md</a>.</p></article>
+    <article class="card"><h3 data-md3-zh="管理員工具">Manager tools</h3><p>Extensions, Media, Network, Cloud, and VM Activity Overview share one persistent Material plain-text/regex search and appearance card over their real item views. Original hidden rows are restored, live model refresh is bounded, and the embedded Media toolbar no longer repeats the search action. Read <a href="ManagerTools.md">ManagerTools.md</a>; bulk actions, export, Logs, detached managers, and native capture remain open.</p></article>
+    <article class="card"><h3 data-md3-zh="管理員導覽">Manager navigation</h3><p>The 92-pixel Material rail uses stacked destinations in the prototype order, opens workspaces on demand, includes Preferences in focus traversal, explains unavailable destinations, recolors icons for the active Material role and display scale, and keeps the real tool model and restrictions authoritative. Stable <code>md3.tool.*</code> keys refresh English, Cantonese, bilingual, and independent funny-level presentation. Read <a href="NavigationRail.md">NavigationRail.md</a>.</p></article>
+    <article class="card"><h3 data-md3-zh="分頁式管理員">Tabbed manager</h3><p>The 48-pixel native strip opens destinations on demand, preserves customized state, reveals overflow and collapsed-group results, exposes real accessible page-tab/action controls, and persists a bounded reconciled model per surface. <kbd>Ctrl+Shift+T</kbd> opens independent current-strip, group-name, per-group, and all-window searches; two additional fields provide pinned-safe containing/inverse close previews that are re-resolved before execution. Read <a href="TabNavigation.md">TabNavigation.md</a>.</p></article>
+    <article class="card"><h3 data-md3-zh="通知中心">Notification center</h3><p>The existing center filters real names, details, internal names, and help keywords, while non-blocking records are retained in a bounded searchable local history model. The manager header's Notifications button opens that review surface and shows an unread marker; rows support filtered selection, selected-read updates, bounded JSON export, an app-owned Clear history gate with two acknowledgements and a full-range slider, and one-step Undo last clear recovery. Persistent model, language, and theme connections are idempotent, and each mutation now reaches the modeless list through one <code>sigChanged()</code> refresh path. The shared <a href="History.md">local history journal</a> records clear/restore/change revisions with an atomic fallback; <kbd>Ctrl+H</kbd> or the command palette opens searchable action/date-filtered revisions with plain-text-first search, the anchored regex builder, JSONL export, integrity verification, and validated Restore selected state routing for notification and appearance/theme revisions. Read <a href="NotificationCentre.md">NotificationCentre.md</a> and <a href="History.md">History.md</a>; settings/runtime restore adapters, dismiss/delete, provider-authored rendering, and native capture remain open.</p></article>
+    <article class="card"><h3 data-md3-zh="精靈外殼">Wizard shell</h3><p>Existing New VM/New VD/clone/import/export pages now sit inside a responsive Material 3 step rail and bounded page card. Below 720 logical pixels the rail collapses while the real page title, progress, scrollable page stack, and 48-pixel native action row remain available. Hidden Basic/Expert pages stay out of the visible step catalog without changing validation or progress ownership. Read <a href="WizardShell.md">WizardShell.md</a>; native capture remains deferred.</p></article>
   </div>
   <p class="muted">Wizard accessibility names the real page stack and Back/Next/Finish/Cancel/Help actions, and announces current, completed, and upcoming step states. Cross-wizard tabs, full validation-summary details, runtime accessibility-tree captures, and native capture remain open.</p>
   <p class="muted">Legacy notification rows expose accessible names, visible keyboard focus, and Enter/Return/Space details disclosure; complete row selection and restore semantics remain open. Read <a href="NotificationCentre.md">NotificationCentre.md</a> for the bounded search and history contract.</p>
@@ -41,16 +48,17 @@
   <p class="muted">The command palette groups live manager commands by category, exposes the seven real global-tool destinations, preserves stable command IDs, explains disabled action-pool and tool state through focusable unavailable rows, refreshes English/Cantonese/bilingual copy through <code>UIMd3Language</code>, and supports bounded Up/Down keyboard navigation on narrow screens. Read <a href="CommandPalette.md">CommandPalette.md</a>; native capture remains deferred.</p>
 </section>
   <section id="verification" class="panel tab" role="tabpanel" tabindex="0" aria-labelledby="tab-verification" hidden>
-    <h2>Verification state</h2>
+    <h2 data-md3-zh="驗證狀態">Verification state</h2>
+    <p class="muted langnote" hidden data-md3-zh="下面嘅詳細內容同所有連結去嘅文件，暫時仲係英文。">The detailed sections below and every linked document stay in English for now.</p>
     <p>The current evidence is a <strong>commit-attributed local Windows x64 build</strong> from exact settings-shell source commit <a href="https://github.com/Ding-Ding-Projects/material-virtualbox/commit/152327ec9fe04455de55def8bd8e943138b75737"><code>152327ec9fe04455de55def8bd8e943138b75737</code></a>. It used MSVC 14.44, Windows SDK 10.0.26100.0, Qt 6.8.3 with the official <code>qtscxml</code> add-on, and the bundled kBuild executable.</p>
     <div class="grid">
-      <article class="card"><h3><code>UICommon</code></h3><p>Exit 0 · changed settings source compiled and linked · 2026-08-09 14:55:25 UTC-04:00</p><p><code>BC308CC34B9C8D749E67C0C625159E23C5EB9067EBF1B3E472DAB26E6D342893</code></p></article>
-      <article class="card"><h3><code>VirtualBox</code></h3><p>Exit 0 · dependency-current · 2026-08-09 14:45:57 UTC-04:00</p><p><code>127314B61C157DB98DF75990A10AE76E6216B135F614193BB1876E81CBC1FC0B</code></p></article>
-      <article class="card"><h3><code>VirtualBoxVM</code></h3><p>Exit 0 · dependency-current · 2026-08-09 14:46:24 UTC-04:00</p><p><code>2B6075A37083CCA25AE2DAB113C3B20A1136F76E35F8F864A0F93ACD4AA13F22</code></p></article>
+      <article class="card"><h3><code>UICommon</code></h3><p>Exit 0 · <span data-md3-zh="改咗嘅設定原始碼編譯同連結成功">changed settings source compiled and linked</span> · 2026-08-09 14:55:25 UTC-04:00</p><p><code>BC308CC34B9C8D749E67C0C625159E23C5EB9067EBF1B3E472DAB26E6D342893</code></p></article>
+      <article class="card"><h3><code>VirtualBox</code></h3><p>Exit 0 · <span data-md3-zh="相依項目已係最新">dependency-current</span> · 2026-08-09 14:45:57 UTC-04:00</p><p><code>127314B61C157DB98DF75990A10AE76E6216B135F614193BB1876E81CBC1FC0B</code></p></article>
+      <article class="card"><h3><code>VirtualBoxVM</code></h3><p>Exit 0 · <span data-md3-zh="相依項目已係最新">dependency-current</span> · 2026-08-09 14:46:24 UTC-04:00</p><p><code>2B6075A37083CCA25AE2DAB113C3B20A1136F76E35F8F864A0F93ACD4AA13F22</code></p></article>
     </div>
     <p>These results prove compilation and linking for that exact source commit, not a runtime launch or release. CI-only correction <a href="https://github.com/Ding-Ding-Projects/material-virtualbox/commit/f8c3bfffb55b8c8f0f0f884645afc1f0e99ade25"><code>f8c3bfffb55b8c8f0f0f884645afc1f0e99ade25</code></a> completed validation <a href="https://github.com/Ding-Ding-Projects/material-virtualbox/actions/runs/31330546183">run 31330546183</a> and Pages <a href="https://github.com/Ding-Ding-Projects/material-virtualbox/actions/runs/31330546180">run 31330546180</a> successfully; the deployed Home page and <code>SettingsShell.md</code> returned HTTP 200 with the new content. Native settings interaction and visual capture, dockable/reorderable settings tabs, runtime adoption, and complete accessibility flows remain pending.</p>
   </section>
-  <p class="muted">Repository: <a href="https://github.com/Ding-Ding-Projects/material-virtualbox">material-virtualbox</a></p>
+  <p class="muted" data-md3-zh="程式庫：%1">Repository: <a href="https://github.com/Ding-Ding-Projects/material-virtualbox">material-virtualbox</a></p>
 </main>
 <script>
   const tabs = [...document.querySelectorAll('[role=tab]')];
@@ -85,5 +93,144 @@
       activateTab(tabs[target], true);
     });
   });
+</script>
+<script>
+  // Site language switcher. Mirrors src/VBox/Frontends/VirtualBox/src/md3/UIMd3Language.cpp:
+  // three modes in the same order as UIMd3LanguageMode, the same "%1 · %2" bilingual join,
+  // the same "empty Cantonese falls back to English" rule, and the same English default.
+  // English is the literal DOM text, so the page stays complete and readable without JS.
+  // Cantonese lives only in data-md3-zh attributes; %1..%9 are slots for the untouched
+  // original child elements, so every hash, version, file name and URL is written once.
+  (function () {
+    const MODES = ['english', 'cantonese', 'bilingual'];
+    const BILINGUAL_JOIN = ' · ';
+    const ZH_LANG = 'zh-HK';
+    const MODE_NAMES = { english: ['English', '英文'], cantonese: ['Cantonese', '粵語'], bilingual: ['Bilingual', '雙語'] };
+    const STATUS_PREFIX = ['Language mode: ', '語言模式：'];
+    const TITLE_ZH = 'Material Virtual Machine · VirtualBox 圖形介面重寫';
+
+    const group = document.querySelector('[role=radiogroup]');
+    if (!group) return;
+    const radios = [...group.querySelectorAll('[role=radio]')];
+    if (!radios.length) return;
+    const statusLine = document.getElementById('lang-status');
+    const titleEnglish = document.title;
+
+    function storedMode() {
+      let raw = null;
+      try { raw = localStorage.getItem('md3.language.mode'); } catch (error) { raw = null; }
+      const parsed = parseInt(raw, 10);
+      // qBound(0, QString::toInt(), 2): an unparseable value is 0, which is English.
+      return MODES[Math.min(2, Math.max(0, Number.isFinite(parsed) ? parsed : 0))];
+    }
+    function storeMode(mode) {
+      // Storage can be unavailable or full; the switcher must still work for this page view.
+      try { localStorage.setItem('md3.language.mode', String(MODES.indexOf(mode))); } catch (error) { return; }
+    }
+
+    function cantoneseRun(text) {
+      const span = document.createElement('span');
+      span.lang = ZH_LANG;
+      span.textContent = text;
+      return span;
+    }
+    function slotNode(element, cantonese) {
+      const clone = element.cloneNode(true);
+      const nested = clone.getAttribute('data-md3-zh');
+      if (cantonese && nested) {
+        clone.lang = ZH_LANG;
+        clone.textContent = nested;
+      }
+      clone.removeAttribute('data-md3-zh');
+      return clone;
+    }
+    function englishNodes(record) {
+      return record.nodes.map(node => node.nodeType === 1 ? slotNode(node, false) : node.cloneNode(true));
+    }
+    function cantoneseNodes(record) {
+      const built = [];
+      for (const chunk of record.cantonese.split(/(%\d)/)) {
+        if (!chunk) continue;
+        const slot = /^%(\d)$/.exec(chunk);
+        if (slot) {
+          const element = record.slots[Number(slot[1]) - 1];
+          if (element) built.push(slotNode(element, true));
+          continue;
+        }
+        built.push(cantoneseRun(chunk));
+      }
+      return built;
+    }
+
+    const records = [...document.querySelectorAll('[data-md3-zh]')]
+      .filter(element => !element.parentElement || !element.parentElement.closest('[data-md3-zh]'))
+      .map(element => ({ element: element, cantonese: element.getAttribute('data-md3-zh'), nodes: [...element.childNodes], slots: [...element.children] }));
+    const labels = [...document.querySelectorAll('[data-md3-label-zh]')]
+      .map(element => ({ element: element, english: element.getAttribute('aria-label'), cantonese: element.getAttribute('data-md3-label-zh') }));
+    const notes = [...document.querySelectorAll('.langnote')];
+
+    function bilingual(english, cantonese) { return english + BILINGUAL_JOIN + cantonese; }
+
+    function render(mode) {
+      for (const record of records) {
+        if (mode === 'cantonese') record.element.replaceChildren(...cantoneseNodes(record));
+        else if (mode === 'bilingual') record.element.replaceChildren(...englishNodes(record), document.createTextNode(BILINGUAL_JOIN), ...cantoneseNodes(record));
+        else record.element.replaceChildren(...englishNodes(record));
+      }
+      for (const label of labels) {
+        if (mode === 'cantonese') label.element.setAttribute('aria-label', label.cantonese);
+        else if (mode === 'bilingual') label.element.setAttribute('aria-label', bilingual(label.english, label.cantonese));
+        else label.element.setAttribute('aria-label', label.english);
+      }
+      for (const note of notes) note.hidden = mode === 'english';
+      if (mode === 'cantonese') document.title = TITLE_ZH;
+      else if (mode === 'bilingual') document.title = bilingual(titleEnglish, TITLE_ZH);
+      else document.title = titleEnglish;
+      for (const radio of radios) {
+        const selected = radio.dataset.md3Mode === mode;
+        radio.setAttribute('aria-checked', String(selected));
+        radio.tabIndex = selected ? 0 : -1;
+      }
+    }
+
+    function announce(mode) {
+      if (!statusLine) return;
+      const name = MODE_NAMES[mode];
+      statusLine.replaceChildren();
+      if (mode === 'cantonese') statusLine.append(cantoneseRun(STATUS_PREFIX[1] + name[1]));
+      else if (mode === 'bilingual') statusLine.append(document.createTextNode(STATUS_PREFIX[0] + name[0] + BILINGUAL_JOIN), cantoneseRun(STATUS_PREFIX[1] + name[1]));
+      else statusLine.append(document.createTextNode(STATUS_PREFIX[0] + name[0]));
+    }
+
+    function selectMode(mode, moveFocus) {
+      render(mode);
+      storeMode(mode);
+      announce(mode);
+      if (!moveFocus) return;
+      const target = radios.find(radio => radio.dataset.md3Mode === mode);
+      if (target) target.focus();
+    }
+
+    radios.forEach((radio, index) => {
+      radio.addEventListener('click', () => selectMode(radio.dataset.md3Mode, false));
+      radio.addEventListener('keydown', event => {
+        let target = index;
+        if (event.key === 'ArrowRight' || event.key === 'ArrowDown') target = (index + 1) % radios.length;
+        else if (event.key === 'ArrowLeft' || event.key === 'ArrowUp') target = (index - 1 + radios.length) % radios.length;
+        else if (event.key === 'Home') target = 0;
+        else if (event.key === 'End') target = radios.length - 1;
+        else if (event.key === 'Enter' || event.key === ' ') {
+          event.preventDefault();
+          selectMode(radio.dataset.md3Mode, false);
+          return;
+        } else return;
+        event.preventDefault();
+        selectMode(radios[target].dataset.md3Mode, true);
+      });
+    });
+
+    group.hidden = false;
+    render(storedMode());
+  })();
 </script>
 </body></html>

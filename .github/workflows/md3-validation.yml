@@ -183,6 +183,36 @@ jobs:
           foreach ($pattern in @('id="tab-overview"', 'tabindex="-1"', 'role="tabpanel" tabindex="0"', '.panel:focus-visible', 'minmax(min(230px,100%),1fr)', '@media(max-width:480px)', 'aria-labelledby="tab-coverage"', 'aria-labelledby="tab-verification"', 'event.key === ''ArrowRight''', 'event.key === ''ArrowLeft''', 'event.key === ''Home''', 'event.key === ''End''', 'panel.hidden = !selected', 'ManagerTools.md')) {
             if ($pagesIndex -notmatch [regex]::Escape($pattern)) { throw "Accessible Pages tabs contract missing: $pattern" }
           }
+          # Documentation-site language switcher. It mirrors UIMd3Language's three
+          # modes, so the assertions below pin the mode list, the U+00B7 bilingual
+          # join, the persistence key, and the radiogroup ARIA the switcher needs in
+          # order to stay operable by keyboard and distinct from the tab strip.
+          foreach ($pattern in @('role="radiogroup"', 'aria-checked', 'button[aria-checked=true]', 'data-md3-zh', 'data-md3-label-zh', 'data-md3-mode', 'role="radio"', 'role="status"', 'MODES = [''english'', ''cantonese'', ''bilingual'']', 'localStorage.getItem(''md3.language.mode'')', 'localStorage.setItem(''md3.language.mode''', '''zh-HK''', '@media(prefers-reduced-motion:reduce)')) {
+            if ($pagesIndex -notmatch [regex]::Escape($pattern)) { throw "Pages language switcher contract missing: $pattern" }
+          }
+          $bilingualJoin = 'BILINGUAL_JOIN = '' ' + [char]0x00B7 + ' '''
+          if ($pagesIndex -notmatch [regex]::Escape($bilingualJoin)) { throw 'Pages bilingual join must stay the UIMd3Language "%1 · %2" middle dot' }
+          if ($pagesIndex -match 'innerHTML') { throw 'Pages language switcher must build nodes, not inject markup' }
+          if ($pagesIndex -match '<script src|<link |@import|fetch\(|XMLHttpRequest') { throw 'The documentation site must stay network-free' }
+          if ([regex]::Matches($pagesIndex, 'role="tab"').Count -ne 3) { throw 'The language switcher must not join the tablist' }
+          # Every technical fact keeps its exact source occurrence count, so no
+          # language mode can carry a second, drifting copy of it. The commit SHAs
+          # occur twice each on purpose: once in the href, once as visible code.
+          $pagesFacts = [ordered]@{
+            'BC308CC34B9C8D749E67C0C625159E23C5EB9067EBF1B3E472DAB26E6D342893' = 1
+            '127314B61C157DB98DF75990A10AE76E6216B135F614193BB1876E81CBC1FC0B' = 1
+            '2B6075A37083CCA25AE2DAB113C3B20A1136F76E35F8F864A0F93ACD4AA13F22' = 1
+            'MSVC 14.44' = 1
+            'Windows SDK 10.0.26100.0' = 1
+            'Qt 6.8.3' = 1
+            '#6750A4' = 1
+            '152327ec9fe04455de55def8bd8e943138b75737' = 2
+            'f8c3bfffb55b8c8f0f0f884645afc1f0e99ade25' = 2
+          }
+          foreach ($fact in $pagesFacts.Keys) {
+            $seen = [regex]::Matches($pagesIndex, [regex]::Escape($fact)).Count
+            if ($seen -ne $pagesFacts[$fact]) { throw "Technical fact must appear exactly $($pagesFacts[$fact]) time(s) so language modes cannot diverge: $fact (found $seen)" }
+          }
           $managerWidget = Get-Content src/VBox/Frontends/VirtualBox/src/manager/UIVirtualBoxWidget.cpp -Raw
           $managerWidgetHeader = Get-Content src/VBox/Frontends/VirtualBox/src/manager/UIVirtualBoxWidget.h -Raw
           foreach ($pattern in @('isGlobalToolEnabled', 'isMenuToolEnabled')) {
