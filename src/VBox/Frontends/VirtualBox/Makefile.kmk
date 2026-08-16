@@ -746,6 +746,7 @@ UICommon_QT_MOCHDRS = \
 	src/md3/UIMd3Widget.h \
 	src/md3/UIMd3Tokens.h \
 	src/md3/UIMd3Language.h \
+	src/md3/UIMd3DialogEmoji.h \
 	src/md3/UIMd3Theme.h \
 	src/md3/UIMd3Style.h \
 	src/md3/UIMd3RegexBuilder.h \
@@ -1349,6 +1350,7 @@ UICommon_SOURCES = \
 	src/VBoxLicenseViewer.cpp \
 	src/UITakeSnapshotDialog.cpp \
 	src/md3/UIMd3Language.cpp \
+	src/md3/UIMd3DialogEmoji.cpp \
 	src/md3/UIMd3Hct.cpp \
 	src/md3/UIMd3Theme.cpp \
 	src/md3/UIMd3Style.cpp \

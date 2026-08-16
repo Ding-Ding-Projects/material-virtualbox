@@ -47,6 +47,7 @@
 #include "QIToolButton.h"
 #include "UIHelpBrowserDialog.h"
 #include "UIIconPool.h"
+#include "UIMd3DialogEmoji.h"
 #include "UINotificationMessage.h"
 #include "UINotificationObject.h"
 #include "UINotificationObjectItem.h"
@@ -217,7 +218,7 @@ void UINotificationObjectItem::prepareWidgets()
             QFont myFont = m_pLabelDetails->font();
             myFont.setPointSize(myFont.pointSize() - 1);
             m_pLabelDetails->setBrowserFont(myFont);
-            m_pLabelDetails->setText(m_pObject->details());
+            m_pLabelDetails->setText(decoratedDetailsText());
             m_pLabelDetails->setVisible(m_fToggled && !m_pLabelDetails->text().isEmpty());
             m_pLabelDetails->setSizePolicy(QSizePolicy::Ignored, QSizePolicy::Minimum);
 
@@ -248,6 +249,12 @@ void UINotificationObjectItem::prepareConnections()
     if (UITranslationEventListener::instance())
         connect(&translationEventListener(), &UITranslationEventListener::sigRetranslateUI,
             this, &UINotificationObjectItem::sltRetranslateUI);
+
+    /* Keep the details text in step with the "Show emojis in dialogs and
+     * message boxes" preference for as long as this row stays on screen: */
+    if (UIMd3DialogEmoji::instance())
+        connect(UIMd3DialogEmoji::instance(), &UIMd3DialogEmoji::sigDialogEmojiChanged,
+            this, &UINotificationObjectItem::sltHandleDialogEmojiChanged);
 }
 
 bool UINotificationObjectItem::event(QEvent *pEvent)
@@ -406,6 +413,41 @@ void UINotificationObjectItem::sltHandleHelpRequest()
     UIHelpBrowserDialog::findManualFileAndShow("helpkeyword");
 }
 
+void UINotificationObjectItem::sltHandleDialogEmojiChanged()
+{
+    /* Nothing to refresh before the details label exists: */
+    if (!m_pLabelDetails)
+        return;
+
+    /* Only the text depends on the preference; visibility (collapsed/toggled,
+     * empty details) is independent state we must not disturb here: */
+    const bool fWasVisible = m_pLabelDetails->isVisible();
+    m_pLabelDetails->setText(decoratedDetailsText());
+    m_pLabelDetails->setVisible(fWasVisible);
+}
+
+QString UINotificationObjectItem::decoratedDetailsText() const
+{
+    const QString strDetails = m_pObject->details();
+
+    /* Map the same classification already used for the standard message-box
+     * icon (standardPixmap() above) onto a decoration kind.  Progress and
+     * downloader items report NotificationType_Unknown -- they carry no
+     * message-box icon and are not "a dialog or message box" in the
+     * house-contract sense, so their text is deliberately left untouched. */
+    UIMd3DialogEmojiKind enmKind;
+    switch (internalObject()->objType())
+    {
+        case NotificationType_Info:           enmKind = UIMd3DialogEmojiKind_Info; break;
+        case NotificationType_Question:       enmKind = UIMd3DialogEmojiKind_Question; break;
+        case NotificationType_Warning:        enmKind = UIMd3DialogEmojiKind_Warning; break;
+        case NotificationType_Critical:       enmKind = UIMd3DialogEmojiKind_Critical; break;
+        case NotificationType_GuruMeditation: enmKind = UIMd3DialogEmojiKind_GuruMeditation; break;
+        default:                              return strDetails;
+    }
+
+    return UIMd3DialogEmoji::instance() ? UIMd3DialogEmoji::instance()->decorate(strDetails, enmKind) : strDetails;
+}
 
 /*********************************************************************************************************************************
 *   Class UINotificationMessageItem implementation.                                                                              *

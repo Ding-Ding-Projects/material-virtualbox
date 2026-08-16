@@ -39,6 +39,7 @@
 #include "UIMd3Theme.h"
 #include "UIMd3Style.h"
 #include "UIMd3Language.h"
+#include "UIMd3DialogEmoji.h"
 #include "UIMd3History.h"
 #include "UIMd3NotificationCentre.h"
 #include "UILoggingDefs.h"
@@ -596,6 +597,7 @@ extern "C" DECLEXPORT(int) TrustedMain(int argc, char **argv, char ** /*envp*/)
         UIMd3Theme::create();
         UIMd3Style::install();
         UIMd3Language::create();
+        UIMd3DialogEmoji::create();
         UIMd3History::create();
         UIMd3NotificationCentre::create();
 
@@ -632,6 +634,7 @@ extern "C" DECLEXPORT(int) TrustedMain(int argc, char **argv, char ** /*envp*/)
         UIMd3NotificationCentre::destroy();
         UIMd3History::destroy();
         UIMd3Theme::destroy();
+        UIMd3DialogEmoji::destroy();
         UIMd3Language::destroy();
 
         /* Destroy global app instance: */

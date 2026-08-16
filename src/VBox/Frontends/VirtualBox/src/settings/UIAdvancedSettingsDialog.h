@@ -351,6 +351,8 @@ private:
         QComboBox *m_pMd3FontWeight;
         /** Holds the Material compact-density control. */
         QCheckBox *m_pMd3Compact;
+        /** Holds the "Show emojis in dialogs and message boxes" control. */
+        QCheckBox *m_pMd3DialogEmojis;
         /** Holds the user-facing Material brand editor. */
         QLineEdit *m_pMd3Brand;
 

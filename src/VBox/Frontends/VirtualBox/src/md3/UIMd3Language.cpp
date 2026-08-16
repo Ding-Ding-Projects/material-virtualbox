@@ -117,6 +117,14 @@ UIMd3Language::UIMd3Language()
     registerText(QStringLiteral("md3.appearance.search-menu"),
                  QStringLiteral("Search this appearance menu"),
                  QStringLiteral("搜尋呢個外觀選單"));
+    registerText(QStringLiteral("md3.settings.dialog-emojis"),
+                 QStringLiteral("Show emojis in dialogs and message boxes"),
+                 QStringLiteral("對話框同訊息框顯示表情符號"));
+    registerText(QStringLiteral("md3.settings.dialog-emojis.description"),
+                 QStringLiteral("Decorate dialog and message-box text with a relevant emoji; "
+                                 "buttons, action labels and field labels are never affected"),
+                 QStringLiteral("開咗呢個掣，對話框同訊息框嘅文字就會加返個應景嘅表情符號；"
+                                 "掣、動作標籤同欄位標籤就永遠唔會有表情符號"));
 }
 
 UIMd3Language::~UIMd3Language() = default;

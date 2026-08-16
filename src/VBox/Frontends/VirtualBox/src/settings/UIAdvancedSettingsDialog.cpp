@@ -78,6 +78,7 @@
 #include "UIShortcutPool.h"
 #include "UITranslationEventListener.h"
 #include "UIMd3SearchField.h"
+#include "UIMd3DialogEmoji.h"
 #include "UIMd3Language.h"
 #include "UIMd3Theme.h"
 
@@ -803,6 +804,7 @@ UIAdvancedSettingsDialog::UIAdvancedSettingsDialog(QWidget *pParent,
     , m_pMd3FontFamily(0)
     , m_pMd3FontWeight(0)
     , m_pMd3Compact(0)
+    , m_pMd3DialogEmojis(0)
     , m_pMd3Brand(0)
     , m_pScrollArea(0)
     , m_pScrollViewport(0)
@@ -1065,6 +1067,21 @@ void UIAdvancedSettingsDialog::sltRetranslateUI()
         m_pEnglishFunny->setToolTip(tr("English funny level (1 serious, 5 playful)"));
     if (m_pCantoneseFunny)
         m_pCantoneseFunny->setToolTip(tr("Cantonese funny level (1 serious, 5 playful)"));
+
+    if (m_pMd3DialogEmojis)
+    {
+        const QString strDialogEmojisText = UIMd3Language::instance()
+                                          ? md3Text(QStringLiteral("md3.settings.dialog-emojis"))
+                                          : tr("Show emojis in dialogs and message boxes");
+        const QString strDialogEmojisDescription = UIMd3Language::instance()
+                                                  ? md3Text(QStringLiteral("md3.settings.dialog-emojis.description"))
+                                                  : tr("Decorate dialog and message-box text with a relevant emoji; "
+                                                       "buttons, action labels and field labels are never affected");
+        m_pMd3DialogEmojis->setText(strDialogEmojisText);
+        m_pMd3DialogEmojis->setAccessibleName(strDialogEmojisText);
+        m_pMd3DialogEmojis->setAccessibleDescription(strDialogEmojisDescription);
+        m_pMd3DialogEmojis->setToolTip(strDialogEmojisDescription);
+    }
 
     /* Translate warning-pane stuff: */
     m_pWarningPane->setWarningLabelText(tr("Invalid settings detected"));
@@ -1895,6 +1912,20 @@ void UIAdvancedSettingsDialog::prepareSelector()
         m_pMd3Compact->setToolTip(tr("Use smaller Material control spacing and heights"));
         pCustomizationLayout->addWidget(m_pMd3Compact, 10, 1);
 
+        const QString strDialogEmojisText = UIMd3Language::instance()
+                                          ? md3Text(QStringLiteral("md3.settings.dialog-emojis"))
+                                          : tr("Show emojis in dialogs and message boxes");
+        const QString strDialogEmojisDescription = UIMd3Language::instance()
+                                                  ? md3Text(QStringLiteral("md3.settings.dialog-emojis.description"))
+                                                  : tr("Decorate dialog and message-box text with a relevant emoji; "
+                                                       "buttons, action labels and field labels are never affected");
+        m_pMd3DialogEmojis = new QCheckBox(strDialogEmojisText, pLanguagePanel);
+        m_pMd3DialogEmojis->setAccessibleName(strDialogEmojisText);
+        m_pMd3DialogEmojis->setAccessibleDescription(strDialogEmojisDescription);
+        m_pMd3DialogEmojis->setToolTip(strDialogEmojisDescription);
+        m_pMd3DialogEmojis->setChecked(UIMd3DialogEmoji::instance() && UIMd3DialogEmoji::instance()->enabled());
+        pCustomizationLayout->addWidget(m_pMd3DialogEmojis, 11, 1);
+
         QLabel *pBrandLabel = new QLabel(tr("Display brand"), pLanguagePanel);
         m_pMd3Brand = new QLineEdit(pLanguagePanel);
         m_pMd3Brand->setAccessibleName(tr("Display brand name"));
@@ -1908,8 +1939,8 @@ void UIAdvancedSettingsDialog::prepareSelector()
         pBrandLayout->setSpacing(8);
         pBrandLayout->addWidget(m_pMd3Brand, 1);
         pBrandLayout->addWidget(pResetBrand);
-        pCustomizationLayout->addWidget(pBrandLabel, 11, 0);
-        pCustomizationLayout->addLayout(pBrandLayout, 11, 1);
+        pCustomizationLayout->addWidget(pBrandLabel, 12, 0);
+        pCustomizationLayout->addLayout(pBrandLayout, 12, 1);
         pLanguageLayout->addLayout(pCustomizationLayout);
 
         m_pLayoutMain->addWidget(pLanguagePanel, 1, 0, 1, 3);
@@ -1972,6 +2003,20 @@ void UIAdvancedSettingsDialog::prepareSelector()
         {
             md3Theme().setCompact(fCompact);
         });
+        connect(m_pMd3DialogEmojis, &QCheckBox::toggled, this, [](bool fEnabled)
+        {
+            if (UIMd3DialogEmoji::instance())
+                md3DialogEmoji().setEnabled(fEnabled);
+        });
+        if (UIMd3DialogEmoji::instance())
+            connect(UIMd3DialogEmoji::instance(), &UIMd3DialogEmoji::sigDialogEmojiChanged, this, [this]()
+            {
+                if (m_pMd3DialogEmojis)
+                {
+                    const QSignalBlocker blocker(m_pMd3DialogEmojis);
+                    m_pMd3DialogEmojis->setChecked(md3DialogEmoji().enabled());
+                }
+            });
         connect(m_pMd3Brand, &QLineEdit::editingFinished, this, [this]()
         {
             md3Theme().setBrandName(m_pMd3Brand->text());

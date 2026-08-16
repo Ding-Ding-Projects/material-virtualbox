@@ -108,6 +108,12 @@ protected:
     /** Generates standard pixmap for passed @a enmType using @a pWidget as hint. */
     static QPixmap standardPixmap(NotificationType enmType, QWidget *pWidget);
 
+    /** Returns this item's details text, decorated with a relevant emoji when
+      * the "Show emojis in dialogs and message boxes" preference is enabled
+      * and this notification carries a standard message-box icon type
+      * (progress and downloader items, which have none, are left untouched). */
+    QString decoratedDetailsText() const;
+
     /** Holds the notification-object this item created for. */
     UINotificationObject *m_pObject;
 
@@ -142,6 +148,8 @@ private slots:
 
     /** Handles help request. */
     void sltHandleHelpRequest();
+    /** Handles a change to the "Show emojis in dialogs and message boxes" preference. */
+    void sltHandleDialogEmojiChanged();
 };
 
 /** UINotificationObjectItem extension for notification-message. */
