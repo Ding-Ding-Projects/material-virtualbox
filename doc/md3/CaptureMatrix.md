@@ -6,8 +6,43 @@ release gate requires. [`RuntimeCapture.md`](RuntimeCapture.md) is the
 This document is the *list* — every surface and state that must be captured,
 and whether it has been yet.
 
-**Current status: rows 1, 5, 6, 16, 22, 24, 27, and 31 are captured; every other row remains
-`Not captured`.** No row here may be marked captured from a mock, a design
+**Current status: 8 of 47 rows are captured — rows 1, 5, 6, 16, 22, 24, 27, and 31 — and the other
+39 remain `Not captured`.** Counted mechanically on 2026-08-16, not by eye:
+
+```
+$ grep -cE '^\| [0-9]+ \|' doc/md3/CaptureMatrix.md
+47
+$ grep -cE '^\| [0-9]+ \|.*\*\*Captured\*\*' doc/md3/CaptureMatrix.md
+8
+$ grep -cE '^\| [0-9]+ \|.*Not captured' doc/md3/CaptureMatrix.md
+39
+$ find doc/md3/captures -name '*.png' | wc -l
+19
+```
+
+**`tools/md3/count-inventory-rows.py` does not count this document.** It is named here only to stop
+a reader reaching for it: it parses `doc/md3/CompletenessInventory.md`, a different file with a
+different unit of measure (feature-per-surface rows, not capture rows). Its verbatim output on
+2026-08-16 is:
+
+```
+Source: doc\md3\CompletenessInventory.md
+Sections with a per-surface table: 16
+Sections counted as one unit:      9
+
+| Status | Count |
+| --- | ---: |
+| Implemented | 33 |
+| Partial | 18 |
+| Not implemented | 39 |
+| N/A (justified) | 1 |
+| **Total rows** | **91** |
+```
+
+There is no committed script that counts *this* table; the three `grep` commands above are the
+whole method, and they are printed so anyone can re-run them instead of trusting the sentence.
+
+No row here may be marked captured from a mock, a design
 thumbnail, a prototype HTML preview, an image from an unrelated build, or a
 hand-edited image. A row stays `Not captured` until a real image exists from
 the exact built artifact, committed to this repository or otherwise
@@ -55,19 +90,26 @@ the `-Notes` field on the row 1 capture below, and
 the environment quirks hit along the way). It is reported here plainly because
 the evidence contradicts the blocker table's current wording for at least this
 one build/environment, and a capture matrix that hid that would be exactly the
-kind of silent gap this document exists to prevent. Rows 2 and 4-39 remain
-`Not captured` on their own honest merits -- nobody has captured them yet --
-not because blocker B is assumed to still apply to them.
+kind of silent gap this document exists to prevent.
+
+**Corrected 2026-08-16.** This paragraph used to end "Rows 2 and 4-39 remain `Not captured` on
+their own honest merits." That was wrong on its face, and wrong against this document's own rows:
+rows 5, 6, 16, 22, 24, 27 and 31 all sit inside 4–39 and all read **Captured**. The accurate
+sentence is: **every row except 1, 5, 6, 16, 22, 24, 27 and 31 remains `Not captured`, on its own
+honest merits — nobody has captured it yet — not because blocker B is assumed to still apply.**
 
 ## Why every row is blocked, and by what
 
-Two independent blockers currently prevent every row below from being closed.
-Closing one does not close the other.
+Blocker A **is cleared as of 2026-08-16** and is rewritten below rather than left standing.
+Blocker B is unchanged for the rows it affects. A third ceiling, C, was always in force for the
+runtime-window rows and is now named explicitly instead of being left inside row 32's prose.
 
 | Blocker | Affects | Detail |
 | --- | --- | --- |
-| **A. No verified installer or release exists yet.** | Rows 40–45 (Installer and update surfaces) | `gh release list` returns no releases for this repository as of this audit. The **Windows package and release** workflow is currently red — see [`CHANGELOG.md`](../../CHANGELOG.md#known-issue--the-packaging-step-now-fails-later-on-something-new) for the exact current failure (`STATUS_STACK_BUFFER_OVERRUN` in the packaging step's own `tstVMStructSize`/`tstAsmStructs` self-check, [run 31731859854](https://github.com/Ding-Ding-Projects/material-virtualbox/actions/runs/31731859854)). There is nothing installable to photograph. |
-| **B. The development build's COM/SDS classes are not registered in this environment.** | Rows 1–39 (every manager, settings, wizard, tool, notification, and runtime surface) | Documented in [`RuntimeCapture.md`](RuntimeCapture.md): the built `VirtualBox.exe` reaches the COM boundary and fails with `REGDB_E_CLASSNOTREG` because no `VBoxSDS` Windows service is registered for this checkout. System-wide registration requires a separately authorized administrator operation that has not been granted. The manager shell itself cannot currently be reached to photograph. |
+| ~~**A. No verified installer or release exists yet.**~~ **CLEARED 2026-08-16.** | Formerly rows 40–45; now **rows 40–43 are unblocked and simply unattempted**, and rows 44–45 move to blocker D | The original wording — "`gh release list` returns no releases for this repository as of this audit. The **Windows package and release** workflow is currently red … There is nothing installable to photograph" — is false on every clause today. `gh release list --repo Ding-Ding-Projects/material-virtualbox` returns nine `v7.2.97-ci.*` releases (ci.96–ci.101, ci.106–ci.108; ci.102–ci.105 were never created). The Windows workflow is **success** at `main`'s tip `fe321a4fd6f6bfc7c2fbd7e0704e3f72d0eb2eee` ([run 31851996367](https://github.com/Ding-Ding-Projects/material-virtualbox/actions/runs/31851996367), 1h26m24s). `v7.2.97-ci.108` is non-draft and carries `VirtualBox-7.2.97-Setup.exe` at **106,963,266 bytes**, SHA-256 `8a6e1e94bdd73c3a9c526b7b7e074521f06a2562b9f9020ea1a806f15fcda627`, plus `SHA256SUMS.txt` and a dim-sum photo. There is now something installable to photograph. **Unblocked is not captured:** rows 40–43 stay `Not captured` until somebody runs that installer on a Windows host and takes the images. |
+| **B. The development build's COM/SDS classes are not registered in this environment.** | Rows 1–39 (every manager, settings, wizard, tool, notification, and runtime surface) | Documented in [`RuntimeCapture.md`](RuntimeCapture.md): the built `VirtualBox.exe` reaches the COM boundary and fails with `REGDB_E_CLASSNOTREG` because no `VBoxSDS` Windows service is registered for this checkout. System-wide registration requires a separately authorized administrator operation that has not been granted. The manager shell itself cannot currently be reached to photograph. (Row 1's capture shows this did not reproduce for one NSIS-installed build — see the discrepancy section above — so B is real but not universal.) |
+| **C. No virtual machine can start, permanently.** | Rows 32–35 (every runtime-window surface) | The host hypervisor driver `VBoxSup.sys` ships **unsigned**, 64-bit Windows refuses to load an unsigned kernel driver, and **code signing is permanently prohibited for this project**. No change in this repository can move this. Only the machine's owner choosing to permit unsigned drivers would, and that is a decision with an owner outside this codebase. Rows 32–35 therefore cannot be closed from a normal Windows host at all, and should not be re-labelled "unattempted" — they are ceilinged. |
+| **D. No auto-updater is implemented.** | Rows 44–45 | These two rows were parked under blocker A ("no installer exists"), which was never their real blocker and is now cleared anyway. A search of `src/VBox/Frontends/VirtualBox/src/md3/` for updater sources on 2026-08-16 matched only `UIMd3Changelog.{h,cpp}`; there is no update-feed client, no ready-to-restart banner, and no offline/invalid-feed fallback to photograph, in this or any shipped installer. `LocalGates.md` records the same absence from the gate side. |
 
 A prior session's genuine `REGDB_E_CLASSNOTREG` failure capture is described
 in `README.md` as "retained in the session evidence" from an earlier run.
@@ -110,7 +152,7 @@ build and environment this harness was proven against.
 
 | # | Surface | State / variant | Status | Blocker |
 | --- | --- | --- | --- | --- |
-| 16 | Global Preferences | Default landing page | **Captured**: [`captures/usability-probe-20260814/14-global-preferences-dialog-confirmed-working.png`](captures/usability-probe-20260814/14-global-preferences-dialog-confirmed-working.png). `Ctrl+G` remains broken (known regression, see `WiringAudit.md` §4a) and the hamburger→File→Preferences route was not reached in a later pass either (see `UsabilityProbe.md` §3 for why — likely a source/binary mismatch, not a live bug). The command palette's `Open global preferences` entry, activated the same keyboard way as row 22, opens a real, fully functional `VirtualBox - Preferences` dialog: search box, Basic/Expert toggle, Appearance tab, and a populated General page. | — |
+| 16 | Global Preferences | Default landing page | **Captured**: [`captures/usability-probe-20260814/14-global-preferences-dialog-confirmed-working.png`](captures/usability-probe-20260814/14-global-preferences-dialog-confirmed-working.png). `Ctrl+G` did not work when this capture was taken, and the hamburger→File→Preferences route was not reached in a later pass either (see `UsabilityProbe.md` §3 for why — likely a source/binary mismatch, not a live bug). The command palette's `Open global preferences` entry, activated the same keyboard way as row 22, opens a real, fully functional `VirtualBox - Preferences` dialog: search box, Basic/Expert toggle, Appearance tab, and a populated General page. **Updated 2026-08-16:** this cell previously called `Ctrl+G` a "known regression, see `WiringAudit.md` §4a". A source re-read at `fe321a4` found the defect §4a described **absent from the source at all four sites it names** — see §4a's dated re-read block. That is not a runtime re-test; nothing was built, installed or keyboard-tested this pass, so the honest statement is that `Ctrl+G` failed *at the build this image came from* and its current behaviour is unknown. `v7.2.97-ci.108` is the first shipped installer containing both fixes, so a re-test is now possible. | — |
 | 17 | Global Preferences | Search active, plain-text mode | Not captured | Blocked behind row 16. |
 | 18 | Global Preferences | Search active, regex builder open | Not captured | Blocked behind row 16. |
 | 19 | Machine Settings | Default landing page | Not captured | Requires a registered machine; this lane is prohibited from creating one. |
@@ -159,22 +201,24 @@ build and environment this harness was proven against.
 
 | # | Surface | State / variant | Status | Blocker |
 | --- | --- | --- | --- | --- |
-| 40 | NSIS installer (`VirtualBox-<version>-Setup.exe`, the one and only Windows installer; Squirrel was retired 2026-08-14) | Welcome/license/directory pages | Not captured | A |
-| 41 | NSIS installer | Install progress (`InstFiles` page, elevated) | Not captured | A |
-| 42 | NSIS installer | Finish page, including the driver-refused summary `MessageBox` when a kernel driver was refused | Not captured | A |
-| 43 | Unsigned-publisher warning | OS unknown-publisher / SmartScreen dialog (expected and disclosed, not hidden, per the permanent no-signing policy) | Not captured | A |
-| 44 | Auto-update | Non-blocking "ready to restart" banner | Not captured | A |
-| 45 | Auto-update | Offline / invalid-feed fallback state | Not captured | A |
-| 46 | Changelog viewer (new this pass, `doc/md3/Changelog.md`) | `Ctrl+Shift+L`, no filter applied (cold open) | Not captured | New surface added in this pass; not attempted. Also blocked behind a rebuild — the installed binary referenced by rows 1/5/31 above predates `UIMd3Changelog` and does not contain this code, so no capture of it is possible without a full `kmk` build this lane explicitly excludes. |
-| 47 | Changelog viewer | Search + category + date filter applied, showing a per-row commit button and the off-default-branch marker | Not captured | Same as row 46. |
+| 40 | NSIS installer (`VirtualBox-<version>-Setup.exe`, the one and only Windows installer; Squirrel was retired 2026-08-14) | Welcome/license/directory pages | Not captured | **Unblocked since 2026-08-16, simply unattempted.** Blocker A is cleared: `v7.2.97-ci.108` ships a 106,963,266-byte `VirtualBox-7.2.97-Setup.exe`. Closing this row needs only a Windows host and somebody to run it. |
+| 41 | NSIS installer | Install progress (`InstFiles` page, elevated) | Not captured | Same as row 40 — unblocked, unattempted. |
+| 42 | NSIS installer | Finish page, including the driver-refused summary `MessageBox` when a kernel driver was refused | Not captured | Same as row 40 — unblocked, unattempted. Note this row is the one that photographs blocker C: the installer's own honest report that an unsigned kernel driver was refused. |
+| 43 | Unsigned-publisher warning | OS unknown-publisher / SmartScreen dialog (expected and disclosed, not hidden, per the permanent no-signing policy) | Not captured | Same as row 40 — unblocked, unattempted. The dialog this row wants is a *consequence* of the permanent no-signing policy, not a defect to fix. |
+| 44 | Auto-update | Non-blocking "ready to restart" banner | Not captured | **D** — no auto-updater is implemented anywhere in this repository. This row was mislabelled `A` ("no installer exists") until 2026-08-16; that was never its real blocker, and shipping an installer does not close it. |
+| 45 | Auto-update | Offline / invalid-feed fallback state | Not captured | **D** — same as row 44. |
+| 46 | Changelog viewer (`doc/md3/Changelog.md`) | `Ctrl+Shift+L`, no filter applied (cold open) | Not captured | **Rebuild blocker lifted 2026-08-16, still unattempted.** This row said no capture was possible without a full `kmk` build. That is no longer true: `UIMd3Changelog` landed in `aa52c21c9f4d3b1ac1fa961ed9fee70c75f91cb5`, which is an ancestor of `v7.2.97-ci.101`'s target `bb63f016a5da05a9880ea957609695770004763c` and of every release since, so `v7.2.97-ci.101` and later installers **do** contain this code. What is still needed is an install of one of them and somebody to press the keys — and blocker B may still apply to reaching the manager shell on a given host. |
+| 47 | Changelog viewer | Search + category + date filter applied, showing a per-row commit button ~~and the off-default-branch marker~~ | Not captured | Same as row 46, plus one part of this row is currently unphotographable and says so: **no compiled-in entry carries the off-default-branch flag any more.** The only one that did (`1e59aca27…`) was marked because `CHANGELOG.md` claimed it was not an ancestor of `main`; it is one, so the claim was retired. The mechanism still exists in `UIMd3Changelog` (`fOnDefaultBranch`, the export suffix, the visible non-color-only label) and this sub-clause becomes capturable again the moment an entry genuinely needs it. See [`Changelog.md`](Changelog.md). |
 
 ## How a row gets closed
 
-1. Clear the row's blocker: for blocker A, ship a verified installer from a
-   clean-checkout run of `build-installer.bat` or the CI packaging job once
-   it goes green; for blocker B, obtain an authorized COM/SDS registration
-   path for the capture host, or another sanctioned runtime host that does
-   not require one.
+1. Clear the row's blocker: blocker A is already cleared — download the
+   installer from the latest release; for blocker B, obtain an authorized
+   COM/SDS registration path for the capture host, or another sanctioned
+   runtime host that does not require one; for blocker C there is no route
+   at all from this repository, because no virtual machine can start while
+   `VBoxSup.sys` is unsigned and signing is permanently prohibited; for
+   blocker D, the feature has to be built before it can be photographed.
 2. Capture the exact built artifact per the `RuntimeCapture.md` contract:
    the cheap headless route, the real window, the real commit.
 3. Commit the image, update this row's Status to a link to the image plus
@@ -190,5 +234,5 @@ Suggested articles: [`RuntimeCapture.md`](RuntimeCapture.md) for the capture
 contract itself, [`CaptureHarness.md`](CaptureHarness.md) for the tool that
 now implements it, [`DesignCoverage.md`](DesignCoverage.md) for the underlying
 69-entry implementation ledger these surfaces come from, and
-[`../../CHANGELOG.md`](../../CHANGELOG.md) for why blocker A is currently in
-effect.
+[`../../CHANGELOG.md`](../../CHANGELOG.md) for the release history that cleared
+blocker A and for the packaging failure that used to cause it.

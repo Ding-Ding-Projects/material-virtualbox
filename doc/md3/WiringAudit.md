@@ -24,6 +24,16 @@ combinations) on every running machine. Two failures (New VM producing no effect
 in both call chains is intact and matches unmodified upstream wiring, so these need interactive
 re-verification with real mouse/keyboard input rather than a source patch.
 
+> **Standing note added 2026-08-16.** This document is pinned to commit `0d9eda43cd0` and is not
+> rewritten when the tree moves. The `Ctrl+G` finding above was re-read at source level against
+> `fe321a4fd6f6bfc7c2fbd7e0704e3f72d0eb2eee`, and **the defect it describes is no longer present in
+> the source at any of the four sites §4a names** — fixes `66c701d6` and `90aedcff` are both
+> ancestors of `main`. That is a source re-read, not a runtime re-test: nothing was built,
+> installed, launched or keyboard-tested, so whether `Ctrl+G` fires is still unproven either way.
+> The full verdict, the file-and-line evidence, and the three residuals it did not close are in
+> §4a's "Re-verification, 2026-08-16" block. Read the original finding first; it is what the
+> re-read is measured against.
+
 ---
 
 ## 1. Why are Machines, Media, and Network disabled?
@@ -377,6 +387,84 @@ being displayed, independent of the menu bar's own visibility. `sltOpenPreferenc
 always returns `true` — there is no silent-failure path here. If the hamburger route also failed
 in live testing, the Ctrl+G defect above is not sufficient to explain it, and it needs the same
 interactive re-verification called out in §3.
+
+#### Re-verification, 2026-08-16 — a SOURCE re-read at `fe321a4fd6f6bfc7c2fbd7e0704e3f72d0eb2eee`, NOT a runtime re-test
+
+**Nothing above this heading has been edited.** §4a is pinned to the commit it audited
+(`0d9eda43cd0`) and stays a record of what was true then. This block records what is true in the
+source now, and is separated from it for that reason.
+
+**Read this limitation first.** No build, no install, no launch, no key press. This host has no
+`kmk`, no configured Qt and no MSVC workload, so nothing here was compiled or executed. Every claim
+below is a claim about *text in files*. Whether `Ctrl+G` actually opens Global Preferences remains
+undecidable without running the application, and this block does not decide it.
+
+**Verdict.** The defect §4a describes — a menu-bar action left with no visible shortcut owner after
+`menuBar()->hide()` — is **absent from the source at every one of the four sites §4a names.** That
+is stronger than §4a's own hedge elsewhere in this repository ("not known to be open; it needs
+re-verification") and weaker than "verified working." The code no longer contains the defect; the
+behaviour is untested.
+
+The two fixes are `66c701d6` (Manager) and `90aedcff` (runtime window). Both are ancestors of
+`origin/main` and of `fe321a4fd6f` (`git merge-base --is-ancestor`, checked 2026-08-16).
+
+**Manager — the site where `Ctrl+G` was actually observed failing.** Line numbers are current, not
+§4a's.
+
+- `src/VBox/Frontends/VirtualBox/src/manager/UIVirtualBoxManager.cpp:2647` — `menuBar()->hide();`,
+  the line §4a quotes as `:2638-2644`, is still there. It was not reverted.
+- `:2653-2654` — immediately after it, `foreach (QMenu *pTopLevelMenu, actionPool()->menus())` /
+  `reclaimMenuActionShortcuts(pTopLevelMenu);`.
+- `:2658-2672` — `void UIVirtualBoxManager::reclaimMenuActionShortcuts(QMenu *pMenu)` walks the
+  menu, recurses into `pAction->menu()` for submenus, and calls `addAction(pAction)` on the window
+  for every leaf. The window is the always-visible one, which is exactly the visible owner the
+  hidden menu bar stopped providing.
+
+**The walk cannot miss Preferences, because the File menu is fully populated before it runs.**
+`UIActionPoolManager.cpp:4288` does `pMenu->addAction(action(UIActionIndex_M_Application_S_Preferences));`
+inside `updateMenuFile()` (`UIActionPoolManager.cpp:4053`), which `UIActionPoolManager::updateMenus()`
+(`:4046`) calls, which `UIActionPool::updateConfiguration()` (`UIActionPool.cpp:3596`, the
+`updateMenus();` at `:3612`) calls, which runs from `UIActionPool::prepare()`
+(`UIActionPool.cpp:4001-4012`). The action pool is created at `UIVirtualBoxManager.cpp:2614` —
+thirty-nine lines *before* the reclaim walk at `:2653`.
+
+**Runtime window — the three sites §4a names, renumbered by the fix.**
+
+- Site A: `src/VBox/Frontends/VirtualBox/src/runtime/normal/UIMachineWindowNormal.cpp:128` —
+  `menuBar()->hide();` inside `sltHandleMenuBarConfigurationChange()` (`:107`). Registers nothing
+  itself.
+- Site B: `:266` — `menuBar()->hide();` inside `prepareRuntimeHeader()` (`:258`), followed at
+  `:273-274` by `foreach (QMenu *pMenu, actionPool()->menus()) registerMenuActionShortcuts(pMenu);`,
+  with the helper at `:243-254`.
+- Site C: `:381` — `menuBar()->hide();` inside `loadSettings()` (`:370`). Registers nothing itself.
+
+**One registration covers all three**, by this order:
+`UIMachineWindow.cpp:116 prepareMenu()` → `:122 prepareVisualState()` →
+`UIMachineWindowNormal.cpp:342 prepareRuntimeHeader()` → `UIMachineWindow.cpp:137 loadSettings()`.
+Site A is a slot connected at `UIMachineWindowNormal.cpp:235` and driven by an asynchronous
+extradata signal, so it cannot fire inside that synchronous `prepare()` run; site C runs after site
+B; and `QWidget::addAction()` de-duplicates, so a repeat is harmless.
+
+`UIMachineWindowNormal::updateMenu()` (`:760-766`) only re-adds the same top-level `QMenu` objects
+to the bar, and the pool's `updateMenuX()` handlers `pMenu->clear()` and then re-add pool-owned
+`UIAction` objects rather than constructing new ones, so a later rebuild does not produce
+unregistered leaves.
+
+**Residuals this re-read did NOT close, named rather than glossed:**
+
+1. **No runtime proof of any kind.** See the limitation above. This is the big one.
+2. **Only one pool update handler was actually read** — `UIActionPool::updateMenuApplication()`
+   (`UIActionPool.cpp:3746-3799`) — to confirm the clear-and-re-add pattern. The others were not.
+   A handler somewhere that constructs a fresh `QAction` after `prepare()` would reintroduce the
+   defect for that action, and this re-read cannot rule that out.
+3. **§4a's separate hamburger-route paragraph was not re-examined**, and neither were the three
+   defects in [`UsabilityProbe.md`](UsabilityProbe.md). They stay exactly as open as they were.
+
+**A runtime re-test is now possible for the first time.** `90aedcff` is an ancestor of `fe321a4`,
+whose Windows build ([run 31851996367](https://github.com/Ding-Ding-Projects/material-virtualbox/actions/runs/31851996367))
+succeeded and published `v7.2.97-ci.108` — a 106,963,266-byte `VirtualBox-7.2.97-Setup.exe`. Both
+fixes are compiled into a shipped installer for the first time. Anybody with a Windows host can
+install it and press `Ctrl+G`, which is the only evidence that would actually settle this.
 
 ### 4b. Ctrl+Shift+F — wiring is intact; likely a test-input artifact, not a code defect
 

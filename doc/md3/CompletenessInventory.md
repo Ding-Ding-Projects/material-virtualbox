@@ -456,13 +456,39 @@ per-surface-broken-out feature counts each surface row, including its "engine" r
 python3 tools/md3/count-inventory-rows.py
 ```
 
+Verbatim output of that command, run 2026-08-16 at `992aa84304a`:
+
+```
+Source: doc\md3\CompletenessInventory.md
+Sections with a per-surface table: 16
+Sections counted as one unit:      9
+
 | Status | Count |
 | --- | ---: |
 | Implemented | 33 |
-| Partial | 17 |
-| Not implemented | 40 |
+| Partial | 18 |
+| Not implemented | 39 |
 | N/A (justified) | 1 |
 | **Total rows** | **91** |
+```
+
+| Status | Count |
+| --- | ---: |
+| Implemented | 33 |
+| Partial | 18 |
+| Not implemented | 39 |
+| N/A (justified) | 1 |
+| **Total rows** | **91** |
+
+**Corrected 2026-08-16.** This table read Partial 17 / Not implemented 40 until now. Section 1's
+S7 "Documentation site" row moved from **Not implemented** to **Partial** when
+[`2048ed0a7b651373a2707d30b4446a888861f33f`](https://github.com/Ding-Ding-Projects/material-virtualbox/commit/2048ed0a7b651373a2707d30b4446a888861f33f)
+landed the three-mode switcher in `docs/index.html`, and the aggregate was not recomputed in that
+pass. One row moved; one bucket lost a count and one gained it; the total is unchanged at 91.
+**S7 is Partial, not Implemented, and must not be rounded up:** 1,248 of the page's 8,355 visible
+characters (14.9%) get Cantonese, the 30 `doc/md3/*.md` articles published beside it are English-only
+and out of the switcher's reach, and the behavioural harness that exercised it is a scratch file
+outside the repository rather than a checked-in gate.
 
 The rows above stay hand-written, and must: a generated checklist cannot look for a feature that
 has no implementation anywhere, which is the entire reason this document exists. Only the
@@ -488,10 +514,13 @@ than having been run as a live process — this document does not, and cannot ye
 ## What a generated checklist would have missed
 
 To make the point concrete: a tool that scanned this repository for existing features would have
-found the twenty `UIMd3*` components under `src/VBox/Frontends/VirtualBox/src/md3/`, the other
-21 `doc/md3/*.md` articles (22 including this one), and the passing
-`md3-validation.yml` workflow, and could have reported near-total coverage of *what those files
-describe*. It would never have looked for a text-to-speech narrator, an Ollama manager, a file
+found the `UIMd3*` components under `src/VBox/Frontends/VirtualBox/src/md3/`, the other
+`doc/md3/*.md` articles, and the `md3-validation.yml` workflow, and could have reported near-total
+coverage of *what those files describe*. (Those figures read "twenty components" and "21 articles,
+22 including this one" when written; on 2026-08-16 `ls src/VBox/Frontends/VirtualBox/src/md3/UIMd3*.cpp \| wc -l`
+returns **25** and `ls doc/md3/*.md \| wc -l` returns **30**. The argument does not depend on the
+exact counts, but the counts are corrected rather than left to rot. That workflow is also **not**
+passing on `main` right now — see `LocalGates.md`'s remote-CI section.) It would never have looked for a text-to-speech narrator, an Ollama manager, a file
 converter, toy locks, dim sum, School mode, scheduled settings, a changelog viewer,
 external-editor handoff, or an infinite color picker, because nothing in the repository suggested
 searching for them. **Seven** of the twenty-five canonical features audited here — sections 4, 5, 6,

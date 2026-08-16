@@ -1,10 +1,57 @@
 # Handoff
 
-Last updated: 2026-08-14, after two ultra-speed passes that landed four features on `main`.
+Last updated: 2026-08-16, by a release-grade shutdown pass whose product was documentation
+correctness, not features.
 
 Read the two "what this pass did" sections below together. The first round landed the in-app
 changelog viewer; the second landed three more features on top of it. Neither ran tests or captures,
 and both say so.
+
+## Read this first: state at 2026-08-16
+
+Everything below this section was written by earlier passes and several of its rows were wrong by
+the time you read them. This section is the current truth, each line from a command run on
+2026-08-16. Where an older section still disagrees, the older section is stale and is corrected in
+place further down rather than deleted.
+
+| Fact | Value | Command |
+|---|---|---|
+| Remote `main` | `fe321a4fd6f6bfc7c2fbd7e0704e3f72d0eb2eee` | `git rev-parse origin/main` |
+| This working branch | `claude/yum-tong-finish-20260816`. It was `992aa84304a62e60a2a532e3da2a3569cad480ad` and three commits ahead of `main` when this section was written; this pass adds a fourth. **None of them are pushed.** Check with `git log --oneline origin/main..HEAD` rather than trusting the count | `git rev-parse --abbrev-ref HEAD`, `git log --oneline -5` |
+| Branches on the remote | **seven** — `main`, `codex/native-windows-ci-build-20260809` (= `fe321a4`), `claude/external-editor-20260814`, `claude/full-ui-rewrite-with-ultracode-77b55c`, `claude/reality-audit-20260814`, `claude/virtualbox-agent-memory-oabvhw`, `worktree-wf_97c547ae-f89-4` | `git ls-remote --heads origin` |
+| Latest release | **`v7.2.97-ci.108`** — "Dried Scallop Shrimp Dumpling · 瑤柱蝦餃", non-draft, target `fe321a4fd6f6bfc7c2fbd7e0704e3f72d0eb2eee`, published `2026-08-15T01:21:51Z` | `gh release view v7.2.97-ci.108 --json tagName,isDraft,targetCommitish,publishedAt` |
+| Its installer | `VirtualBox-7.2.97-Setup.exe`, **106,963,266 bytes**, SHA-256 `8a6e1e94bdd73c3a9c526b7b7e074521f06a2562b9f9020ea1a806f15fcda627` | `gh release view v7.2.97-ci.108 --json assets` |
+| Its other assets | `SHA256SUMS.txt` (95 bytes), `hk-dish-0009-dried-scallop-shrimp-dumpling.png` (2,436,523 bytes) | same command |
+| Windows package and release at `fe321a4` | **success**, run [`31851996367`](https://github.com/Ding-Ding-Projects/material-virtualbox/actions/runs/31851996367), 1h26m24s | `gh run list --commit fe321a4…` |
+| Material 3 documentation Pages at `fe321a4` | **success**, run [`31851996366`](https://github.com/Ding-Ding-Projects/material-virtualbox/actions/runs/31851996366) | same command |
+| Material 3 validation at `fe321a4` | **FAILURE**, runs [`31856303192`](https://github.com/Ding-Ding-Projects/material-virtualbox/actions/runs/31856303192), [`31851996370`](https://github.com/Ding-Ding-Projects/material-virtualbox/actions/runs/31851996370), [`31851966893`](https://github.com/Ding-Ding-Projects/material-virtualbox/actions/runs/31851966893) | same command |
+| Releases that exist | ci.96, 97, 98, 99, 100, 101, 106, 107, 108. **ci.102–ci.105 were never created** | `gh release list --limit 10` |
+| Tracked files | **66,376** | `git ls-files \| wc -l` |
+
+**The single most misleading thing this repository said until this pass: `Material 3 validation` is
+red on `main`, and no committed document recorded it.** `HANDOFF.md`, `doc/md3/LocalGates.md` and
+`CHANGELOG.md` all described it as green. The cause is known and named: the workflow's "Compact
+README contract" step demanded the literal `no verified installer is published yet`, and `README.md`
+had correctly stopped saying that once real installers were published, so CI failed with
+`Compact README contract missing: no verified installer is published yet`.
+
+**The repair exists but has not been proved by CI.** Commit `ca97ec93ccc06559d1035dd039ef56ca7b000a93`
+on this branch replaces the stale assertion with assertions that pin what is true now, and adds
+negative guards so the claim cannot be quietly upgraded to a signed installer. It is **not pushed**,
+so `main` is still red and will stay red until it is. What has been proved locally, on this host, is
+that the repaired step passes: the step was de-indented verbatim out of the YAML into a scratch file
+outside the repository and run from the repository root under PowerShell 7.6.5 — stdout `step2 PASSED`,
+exit 0, 0.48s.
+
+### What this pass actually did
+
+No product source was written. This pass audited every document against the live repository and the
+GitHub API and corrected what had gone stale — `HANDOFF.md`, `doc/md3/LocalGates.md`,
+`doc/md3/CompletenessInventory.md`, `doc/md3/CaptureMatrix.md`, `doc/md3/WiringAudit.md` and
+`CHANGELOG.md`. Two lanes landed immediately before it: the CI contract repair plus the new
+`tools/md3/check-language-registry.ps1` localization gate, and the documentation-site language
+switcher. **Nothing was compiled — this host has no `kmk`, no configured Qt and no MSVC workload,
+and no claim anywhere in this pass rests on a build.**
 
 ## The changelog viewer compiles, and shipped
 
@@ -95,13 +142,13 @@ away.
 | 2 | Every valid change committed on its owning jer | **met** | All worktrees clean, nothing excluded silently |
 | 3 | Recoverable work pushed before integration | **met** | Every lane pushed before any deletion |
 | 4 | Remote not ahead of the working jer | **met** | `main` fast-forwarded; no Fay Gay encountered |
-| 5 | Hand-written local-suite inventory, every suite passing | **NOT met** | `doc/md3/LocalGates.md` records 8 gates runnable and 10 blocked on the Windows/kBuild/Qt toolchain. This container additionally has no `pwsh`, so even the 8 could not be re-run here — CI's `md3-validation` covers their contracts and is green |
+| 5 | Hand-written local-suite inventory, every suite passing | **NOT met** | `doc/md3/LocalGates.md` now records 20 gates: 10 runnable and run, 10 blocked on the Windows/kBuild/Qt toolchain. **Corrected 2026-08-16:** the "this container has no `pwsh`" claim in the previous version of this row was wrong — this host has PowerShell 7.6.5, and gates 2 and 19 were re-run here this pass (`step2 PASSED` exit 0; `RESULT: clean` exit 0). Gates 9–18 remain genuinely unrunnable. CI's `md3-validation` is **red on `main`** — see the state section at the top of this file |
 | 6 | Installable artifacts built locally and validated | **NOT met — environment** | No Windows toolchain, no Qt, no `kmk`. Artifacts are built by CI only |
 | 7 | Original logo and packaged application icon verified in the artifact | **NOT met** | Not audited in this pass; requires the built artifact |
-| 8 | Every canonical feature implemented per surface with full evidence | **NOT met** | 40 rows still "Not implemented"; 7 features have zero implementation anywhere. See `CompletenessInventory.md` |
-| 9 | README and landing page carry a current real-capture matrix | **NOT met** | `doc/md3/CaptureMatrix.md` records **8 of 47 rows captured** as of `5f1adfac`; the remaining 39 need a Windows host this container does not have |
+| 8 | Every canonical feature implemented per surface with full evidence | **NOT met** | **39** rows "Not implemented", 18 "Partial"; 7 features have zero implementation anywhere. Counts from `python tools/md3/count-inventory-rows.py` run 2026-08-16, not from memory. See `CompletenessInventory.md` |
+| 9 | README and landing page carry a current real-capture matrix | **NOT met** | `doc/md3/CaptureMatrix.md` records **8 of 47 rows captured** (rows 1, 5, 6, 16, 22, 24, 27, 31) and 39 not; still true on 2026-08-16 by `grep -cE '^\| [0-9]+ \|' doc/md3/CaptureMatrix.md` → 47 and the `**Captured**` count → 8. The remaining 39 need a Windows host with a running VM or a registered host service |
 | 10 | Exactly one new non-draft release representing this pass | **NOT met** | The workflow publishes a release on every push to `main`, and this pass made several pushes. Intermediate releases exist by design |
-| 11 | Dewed `main` has a green remote CI verdict | **pending** | Material 3 validation and Pages are green on the integrated tip; the Windows build had not returned when this was written |
+| 11 | Dewed `main` has a green remote CI verdict | **NOT met** — and the previous "pending" had it backwards | At `fe321a4` the Windows build is **green** (run `31851996367`, 1h26m24s, published `v7.2.97-ci.108`) and Pages is **green** (run `31851996366`), but **Material 3 validation is red** (runs `31856303192`, `31851996370`, `31851966893`) on the stale README assertion. Repaired locally by `ca97ec93ccc06559d1035dd039ef56ca7b000a93`, which is **not pushed**, so this gate stays NOT met until it is |
 | 12 | Every source jer tip proved an ancestor before deletion | **met** | Proved for all seven deleted items |
 | 13 | Fresh mat day supplied before any deletion | **met** | Supplied for this pass; applied to the cleanup half only |
 | 14 | Only `main` and the primary checkout remain | **NOT met** | Three merged jers remain on the hui because remote jer deletion is refused by this environment's permission classifier |
@@ -147,11 +194,28 @@ The Squirrel line is the one that mattered: it was the headline defect of the pr
 already fixed by the time the file was written, and anybody reading it would have gone looking for a
 problem that no longer existed.
 
+**The table above is itself a record of past errors and its rows are never edited or deleted. The
+2026-08-16 pass found four more, and appends them here rather than rewriting the ones above:**
+
+| The 2026-08-14 handoff said | The repository actually showed on 2026-08-16 |
+|---|---|
+| `main` is `8850ddb7efb248e79dddd697118517d426bb61c4` | `main` is `fe321a4fd6f6bfc7c2fbd7e0704e3f72d0eb2eee` (`git rev-parse origin/main`) |
+| Latest release is `v7.2.97-ci.100` | Latest release is `v7.2.97-ci.108` (`gh release list`) |
+| Four branches on the remote | **Seven** (`git ls-remote --heads origin`) |
+| Local gates: 8 of 8 pass; CI verdict pending | 10 of 20 gates runnable and passing locally, **but `Material 3 validation` is red on `main`** and no document said so |
+
+The last row is the one that mattered this time, for exactly the reason the Squirrel line mattered
+last time, only inverted: a reader trusting these documents would have believed CI was green and
+gone looking for nothing.
+
 ## What is verified
 
-Every row below was checked against the live repository and the GitHub API during this pass.
+**Superseded 2026-08-14 table, kept for the record.** Every row below was true of commit
+`8850ddb7e` when it was written, and every run id in it really did return `success`
+(`gh run view <id> --json status,conclusion,headSha`). It is four releases out of date and its
+overall implication — that everything is green — is false today. The current table follows it.
 
-| Item | State | Evidence |
+| Item | State at `8850ddb7e` | Evidence |
 |---|---|---|
 | Windows package and release workflow | **green** | run `31784982408` at `8850ddb7e` |
 | Material 3 validation | **green** | run `31784982426` at `8850ddb7e` |
@@ -161,7 +225,20 @@ Every row below was checked against the live repository and the GitHub API durin
 | Installer asset | **106,872,738 bytes** | `VirtualBox-7.2.97-Setup.exe`, SHA-256 `766c7e4e…3ba0bf` |
 | Installer is the NSIS one | **yes** | built from `out/win.amd64/release/nsis-installer/` |
 | Release evidence contract | **complete** | `SHA256SUMS.txt`, dim-sum photo, line-count table, workflow duration `01:24:45` |
-| Local gates | **8 of 8 pass** | see `doc/md3/LocalGates.md` |
+| Local gates | **8 of 8 pass** | as recorded then in `doc/md3/LocalGates.md` |
+
+### Verified at `fe321a4` (remote `main`) on 2026-08-16
+
+| Item | State | Evidence |
+|---|---|---|
+| Windows package and release workflow | **green** | run `31851996367`, `headSha` `fe321a4fd6f…`, 1h26m24s |
+| Material 3 documentation Pages | **green** | run `31851996366`, same `headSha` |
+| Material 3 validation | **RED** | runs `31856303192`, `31851996370`, `31851966893`. Failing step `Validate MD3 source wiring`; message `Compact README contract missing: no verified installer is published yet` |
+| Published release | **exists, non-draft** | `v7.2.97-ci.108`, target `fe321a4fd6f6bfc7c2fbd7e0704e3f72d0eb2eee`, published `2026-08-15T01:21:51Z` |
+| Installer asset | **106,963,266 bytes** | `VirtualBox-7.2.97-Setup.exe`, SHA-256 `8a6e1e94bdd73c3a9c526b7b7e074521f06a2562b9f9020ea1a806f15fcda627` |
+| Release evidence contract | **complete** | `SHA256SUMS.txt` (95 bytes) and `hk-dish-0009-dried-scallop-shrimp-dumpling.png` (2,436,523 bytes) attached |
+| Local gates | **10 of 20 runnable; all 10 pass.** Not 8 of 8 — the inventory grew | `doc/md3/LocalGates.md`. Gates 2 and 19 re-run on this host this pass: `step2 PASSED` exit 0 (0.48s), and `RESULT: clean` exit 0 |
+| The red gate's repair | **written, locally proved, NOT pushed** | `ca97ec93ccc06559d1035dd039ef56ca7b000a93` on `claude/yum-tong-finish-20260816`; the repaired step passes locally, CI has never seen it |
 
 ## What is NOT true yet, stated plainly
 
@@ -192,8 +269,13 @@ carries:**
 - `WiringAudit.md` audited `0d9eda43cd0`. Its most serious finding — that `Ctrl+G` not opening
   Global Preferences is a real regression, systemic across three sites in the VM Runtime window —
   was named **before** the fixes `66c701d6` and `90aedcff` landed. Both are ancestors of `main`
-  today (`git merge-base --is-ancestor` confirms). **The finding is therefore not known to be open;
-  it needs re-verification against a current build before anybody acts on it.**
+  today (`git merge-base --is-ancestor` confirms). **Updated 2026-08-16: a source re-read at
+  `fe321a4` found the described defect absent at all four sites the audit names — the reclaim walk
+  and its helper are present in `UIVirtualBoxManager.cpp:2653-2672` and
+  `UIMachineWindowNormal.cpp:243-254,273-274`, and the ordering argument holds. That is stronger
+  than "not known to be open" and weaker than "verified working": nothing was built or launched, so
+  whether `Ctrl+G` fires is still undecidable from here. The full verdict, its reasoning and its
+  three named residuals are in `WiringAudit.md` §4a's dated re-read block.**
 - `UsabilityProbe.md` drove an installed binary dated 2026-08-10, which the document itself flags as
   "an unknown number of commits behind". Its three ugly findings — the Create VM link opening the
   *import* wizard, a file row opening a mismatched submenu, and the remove-confirmation overlay not
@@ -212,10 +294,16 @@ Its genuinely durable contributions, independent of build age:
 
 ## Repository state
 
-- `main` was `5f1adfac63` and clean when this section was written. **Check the tree rather than
-  trusting this line** — every previous version of it named a commit that had already moved on, which
-  is exactly why the sentence now says so.
-- Four branches existed on the remote at the start of this pass:
+- `main` was `5f1adfac63` and clean when this section was written; it is `fe321a4fd6f6bfc7c2fbd7e0704e3f72d0eb2eee`
+  as of 2026-08-16. **Check the tree rather than trusting this line** — every previous version of it
+  named a commit that had already moved on, which is exactly why the sentence now says so.
+- **Corrected 2026-08-16: seven branches exist on the remote, not four.** `git ls-remote --heads origin`
+  returns `main`, `codex/native-windows-ci-build-20260809` (pointing at the same commit as `main`),
+  `claude/external-editor-20260814`, `claude/full-ui-rewrite-with-ultracode-77b55c`,
+  `claude/reality-audit-20260814`, `claude/virtualbox-agent-memory-oabvhw`, and
+  `worktree-wf_97c547ae-f89-4`. The list below was written when four were known and is left as it
+  was written.
+- Four branches existed on the remote at the start of the 2026-08-14 pass:
   - `main`
   - `claude/external-editor-20260814` — **already merged**, proved an ancestor of `main`.
   - `claude/reality-audit-20260814` — was unmerged, **now integrated** (2 commits).
@@ -231,25 +319,51 @@ Its genuinely durable contributions, independent of build age:
 
 ## Next actions, in order
 
-1. **Read two build verdicts, and keep them apart — they bisect the work for you.** Two runs are in
-   flight against different commits, and the release workflow has no `concurrency` block, so the
-   first was not cancelled by the second:
-   - the run on `bb63f016` compiles the **changelog viewer alone**;
-   - the run on `d548859c` compiles the **three features above, on top of it**.
+0. **Push `ca97ec93ccc06559d1035dd039ef56ca7b000a93` and get `Material 3 validation` green again.**
+   This is the top item because `main` is red today and the fix is already written and locally
+   proved. Nothing else in this list should be started before a reader can trust the CI badge.
+   Do not close this by weakening the assertion — the repaired step keeps a real contract and adds
+   two negative guards against ever claiming a signed installer.
 
-   Green then red means the three new features broke it. Red on the first means the changelog viewer
-   did. Do not push again before reading them, or that separation is lost.
-2. Confirm the release each successful run publishes: a new unique tag, non-draft, targeting the
-   intended commit, with its installer and checksum attached.
+1. ~~Read two build verdicts, and keep them apart.~~ **ANSWERED on 2026-08-16, recorded here rather
+   than deleted, because the reasoning the original action set up is what makes the answer readable.**
+   The original action said: *the run on `bb63f016` compiles the changelog viewer alone; the run on
+   `d548859c` compiles the three features on top of it. Green then red means the three new features
+   broke it.*
+   - `bb63f016a5da05a9880ea957609695770004763c` → run [`31840815630`](https://github.com/Ding-Ding-Projects/material-virtualbox/actions/runs/31840815630),
+     **success**, 1h26m14s. It published `v7.2.97-ci.101`.
+   - `d548859c25785ec20d61e56f018ba25da5d2bb70` → run [`31843086131`](https://github.com/Ding-Ding-Projects/material-virtualbox/actions/runs/31843086131),
+     **failure**, at step `Build and package the Windows installer`.
+   - So by the rule above: green then red, and the three-feature integration commit did break that
+     build. **It has since recovered.** `8762579681594cf8ba6beb8ccec77576baa5199a` — the first commit
+     containing all three features whose build went green — succeeded as run
+     [`31848342345`](https://github.com/Ding-Ding-Projects/material-virtualbox/actions/runs/31848342345)
+     and published `v7.2.97-ci.106`, and `fe321a4` succeeded as run `31851996367` and published
+     `v7.2.97-ci.108`. **What is proved is that the three features now compile and ship. What is not
+     proved is anything about their behaviour: still no test and no capture for any of them.**
+2. ~~Confirm the release each successful run publishes.~~ **DONE.** `v7.2.97-ci.101` (target
+   `bb63f016a5d`, 106,884,648 bytes), `v7.2.97-ci.106` (target `8762579681594`, 106,902,297 bytes),
+   `v7.2.97-ci.107` (target `753602ced18e`, 106,981,357 bytes) and `v7.2.97-ci.108` (target
+   `fe321a4fd6f`, 106,963,266 bytes) are all non-draft, all carry `VirtualBox-7.2.97-Setup.exe`
+   plus `SHA256SUMS.txt` plus a dim-sum photo. Note that `ci.102`–`ci.105` do not exist; the tag
+   counter is the workflow run number, not a release count.
 3. **Run the tests and captures these passes skipped**, against the merged tree. Four features —
    the changelog viewer, the emoji setting, the dim sum surprise and the vocabulary upload — now sit
    on `main` with no test and no capture evidence of any kind. That is the largest outstanding debt
    in this repository and it was taken on deliberately, not by accident.
-4. Recompute the summary counts table at the foot of `doc/md3/CompletenessInventory.md`. Three rows
-   changed status in this pass and each lane deliberately left the aggregate alone rather than
-   guessing at a total it could not verify from its own worktree.
-5. Re-verify the three `UsabilityProbe.md` defects against a current installer before treating any
-   of them as open, and re-verify the `Ctrl+G` finding against `66c701d6`/`90aedcff`.
+4. ~~Recompute the summary counts table at the foot of `doc/md3/CompletenessInventory.md`.~~ **DONE
+   on 2026-08-16**, from `python tools/md3/count-inventory-rows.py` rather than by hand: Implemented
+   33, Partial 18, Not implemented 39, N/A 1, total 91. The table had been left at Partial 17 /
+   Not implemented 40 after the documentation-site language row moved from "Not implemented" to
+   "Partial". Re-run the script after any row's status changes; do not hand-count.
+5. **Half done.** The `Ctrl+G` finding was re-read at source level this pass and the verdict is
+   recorded in `doc/md3/WiringAudit.md` §4a's dated re-read block: the defect the audit described is
+   **absent from the source at all four sites it names**. That is a source re-read, not a runtime
+   test — nothing was built, installed, launched or keyboard-tested, and whether `Ctrl+G` actually
+   fires remains undecidable without running the application. `v7.2.97-ci.108` is the first shipped
+   installer that contains both fixes, so a runtime re-test is now possible for the first time and
+   is the remaining half of this action. The three `UsabilityProbe.md` defects were **not**
+   re-examined at all and stay open.
 6. Work through `doc/md3/CompletenessInventory.md` and `doc/md3/CaptureMatrix.md`. Both are
    deliberate, honest gap lists rather than checklists of what already exists.
 7. Leave the unsigned-driver ceiling alone unless the machine's owner decides to permit unsigned
@@ -268,4 +382,5 @@ Its genuinely durable contributions, independent of build age:
 - `doc/md3/WiringAudit.md` — what the Material 3 manager is really wired to, traced to file and line.
 - `doc/md3/UsabilityProbe.md` — 14 captures from driving the installed application.
 - `doc/md3/Changelog.md` — the in-app changelog viewer.
+- `doc/md3/SiteLanguage.md` — the documentation site's three-mode language switcher and its limits.
 - `CHANGELOG.md` — each entry linked to its verified commit.

@@ -63,10 +63,15 @@ git cat-file -e <sha>              # confirms the object exists locally
 git log -1 --format="%H|%ad" --date=short <sha>   # confirms the real date
 ```
 
-Fifteen entries are currently compiled in: the original ten dated
-`2026-08-13`, plus five dated `2026-08-14` covering the changelog viewer
-itself, the emoji-in-dialogs toggle, the dim sum startup surprise, the
-personal-vocabulary upload, and the completeness inventory's counter. Every
+**Twenty-two entries are currently compiled in** (`grep -c "addEntry(m_entries" src/VBox/Frontends/VirtualBox/src/md3/UIMd3Changelog.cpp`
+→ 22, run 2026-08-16). That is the original ten dated `2026-08-13`, the five
+dated `2026-08-14` covering the changelog viewer itself, the emoji-in-dialogs
+toggle, the dim sum startup surprise, the personal-vocabulary upload and the
+completeness inventory's counter, plus — added 2026-08-16 — two `Unreleased`
+entries (the red-CI-contract repair with its localization gate, and the
+documentation-site language switcher) and five `Released` entries carrying the
+verified metadata of `v7.2.97-ci.96`, `ci.101`, `ci.106`, `ci.107` and
+`ci.108`. Every
 one traces back to a real commit, matching `CHANGELOG.md`'s own dated section
 headers; the
 "Documentation" entry's commit
@@ -82,18 +87,26 @@ that edits `CHANGELOG.md` must add the matching entries to
 current in the same task" rule applies to this compiled-in mirror exactly as
 it applies to any other documentation surface.
 
-Nothing in this viewer invents a version, a date, or a change. Where the
-source material offers no version bucket yet (`CHANGELOG.md` itself states
-"No release has been published from this repository yet ... Everything below
-is therefore recorded under [Unreleased]"), the viewer says exactly that, in
-the same words, rather than inventing a version number.
+Nothing in this viewer invents a version, a date, or a change. **Updated
+2026-08-16:** this paragraph used to say that `CHANGELOG.md` offers no version
+bucket at all because "No release has been published from this repository yet",
+and that the viewer therefore filed everything under `Unreleased`. Real
+releases exist now, so real version buckets exist. Which release first carried
+which commit was determined with `git merge-base --is-ancestor` against each
+release's target commitish read from the GitHub releases API — **not inferred
+from dates**, because commit date and release membership are different
+questions. Two entries remain genuinely `Unreleased` because their commits are
+not pushed. The rule is unchanged: a version bucket is only ever written when
+it can be proved.
 
 ## Behavior
 
 - **Version, date, category, and commit per entry.** Every
-  `UIMd3ChangelogEntry` carries a version bucket (currently always
-  `"Unreleased"` -- see above), a real `QDate`, a short category
-  (`Fixed`, `Known issue`, `Documentation`, `Related work`), an optional
+  `UIMd3ChangelogEntry` carries a version bucket (`"Unreleased"` for the two
+  entries whose commits are not pushed; a real tag such as `"v7.2.97-ci.108"`
+  for the rest -- see above), a real `QDate`, a short category
+  (`Added`, `Fixed`, `Changed`, `Released`, `Resolved`, `Documentation`,
+  `Related work`), an optional
   section/context line, a title, the full unabridged detail text transcribed
   from `CHANGELOG.md`, and the full 40-character commit hash plus its
   resolvable GitHub URL.
@@ -106,11 +119,18 @@ the same words, rather than inventing a version number.
   your browser", full-hash tooltip, minimum `48 x controlHeight()` touch
   target matching every other button in this codebase) is used instead.
   Activating it opens the commit on GitHub via `QDesktopServices::openUrl()`.
-  The one entry whose cited commit is not yet reachable from the shipped
-  default branch (the "Related work" row, `1e59aca27...`, per
-  `CHANGELOG.md`'s own "Related work not yet on `main`" section) is marked
-  with a visible, non-color-only "Not yet on the default branch" label so the
-  viewer never implies something shipped that has not.
+  **Updated 2026-08-16: no entry currently carries the off-default-branch
+  marker.** The one that did — the "Related work" row, `1e59aca27...` — was
+  marked that way because `CHANGELOG.md` said the commit was not an ancestor of
+  `main`. `git merge-base --is-ancestor 1e59aca274c origin/main` now succeeds,
+  and the branch it was said to live on no longer exists on the remote, so the
+  claim was retired rather than kept for decoration. **The mechanism is
+  untouched and still enforced** — `addEntry`'s `fOnDefaultBranch` parameter,
+  the `" _not yet on the default branch_"` suffix in the Markdown export, and
+  the visible, non-color-only label in the row builder all remain, ready for
+  the next entry that genuinely needs them. A consequence worth stating: that
+  label is now unphotographable, so `CaptureMatrix.md` row 47 cannot ask for it
+  until some entry sets the flag again.
 - **Plain-text search with the shared regex builder.** The search field is a
   `UIMd3SearchField` -- the same shared component `History.md` and
   `NotificationCentre.md` use -- searching title, detail, category, section,
