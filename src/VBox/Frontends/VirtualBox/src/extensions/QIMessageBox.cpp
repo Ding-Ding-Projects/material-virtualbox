@@ -46,6 +46,7 @@
 #include "UICommon.h"
 #include "UIIconPool.h"
 #include "UIHelpBrowserDialog.h"
+#include "UIMd3EmojiSetting.h"
 
 /* Other VBox includes: */
 #include <iprt/assert.h>
@@ -230,7 +231,16 @@ void QIMessageBox::prepare()
             AssertPtrReturnVoid(m_pLabelText);
             {
                 /* Configure text-label: */
-                m_pLabelText->setText(compressLongWords(m_strMessage));
+                UIMd3EmojiKind enmEmojiKind = UIMd3EmojiKind_Information;
+                switch (m_iconType)
+                {
+                    case AlertIconType_Question: enmEmojiKind = UIMd3EmojiKind_Question; break;
+                    case AlertIconType_Warning:  enmEmojiKind = UIMd3EmojiKind_Warning; break;
+                    case AlertIconType_Critical: enmEmojiKind = UIMd3EmojiKind_Error; break;
+                    case AlertIconType_NoIcon:
+                    default:                     enmEmojiKind = UIMd3EmojiKind_Information; break;
+                }
+                m_pLabelText->setText(compressLongWords(UIMd3EmojiSetting::decorate(m_strMessage, enmEmojiKind)));
                 /* Add text-label into top-layout: */
                 pTopLayout->addWidget(m_pLabelText);
             }

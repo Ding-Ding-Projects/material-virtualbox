@@ -51,8 +51,8 @@ enum UIMd3EmojiKind
 
 /** Persisted, user-controllable "show emojis in dialogs and message boxes" toggle.
   *
-  * When enabled, decorate() prefixes a dialog or message box's own
-  * heading/title copy with one relevant, purely decorative emoji chosen from
+  * When enabled, decorate() prefixes a dialog or message box's own displayed
+  * message copy with one relevant, purely decorative emoji chosen from
   * UIMd3EmojiKind; when disabled it hands back the caller's text completely
   * unchanged, so the exact same factual copy ships either way. The state
   * survives restarts through this frontend's ordinary extra-data mechanism
@@ -60,8 +60,8 @@ enum UIMd3EmojiKind
   * for its own persisted settings -- no separate persistence layer is
   * introduced here.
   *
-  * decorate() must only ever be called on a dialog's own decorative
-  * heading/title string. It must never be applied to button text, action
+  * decorate() must only ever be called on a dialog's own displayed message
+  * string. It must never be applied to button text, action
   * labels, field labels, or accessible names -- nothing in this class touches
   * control text, and callers are expected to keep it that way.
   *
@@ -85,7 +85,9 @@ public:
 
     /** Returns @a strText unchanged when the toggle is disabled or @a strText is
       * empty; otherwise returns @a strText prefixed with a decorative emoji for
-      * @a enmKind. @a strText must be a dialog/message-box heading or title --
+      * @a enmKind. Leading rich-text container markup is preserved and the
+      * prefix is inserted inside its first tag. @a strText must be a displayed
+      * dialog/message-box message --
       * never button text, an action label, a field label, or an accessible name. */
     static QString decorate(const QString &strText, UIMd3EmojiKind enmKind = UIMd3EmojiKind_General);
 

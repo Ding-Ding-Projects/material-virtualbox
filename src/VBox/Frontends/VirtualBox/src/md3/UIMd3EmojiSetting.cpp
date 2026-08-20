@@ -21,6 +21,9 @@
 #include "UIMd3EmojiSetting.h"
 #include "UIExtraDataManager.h"
 
+/* Qt includes: */
+#include <QRegularExpression>
+
 /* Extra-data key this toggle is persisted under, in the same "GUI/Md3/..."
  * namespace UIMd3Theme's own settings (seed, scheme, compact density, ...)
  * already use -- see UIMd3Theme.cpp's g_pszKey* constants. Reusing that same
@@ -71,5 +74,15 @@ QString UIMd3EmojiSetting::decorate(const QString &strText, UIMd3EmojiKind enmKi
 {
     if (strText.isEmpty() || !isEnabled())
         return strText;
-    return emojiFor(enmKind) + QStringLiteral("  ") + strText;
+
+    const QString strPrefix = emojiFor(enmKind) + QStringLiteral("  ");
+    const QRegularExpression openingTag(QStringLiteral("^(?:\\s*<(?:html|body|qt|p)(?:\\s[^>]*)?>)+"),
+                                        QRegularExpression::CaseInsensitiveOption);
+    const QRegularExpressionMatch match = openingTag.match(strText);
+    if (!match.hasMatch())
+        return strPrefix + strText;
+
+    QString strDecorated = strText;
+    strDecorated.insert(match.capturedEnd(), strPrefix);
+    return strDecorated;
 }

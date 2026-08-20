@@ -19,6 +19,7 @@
 
 /* Qt includes: */
 #include <QAccessible>
+#include <QApplication>
 #include <QDir>
 #include <QFile>
 #include <QFileInfo>
@@ -198,7 +199,8 @@ bool UIMd3DimSumSurprise::prefersReducedMotion()
 }
 
 UIMd3DimSumSurprise::UIMd3DimSumSurprise()
-    : m_iDrawnDishIndex(-1)
+    : m_cModalDeferrals(0)
+    , m_iDrawnDishIndex(-1)
 {
     if (!shouldSkipThisLaunch())
     {
@@ -232,6 +234,18 @@ void UIMd3DimSumSurprise::sltShowToast()
     /* Never twice in one launch, and never once the draw has been consumed: */
     if (m_iDrawnDishIndex < 0 || m_pToast)
         return;
+
+    /* A startup warning or another decision always wins. Retry for a bounded
+     * period, then quietly abandon this launch rather than appearing over a
+     * modal surface or waiting forever. */
+    if (QApplication::activeModalWidget())
+    {
+        if (++m_cModalDeferrals <= 3)
+            QTimer::singleShot(1000, this, &UIMd3DimSumSurprise::sltShowToast);
+        else
+            m_iDrawnDishIndex = -1;
+        return;
+    }
 
     const QList<UIMd3DimSumDish> list = dishes();
     if (m_iDrawnDishIndex >= list.size())
@@ -304,7 +318,9 @@ void UIMd3DimSumSurprise::sltShowToast()
 
     pToast->adjustSize();
 
-    if (QScreen *pScreen = QGuiApplication::primaryScreen())
+    QWidget *pActiveWindow = QApplication::activeWindow();
+    QScreen *pScreen = pActiveWindow ? pActiveWindow->screen() : QGuiApplication::primaryScreen();
+    if (pScreen)
     {
         const QRect avail = pScreen->availableGeometry();
         const int x = avail.right() - pToast->width() - 24;

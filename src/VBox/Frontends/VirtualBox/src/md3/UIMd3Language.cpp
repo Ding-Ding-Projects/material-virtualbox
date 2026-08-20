@@ -102,6 +102,12 @@ UIMd3Language::UIMd3Language()
     registerText(QStringLiteral("md3.settings.customization.panel"),
                  QStringLiteral("Language and appearance customization"),
                  QStringLiteral("語言同外觀自訂"));
+    registerText(QStringLiteral("md3.settings.dialog-emojis"),
+                 QStringLiteral("Show emojis in dialogs and message boxes"),
+                 QStringLiteral("對話框同訊息框顯示表情符號"));
+    registerText(QStringLiteral("md3.settings.dialog-emojis.description"),
+                 QStringLiteral("Decorate dialog and message-box messages with a relevant emoji; buttons, action labels, field labels and accessible names are unchanged"),
+                 QStringLiteral("對話框同訊息框嘅訊息加返個應景表情符號；按鈕、動作標籤、欄位標籤同無障礙名稱全部保持原樣"));
     registerText(QStringLiteral("md3.manager.navigation-rail"),
                  QStringLiteral("Navigation rail"),
                  QStringLiteral("導覽列"));

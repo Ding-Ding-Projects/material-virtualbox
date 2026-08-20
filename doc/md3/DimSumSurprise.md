@@ -1,6 +1,6 @@
 # Dim sum startup surprise
 
-`UIMd3DimSumSurprise` is a process-wide singleton, created/destroyed in `main.cpp`
+`UIMd3DimSumSurprise` is a Selector-UI singleton, created/destroyed in `main.cpp`
 alongside `UIMd3History`/`UIMd3NotificationCentre`/`UIMd3Changelog`, that gives roughly
 one launch in ten a small, un-opt-out-able, bilingual delight.
 
@@ -23,6 +23,14 @@ one launch in ten a small, un-opt-out-able, bilingual delight.
   effect) six seconds after appearing.
 - **Never twice in one launch.** The drawn index is consumed (reset to "none")
   the instant the toast is shown; the singleton only ever schedules one timer.
+- **Never over a startup decision.** If a modal dialog is active when the
+  delayed toast would appear, display is deferred by one second up to three
+  times. If the modal remains active, the draw is abandoned for that launch.
+  A decorative toast therefore never competes with an error, confirmation, or
+  other decision that needs the user's attention.
+- **Uses the active window's display.** Positioning uses the active window's
+  screen when one exists, falling back to the primary screen only when no
+  application window is active.
 - **No opt-out.** There is no setting, no extra-data key, no menu item that
   disables it. This is deliberate, per the house contract.
 - **Never on a first run, and never on the launch right after an update.**
@@ -73,6 +81,9 @@ repository, not a stand-in for one.
 
 ## Deliberately not yet done (honest scope)
 
+- **Selector UI only.** Runtime-UI processes do not create the singleton. A
+  per-VM process has different startup semantics and must not inherit this
+  once-per-Manager-launch behavior accidentally.
 - **No automated test.** No `tstUIMd3DimSumSurprise` exists; the 10% draw, the
   first-run/update skip, and the bilingual formatting were verified by reading
   the code, not by running it.
@@ -81,10 +92,6 @@ repository, not a stand-in for one.
   packaging workflow, same as every other MD3 source added this way.
 - **No screen capture** of the toast appearing, fading, or its accessible
   announcement — none was taken.
-- **No positioning awareness of multiple monitors beyond "the primary screen's
-  available geometry"** — on an unusual multi-monitor layout the toast could, in
-  principle, land somewhere less convenient than intended; this is a cosmetic
-  risk only.
 
 ## Suggested articles
 

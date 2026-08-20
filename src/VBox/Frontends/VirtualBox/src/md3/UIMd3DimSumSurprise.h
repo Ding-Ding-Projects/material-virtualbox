@@ -52,7 +52,7 @@ struct UIMd3DimSumDish
 };
 
 /**
- * A rare, non-blocking, un-opt-out-able "dim sum of the moment" startup delight.
+ * A rare, non-blocking, un-opt-out-able Selector-UI startup delight.
  *
  * On roughly one launch in ten -- and never on a launch that skips the draw
  * (see shouldSkipThisLaunch()) -- a small auto-dismissing toast names one
@@ -62,7 +62,8 @@ struct UIMd3DimSumDish
  * never steal focus (the toast is a Qt::Tool window that does not accept
  * focus and is shown with Qt::WA_ShowWithoutActivating), and never delay the
  * application becoming usable. At most one dish is drawn, and at most one
- * toast is ever shown, per process launch.
+ * toast is ever shown, per Selector-UI process launch. Runtime-UI processes do
+ * not create this service.
  *
  * This class ships no setting that disables it -- there is deliberately no
  * API to opt out.
@@ -120,6 +121,8 @@ private:
     static UIMd3DimSumSurprise *s_pInstance;
     /** Any currently visible toast; null once dismissed or before one is shown. */
     QPointer<QWidget> m_pToast;
+    /** Number of times display was deferred while a modal decision was active. */
+    int m_cModalDeferrals;
     /** Index into dishes() drawn for this launch, or -1 when none was drawn. */
     int m_iDrawnDishIndex;
 };

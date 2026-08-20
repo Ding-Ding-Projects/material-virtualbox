@@ -602,7 +602,9 @@ extern "C" DECLEXPORT(int) TrustedMain(int argc, char **argv, char ** /*envp*/)
         UIMd3History::create();
         UIMd3NotificationCentre::create();
         UIMd3Changelog::create();
+#ifndef VBOX_RUNTIME_UI
         UIMd3DimSumSurprise::create();
+#endif
         UIMd3PersonalVocabulary::create();
 
         /* Simulate try-catch block: */
@@ -636,7 +638,9 @@ extern "C" DECLEXPORT(int) TrustedMain(int argc, char **argv, char ** /*envp*/)
         /* Persist and destroy the process-wide Material 3 theme before the
          * extra-data manager and UICommon are torn down. */
         UIMd3PersonalVocabulary::destroy();
+#ifndef VBOX_RUNTIME_UI
         UIMd3DimSumSurprise::destroy();
+#endif
         UIMd3Changelog::destroy();
         UIMd3NotificationCentre::destroy();
         UIMd3History::destroy();
