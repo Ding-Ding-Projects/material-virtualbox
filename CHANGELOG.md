@@ -96,6 +96,27 @@ a published release.
 
 ## [Unreleased]
 
+### Fixed — Reconciled the preserved dialog-emoji and dim-sum drafts (2026-08-20)
+
+[`db403d882ac3870cef07c319b7b41e1016b76eda`](https://github.com/Ding-Ding-Projects/material-virtualbox/commit/db403d882ac3870cef07c319b7b41e1016b76eda)
+
+- The persisted emoji preference now reaches the shared `QIMessageBox` path
+  used by real confirmations and warnings, and global settings exposes the same
+  localized, accessible toggle as the command palette. Rich-text container
+  markup remains intact; button, action, field, copied, and accessible text is
+  not decorated.
+- The startup dim-sum toast now defers while a modal decision is active, gives
+  up after three bounded retries, uses the active window's screen, and is not
+  created in Runtime-UI processes.
+- The two retained draft commits were reconciled semantically rather than
+  merged literally: their duplicate `UIMd3DialogEmoji` and `UIMd3DimSum`
+  singletons are superseded by the canonical `UIMd3EmojiSetting` and
+  `UIMd3DimSumSurprise` implementations already on `main`.
+- Verification: the language-registry checker reported 429 registrations, 409
+  distinct keys, zero violations, and zero warnings; `git diff --check` passed.
+  No native Qt build or built-artifact interaction was run because this linked
+  checkout deliberately leaves the `kBuild` submodule uninitialized.
+
 ### Fixed — The three surfaces a newcomer reads, and one handoff instead of three (2026-08-16)
 
 *No commit link yet.* This entry describes the commit that adds it.

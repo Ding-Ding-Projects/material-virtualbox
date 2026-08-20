@@ -223,6 +223,21 @@ void UIMd3Changelog::prepareEntries()
 
     /* ---- Unreleased: written, not yet in any published release. ---- */
 
+    addEntry(m_entries, strUnreleased, QDate(2026, 8, 20), QStringLiteral("Fixed"), QString(),
+             QStringLiteral("Reconcile the preserved dialog-emoji and dim-sum drafts"),
+             QStringLiteral(
+                 "The persisted emoji preference now decorates real QIMessageBox messages and "
+                 "has a localized, accessible global-settings checkbox. Rich-text container "
+                 "markup remains intact while controls, copied text and accessible names remain "
+                 "unchanged. The startup dim-sum toast now defers during modal decisions for "
+                 "three bounded retries, uses the active window's screen, and is created only "
+                 "for the Selector UI. The preserved drafts were reconciled into the canonical "
+                 "UIMd3EmojiSetting and UIMd3DimSumSurprise classes rather than adding duplicate "
+                 "singletons. The language-registry checker passed with zero violations and zero "
+                 "warnings; no native Qt build or built-artifact interaction was run because the "
+                 "linked checkout leaves kBuild uninitialized."),
+             QStringLiteral("db403d882ac3870cef07c319b7b41e1016b76eda"));
+
     addEntry(m_entries, strUnreleased, QDate(2026, 8, 16), QStringLiteral("Fixed"), QString(),
              QStringLiteral("Repair the stale README contract and add a localization gate"),
              QStringLiteral(
