@@ -1,5 +1,15 @@
 # Material Virtual Machine roadmap
 
+## Closeout status, 2026-09-18
+
+- [x] Fetch `origin` and reconcile the default branch without rewriting history. Local `main` and `origin/main` both resolve to `1344a2f80075abbb44f940fde6d25c2ba08049de`.
+- [x] Confirm the primary checkout is clean and has no index conflicts.
+- [x] Confirm there are no linked checkouts, stashes, or additional remote heads to integrate.
+- [x] Scan open GitHub issues. None were present at this closeout.
+- [x] Record the exact current state in [`HANDOFF.md`](HANDOFF.md).
+- [ ] Build, install, launch, and capture the application. This remains blocked by the documented unsigned-driver and local toolchain limits.
+- [ ] Complete the remaining implementation, accessibility, documentation, CI, and capture rows in the design inventory.
+
 The rewrite is delivered in native Qt slices that preserve VirtualBox behavior
 and remain independently buildable. Status is evidence-based; an implementation
 row remains open until its required source, interaction, runtime, accessibility,

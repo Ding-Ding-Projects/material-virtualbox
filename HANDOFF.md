@@ -1,5 +1,29 @@
 # Handoff
 
+## Current closeout snapshot
+
+Recorded on 2026-09-18 after fetching `origin` from the primary checkout
+`C:\Users\cntow\Documents\GitHub\material-virtualbox`.
+
+| Fact | Current evidence |
+|---|---|
+| Default branch | `main` |
+| Local tip | `1344a2f80075abbb44f940fde6d25c2ba08049de` |
+| `origin/main` | `1344a2f80075abbb44f940fde6d25c2ba08049de` |
+| Local divergence | `0` ahead, `0` behind after a fast-forward from `origin/main` |
+| Primary checkout | Clean, with no uncommitted paths |
+| Secondary checkouts | None returned by `git worktree list --porcelain`; no `.git/worktrees` entries exist |
+| Stashes | None returned by `git stash list` |
+| Index conflicts | None returned by `git ls-files -u` |
+| Open GitHub issues | None returned by `gh issue list --state open --limit 100` |
+| Remote heads | Only `refs/heads/main`, verified by `git ls-remote --heads origin` |
+| Release work | Not run in this closeout |
+
+The earlier sections below preserve historical reports and their correction
+ledger. When they disagree with this snapshot, this snapshot is the current
+repository state and the historical section explains why the older statement
+was true at the time.
+
 Last updated: 2026-08-16.
 
 This document was restructured on 2026-08-16 because it had become three passes
