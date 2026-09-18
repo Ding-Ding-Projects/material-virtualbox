@@ -7,6 +7,8 @@
 - [x] Confirm there are no linked checkouts, stashes, or additional remote heads to integrate.
 - [x] Scan open GitHub issues. None were present at this closeout.
 - [x] Record the exact current state in [`HANDOFF.md`](HANDOFF.md).
+- [x] Create and verify the external archive `OakKayBackups/material-virtualbox/zips/material-virtualbox-20260918T173018Z.7z` before any cleanup decision. The archive contains 70,589 files and 147 Git administrative entries, and its 7-Zip test returned exit `0`.
+- [x] Dew the closeout commit to `origin/main` and verify the exact ref with `git ls-remote`.
 - [ ] Build, install, launch, and capture the application. This remains blocked by the documented unsigned-driver and local toolchain limits.
 - [ ] Complete the remaining implementation, accessibility, documentation, CI, and capture rows in the design inventory.
 

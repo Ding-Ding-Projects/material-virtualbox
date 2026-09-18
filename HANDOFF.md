@@ -17,6 +17,8 @@ Recorded on 2026-09-18 after fetching `origin` from the primary checkout
 | Index conflicts | None returned by `git ls-files -u` |
 | Open GitHub issues | None returned by `gh issue list --state open --limit 100` |
 | Remote heads | Only `refs/heads/main`, verified by `git ls-remote --heads origin` |
+| Closeout commit | `2492c7fc6cdfd98136b0d3e9580149bbd320e055`, dewed to `origin/main` and verified with `git ls-remote` |
+| External archive | `OakKayBackups/material-virtualbox/zips/material-virtualbox-20260918T173018Z.7z`, 2,692,574,168 bytes, 70,589 files, 171 folders, 147 Git administrative entries, 7-Zip test exit `0` |
 | Release work | Not run in this closeout |
 
 The earlier sections below preserve historical reports and their correction
@@ -24,7 +26,7 @@ ledger. When they disagree with this snapshot, this snapshot is the current
 repository state and the historical section explains why the older statement
 was true at the time.
 
-Last updated: 2026-08-16.
+Last updated: 2026-09-18.
 
 This document was restructured on 2026-08-16 because it had become three passes
 layered on top of one another: a current-state section, a superseded state table
