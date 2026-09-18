@@ -15,11 +15,17 @@ Recorded on 2026-09-18 after fetching `origin` from the primary checkout
 | Secondary checkouts | None returned by `git worktree list --porcelain`; no `.git/worktrees` entries exist |
 | Stashes | None returned by `git stash list` |
 | Index conflicts | None returned by `git ls-files -u` |
-| Open GitHub issues | None returned by `gh issue list --state open --limit 100` |
+| Open GitHub issues | `#2 Complete the full Material Design 3 GUI rewrite`, found by the final rescan and intentionally retained because it is outside this closeout scope |
 | Remote heads | Only `refs/heads/main`, verified by `git ls-remote --heads origin` |
 | Closeout commit | `2492c7fc6cdfd98136b0d3e9580149bbd320e055`, dewed to `origin/main` and verified with `git ls-remote` |
 | External archive | `OakKayBackups/material-virtualbox/zips/material-virtualbox-20260918T173018Z.7z`, 2,692,574,168 bytes, 70,589 files, 171 folders, 147 Git administrative entries, 7-Zip test exit `0` |
 | Release work | Not run in this closeout |
+
+Issue `#2` is active, broad feature work and was not present during the initial
+inventory. It remains untouched because this closeout was explicitly limited to
+repository preservation, documentation, integration, archive verification, and
+safe cleanup. No issue work was started, so no issue comment or state change was
+made.
 
 The earlier sections below preserve historical reports and their correction
 ledger. When they disagree with this snapshot, this snapshot is the current
