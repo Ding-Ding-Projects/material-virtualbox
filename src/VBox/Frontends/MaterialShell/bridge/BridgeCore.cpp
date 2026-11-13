@@ -1140,7 +1140,7 @@ static void bridgeMetricsSample(PBRIDGECTX pCtx, RTJSONVAL, BridgeJson &j)
     {
         ComPtr<IMachine> ptrMachine;
         Bstr bstrObjId;
-        if (!aRetObjects[i].isNull())
+        if (aRetObjects[i] != NULL)
         {
             ComPtr<IUnknown> ptrObj = aRetObjects[i];
             if (SUCCEEDED(ptrObj.queryInterfaceTo(ptrMachine.asOutParam())) && !ptrMachine.isNull())
