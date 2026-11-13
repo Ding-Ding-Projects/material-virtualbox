@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Export everything</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Roboto+Flex:opsz,wdth,wght@8..144,25..151,300..900&family=Roboto+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#0B0A0F}
+a{color:#D0BCFF}a:hover{color:#EADDFF}
+button{font:inherit;color:inherit;border:0;background:none;cursor:pointer}
+@keyframes mvTile{0%{opacity:0;transform:translateY(16px) rotate(-3deg) scale(.9)}70%{transform:rotate(1deg) scale(1.02)}100%{opacity:1;transform:none}}
+@keyframes mvType{from{clip-path:inset(0 100% 0 0)}to{clip-path:inset(0 0 0 0)}}
+@keyframes mvBar{from{width:0}}
+.mv-st{transition:background-color 180ms cubic-bezier(.2,0,0,1),transform 320ms cubic-bezier(.34,1.56,.64,1),color 180ms,box-shadow 250ms,border-color 250ms}
+.mv-st:hover{background-color:rgba(230,224,233,.08)}
+.mv-st:active{transform:scale(.95)}
+.mv-st:focus-visible{outline:3px solid #D0BCFF;outline-offset:2px}
+.mv-fmt:hover{transform:translateY(-4px)}
+@media (prefers-reduced-motion: reduce){*,*::before,*::after{animation:none!important;transition:none!important}}
+</style>
+</helmet>
+<div style="min-height: 900px; display: flex; flex-wrap: wrap; gap: 24px; padding: 28px 32px; background: #0B0A0F; color: #E6E0E9; font-family: 'Roboto Flex', 'Segoe UI', system-ui, sans-serif; font-size: 14px">
+  <main style="flex: 999 1 560px; min-width: 0; display: flex; flex-direction: column; gap: 16px">
+    <div>
+      <span style="font-size: 12px; font-weight: 800; letter-spacing: 1.2px; text-transform: uppercase; color: #D0BCFF">Ctrl+E · from any pane</span>
+      <h1 style="margin: 4px 0 0; font-size: 56px; line-height: .95; font-weight: 900; letter-spacing: -1.5px; font-variation-settings: 'wdth' 135">Export</h1>
+    </div>
+    <div style="display: flex; gap: 8px; flex-wrap: wrap">
+      <span style="padding: 8px 14px; border-radius: 12px; background: #2B2340; color: #EADDFF; font-weight: 700">Source: Details of Windows 11 Dev Box · 42 rows</span>
+      <span style="padding: 8px 14px; border-radius: 12px; background: #1D1B20; color: #CAC4D0">Filter applied: none</span>
+    </div>
+    <div role="radiogroup" aria-label="Format" style="display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 10px">
+      <sc-for list="{{ fmts }}" as="f" hint-placeholder-count="18">
+        <button class="mv-st mv-fmt" role="radio" aria-checked="{{ f.on }}" onClick="{{ f.pick }}" style="display: flex; flex-direction: column; align-items: flex-start; gap: 6px; padding: 14px; border-radius: 20px; text-align: left; background: {{ f.bg }}; border: 2px solid {{ f.border }}; animation: mvTile 520ms cubic-bezier(.34,1.56,.64,1) both; animation-delay: {{ f.delay }}">
+          <span style="font-family: 'Roboto Mono', monospace; font-weight: 600; font-size: 15px; color: {{ f.c }}">.{{ f.ext }}</span>
+          <span style="font-size: 12px; color: #CAC4D0">{{ f.label }}</span>
+        </button>
+      </sc-for>
+    </div>
+    <div style="display: flex; align-items: center; gap: 12px; padding: 14px 16px; border-radius: 18px; background: {{ lossBg }}; color: {{ lossFg }}">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M12 8v5M12 16.5v.5M10.3 3.9L2 18a2 2 0 0 0 1.7 3h16.6a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"></path></svg>
+      <span style="flex: 1; font-weight: 650">{{ loss }}</span>
+    </div>
+  </main>
+  <aside aria-label="Preview" style="flex: 1 1 380px; max-width: 480px; display: flex; flex-direction: column; gap: 12px">
+    <span style="font-size: 12px; font-weight: 800; letter-spacing: 1.2px; text-transform: uppercase; color: #CAC4D0">Preview · UTF-8 · LF · schema 3</span>
+    <sc-for list="{{ previewList }}" as="p" hint-placeholder-count="1">
+      <pre style="margin: 0; min-height: 360px; padding: 18px; border-radius: 26px; background: #121016; border: 1px solid #211F26; font-family: 'Roboto Mono', monospace; font-size: 12.5px; line-height: 1.7; color: #E6E0E9; white-space: pre-wrap; animation: mvType 900ms steps(30) both">{{ p.text }}</pre>
+    </sc-for>
+    <div style="height: 8px; border-radius: 4px; background: #211F26; overflow: hidden"><div style="height: 100%; width: 100%; border-radius: 4px; background: linear-gradient(90deg, #D0BCFF, #EFB8C8); animation: mvBar 1.2s cubic-bezier(.05,.7,.1,1) both"></div></div>
+    <div style="display: flex; gap: 8px">
+      <button class="mv-st" style="flex: 1; height: 50px; border-radius: 25px; border: 1px solid #49454F; font-weight: 700">Copy</button>
+      <button class="mv-st" style="flex: 2; height: 50px; border-radius: 25px; background: #D0BCFF; color: #381E72; font-weight: 850">Save .{{ ext }}</button>
+    </div>
+  </aside>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":900}}'>
+class Component extends DCLogic {
+  constructor(p) { super(p); this.state = { f: 1 }; }
+  renderVals() {
+    const defs = [['csv', 'Comma separated', ''], ['json', 'JSON', ''], ['yaml', 'YAML', ''], ['toml', 'TOML', 'Nested groups flatten to dotted keys.'], ['xml', 'XML', ''], ['md', 'Markdown table', ''],
+      ['html', 'HTML table', ''], ['tsv', 'Tab separated', ''], ['ini', 'INI', 'Values longer than one line are escaped.'], ['xlsx', 'Excel workbook', ''], ['ods', 'OpenDocument sheet', ''], ['pdf', 'PDF report', 'Not re-importable.'],
+      ['txt', 'Plain text', 'Section structure is lost.'], ['sql', 'SQL inserts', ''], ['ndjson', 'JSON lines', ''], ['properties', 'Java properties', 'Sections flatten to dotted keys.'], ['7z', 'Encrypted archive', ''], ['zip', 'ZIP archive', '']];
+    const cs = ['#D0BCFF', '#EFB8C8', '#A6D7A0', '#9ECAFF', '#FFB869'];
+    const fmts = defs.map((d, i) => ({ ext: d[0], label: d[1], c: cs[i % 5], on: i === this.state.f ? 'true' : 'false', bg: i === this.state.f ? '#2B2340' : '#17151C', border: i === this.state.f ? '#D0BCFF' : 'transparent', delay: (i * 30) + 'ms', pick: () => this.setState({ f: i }) }));
+    const d = defs[this.state.f];
+    const samples = { json: '{\n  "schema": 3,\n  "machine": "Windows 11 Dev Box",\n  "general": {\n    "os": "Windows 11 (64-bit)"\n  },\n  "system": {\n    "memoryMB": 16384,\n    "cpus": 8,\n    "firmware": "EFI"\n  }\n}',
+      csv: 'section,key,value\ngeneral,os,Windows 11 (64-bit)\nsystem,memoryMB,16384\nsystem,cpus,8\nsystem,firmware,EFI',
+      yaml: 'schema: 3\nmachine: Windows 11 Dev Box\ngeneral:\n  os: Windows 11 (64-bit)\nsystem:\n  memoryMB: 16384\n  cpus: 8\n  firmware: EFI' };
+    const text = samples[d[0]] || ('# ' + d[1] + ' preview\nmachine = Windows 11 Dev Box\nsystem.memoryMB = 16384\nsystem.cpus = 8');
+    return { fmts, ext: d[0], previewList: [{ text, k: this.state.f }], loss: d[2] || 'Lossless. Re-importable as .' + d[0] + '.', lossBg: d[2] ? '#33261A' : '#17261A', lossFg: d[2] ? '#FFDDB8' : '#C4EEBE' };
+  }
+}
+</script>
+</body>
+</html>

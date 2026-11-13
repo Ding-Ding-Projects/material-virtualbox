@@ -59,6 +59,15 @@
    "expand": "fill",
    "title": "Local history and changelog",
    "is_interactive": true
+  },
+  "Export.dc.html": {
+   "x": 0,
+   "y": 2040,
+   "w": 1440,
+   "h": 900,
+   "expand": "fill",
+   "title": "Export everything",
+   "is_interactive": true
   }
  },
  "order": [
@@ -67,7 +76,8 @@
   "Tab-Manager.dc.html",
   "Appearance-Editor.dc.html",
   "Super-Confirmation.dc.html",
-  "History.dc.html"
+  "History.dc.html",
+  "Export.dc.html"
  ],
  "notes": {
   "title": {
