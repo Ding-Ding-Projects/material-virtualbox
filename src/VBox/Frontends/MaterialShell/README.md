@@ -74,6 +74,17 @@ Requests and responses are single lines of JSON on the bridge's stdin and stdout
 | `logs.read` | `id`, `index?`, `offset?` | Up to 512 KB of a machine log |
 | `extpacks.list` | | Installed extension packs |
 | `metrics.sample` | | Latest CPU and RAM samples for the host and running machines |
+| `machine.settings` | `id` | Description, OS type, firmware, TPM, nested virtualization, boot order, audio, serial ports, USB controllers and filters, storage controllers, clipboard and drag-and-drop modes |
+| `machine.settingsUpdate` | `id`, any of `description`, `osTypeId`, `firmware`, `tpm`, `nestedVirt`, `bootOrder`, `audio`, `serial`, `usb` (`controller`, `filtersAdd`, `filtersRemove`), `detach`, `controllersRemove`, `controllersAdd`, `attach` | Changes a powered-off machine in one write lock, in that order, then saves |
+| `machine.runtime` | `id`, `clipboardMode?`, `dndMode?` | Clipboard and drag-and-drop modes; works while running |
+| `machine.clone` | `id`, `name`, `mode?` (`current`, `all`), `keepMacs?` | Full clone, registered under the new name |
+| `snapshots.action` | `id`, `snapshotId`, `action` (`restore`, `delete`, `rename`), `name?`, `description?` | Snapshot management |
+| `media.action` | `action` (`open`, `resize`, `compact`, `copy`, `release`, `remove`), `mediumId` or `location`, `sizeGB?`, `target?`, `format?`, `deleteFile?` | Virtual media management |
+| `networks.action` | `action` (`hostOnlyCreate`, `hostOnlyConfigure`, `hostOnlyRemove`, `natCreate`, `natUpdate`, `natRemove`), `name`, `ip?`, `mask?`, `cidr?`, `dhcp?`, `enabled?`, `rulesAdd?`, `rulesRemove?` | Host-only adapters, NAT networks and their IPv4 port forwarding |
+| `extpacks.action` | `action` (`inspect`, `install`, `uninstall`), `path` or `name`, `licenseAccepted` | Reads a pack and its license, installs only after the license is accepted, uninstalls |
+| `appliance` | `action` (`export`, `inspect`, `import`), `path`, `machines?`, `format?`, `manifest?`, `keepMacs?` | OVF and OVA export and import |
+| `usb` | `action` (`list`, `attach`, `detach`), `id?`, `deviceId?` | Host USB devices; attach to or detach from a running machine |
+| `system.properties` | `defaultMachineFolder?` | Reads, and optionally sets, the default machine folder |
 | `screen.attach` / `screen.detach` | `id` | Takes a shared lock on a running machine for its screen |
 | `screen.frame` | `id` | The current screen as base64 PNG with its size |
 | `screen.keys` | `id`, `scancodes` | Set 1 scan codes, up to 256 per call |
@@ -102,10 +113,15 @@ Requests and responses are single lines of JSON on the bridge's stdin and stdout
 
 ## What is in the front end
 
-Machines (library, details, snapshots, logs, live resource use, start, show,
-pause, shut down, power off, snapshot, export, delete), machine settings (name,
-memory, processors), the New virtual machine wizard, Media with bulk selection,
-Network topology, Extensions, the log viewer with regex highlighting, live
+Machines (library, details, snapshots with restore, rename and delete, logs,
+live resource use, start, show, pause, shut down, power off, snapshot, clone,
+export, delete), every machine settings page (General, System, Display, Storage
+with controllers and attachments, Network, Shared folders, Audio, Serial ports,
+USB with filters, Clipboard and drag), the New virtual machine wizard, appliance
+export and import, Media with add, resize, compact, copy, release and delete,
+Network management (NAT networks, port forwarding, host-only adapters),
+Extensions with license-gated install and uninstall, the machine screen with a
+Devices menu (USB, clipboard, drag and drop), the default machine folder, the log viewer with regex highlighting, live
 Activity charts, History with restore-as-new-revision, Preferences (seed colour,
 three language modes, four motion levels, low stimulation, school mode), the
 tab manager, first-run setup, the command palette (Ctrl+Shift+F), the regex
@@ -121,8 +137,12 @@ and the notification centre.
   second, fine for desktops and installers, not for games.
 - `VBoxManage startvm` without `--type headless` fails, because there is no
   `VirtualBoxVM` to start; that is intended.
-- Settings cover General, System, Display, Storage (optical images), Network
-  and Shared folders. Audio, serial ports, USB and storage controllers are not
-  editable in the shell yet; there is no other user interface to edit them.
+- Every settings page and manager is in the shell, but the new management
+  handlers (`machine.settings` onwards in the table) have been exercised against
+  the demo provider only; the first compile and the first real VirtualBox run
+  are still ahead.
+- Port forwarding is IPv4 only. Attaching to an existing parallel port, PCI
+  pass-through, remote display, recording and guest control are not in the
+  shell.
 - No virtual machine can start on a host that refuses the unsigned hypervisor
   driver. The shell reports that failure as VBoxSVC returns it.

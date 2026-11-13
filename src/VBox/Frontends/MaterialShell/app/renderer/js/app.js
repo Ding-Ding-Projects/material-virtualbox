@@ -12,6 +12,7 @@ import { renderSettings, renderNewVm } from './pages/settings.js';
 import { renderMedia, renderNetwork, renderExtensions, renderLogs, renderActivity } from './pages/tools.js';
 import { renderScreen, closeScreen } from './pages/screen.js';
 import { renderHistory, renderPrefs, renderTabManager, renderOnboarding } from './pages/app-pages.js';
+import { renderAppliance } from './pages/appliance.js';
 
 const CATALOG = [
     { id: 'machines', label: 'Machines', icon: ICONS.machine, render: renderMachines },
@@ -28,7 +29,8 @@ const EXTRA = {
     newvm: { label: 'New machine', render: renderNewVm },
     tabs: { label: 'Tab manager', render: (root) => renderTabManager(root, tabsApi) },
     onboarding: { label: 'First-run setup', render: renderOnboarding },
-    screen: { label: 'Machine screen', render: renderScreen }
+    screen: { label: 'Machine screen', render: renderScreen },
+    appliance: { label: 'Appliances', render: renderAppliance }
 };
 
 let tabs = reconcile(CATALOG, persist.load('tabs', null));
@@ -89,6 +91,8 @@ function route() {
 registerPaletteSource(() => [
     ...CATALOG.map((c) => ({ scope: 'Pages', title: c.label, path: 'Go to', icon: c.icon, run: () => { saveTabs(openTab(tabs, c.id)); store.set({ route: c.id }); } })),
     { scope: 'Pages', title: 'New virtual machine', path: 'Wizard', icon: ICONS.plus, run: () => store.set({ route: 'newvm' }) },
+    { scope: 'Pages', title: 'Export appliance', path: 'Appliances · OVF/OVA', icon: ICONS.export, run: () => store.set({ route: 'appliance', applianceMode: 'export', applianceIds: [] }) },
+    { scope: 'Pages', title: 'Import appliance', path: 'Appliances · OVF/OVA', icon: ICONS.export, run: () => store.set({ route: 'appliance', applianceMode: 'import', applianceIds: [] }) },
     { scope: 'Pages', title: 'Tab manager', path: 'Tabs', icon: ICONS.tabs, keys: 'Ctrl+Shift+T', run: () => store.set({ route: 'tabs' }) },
     { scope: 'Pages', title: 'First-run setup', path: 'Setup', icon: ICONS.info, run: () => store.set({ route: 'onboarding' }) },
     { scope: 'Actions', title: 'Open every tab', path: 'Tabs', icon: ICONS.tabs, run: () => saveTabs(openEvery(tabs, CATALOG)) },
@@ -136,14 +140,15 @@ async function start() {
     store.set({ status });
     if (status.mode !== 'missing') {
         const host = await api('host.info', {}, { quiet: true }).catch(() => null);
-        store.set({ host });
+        const props = await api('system.properties', {}, { quiet: true }).catch(() => null);
+        store.set({ host, defaultMachineFolder: props ? props.defaultMachineFolder : '' });
         await refreshMachines();
     }
     if (!store.get().prefs.onboarded) store.set({ route: 'onboarding' });
 
     let last = {};
     store.subscribe((s) => {
-        if (s.route !== last.route) { persist.save('route', s.route); drawTabs(); drawRail(); route(); }
+        if (s.route !== last.route || (s.route === 'appliance' && (s.applianceMode !== last.applianceMode || s.applianceIds !== last.applianceIds))) { persist.save('route', s.route); drawTabs(); drawRail(); route(); }
         else if (s.machines !== last.machines || s.selectedId !== last.selectedId || s.prefs !== last.prefs) {
             persist.save('selectedId', s.selectedId);
             if (['machines', 'settings', 'logs', 'prefs'].includes(s.route)) route();

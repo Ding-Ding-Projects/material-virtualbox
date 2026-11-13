@@ -6,7 +6,7 @@
 
 import { h, icon, ICONS, mount, stagger, persist } from '../core.js';
 import { store, api, notify, recordHistory, t } from '../services.js';
-import { searchField, confirmDestructive, openExport, registerPaletteSource } from '../features/overlays.js';
+import { searchField, confirmDestructive, openExport, registerPaletteSource, formDialog } from '../features/overlays.js';
 import { openScreen, startAndOpen } from './screen.js';
 import { megabytes, bytes, stateLabel, stateTone, primaryAction, monogram, relativeTime, parseLog } from '../logic/format.js';
 
@@ -68,7 +68,42 @@ async function takeSnapshot(m) {
     } catch { /* notified */ }
 }
 
+export function cloneMachine(m) {
+    const taken = (n) => store.get().machines.some((x) => x.name === n);
+    let suggestion = m.name + ' clone', k = 2;
+    while (taken(suggestion)) suggestion = m.name + ' clone ' + k++;
+    formDialog({ title: 'Clone ' + m.name, kicker: 'Full clone',
+        fields: [{ key: 'name', label: 'Name of the copy', value: suggestion },
+            { key: 'mode', label: 'What to copy', value: 'current', options: [['current', 'Current state only'], ['all', 'Current state and every snapshot']] },
+            { key: 'keepMacs', label: 'Keep network MAC addresses (only if the original will never run at the same time)', type: 'checkbox' }],
+        validate: (v) => !v.name.trim() ? 'A name is required.' : taken(v.name.trim()) ? 'A machine with this name already exists.' : '',
+        actionLabel: 'Clone',
+        onSubmit: async (v) => {
+            const r = await api('machine.clone', { id: m.id, name: v.name.trim(), mode: v.mode, keepMacs: v.keepMacs }, { quiet: true });
+            recordHistory({ title: 'Machine cloned: ' + v.name.trim(), scope: m.name, category: 'Machines', diff: [['+', 'Machine: ' + v.name.trim()], ['+', 'From: ' + m.name + ' (' + (v.mode === 'all' ? 'all states' : 'current state') + ')']] });
+            notify({ kind: 'success', title: 'Cloned', body: v.name.trim() });
+            await refreshMachines();
+            if (r && r.id) store.set({ selectedId: r.id });
+        } });
+}
+
+async function snapshotAction(m, snap, action) {
+    const done = async (title, diff) => { recordHistory({ title, scope: m.name, category: 'Snapshots', diff }); notify({ kind: 'success', title, body: m.name }); paneCache.snaps = null; await refreshMachines(); };
+    if (action === 'rename') {
+        return formDialog({ title: 'Rename snapshot', kicker: m.name, fields: [{ key: 'name', label: 'Name', value: snap.name }, { key: 'description', label: 'Description', value: snap.description || '' }],
+            validate: (v) => v.name.trim() ? '' : 'A name is required.', actionLabel: 'Save',
+            onSubmit: async (v) => { await api('snapshots.action', { id: m.id, snapshotId: snap.id, action: 'rename', name: v.name.trim(), description: v.description }, { quiet: true }); await done('Snapshot renamed: ' + v.name.trim(), [['-', snap.name], ['+', v.name.trim()]]); } });
+    }
+    if (action === 'restore') {
+        return confirmDestructive({ title: 'Restore ' + snap.name + '?', detail: 'The current state of ' + m.name + ' is replaced. Take a snapshot first if you want to keep it.', actionLabel: 'Restore',
+            onConfirm: async () => { await api('snapshots.action', { id: m.id, snapshotId: snap.id, action: 'restore' }); await done('Snapshot restored: ' + snap.name, [['+', 'Restored: ' + snap.name]]); } });
+    }
+    return confirmDestructive({ title: 'Delete ' + snap.name + '?', detail: 'Its saved disk changes are merged and it can no longer be restored.', actionLabel: 'Delete',
+        onConfirm: async () => { await api('snapshots.action', { id: m.id, snapshotId: snap.id, action: 'delete' }); await done('Snapshot deleted: ' + snap.name, [['-', snap.name]]); } });
+}
+
 registerPaletteSource(() => store.get().machines.flatMap((m) => [
+    { scope: 'Actions', title: 'Clone ' + m.name, path: 'Action · Clone', icon: ICONS.plus, run: () => cloneMachine(m) },
     { scope: 'Machines', title: m.name, path: 'Machines · ' + stateLabel(m.state), icon: ICONS.machine, run: () => { store.set({ route: 'machines', selectedId: m.id }); } },
     { scope: 'Actions', title: primaryAction(m.state).label + ' ' + m.name, path: 'Action', icon: ICONS.play, run: () => primaryAction(m.state).id && machineAction(m, primaryAction(m.state).id) },
     { scope: 'Actions', title: 'Take snapshot of ' + m.name, path: 'Action · Snapshots', icon: ICONS.camera, keys: 'Ctrl+Shift+S', run: () => takeSnapshot(m) }
@@ -82,6 +117,7 @@ export function renderMachines(root) {
 
     const listCol = h('section', { class: 'list-col', 'aria-label': 'Virtual machines' },
         h('div', { class: 'spread', style: { alignItems: 'baseline' } }, h('h1', { class: 'title', style: { fontSize: '22px', fontWeight: 800 } }, t('Machines')), h('span', { class: 'muted', style: { fontSize: '12px' } }, s.machines.length + ' machines, ' + running + ' running')),
+        h('div', { class: 'row' }, h('button', { class: 'btn tonal st grow', onclick: () => store.set({ route: 'newvm' }) }, icon(ICONS.plus, 18), 'New'), h('button', { class: 'btn outlined st grow', onclick: () => store.set({ route: 'appliance', applianceMode: 'import', applianceIds: [] }) }, 'Import')),
         searchField({ placeholder: 'Filter machines', onChange: (m) => { matcher = m; rerenderList(); }, samples: () => s.machines.map((m) => m.name) }),
         h('div', { class: 'row', role: 'group', 'aria-label': 'Filters' }, [['all', 'All'], ['running', 'Running'], ['saved', 'Saved']].map(([id, label]) => h('button', { class: 'chip st', 'aria-pressed': String(filter === id), onclick: () => { filter = id; renderMachines(root); } }, label))),
         h('div', { class: 'vm-list', id: 'vm-list' }));
@@ -121,6 +157,8 @@ function renderDetail(detail, m) {
             live ? h('button', { class: 'btn big st tone-error', onclick: () => machineAction(m, 'powerOff') }, 'Power off') : null,
             h('button', { class: 'btn tonal big st', onclick: () => store.set({ route: 'settings' }) }, t('Settings')),
             h('button', { class: 'icon-btn st', 'aria-label': 'Take snapshot', title: 'Take snapshot', onclick: () => takeSnapshot(m) }, icon(ICONS.camera)),
+            h('button', { class: 'btn outlined big st', onclick: () => cloneMachine(m) }, 'Clone'),
+            h('button', { class: 'btn outlined big st', disabled: live ? true : undefined, onclick: () => store.set({ route: 'appliance', applianceMode: 'export', applianceIds: [m.id] }) }, 'Export appliance'),
             h('button', { class: 'icon-btn st', 'aria-label': 'Export details', title: 'Export details', onclick: () => exportDetails(m) }, icon(ICONS.export)),
             h('button', { class: 'icon-btn st tone-error', 'aria-label': 'Delete machine', title: 'Delete machine', disabled: live ? true : undefined, onclick: () => deleteMachine(m) }, icon(ICONS.trash))));
 
@@ -169,7 +207,11 @@ async function drawPane(body, m) {
         mount(body, flat.length ? h('ol', { class: 'timeline' }, flat.concat([{ id: 'now', name: 'Current state', timeMs: Date.now(), depth: flat.length ? flat[flat.length - 1].depth : 0, now: true }]).map((s, i) =>
             h('li', { class: 'slide', style: { ...stagger(i, 80), paddingLeft: (s.depth * 18) + 'px' } },
                 h('span', { 'aria-hidden': 'true', style: { width: '24px', display: 'flex', flexDirection: 'column', alignItems: 'center' } }, h('span', { style: { width: '16px', height: '16px', borderRadius: '8px', marginTop: '18px', background: s.now ? 'var(--primary)' : (s.id === sn.currentId ? 'var(--tertiary)' : 'var(--outline)') } }), h('span', { style: { flex: 1, width: '2px', background: 'var(--outline-variant)' } })),
-                h('span', { class: 'card grow', style: { margin: '4px 0', display: 'flex', justifyContent: 'space-between', gap: '12px' } }, h('span', null, h('strong', null, s.name), h('div', { class: 'muted', style: { fontSize: '12px' } }, s.now ? 'Live' : new Date(s.timeMs).toLocaleString())), s.id === sn.currentId ? h('span', { class: 'tone-primary', style: { fontSize: '12px', fontWeight: 700 } }, 'Current base') : null))))
+                h('span', { class: 'card grow', style: { margin: '4px 0', display: 'flex', justifyContent: 'space-between', gap: '12px' } }, h('span', null, h('strong', null, s.name), h('div', { class: 'muted', style: { fontSize: '12px' } }, s.now ? 'Live' : new Date(s.timeMs).toLocaleString())), h('span', { class: 'row', style: { flexWrap: 'nowrap', gap: '4px' } },
+                    s.id === sn.currentId ? h('span', { class: 'tone-primary', style: { fontSize: '12px', fontWeight: 700, marginRight: '6px' } }, 'Current base') : null,
+                    s.now ? null : h('button', { class: 'btn st', style: { height: '32px', padding: '0 10px', fontSize: '12.5px' }, disabled: m.state === 'running' || m.state === 'paused' ? true : undefined, title: m.state === 'running' || m.state === 'paused' ? 'Power off to restore' : 'Restore', onclick: () => snapshotAction(m, s, 'restore') }, 'Restore'),
+                    s.now ? null : h('button', { class: 'icon-btn st', 'aria-label': 'Rename ' + s.name, title: 'Rename', onclick: () => snapshotAction(m, s, 'rename') }, icon(ICONS.edit, 16)),
+                    s.now ? h('button', { class: 'btn tonal st', style: { height: '32px', padding: '0 10px', fontSize: '12.5px' }, onclick: () => takeSnapshot(m) }, icon(ICONS.camera, 16), 'Take') : h('button', { class: 'icon-btn st tone-error', 'aria-label': 'Delete ' + s.name, title: 'Delete', onclick: () => snapshotAction(m, s, 'delete') }, icon(ICONS.trash, 16)))))))
             : h('div', { class: 'empty' }, 'No snapshots yet.', h('button', { class: 'btn filled st', onclick: () => takeSnapshot(m) }, icon(ICONS.camera, 18), 'Take the first snapshot')));
     } else if (pane === 'logs') {
         const lg = paneCache.log || (paneCache.log = await api('logs.read', { id: m.id, index: 0 }, { quiet: true }).catch((e) => ({ error: e.message })));

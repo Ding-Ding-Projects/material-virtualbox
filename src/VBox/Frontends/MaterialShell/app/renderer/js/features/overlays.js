@@ -226,3 +226,43 @@ export function openNotificationCentre() {
             listEl));
     markAllRead();
 }
+
+/* ------------------------------------------------------------- form dialog */
+
+/**
+ * A small form in a dialog.  fields: [{ key, label, value, placeholder, type,
+ * options: [[value, label]], hint }].  validate(values) returns an error
+ * message or ''.  onSubmit(values) may throw; the dialog then stays open.
+ * body is optional extra content shown above the fields.
+ */
+export function formDialog({ title, kicker = '', body = null, fields = [], actionLabel = 'Save', validate = () => '', onSubmit }) {
+    const values = Object.fromEntries(fields.map((f) => [f.key, f.value !== undefined ? f.value : (f.type === 'checkbox' ? false : '')]));
+    const box = h('section', { class: 'dialog open-anim', role: 'dialog', 'aria-label': title, style: { padding: '24px', display: 'flex', flexDirection: 'column', gap: '14px' } });
+    let busy = false, error = '';
+    const render = () => {
+        const problem = validate(values);
+        const focusKey = document.activeElement && document.activeElement.dataset ? document.activeElement.dataset.key : null;
+        mount(box,
+            h('div', { class: 'spread' }, h('div', null, kicker ? h('div', { class: 'kicker' }, kicker) : null, h('h2', { class: 'headline' }, title)), h('span', { class: 'kbd' }, 'Esc')),
+            body,
+            fields.map((f) => f.type === 'checkbox'
+                ? h('label', { class: 'row', style: { flexWrap: 'nowrap' } }, h('input', { type: 'checkbox', 'data-key': f.key, checked: values[f.key] ? true : undefined, onchange: (e) => { values[f.key] = e.target.checked; render(); } }), h('span', null, f.label))
+                : f.options
+                    ? h('label', { class: 'input-card' }, h('span', { class: 'kicker' }, f.label), h('select', { 'data-key': f.key, onchange: (e) => { values[f.key] = e.target.value; render(); }, style: { height: '36px', background: 'transparent', color: 'inherit', border: 0 } },
+                        f.options.map(([v, l]) => h('option', { value: v, selected: String(values[f.key]) === String(v) ? true : undefined }, l))), f.hint ? h('span', { class: 'muted', style: { fontSize: '12px' } }, f.hint) : null)
+                    : h('label', { class: 'input-card' }, h('span', { class: 'kicker' }, f.label),
+                        h('input', { 'data-key': f.key, type: f.type || 'text', value: String(values[f.key]), placeholder: f.placeholder || '', oninput: (e) => { values[f.key] = f.type === 'number' ? Number(e.target.value) : e.target.value; const b = box.querySelector('#form-submit'); if (b) b.disabled = !!validate(values) || busy; const p = box.querySelector('#form-problem'); if (p) p.textContent = validate(values); } }),
+                        f.hint ? h('span', { class: 'muted', style: { fontSize: '12px' } }, f.hint) : null)),
+            h('div', { id: 'form-problem', class: 'tone-warning', role: 'status', style: { fontSize: '12.5px', minHeight: '16px' } }, problem),
+            error ? h('div', { class: 'banner error' }, error) : null,
+            h('div', { class: 'row', style: { justifyContent: 'flex-end' } },
+                h('button', { class: 'btn outlined st', onclick: closeLayer }, 'Cancel'),
+                h('button', { class: 'btn filled st', id: 'form-submit', disabled: problem || busy ? true : undefined, onclick: async () => {
+                    busy = true; error = ''; render();
+                    try { await onSubmit({ ...values }); closeLayer(); } catch (e) { busy = false; error = String(e.message || e).replace(/^Error invoking remote method '[^']+': (Error: )?/, ''); render(); box.classList.add('shake'); }
+                } }, busy ? 'Working…' : actionLabel)));
+        if (focusKey) { const el = box.querySelector('[data-key="' + focusKey + '"]'); if (el) el.focus(); }
+    };
+    render();
+    openLayer(h('div', { class: 'scrim', onclick: () => { if (!busy) closeLayer(); } }), box);
+}

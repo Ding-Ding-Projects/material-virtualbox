@@ -9,8 +9,11 @@ import { searchField, registerPaletteSource, teleport } from '../features/overla
 import { megabytes, monogram } from '../logic/format.js';
 import { refreshMachines } from './machines.js';
 import { renderEditor, invalidateEditors } from './settings-editors.js';
+import { renderMore, invalidateMore, MORE_SECTIONS } from './settings-more.js';
 
-const SECTIONS = [['general', 'General', ICONS.info], ['system', 'System', ICONS.chip], ['display', 'Display', ICONS.display], ['storage', 'Storage', ICONS.disk], ['network', 'Network', ICONS.network], ['folders', 'Shared folders', ICONS.folder]];
+const SECTIONS = [['general', 'General', ICONS.info], ['system', 'System', ICONS.chip], ['display', 'Display', ICONS.display], ['storage', 'Storage', ICONS.disk], ['network', 'Network', ICONS.network], ['folders', 'Shared folders', ICONS.folder],
+    ['audio', 'Audio', 'M4 9v6h4l5 4V5L8 9zM16 9a4 4 0 0 1 0 6M18.5 6.5a8 8 0 0 1 0 11'], ['serial', 'Serial ports', 'M4 7h16v10H4zM8 11h.01M12 11h.01M16 11h.01M10 14h.01M14 14h.01'],
+    ['usb', 'USB', 'M12 3v14M12 3l-2 3h4zM8 10v3l4 2M16 9v3l-4 2M12 17a2 2 0 1 0 0 4 2 2 0 0 0 0-4'], ['interface', 'Clipboard and drag', 'M8 4h8v4H8zM6 6H4v14h16V6h-2']];
 let section = 'system';
 let draft = null;
 
@@ -28,7 +31,7 @@ export function renderSettings(root) {
     const s = store.get();
     const m = s.machines.find((x) => x.id === s.selectedId);
     if (!m) return mount(root, h('div', { class: 'page' }, h('div', { class: 'empty' }, 'Select a machine first.')));
-    if (!draft || draft.id !== m.id) { draft = { id: m.id, name: m.name, memoryMB: m.memoryMB, cpus: m.cpus }; invalidateEditors(); }
+    if (!draft || draft.id !== m.id) { draft = { id: m.id, name: m.name, memoryMB: m.memoryMB, cpus: m.cpus }; invalidateEditors(); invalidateMore(); }
     const host = s.host || { memoryMB: 0, cpus: 0 };
     const live = m.state === 'running' || m.state === 'paused' || m.state === 'saved';
     const dirty = draft.name !== m.name || draft.memoryMB !== m.memoryMB || draft.cpus !== m.cpus;
@@ -75,15 +78,18 @@ export function renderSettings(root) {
     const editorGrid = (t) => {
         const grid = h('div', { class: 'grid g6' }, t);
         if (editorSection) renderEditor(section, m, grid, () => renderSettings(root));
-        return grid;
+        if (!MORE_SECTIONS.includes(section)) return grid;
+        const more = h('div', { class: 'grid g6', style: { marginTop: '18px' } });
+        renderMore(section, m, more, () => { invalidateEditors(); renderSettings(root); });
+        return h('div', null, grid, more);
     };
     mount(root, h('div', { style: { display: 'flex', flexWrap: 'wrap', minHeight: '100%' } }, side,
         h('div', { class: 'page', style: { flex: '999 1 560px', minWidth: 0 } },
             h('div', { class: 'spread' },
                 h('div', null, h('span', { class: 'mono muted', style: { fontSize: '12px' } }, 'Settings / ' + SECTIONS.find((x) => x[0] === section)[1]),
                     h('h2', { class: 'display', style: { background: 'linear-gradient(90deg, var(--on-primary-container), var(--tertiary))', WebkitBackgroundClip: 'text', backgroundClip: 'text', color: 'transparent' } }, SECTIONS.find((x) => x[0] === section)[1])),
-                editorSection ? null : h('div', { class: 'row' }, h('button', { class: 'btn outlined st', disabled: dirty ? undefined : true, onclick: () => { draft = null; renderSettings(root); } }, 'Discard'), h('button', { class: 'btn filled st', disabled: dirty && !live && draft.name.trim() ? undefined : true, onclick: apply }, 'Apply'))),
-            live && section !== 'storage' ? h('div', { class: 'banner info rise' }, icon(ICONS.info), 'Power the machine off to change hardware. Running and saved machines keep their hardware fixed.') : null,
+                !['general', 'system'].includes(section) ? null : h('div', { class: 'row' }, h('button', { class: 'btn outlined st', disabled: dirty ? undefined : true, onclick: () => { draft = null; renderSettings(root); } }, 'Discard'), h('button', { class: 'btn filled st', disabled: dirty && !live && draft.name.trim() ? undefined : true, onclick: apply }, 'Apply'))),
+            live && section !== 'storage' && section !== 'interface' ? h('div', { class: 'banner info rise' }, icon(ICONS.info), 'Power the machine off to change hardware. Running and saved machines keep their hardware fixed.') : null,
             memWarn ? h('div', { class: 'banner warn rise' }, icon(ICONS.info), 'Memory is above half of the host\'s ' + megabytes(host.memoryMB) + '. The host may page while this machine runs.') : null,
             editorGrid(tiles))));
 }

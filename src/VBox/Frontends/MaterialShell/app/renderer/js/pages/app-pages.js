@@ -71,6 +71,22 @@ export function renderPrefs(root) {
                 h('div', { class: 'segmented', role: 'radiogroup', 'aria-label': 'Animation level' }, [['off', 'Off'], ['calm', 'Calm'], ['lively', 'Lively'], ['super', 'Super']].map(([id, label]) => h('button', { class: 'st grow', role: 'radio', 'aria-checked': String(p.motion === id), onclick: () => { setPrefs({ motion: id }); renderPrefs(root); } }, label))),
                 h('div', { class: 'row', 'aria-hidden': 'true', style: { height: '50px', alignItems: 'flex-end' } }, [0, 1, 2, 3, 4].map((i) => h('span', { style: { width: '20px', height: '20px', borderRadius: '10px', background: 'var(--primary)', animation: 'mvPop 900ms var(--ease-spring) infinite alternate', animationDelay: i * 120 + 'ms' } }))),
                 h('span', { class: 'muted', style: { fontSize: '12.5px' } }, 'The system reduced-motion setting always wins. No state is shown by motion alone.')),
+            h('section', { class: 'card rise', id: 'pref-folder', tabindex: '-1', style: { gridColumn: 'span 6', borderRadius: '28px', display: 'flex', flexDirection: 'column', gap: '10px' } },
+                h('h2', { class: 'title' }, 'Default machine folder'),
+                h('div', { class: 'row', style: { flexWrap: 'nowrap' } },
+                    h('label', { class: 'field grow', style: { height: '44px' } }, h('span', { class: 'sr-only' }, 'Default machine folder'), h('input', { id: 'pref-folder-input', value: store.get().defaultMachineFolder || '', placeholder: 'D:\\VMs' })),
+                    h('button', { class: 'btn filled st', onclick: async () => {
+                        const v = root.querySelector('#pref-folder-input').value.trim();
+                        const before = store.get().defaultMachineFolder || '';
+                        if (!v || v === before) return;
+                        try {
+                            const r = await api('system.properties', { defaultMachineFolder: v });
+                            store.set({ defaultMachineFolder: r.defaultMachineFolder });
+                            recordHistory({ title: 'Default machine folder changed', scope: 'Preferences', category: 'Preferences', diff: [['-', before], ['+', r.defaultMachineFolder]], undo: before ? { method: 'system.properties', params: { defaultMachineFolder: before } } : null });
+                            notify({ kind: 'success', title: 'Saved', body: r.defaultMachineFolder });
+                        } catch { /* notified */ }
+                    } }, 'Save')),
+                h('span', { class: 'muted', style: { fontSize: '12.5px' } }, 'New machines, clones and imports go here. Stored by VirtualBox for every front end on this computer.')),
             toggle('lowStim', 'Low stimulation', 'Calmer motion and solid surfaces'),
             toggle('school', 'School mode', 'Plain wording everywhere'),
             toggle('emoji', 'Dialog emojis', 'Playful emoji on confirmations'),

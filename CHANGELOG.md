@@ -96,6 +96,24 @@ a published release.
 
 ## [Unreleased]
 
+### Added — Every remaining screen in the shell (2026-11-13)
+
+- Bridge: `machine.settings`, `machine.settingsUpdate`, `machine.runtime`,
+  `machine.clone`, `snapshots.action`, `media.action`, `networks.action`,
+  `extpacks.action`, `appliance`, `usb` and `system.properties`.
+- Shell: settings pages for OS type and description, firmware, TPM, nested
+  virtualization and boot order, Audio, Serial ports, USB controller and
+  filters, Clipboard and drag, storage controllers and attachments; snapshot
+  restore, rename and delete; Clone; appliance export and import; Media add,
+  resize, compact, copy, release and delete; NAT network, port forwarding and
+  host-only adapter management; extension pack install (license accepted first)
+  and uninstall; a Devices menu on the machine screen; the default machine
+  folder in Preferences. Destructive steps use the two-key confirmation and
+  every change is recorded in History.
+- Six new unit tests for the demo provider (21 in total).
+- **Not yet proven:** exercised against the demo provider only; the new C++ has
+  not been compiled yet.
+
 ### Added — Display, Network, Shared folders and Storage settings in the shell (2026-11-13)
 
 - Bridge: `machine.configure` (display, network adapters 1 to 4, shared folders,

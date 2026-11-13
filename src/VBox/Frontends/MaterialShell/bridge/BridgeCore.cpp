@@ -56,6 +56,9 @@
 #include <iprt/path.h>
 #include <iprt/base64.h>
 
+#include <algorithm>
+#include <vector>
+
 #include "BridgeCore.h"
 
 using namespace com;
@@ -1158,6 +1161,1049 @@ static void bridgeMetricsSample(PBRIDGECTX pCtx, RTJSONVAL, BridgeJson &j)
 
 
 /*********************************************************************************************************************************
+*   Every remaining settings page, snapshots, media, networks, extension packs, clone, appliances, USB, global properties        *
+*********************************************************************************************************************************/
+static const char *bridgeBusName(StorageBus_T enmBus)
+{
+    switch (enmBus)
+    {
+        case StorageBus_IDE:        return "IDE";
+        case StorageBus_SATA:       return "SATA";
+        case StorageBus_SCSI:       return "SCSI";
+        case StorageBus_Floppy:     return "Floppy";
+        case StorageBus_SAS:        return "SAS";
+        case StorageBus_USB:        return "USB";
+        case StorageBus_PCIe:       return "NVMe";
+        case StorageBus_VirtioSCSI: return "VirtioSCSI";
+        default:                    return "None";
+    }
+}
+
+static StorageBus_T bridgeBusFromName(const Utf8Str &str)
+{
+    if (str == "IDE")        return StorageBus_IDE;
+    if (str == "SATA")       return StorageBus_SATA;
+    if (str == "SCSI")       return StorageBus_SCSI;
+    if (str == "Floppy")     return StorageBus_Floppy;
+    if (str == "SAS")        return StorageBus_SAS;
+    if (str == "USB")        return StorageBus_USB;
+    if (str == "NVMe")       return StorageBus_PCIe;
+    if (str == "VirtioSCSI") return StorageBus_VirtioSCSI;
+    throw BridgeError(Utf8StrFmt("Unknown storage bus '%s'", str.c_str()), E_INVALIDARG);
+}
+
+static const char *bridgeBootName(DeviceType_T enmType)
+{
+    switch (enmType)
+    {
+        case DeviceType_HardDisk: return "disk";
+        case DeviceType_DVD:      return "optical";
+        case DeviceType_Floppy:   return "floppy";
+        case DeviceType_Network:  return "network";
+        default:                  return "none";
+    }
+}
+
+static DeviceType_T bridgeBootFromName(const Utf8Str &str)
+{
+    if (str == "disk")    return DeviceType_HardDisk;
+    if (str == "optical") return DeviceType_DVD;
+    if (str == "floppy")  return DeviceType_Floppy;
+    if (str == "network") return DeviceType_Network;
+    return DeviceType_Null;
+}
+
+static const char *bridgePortModeName(PortMode_T enmMode)
+{
+    switch (enmMode)
+    {
+        case PortMode_HostPipe:   return "hostPipe";
+        case PortMode_HostDevice: return "hostDevice";
+        case PortMode_RawFile:    return "rawFile";
+        case PortMode_TCP:        return "tcp";
+        default:                  return "disconnected";
+    }
+}
+
+static PortMode_T bridgePortModeFromName(const Utf8Str &str)
+{
+    if (str == "hostPipe")   return PortMode_HostPipe;
+    if (str == "hostDevice") return PortMode_HostDevice;
+    if (str == "rawFile")    return PortMode_RawFile;
+    if (str == "tcp")        return PortMode_TCP;
+    return PortMode_Disconnected;
+}
+
+static const char *bridgeAudioControllerName(AudioControllerType_T enm)
+{
+    switch (enm)
+    {
+        case AudioControllerType_AC97:        return "AC97";
+        case AudioControllerType_SB16:        return "SB16";
+        case AudioControllerType_HDA:         return "HDA";
+        case AudioControllerType_VirtioSound: return "VirtioSound";
+        default:                              return "HDA";
+    }
+}
+
+static AudioControllerType_T bridgeAudioControllerFromName(const Utf8Str &str)
+{
+    if (str == "AC97")        return AudioControllerType_AC97;
+    if (str == "SB16")        return AudioControllerType_SB16;
+    if (str == "VirtioSound") return AudioControllerType_VirtioSound;
+    return AudioControllerType_HDA;
+}
+
+static const char *bridgeClipboardName(ClipboardMode_T enm)
+{
+    switch (enm)
+    {
+        case ClipboardMode_HostToGuest:   return "hostToGuest";
+        case ClipboardMode_GuestToHost:   return "guestToHost";
+        case ClipboardMode_Bidirectional: return "bidirectional";
+        default:                          return "disabled";
+    }
+}
+
+static ClipboardMode_T bridgeClipboardFromName(const Utf8Str &str)
+{
+    if (str == "hostToGuest")   return ClipboardMode_HostToGuest;
+    if (str == "guestToHost")   return ClipboardMode_GuestToHost;
+    if (str == "bidirectional") return ClipboardMode_Bidirectional;
+    return ClipboardMode_Disabled;
+}
+
+static const char *bridgeDnDName(DnDMode_T enm)
+{
+    switch (enm)
+    {
+        case DnDMode_HostToGuest:   return "hostToGuest";
+        case DnDMode_GuestToHost:   return "guestToHost";
+        case DnDMode_Bidirectional: return "bidirectional";
+        default:                    return "disabled";
+    }
+}
+
+static DnDMode_T bridgeDnDFromName(const Utf8Str &str)
+{
+    if (str == "hostToGuest")   return DnDMode_HostToGuest;
+    if (str == "guestToHost")   return DnDMode_GuestToHost;
+    if (str == "bidirectional") return DnDMode_Bidirectional;
+    return DnDMode_Disabled;
+}
+
+/** machine.settings: everything the remaining settings pages show. */
+static void bridgeMachineSettings(PBRIDGECTX pCtx, RTJSONVAL hParams, BridgeJson &j)
+{
+    ComPtr<IMachine> ptrMachine = bridgeFindMachine(pCtx, hParams);
+    Bstr bstrDesc, bstrOs;
+    ptrMachine->COMGETTER(Description)(bstrDesc.asOutParam());
+    ptrMachine->COMGETTER(OSTypeId)(bstrOs.asOutParam());
+    j.beginObject().member("description", Utf8Str(bstrDesc)).member("osTypeId", Utf8Str(bstrOs));
+
+    FirmwareType_T enmFw = FirmwareType_BIOS;
+    ComPtr<IFirmwareSettings> ptrFw;
+    if (SUCCEEDED(ptrMachine->COMGETTER(FirmwareSettings)(ptrFw.asOutParam())) && !ptrFw.isNull())
+        ptrFw->COMGETTER(FirmwareType)(&enmFw);
+    TpmType_T enmTpm = TpmType_None;
+    ComPtr<ITrustedPlatformModule> ptrTpm;
+    if (SUCCEEDED(ptrMachine->COMGETTER(TrustedPlatformModule)(ptrTpm.asOutParam())) && !ptrTpm.isNull())
+        ptrTpm->COMGETTER(Type)(&enmTpm);
+    BOOL fNested = FALSE;
+    ComPtr<IPlatform> ptrPlatform;
+    ComPtr<IPlatformX86> ptrX86;
+    if (   SUCCEEDED(ptrMachine->COMGETTER(Platform)(ptrPlatform.asOutParam())) && !ptrPlatform.isNull()
+        && SUCCEEDED(ptrPlatform->COMGETTER(X86)(ptrX86.asOutParam())) && !ptrX86.isNull())
+        ptrX86->GetCPUProperty(CPUPropertyTypeX86_HWVirt, &fNested);
+    j.key("system").beginObject()
+     .member("firmware", enmFw == FirmwareType_BIOS ? "BIOS" : "EFI")
+     .member("tpm", enmTpm == TpmType_v2_0 ? "2.0" : enmTpm == TpmType_v1_2 ? "1.2" : "none")
+     .member("nestedVirt", (bool)fNested);
+    j.key("bootOrder").beginArray();
+    for (ULONG iPos = 1; iPos <= 4; iPos++)
+    {
+        DeviceType_T enmDev = DeviceType_Null;
+        ptrMachine->GetBootOrder(iPos, &enmDev);
+        j.value(bridgeBootName(enmDev));
+    }
+    j.endArray().endObject();
+
+    ComPtr<IAudioSettings> ptrAudioSettings;
+    ComPtr<IAudioAdapter> ptrAudio;
+    j.key("audio").beginObject();
+    if (   SUCCEEDED(ptrMachine->COMGETTER(AudioSettings)(ptrAudioSettings.asOutParam())) && !ptrAudioSettings.isNull()
+        && SUCCEEDED(ptrAudioSettings->COMGETTER(Adapter)(ptrAudio.asOutParam())) && !ptrAudio.isNull())
+    {
+        BOOL fEnabled = FALSE, fIn = FALSE, fOut = FALSE;
+        AudioControllerType_T enmCtl = AudioControllerType_HDA;
+        ptrAudio->COMGETTER(Enabled)(&fEnabled);
+        ptrAudio->COMGETTER(EnabledIn)(&fIn);
+        ptrAudio->COMGETTER(EnabledOut)(&fOut);
+        ptrAudio->COMGETTER(AudioController)(&enmCtl);
+        j.member("enabled", (bool)fEnabled).member("input", (bool)fIn).member("output", (bool)fOut).member("controller", bridgeAudioControllerName(enmCtl));
+    }
+    j.endObject();
+
+    j.key("serial").beginArray();
+    for (ULONG iSlot = 0; iSlot < 4; iSlot++)
+    {
+        ComPtr<ISerialPort> ptrPort;
+        if (FAILED(ptrMachine->GetSerialPort(iSlot, ptrPort.asOutParam())) || ptrPort.isNull())
+            break;
+        BOOL fEnabled = FALSE, fServer = FALSE;
+        PortMode_T enmMode = PortMode_Disconnected;
+        ULONG uIo = 0, uIrq = 0;
+        Bstr bstrPath;
+        ptrPort->COMGETTER(Enabled)(&fEnabled);
+        ptrPort->COMGETTER(HostMode)(&enmMode);
+        ptrPort->COMGETTER(Path)(bstrPath.asOutParam());
+        ptrPort->COMGETTER(Server)(&fServer);
+        ptrPort->COMGETTER(IOAddress)(&uIo);
+        ptrPort->COMGETTER(IRQ)(&uIrq);
+        j.beginObject().member("slot", (int64_t)iSlot).member("enabled", (bool)fEnabled).member("mode", bridgePortModeName(enmMode))
+         .member("path", Utf8Str(bstrPath)).member("server", (bool)fServer).member("ioBase", (int64_t)uIo).member("irq", (int64_t)uIrq).endObject();
+    }
+    j.endArray();
+
+    j.key("usb").beginObject().key("controllers").beginArray();
+    SafeIfaceArray<IUSBController> aUsb;
+    ptrMachine->COMGETTER(USBControllers)(ComSafeArrayAsOutParam(aUsb));
+    for (size_t i = 0; i < aUsb.size(); i++)
+    {
+        Bstr bstrName;
+        USBControllerType_T enmType = USBControllerType_Null;
+        aUsb[i]->COMGETTER(Name)(bstrName.asOutParam());
+        aUsb[i]->COMGETTER(Type)(&enmType);
+        j.beginObject().member("name", Utf8Str(bstrName))
+         .member("type", enmType == USBControllerType_XHCI ? "XHCI" : enmType == USBControllerType_EHCI ? "EHCI" : "OHCI").endObject();
+    }
+    j.endArray().key("filters").beginArray();
+    ComPtr<IUSBDeviceFilters> ptrFilters;
+    if (SUCCEEDED(ptrMachine->COMGETTER(USBDeviceFilters)(ptrFilters.asOutParam())) && !ptrFilters.isNull())
+    {
+        SafeIfaceArray<IUSBDeviceFilter> aFilters;
+        ptrFilters->COMGETTER(DeviceFilters)(ComSafeArrayAsOutParam(aFilters));
+        for (size_t i = 0; i < aFilters.size(); i++)
+        {
+            Bstr bstrName, bstrVendor, bstrProduct;
+            BOOL fActive = FALSE;
+            aFilters[i]->COMGETTER(Name)(bstrName.asOutParam());
+            aFilters[i]->COMGETTER(Active)(&fActive);
+            aFilters[i]->COMGETTER(VendorId)(bstrVendor.asOutParam());
+            aFilters[i]->COMGETTER(ProductId)(bstrProduct.asOutParam());
+            j.beginObject().member("index", (int64_t)i).member("name", Utf8Str(bstrName)).member("active", (bool)fActive)
+             .member("vendorId", Utf8Str(bstrVendor)).member("productId", Utf8Str(bstrProduct)).endObject();
+        }
+    }
+    j.endArray().endObject();
+
+    j.key("storageControllers").beginArray();
+    SafeIfaceArray<IStorageController> aCtls;
+    ptrMachine->COMGETTER(StorageControllers)(ComSafeArrayAsOutParam(aCtls));
+    for (size_t i = 0; i < aCtls.size(); i++)
+    {
+        Bstr bstrName;
+        StorageBus_T enmBus = StorageBus_Null;
+        ULONG cPorts = 0;
+        aCtls[i]->COMGETTER(Name)(bstrName.asOutParam());
+        aCtls[i]->COMGETTER(Bus)(&enmBus);
+        aCtls[i]->COMGETTER(PortCount)(&cPorts);
+        j.beginObject().member("name", Utf8Str(bstrName)).member("bus", bridgeBusName(enmBus)).member("ports", (int64_t)cPorts).endObject();
+    }
+    j.endArray();
+
+    ClipboardMode_T enmClip = ClipboardMode_Disabled;
+    ComPtr<IClipboardSettings> ptrClip;
+    if (SUCCEEDED(ptrMachine->COMGETTER(Clipboard)(ptrClip.asOutParam())) && !ptrClip.isNull())
+        ptrClip->COMGETTER(Mode)(&enmClip);
+    DnDMode_T enmDnD = DnDMode_Disabled;
+    ptrMachine->COMGETTER(DnDMode)(&enmDnD);
+    j.member("clipboardMode", bridgeClipboardName(enmClip)).member("dndMode", bridgeDnDName(enmDnD)).endObject();
+}
+
+/** Finds a registered medium of any kind by its UUID. */
+static ComPtr<IMedium> bridgeFindMedium(PBRIDGECTX pCtx, const Utf8Str &strId)
+{
+    SafeIfaceArray<IMedium> aAll[3];
+    pCtx->ptrVBox->COMGETTER(HardDisks)(ComSafeArrayAsOutParam(aAll[0]));
+    pCtx->ptrVBox->COMGETTER(DVDImages)(ComSafeArrayAsOutParam(aAll[1]));
+    pCtx->ptrVBox->COMGETTER(FloppyImages)(ComSafeArrayAsOutParam(aAll[2]));
+    for (unsigned k = 0; k < 3; k++)
+        for (size_t i = 0; i < aAll[k].size(); i++)
+        {
+            Bstr bstrId;
+            aAll[k][i]->COMGETTER(Id)(bstrId.asOutParam());
+            if (Utf8Str(bstrId) == strId)
+                return ComPtr<IMedium>(aAll[k][i]);
+        }
+    throw BridgeError(Utf8StrFmt("No medium with id '%s'", strId.c_str()), E_INVALIDARG);
+}
+
+/**
+ * machine.settingsUpdate: general, system, audio, serial, USB and storage
+ * controllers of a powered-off machine, in one write lock.
+ */
+static void bridgeMachineSettingsUpdate(PBRIDGECTX pCtx, RTJSONVAL hParams, BridgeJson &j)
+{
+    ComPtr<IMachine> ptrMachine = bridgeFindMachine(pCtx, hParams);
+    BRIDGE_HRC(ptrMachine->LockMachine(pCtx->ptrSession, LockType_Write), "Locking the machine for changes (power it off first)");
+    unsigned cChanges = 0;
+    try
+    {
+        ComPtr<IMachine> m;
+        BRIDGE_HRC(pCtx->ptrSession->COMGETTER(Machine)(m.asOutParam()), "Session machine");
+        int64_t i64 = 0;
+        bool f = false;
+
+        Utf8Str str = bridgeParamString(hParams, "description", false);
+        if (hParams != NIL_RTJSONVAL)
+        {
+            RTJSONVAL hTmp = NIL_RTJSONVAL;
+            if (RT_SUCCESS(RTJsonValueQueryByName(hParams, "description", &hTmp)))
+            {
+                RTJsonValueRelease(hTmp);
+                BRIDGE_HRC(m->COMSETTER(Description)(Bstr(str).raw()), "Setting the description");
+                cChanges++;
+            }
+        }
+        str = bridgeParamString(hParams, "osTypeId", false);
+        if (str.isNotEmpty())
+        {
+            BRIDGE_HRC(m->COMSETTER(OSTypeId)(Bstr(str).raw()), "Setting the OS type");
+            cChanges++;
+        }
+
+        str = bridgeParamString(hParams, "firmware", false);
+        if (str.isNotEmpty())
+        {
+            ComPtr<IFirmwareSettings> ptrFw;
+            BRIDGE_HRC(m->COMGETTER(FirmwareSettings)(ptrFw.asOutParam()), "Firmware settings");
+            BRIDGE_HRC(ptrFw->COMSETTER(FirmwareType)(str == "EFI" ? FirmwareType_EFI : FirmwareType_BIOS), "Setting the firmware");
+            cChanges++;
+        }
+        str = bridgeParamString(hParams, "tpm", false);
+        if (str.isNotEmpty())
+        {
+            ComPtr<ITrustedPlatformModule> ptrTpm;
+            BRIDGE_HRC(m->COMGETTER(TrustedPlatformModule)(ptrTpm.asOutParam()), "TPM settings");
+            BRIDGE_HRC(ptrTpm->COMSETTER(Type)(str == "2.0" ? TpmType_v2_0 : str == "1.2" ? TpmType_v1_2 : TpmType_None), "Setting the TPM");
+            cChanges++;
+        }
+        if (bridgeParamBool(hParams, "nestedVirt", &f))
+        {
+            ComPtr<IPlatform> ptrPlatform;
+            ComPtr<IPlatformX86> ptrX86;
+            BRIDGE_HRC(m->COMGETTER(Platform)(ptrPlatform.asOutParam()), "Platform settings");
+            BRIDGE_HRC(ptrPlatform->COMGETTER(X86)(ptrX86.asOutParam()), "x86 settings");
+            BRIDGE_HRC(ptrX86->SetCPUProperty(CPUPropertyTypeX86_HWVirt, f), "Setting nested virtualization");
+            cChanges++;
+        }
+        {
+            RTJSONVAL hBoot = NIL_RTJSONVAL;
+            if (RT_SUCCESS(RTJsonValueQueryByName(hParams, "bootOrder", &hBoot)))
+            {
+                unsigned const cItems = RT_MIN(RTJsonValueGetArraySize(hBoot), 4U);
+                for (unsigned i = 0; i < 4; i++)
+                {
+                    DeviceType_T enmDev = DeviceType_Null;
+                    RTJSONVAL hItem = NIL_RTJSONVAL;
+                    if (i < cItems && RT_SUCCESS(RTJsonValueQueryByIndex(hBoot, i, &hItem)))
+                    {
+                        const char *psz = NULL;
+                        if (RT_SUCCESS(RTJsonValueQueryString(hItem, &psz)) && psz)
+                            enmDev = bridgeBootFromName(psz);
+                        RTJsonValueRelease(hItem);
+                    }
+                    HRESULT hrc = m->SetBootOrder(i + 1, enmDev);
+                    if (FAILED(hrc))
+                    {
+                        RTJsonValueRelease(hBoot);
+                        throw BridgeError("Setting the boot order failed", hrc);
+                    }
+                }
+                RTJsonValueRelease(hBoot);
+                cChanges++;
+            }
+        }
+
+        RTJSONVAL hAudio = NIL_RTJSONVAL;
+        if (RT_SUCCESS(RTJsonValueQueryByName(hParams, "audio", &hAudio)))
+        {
+            try
+            {
+                ComPtr<IAudioSettings> ptrAs;
+                ComPtr<IAudioAdapter> ptrA;
+                BRIDGE_HRC(m->COMGETTER(AudioSettings)(ptrAs.asOutParam()), "Audio settings");
+                BRIDGE_HRC(ptrAs->COMGETTER(Adapter)(ptrA.asOutParam()), "Audio adapter");
+                if (bridgeParamBool(hAudio, "enabled", &f)) BRIDGE_HRC(ptrA->COMSETTER(Enabled)(f), "Enabling audio");
+                if (bridgeParamBool(hAudio, "input", &f))   BRIDGE_HRC(ptrA->COMSETTER(EnabledIn)(f), "Setting audio input");
+                if (bridgeParamBool(hAudio, "output", &f))  BRIDGE_HRC(ptrA->COMSETTER(EnabledOut)(f), "Setting audio output");
+                Utf8Str strCtl = bridgeParamString(hAudio, "controller", false);
+                if (strCtl.isNotEmpty())
+                    BRIDGE_HRC(ptrA->COMSETTER(AudioController)(bridgeAudioControllerFromName(strCtl)), "Setting the audio controller");
+                cChanges++;
+            }
+            catch (...)
+            {
+                RTJsonValueRelease(hAudio);
+                throw;
+            }
+            RTJsonValueRelease(hAudio);
+        }
+
+        bridgeForEachObject(hParams, "serial", [&](RTJSONVAL hPort)
+        {
+            int64_t iSlot = -1;
+            if (!bridgeParamInt(hPort, "slot", &iSlot) || iSlot < 0 || iSlot > 3)
+                throw BridgeError("Each serial port needs a slot from 0 to 3", E_INVALIDARG);
+            ComPtr<ISerialPort> ptrPort;
+            BRIDGE_HRC(m->GetSerialPort((ULONG)iSlot, ptrPort.asOutParam()), "Serial port");
+            bool fEn = false, fSrv = false;
+            int64_t iVal = 0;
+            Utf8Str strPath = bridgeParamString(hPort, "path", false);
+            if (strPath.isNotEmpty())
+                BRIDGE_HRC(ptrPort->COMSETTER(Path)(Bstr(strPath).raw()), "Setting the port path");
+            Utf8Str strMode = bridgeParamString(hPort, "mode", false);
+            if (strMode.isNotEmpty())
+                BRIDGE_HRC(ptrPort->COMSETTER(HostMode)(bridgePortModeFromName(strMode)), "Setting the port mode");
+            if (bridgeParamBool(hPort, "server", &fSrv)) BRIDGE_HRC(ptrPort->COMSETTER(Server)(fSrv), "Setting server mode");
+            if (bridgeParamInt(hPort, "ioBase", &iVal))  BRIDGE_HRC(ptrPort->COMSETTER(IOAddress)((ULONG)iVal), "Setting the I/O port");
+            if (bridgeParamInt(hPort, "irq", &iVal))     BRIDGE_HRC(ptrPort->COMSETTER(IRQ)((ULONG)iVal), "Setting the IRQ");
+            if (bridgeParamBool(hPort, "enabled", &fEn)) BRIDGE_HRC(ptrPort->COMSETTER(Enabled)(fEn), "Enabling the port");
+            cChanges++;
+        });
+
+        RTJSONVAL hUsb = NIL_RTJSONVAL;
+        if (RT_SUCCESS(RTJsonValueQueryByName(hParams, "usb", &hUsb)))
+        {
+            try
+            {
+                Utf8Str strType = bridgeParamString(hUsb, "controller", false);
+                if (strType.isNotEmpty())
+                {
+                    SafeIfaceArray<IUSBController> aUsb;
+                    m->COMGETTER(USBControllers)(ComSafeArrayAsOutParam(aUsb));
+                    for (size_t i = 0; i < aUsb.size(); i++)
+                    {
+                        Bstr bstrName;
+                        aUsb[i]->COMGETTER(Name)(bstrName.asOutParam());
+                        BRIDGE_HRC(m->RemoveUSBController(bstrName.raw()), "Removing the USB controller");
+                    }
+                    ComPtr<IUSBController> ptrNew;
+                    if (strType == "XHCI")
+                        BRIDGE_HRC(m->AddUSBController(Bstr("xHCI").raw(), USBControllerType_XHCI, ptrNew.asOutParam()), "Adding the USB 3 controller");
+                    else if (strType == "EHCI")
+                    {
+                        BRIDGE_HRC(m->AddUSBController(Bstr("OHCI").raw(), USBControllerType_OHCI, ptrNew.asOutParam()), "Adding the USB 1.1 controller");
+                        BRIDGE_HRC(m->AddUSBController(Bstr("EHCI").raw(), USBControllerType_EHCI, ptrNew.asOutParam()), "Adding the USB 2 controller");
+                    }
+                    else if (strType == "OHCI")
+                        BRIDGE_HRC(m->AddUSBController(Bstr("OHCI").raw(), USBControllerType_OHCI, ptrNew.asOutParam()), "Adding the USB 1.1 controller");
+                    cChanges++;
+                }
+                ComPtr<IUSBDeviceFilters> ptrFilters;
+                BRIDGE_HRC(m->COMGETTER(USBDeviceFilters)(ptrFilters.asOutParam()), "USB filters");
+                /* Removals by index, highest first so earlier indexes stay valid. */
+                RTJSONVAL hRemove = NIL_RTJSONVAL;
+                if (RT_SUCCESS(RTJsonValueQueryByName(hUsb, "filtersRemove", &hRemove)))
+                {
+                    unsigned const cItems = RTJsonValueGetArraySize(hRemove);
+                    std::vector<int64_t> aIdx;
+                    for (unsigned i = 0; i < cItems; i++)
+                    {
+                        RTJSONVAL hItem = NIL_RTJSONVAL;
+                        int64_t idx = -1;
+                        if (RT_SUCCESS(RTJsonValueQueryByIndex(hRemove, i, &hItem)))
+                        {
+                            RTJsonValueQueryInteger(hItem, &idx);
+                            RTJsonValueRelease(hItem);
+                        }
+                        if (idx >= 0)
+                            aIdx.push_back(idx);
+                    }
+                    RTJsonValueRelease(hRemove);
+                    std::sort(aIdx.begin(), aIdx.end());
+                    for (size_t i = aIdx.size(); i-- > 0;)
+                    {
+                        ComPtr<IUSBDeviceFilter> ptrGone;
+                        BRIDGE_HRC(ptrFilters->RemoveDeviceFilter((ULONG)aIdx[i], ptrGone.asOutParam()), "Removing a USB filter");
+                        cChanges++;
+                    }
+                }
+                bridgeForEachObject(hUsb, "filtersAdd", [&](RTJSONVAL hF)
+                {
+                    Utf8Str strName = bridgeParamString(hF, "name");
+                    ComPtr<IUSBDeviceFilter> ptrF;
+                    BRIDGE_HRC(ptrFilters->CreateDeviceFilter(Bstr(strName).raw(), ptrF.asOutParam()), "Creating a USB filter");
+                    Utf8Str strV = bridgeParamString(hF, "vendorId", false);
+                    Utf8Str strP = bridgeParamString(hF, "productId", false);
+                    if (strV.isNotEmpty()) BRIDGE_HRC(ptrF->COMSETTER(VendorId)(Bstr(strV).raw()), "Setting the vendor id");
+                    if (strP.isNotEmpty()) BRIDGE_HRC(ptrF->COMSETTER(ProductId)(Bstr(strP).raw()), "Setting the product id");
+                    BRIDGE_HRC(ptrF->COMSETTER(Active)(TRUE), "Activating the filter");
+                    SafeIfaceArray<IUSBDeviceFilter> aExisting;
+                    ptrFilters->COMGETTER(DeviceFilters)(ComSafeArrayAsOutParam(aExisting));
+                    BRIDGE_HRC(ptrFilters->InsertDeviceFilter((ULONG)aExisting.size(), ptrF), "Adding a USB filter");
+                    cChanges++;
+                });
+            }
+            catch (...)
+            {
+                RTJsonValueRelease(hUsb);
+                throw;
+            }
+            RTJsonValueRelease(hUsb);
+        }
+
+        /* Storage: detach first, then remove controllers, add controllers, attach. */
+        bridgeForEachObject(hParams, "detach", [&](RTJSONVAL hD)
+        {
+            Utf8Str strCtl = bridgeParamString(hD, "controller");
+            int64_t iPort = 0, iDev = 0;
+            bridgeParamInt(hD, "port", &iPort);
+            bridgeParamInt(hD, "device", &iDev);
+            BRIDGE_HRC(m->DetachDevice(Bstr(strCtl).raw(), (LONG)iPort, (LONG)iDev), "Detaching the device");
+            cChanges++;
+        });
+        bridgeForEachObject(hParams, "controllersRemove", [&](RTJSONVAL hC)
+        {
+            Utf8Str strName = bridgeParamString(hC, "name");
+            BRIDGE_HRC(m->RemoveStorageController(Bstr(strName).raw()), "Removing the controller");
+            cChanges++;
+        });
+        bridgeForEachObject(hParams, "controllersAdd", [&](RTJSONVAL hC)
+        {
+            Utf8Str strName = bridgeParamString(hC, "name");
+            Utf8Str strBus = bridgeParamString(hC, "bus");
+            ComPtr<IStorageController> ptrCtl;
+            BRIDGE_HRC(m->AddStorageController(Bstr(strName).raw(), bridgeBusFromName(strBus), ptrCtl.asOutParam()), "Adding the controller");
+            cChanges++;
+        });
+        bridgeForEachObject(hParams, "attach", [&](RTJSONVAL hA)
+        {
+            Utf8Str strCtl = bridgeParamString(hA, "controller");
+            Utf8Str strType = bridgeParamString(hA, "type");
+            Utf8Str strMediumId = bridgeParamString(hA, "mediumId", false);
+            int64_t iPort = 0, iDev = 0;
+            bridgeParamInt(hA, "port", &iPort);
+            bridgeParamInt(hA, "device", &iDev);
+            ComPtr<IMedium> ptrMedium;
+            if (strMediumId.isNotEmpty())
+                ptrMedium = bridgeFindMedium(pCtx, strMediumId);
+            DeviceType_T enmType = strType == "optical" ? DeviceType_DVD : strType == "floppy" ? DeviceType_Floppy : DeviceType_HardDisk;
+            BRIDGE_HRC(m->AttachDevice(Bstr(strCtl).raw(), (LONG)iPort, (LONG)iDev, enmType, ptrMedium), "Attaching the device");
+            cChanges++;
+        });
+
+        BRIDGE_HRC(m->SaveSettings(), "Saving settings");
+    }
+    catch (...)
+    {
+        pCtx->ptrSession->UnlockMachine();
+        throw;
+    }
+    pCtx->ptrSession->UnlockMachine();
+    j.beginObject().member("changes", (int64_t)cChanges).endObject();
+}
+
+/** machine.runtime: clipboard and drag-and-drop modes; works while running. */
+static void bridgeMachineRuntime(PBRIDGECTX pCtx, RTJSONVAL hParams, BridgeJson &j)
+{
+    ComPtr<IMachine> ptrMachine = bridgeFindMachine(pCtx, hParams);
+    bool fShared = false;
+    if (FAILED(ptrMachine->LockMachine(pCtx->ptrSession, LockType_Write)))
+    {
+        BRIDGE_HRC(ptrMachine->LockMachine(pCtx->ptrSession, LockType_Shared), "Locking the machine");
+        fShared = true;
+    }
+    try
+    {
+        ComPtr<IMachine> m;
+        BRIDGE_HRC(pCtx->ptrSession->COMGETTER(Machine)(m.asOutParam()), "Session machine");
+        Utf8Str str = bridgeParamString(hParams, "clipboardMode", false);
+        if (str.isNotEmpty())
+        {
+            ComPtr<IClipboardSettings> ptrClip;
+            BRIDGE_HRC(m->COMGETTER(Clipboard)(ptrClip.asOutParam()), "Clipboard settings");
+            BRIDGE_HRC(ptrClip->COMSETTER(Mode)(bridgeClipboardFromName(str)), "Setting the clipboard mode");
+        }
+        str = bridgeParamString(hParams, "dndMode", false);
+        if (str.isNotEmpty())
+            BRIDGE_HRC(m->COMSETTER(DnDMode)(bridgeDnDFromName(str)), "Setting drag and drop");
+        BRIDGE_HRC(m->SaveSettings(), "Saving settings");
+    }
+    catch (...)
+    {
+        pCtx->ptrSession->UnlockMachine();
+        throw;
+    }
+    pCtx->ptrSession->UnlockMachine();
+    RT_NOREF(fShared);
+    j.beginObject().member("done", true).endObject();
+}
+
+static ComPtr<ISnapshot> bridgeFindSnapshot(ComPtr<IMachine> &ptrMachine, const Utf8Str &strSnapId)
+{
+    ComPtr<ISnapshot> ptrSnap;
+    HRESULT hrc = ptrMachine->FindSnapshot(Bstr(strSnapId).raw(), ptrSnap.asOutParam());
+    if (FAILED(hrc) || ptrSnap.isNull())
+        throw BridgeError(Utf8StrFmt("No snapshot '%s'", strSnapId.c_str()), hrc);
+    return ptrSnap;
+}
+
+/** snapshots.restore, snapshots.delete and snapshots.rename. */
+static void bridgeSnapshotAction(PBRIDGECTX pCtx, RTJSONVAL hParams, BridgeJson &j)
+{
+    ComPtr<IMachine> ptrMachine = bridgeFindMachine(pCtx, hParams);
+    Utf8Str strAction = bridgeParamString(hParams, "action");
+    ComPtr<ISnapshot> ptrSnap = bridgeFindSnapshot(ptrMachine, bridgeParamString(hParams, "snapshotId"));
+    if (strAction == "rename")
+    {
+        Utf8Str strName = bridgeParamString(hParams, "name");
+        Utf8Str strDesc = bridgeParamString(hParams, "description", false);
+        BRIDGE_HRC(ptrSnap->COMSETTER(Name)(Bstr(strName).raw()), "Renaming the snapshot");
+        if (strDesc.isNotEmpty())
+            BRIDGE_HRC(ptrSnap->COMSETTER(Description)(Bstr(strDesc).raw()), "Setting the description");
+        j.beginObject().member("done", true).endObject();
+        return;
+    }
+    if (FAILED(ptrMachine->LockMachine(pCtx->ptrSession, LockType_Write)))
+        BRIDGE_HRC(ptrMachine->LockMachine(pCtx->ptrSession, LockType_Shared), "Locking the machine");
+    try
+    {
+        ComPtr<IMachine> m;
+        BRIDGE_HRC(pCtx->ptrSession->COMGETTER(Machine)(m.asOutParam()), "Session machine");
+        ComPtr<IProgress> ptrProgress;
+        if (strAction == "restore")
+            BRIDGE_HRC(m->RestoreSnapshot(ptrSnap, ptrProgress.asOutParam()), "Restoring the snapshot (power the machine off first)");
+        else if (strAction == "delete")
+        {
+            Bstr bstrId;
+            ptrSnap->COMGETTER(Id)(bstrId.asOutParam());
+            BRIDGE_HRC(m->DeleteSnapshot(bstrId.raw(), ptrProgress.asOutParam()), "Deleting the snapshot");
+        }
+        else
+            throw BridgeError(Utf8StrFmt("Unknown snapshot action '%s'", strAction.c_str()), E_INVALIDARG);
+        bridgeWaitProgress(ptrProgress, strAction.c_str());
+    }
+    catch (...)
+    {
+        pCtx->ptrSession->UnlockMachine();
+        throw;
+    }
+    pCtx->ptrSession->UnlockMachine();
+    j.beginObject().member("done", true).endObject();
+}
+
+/** media.action: resize, compact, copy, release, remove, open. */
+static void bridgeMediaAction(PBRIDGECTX pCtx, RTJSONVAL hParams, BridgeJson &j)
+{
+    Utf8Str strAction = bridgeParamString(hParams, "action");
+    if (strAction == "open")
+    {
+        Utf8Str strLoc = bridgeParamString(hParams, "location");
+        Utf8Str strKind = bridgeParamString(hParams, "kind", false);
+        DeviceType_T enmType = strKind == "optical" ? DeviceType_DVD : strKind == "floppy" ? DeviceType_Floppy : DeviceType_HardDisk;
+        ComPtr<IMedium> ptrMedium;
+        BRIDGE_HRC(pCtx->ptrVBox->OpenMedium(Bstr(strLoc).raw(), enmType, enmType == DeviceType_HardDisk ? AccessMode_ReadWrite : AccessMode_ReadOnly,
+                                             FALSE, ptrMedium.asOutParam()), "Adding the medium");
+        Bstr bstrId;
+        ptrMedium->COMGETTER(Id)(bstrId.asOutParam());
+        j.beginObject().member("id", Utf8Str(bstrId)).endObject();
+        return;
+    }
+
+    ComPtr<IMedium> ptrMedium = bridgeFindMedium(pCtx, bridgeParamString(hParams, "mediumId"));
+    ComPtr<IProgress> ptrProgress;
+    if (strAction == "resize")
+    {
+        int64_t cGB = 0;
+        if (!bridgeParamInt(hParams, "sizeGB", &cGB) || cGB < 1)
+            throw BridgeError("A size of at least 1 GB is required", E_INVALIDARG);
+        BRIDGE_HRC(ptrMedium->Resize((LONG64)cGB * _1G, ptrProgress.asOutParam()), "Resizing (only growing is supported)");
+    }
+    else if (strAction == "compact")
+        BRIDGE_HRC(ptrMedium->Compact(ptrProgress.asOutParam()), "Compacting");
+    else if (strAction == "copy")
+    {
+        Utf8Str strTarget = bridgeParamString(hParams, "target");
+        Utf8Str strFormat = bridgeParamString(hParams, "format", false);
+        if (strFormat.isEmpty())
+            strFormat = "VDI";
+        ComPtr<IMedium> ptrTarget;
+        BRIDGE_HRC(pCtx->ptrVBox->CreateMedium(Bstr(strFormat).raw(), Bstr(strTarget).raw(), AccessMode_ReadWrite, DeviceType_HardDisk,
+                                               ptrTarget.asOutParam()), "Creating the copy");
+        SafeArray<MediumVariant_T> aVariant(1);
+        aVariant[0] = MediumVariant_Standard;
+        BRIDGE_HRC(ptrMedium->CloneTo(ptrTarget, ComSafeArrayAsInParam(aVariant), NULL, ptrProgress.asOutParam()), "Copying");
+    }
+    else if (strAction == "release")
+    {
+        /* Detach the medium from every machine that uses it. */
+        Bstr bstrMediumId;
+        ptrMedium->COMGETTER(Id)(bstrMediumId.asOutParam());
+        SafeArray<BSTR> aMachineIds;
+        ptrMedium->COMGETTER(MachineIds)(ComSafeArrayAsOutParam(aMachineIds));
+        for (size_t i = 0; i < aMachineIds.size(); i++)
+        {
+            ComPtr<IMachine> ptrOwner;
+            BRIDGE_HRC(pCtx->ptrVBox->FindMachine(aMachineIds[i], ptrOwner.asOutParam()), "Finding the machine using it");
+            BRIDGE_HRC(ptrOwner->LockMachine(pCtx->ptrSession, LockType_Write), "Locking the machine using it (power it off first)");
+            try
+            {
+                ComPtr<IMachine> m;
+                BRIDGE_HRC(pCtx->ptrSession->COMGETTER(Machine)(m.asOutParam()), "Session machine");
+                SafeIfaceArray<IMediumAttachment> aAtt;
+                m->COMGETTER(MediumAttachments)(ComSafeArrayAsOutParam(aAtt));
+                for (size_t k = 0; k < aAtt.size(); k++)
+                {
+                    ComPtr<IMedium> ptrAttached;
+                    aAtt[k]->COMGETTER(Medium)(ptrAttached.asOutParam());
+                    Bstr bstrAttachedId;
+                    if (!ptrAttached.isNull())
+                        ptrAttached->COMGETTER(Id)(bstrAttachedId.asOutParam());
+                    if (bstrAttachedId == bstrMediumId)
+                    {
+                        Bstr bstrCtl;
+                        LONG iPort = 0, iDev = 0;
+                        aAtt[k]->COMGETTER(Controller)(bstrCtl.asOutParam());
+                        aAtt[k]->COMGETTER(Port)(&iPort);
+                        aAtt[k]->COMGETTER(Device)(&iDev);
+                        BRIDGE_HRC(m->DetachDevice(bstrCtl.raw(), iPort, iDev), "Detaching the medium");
+                    }
+                }
+                BRIDGE_HRC(m->SaveSettings(), "Saving settings");
+            }
+            catch (...)
+            {
+                pCtx->ptrSession->UnlockMachine();
+                throw;
+            }
+            pCtx->ptrSession->UnlockMachine();
+        }
+    }
+    else if (strAction == "remove")
+    {
+        bool fDeleteFile = false;
+        bridgeParamBool(hParams, "deleteFile", &fDeleteFile);
+        if (fDeleteFile)
+            BRIDGE_HRC(ptrMedium->DeleteStorage(ptrProgress.asOutParam()), "Deleting the file");
+        else
+            BRIDGE_HRC(ptrMedium->Close(), "Removing from the list");
+    }
+    else
+        throw BridgeError(Utf8StrFmt("Unknown media action '%s'", strAction.c_str()), E_INVALIDARG);
+    bridgeWaitProgress(ptrProgress, strAction.c_str());
+    j.beginObject().member("done", true).endObject();
+}
+
+/** networks.action: host-only and NAT network management. */
+static void bridgeNetworksAction(PBRIDGECTX pCtx, RTJSONVAL hParams, BridgeJson &j)
+{
+    Utf8Str strAction = bridgeParamString(hParams, "action");
+    ComPtr<IHost> ptrHost;
+    BRIDGE_HRC(pCtx->ptrVBox->COMGETTER(Host)(ptrHost.asOutParam()), "IVirtualBox::Host");
+    ComPtr<IProgress> ptrProgress;
+    if (strAction == "hostOnlyCreate")
+    {
+        ComPtr<IHostNetworkInterface> ptrIf;
+        BRIDGE_HRC(ptrHost->CreateHostOnlyNetworkInterface(ptrIf.asOutParam(), ptrProgress.asOutParam()), "Creating the host-only adapter");
+        bridgeWaitProgress(ptrProgress, "Creating the host-only adapter");
+        Bstr bstrName;
+        if (!ptrIf.isNull())
+            ptrIf->COMGETTER(Name)(bstrName.asOutParam());
+        j.beginObject().member("name", Utf8Str(bstrName)).endObject();
+        return;
+    }
+    if (strAction == "hostOnlyRemove" || strAction == "hostOnlyConfigure")
+    {
+        Utf8Str strName = bridgeParamString(hParams, "name");
+        ComPtr<IHostNetworkInterface> ptrIf;
+        BRIDGE_HRC(ptrHost->FindHostNetworkInterfaceByName(Bstr(strName).raw(), ptrIf.asOutParam()), "Finding the adapter");
+        if (strAction == "hostOnlyConfigure")
+        {
+            Utf8Str strIp = bridgeParamString(hParams, "ip");
+            Utf8Str strMask = bridgeParamString(hParams, "mask");
+            BRIDGE_HRC(ptrIf->EnableStaticIPConfig(Bstr(strIp).raw(), Bstr(strMask).raw()), "Setting the address");
+        }
+        else
+        {
+            Bstr bstrId;
+            ptrIf->COMGETTER(Id)(bstrId.asOutParam());
+            BRIDGE_HRC(ptrHost->RemoveHostOnlyNetworkInterface(bstrId.raw(), ptrProgress.asOutParam()), "Removing the adapter");
+            bridgeWaitProgress(ptrProgress, "Removing the adapter");
+        }
+        j.beginObject().member("done", true).endObject();
+        return;
+    }
+
+    Utf8Str strName = bridgeParamString(hParams, "name");
+    ComPtr<INATNetwork> ptrNet;
+    if (strAction == "natCreate")
+    {
+        BRIDGE_HRC(pCtx->ptrVBox->CreateNATNetwork(Bstr(strName).raw(), ptrNet.asOutParam()), "Creating the NAT network");
+        BRIDGE_HRC(ptrNet->COMSETTER(Enabled)(TRUE), "Enabling the NAT network");
+    }
+    else
+        BRIDGE_HRC(pCtx->ptrVBox->FindNATNetworkByName(Bstr(strName).raw(), ptrNet.asOutParam()), "Finding the NAT network");
+
+    if (strAction == "natRemove")
+    {
+        BRIDGE_HRC(pCtx->ptrVBox->RemoveNATNetwork(ptrNet), "Removing the NAT network");
+        j.beginObject().member("done", true).endObject();
+        return;
+    }
+    if (strAction != "natCreate" && strAction != "natUpdate")
+        throw BridgeError(Utf8StrFmt("Unknown network action '%s'", strAction.c_str()), E_INVALIDARG);
+
+    Utf8Str strCidr = bridgeParamString(hParams, "cidr", false);
+    if (strCidr.isNotEmpty())
+        BRIDGE_HRC(ptrNet->COMSETTER(Network)(Bstr(strCidr).raw()), "Setting the network range");
+    bool f = false;
+    if (bridgeParamBool(hParams, "dhcp", &f))
+        BRIDGE_HRC(ptrNet->COMSETTER(NeedDhcpServer)(f), "Setting DHCP");
+    if (bridgeParamBool(hParams, "enabled", &f))
+        BRIDGE_HRC(ptrNet->COMSETTER(Enabled)(f), "Enabling the network");
+    bridgeForEachObject(hParams, "rulesRemove", [&](RTJSONVAL hR)
+    {
+        Utf8Str strRule = bridgeParamString(hR, "name");
+        BRIDGE_HRC(ptrNet->RemovePortForwardRule(FALSE, Bstr(strRule).raw()), "Removing the rule");
+    });
+    bridgeForEachObject(hParams, "rulesAdd", [&](RTJSONVAL hR)
+    {
+        Utf8Str strRule = bridgeParamString(hR, "name");
+        Utf8Str strProto = bridgeParamString(hR, "proto", false);
+        Utf8Str strHostIp = bridgeParamString(hR, "hostIp", false);
+        Utf8Str strGuestIp = bridgeParamString(hR, "guestIp");
+        int64_t uHostPort = 0, uGuestPort = 0;
+        if (!bridgeParamInt(hR, "hostPort", &uHostPort) || !bridgeParamInt(hR, "guestPort", &uGuestPort)
+            || uHostPort < 1 || uHostPort > 65535 || uGuestPort < 1 || uGuestPort > 65535)
+            throw BridgeError("Ports must be between 1 and 65535", E_INVALIDARG);
+        BRIDGE_HRC(ptrNet->AddPortForwardRule(FALSE, Bstr(strRule).raw(), strProto == "udp" ? NATProtocol_UDP : NATProtocol_TCP,
+                                              Bstr(strHostIp).raw(), (USHORT)uHostPort, Bstr(strGuestIp).raw(), (USHORT)uGuestPort),
+                   "Adding the rule");
+    });
+    SafeArray<BSTR> aRules;
+    ptrNet->COMGETTER(PortForwardRules4)(ComSafeArrayAsOutParam(aRules));
+    j.beginObject().member("name", strName).key("rules").beginArray();
+    for (size_t i = 0; i < aRules.size(); i++)
+        j.value(Utf8Str(aRules[i]));
+    j.endArray().endObject();
+}
+
+/** extpacks.action: inspect a file (with its license), install, uninstall. */
+static void bridgeExtPacksAction(PBRIDGECTX pCtx, RTJSONVAL hParams, BridgeJson &j)
+{
+    Utf8Str strAction = bridgeParamString(hParams, "action");
+    ComPtr<IExtPackManager> ptrMgr;
+    BRIDGE_HRC(pCtx->ptrVBox->COMGETTER(ExtensionPackManager)(ptrMgr.asOutParam()), "IVirtualBox::ExtensionPackManager");
+    ComPtr<IProgress> ptrProgress;
+    if (strAction == "uninstall")
+    {
+        Utf8Str strName = bridgeParamString(hParams, "name");
+        BRIDGE_HRC(ptrMgr->Uninstall(Bstr(strName).raw(), FALSE, Bstr().raw(), ptrProgress.asOutParam()), "Uninstalling");
+        bridgeWaitProgress(ptrProgress, "Uninstalling");
+        j.beginObject().member("done", true).endObject();
+        return;
+    }
+    Utf8Str strPath = bridgeParamString(hParams, "path");
+    ComPtr<IExtPackFile> ptrFile;
+    BRIDGE_HRC(ptrMgr->OpenExtPackFile(Bstr(strPath).raw(), ptrFile.asOutParam()), "Opening the extension pack");
+    if (strAction == "inspect")
+    {
+        Bstr bstrName, bstrVersion, bstrDesc, bstrWhy, bstrLicense;
+        BOOL fUsable = FALSE;
+        ptrFile->COMGETTER(Name)(bstrName.asOutParam());
+        ptrFile->COMGETTER(Version)(bstrVersion.asOutParam());
+        ptrFile->COMGETTER(Description)(bstrDesc.asOutParam());
+        ptrFile->COMGETTER(Usable)(&fUsable);
+        ptrFile->COMGETTER(WhyUnusable)(bstrWhy.asOutParam());
+        ptrFile->QueryLicense(Bstr().raw(), Bstr().raw(), Bstr("txt").raw(), bstrLicense.asOutParam());
+        j.beginObject().member("name", Utf8Str(bstrName)).member("version", Utf8Str(bstrVersion)).member("description", Utf8Str(bstrDesc))
+         .member("usable", (bool)fUsable).member("whyUnusable", Utf8Str(bstrWhy)).member("license", Utf8Str(bstrLicense)).endObject();
+        return;
+    }
+    if (strAction != "install")
+        throw BridgeError(Utf8StrFmt("Unknown extension pack action '%s'", strAction.c_str()), E_INVALIDARG);
+    bool fAccepted = false;
+    bridgeParamBool(hParams, "licenseAccepted", &fAccepted);
+    if (!fAccepted)
+        throw BridgeError("The license must be accepted first", E_INVALIDARG);
+    BRIDGE_HRC(ptrFile->Install(TRUE /*fReplace*/, Bstr().raw(), ptrProgress.asOutParam()), "Installing");
+    bridgeWaitProgress(ptrProgress, "Installing");
+    j.beginObject().member("done", true).endObject();
+}
+
+/** machine.clone: full clone of the current state or of all states. */
+static void bridgeMachineClone(PBRIDGECTX pCtx, RTJSONVAL hParams, BridgeJson &j)
+{
+    ComPtr<IMachine> ptrSource = bridgeFindMachine(pCtx, hParams);
+    Utf8Str strName = bridgeParamString(hParams, "name");
+    Utf8Str strMode = bridgeParamString(hParams, "mode", false);
+    bool fKeepMacs = false;
+    bridgeParamBool(hParams, "keepMacs", &fKeepMacs);
+
+    Bstr bstrOs;
+    ptrSource->COMGETTER(OSTypeId)(bstrOs.asOutParam());
+    SafeArray<BSTR> aGroups;
+    ptrSource->COMGETTER(Groups)(ComSafeArrayAsOutParam(aGroups));
+    ComPtr<IMachine> ptrTarget;
+    BRIDGE_HRC(pCtx->ptrVBox->CreateMachine(Bstr().raw(), Bstr(strName).raw(), PlatformArchitecture_x86, ComSafeArrayAsInParam(aGroups),
+                                            bstrOs.raw(), Bstr().raw(), Bstr().raw(), Bstr().raw(), Bstr().raw(), ptrTarget.asOutParam()),
+               "Creating the clone");
+    SafeArray<CloneOptions_T> aOptions;
+    if (fKeepMacs)
+        aOptions.push_back(CloneOptions_KeepAllMACs);
+    ComPtr<IProgress> ptrProgress;
+    BRIDGE_HRC(ptrSource->CloneTo(ptrTarget, strMode == "all" ? CloneMode_AllStates : CloneMode_MachineState,
+                                  ComSafeArrayAsInParam(aOptions), ptrProgress.asOutParam()), "Cloning");
+    bridgeWaitProgress(ptrProgress, "Cloning");
+    BRIDGE_HRC(pCtx->ptrVBox->RegisterMachine(ptrTarget), "Registering the clone");
+    bridgeWriteMachineSummary(j, ptrTarget);
+}
+
+/** appliance.export, appliance.inspect and appliance.import (OVF and OVA). */
+static void bridgeAppliance(PBRIDGECTX pCtx, RTJSONVAL hParams, BridgeJson &j)
+{
+    Utf8Str strAction = bridgeParamString(hParams, "action");
+    Utf8Str strPath = bridgeParamString(hParams, "path");
+    ComPtr<IAppliance> ptrApp;
+    BRIDGE_HRC(pCtx->ptrVBox->CreateAppliance(ptrApp.asOutParam()), "Creating the appliance");
+    ComPtr<IProgress> ptrProgress;
+    if (strAction == "export")
+    {
+        bridgeForEachObject(hParams, "machines", [&](RTJSONVAL hM)
+        {
+            ComPtr<IMachine> ptrM = bridgeFindMachine(pCtx, hM);
+            ComPtr<IVirtualSystemDescription> ptrDesc;
+            BRIDGE_HRC(ptrM->ExportTo(ptrApp, Bstr(strPath).raw(), ptrDesc.asOutParam()), "Preparing the machine for export");
+        });
+        Utf8Str strFormat = bridgeParamString(hParams, "format", false);
+        if (strFormat.isEmpty())
+            strFormat = "ovf-2.0";
+        bool fManifest = true;
+        bridgeParamBool(hParams, "manifest", &fManifest);
+        SafeArray<ExportOptions_T> aOptions;
+        if (fManifest)
+            aOptions.push_back(ExportOptions_CreateManifest);
+        BRIDGE_HRC(ptrApp->Write(Bstr(strFormat).raw(), ComSafeArrayAsInParam(aOptions), Bstr(strPath).raw(), ptrProgress.asOutParam()), "Writing the appliance");
+        bridgeWaitProgress(ptrProgress, "Writing the appliance");
+        j.beginObject().member("path", strPath).endObject();
+        return;
+    }
+
+    BRIDGE_HRC(ptrApp->Read(Bstr(strPath).raw(), ptrProgress.asOutParam()), "Reading the appliance");
+    bridgeWaitProgress(ptrProgress, "Reading the appliance");
+    BRIDGE_HRC(ptrApp->Interpret(), "Interpreting the appliance");
+    if (strAction == "inspect")
+    {
+        SafeIfaceArray<IVirtualSystemDescription> aDescs;
+        ptrApp->COMGETTER(VirtualSystemDescriptions)(ComSafeArrayAsOutParam(aDescs));
+        j.beginObject().key("systems").beginArray();
+        for (size_t i = 0; i < aDescs.size(); i++)
+        {
+            SafeArray<VirtualSystemDescriptionType_T> aTypes;
+            SafeArray<BSTR> aRefs, aOvf, aVBox, aExtra;
+            aDescs[i]->GetDescriptionByType(VirtualSystemDescriptionType_Name, ComSafeArrayAsOutParam(aTypes), ComSafeArrayAsOutParam(aRefs),
+                                            ComSafeArrayAsOutParam(aOvf), ComSafeArrayAsOutParam(aVBox), ComSafeArrayAsOutParam(aExtra));
+            j.beginObject().member("name", aVBox.size() ? Utf8Str(aVBox[0]) : Utf8Str("Unnamed")).endObject();
+        }
+        j.endArray().key("warnings").beginArray();
+        SafeArray<BSTR> aWarnings;
+        ptrApp->GetWarnings(ComSafeArrayAsOutParam(aWarnings));
+        for (size_t i = 0; i < aWarnings.size(); i++)
+            j.value(Utf8Str(aWarnings[i]));
+        j.endArray().endObject();
+        return;
+    }
+    if (strAction != "import")
+        throw BridgeError(Utf8StrFmt("Unknown appliance action '%s'", strAction.c_str()), E_INVALIDARG);
+    bool fKeepMacs = false;
+    bridgeParamBool(hParams, "keepMacs", &fKeepMacs);
+    SafeArray<ImportOptions_T> aOptions;
+    if (fKeepMacs)
+        aOptions.push_back(ImportOptions_KeepAllMACs);
+    BRIDGE_HRC(ptrApp->ImportMachines(ComSafeArrayAsInParam(aOptions), ptrProgress.asOutParam()), "Importing");
+    bridgeWaitProgress(ptrProgress, "Importing");
+    SafeArray<BSTR> aMachines;
+    ptrApp->COMGETTER(Machines)(ComSafeArrayAsOutParam(aMachines));
+    j.beginObject().key("machines").beginArray();
+    for (size_t i = 0; i < aMachines.size(); i++)
+        j.value(Utf8Str(aMachines[i]));
+    j.endArray().endObject();
+}
+
+/** usb.list (host devices, and which a machine holds), usb.attach, usb.detach. */
+static void bridgeUsb(PBRIDGECTX pCtx, RTJSONVAL hParams, BridgeJson &j)
+{
+    Utf8Str strAction = bridgeParamString(hParams, "action");
+    if (strAction == "list")
+    {
+        ComPtr<IHost> ptrHost;
+        BRIDGE_HRC(pCtx->ptrVBox->COMGETTER(Host)(ptrHost.asOutParam()), "IVirtualBox::Host");
+        SafeIfaceArray<IHostUSBDevice> aDevs;
+        ptrHost->COMGETTER(USBDevices)(ComSafeArrayAsOutParam(aDevs));
+        j.beginArray();
+        for (size_t i = 0; i < aDevs.size(); i++)
+        {
+            Bstr bstrId, bstrProduct, bstrMaker;
+            USHORT uVendor = 0, uProduct = 0;
+            USBDeviceState_T enmState = USBDeviceState_NotSupported;
+            aDevs[i]->COMGETTER(Id)(bstrId.asOutParam());
+            aDevs[i]->COMGETTER(Product)(bstrProduct.asOutParam());
+            aDevs[i]->COMGETTER(Manufacturer)(bstrMaker.asOutParam());
+            aDevs[i]->COMGETTER(VendorId)(&uVendor);
+            aDevs[i]->COMGETTER(ProductId)(&uProduct);
+            aDevs[i]->COMGETTER(State)(&enmState);
+            const char *pszState = enmState == USBDeviceState_Captured ? "captured" : enmState == USBDeviceState_Available ? "available"
+                                 : enmState == USBDeviceState_Busy ? "busy" : enmState == USBDeviceState_Held ? "held" : "unavailable";
+            j.beginObject().member("id", Utf8Str(bstrId)).member("product", Utf8Str(bstrProduct)).member("manufacturer", Utf8Str(bstrMaker))
+             .member("vendorId", Utf8StrFmt("%04x", uVendor)).member("productId", Utf8StrFmt("%04x", uProduct)).member("state", pszState).endObject();
+        }
+        j.endArray();
+        return;
+    }
+    ComPtr<IMachine> ptrMachine = bridgeFindMachine(pCtx, hParams);
+    Utf8Str strDevice = bridgeParamString(hParams, "deviceId");
+    BRIDGE_HRC(ptrMachine->LockMachine(pCtx->ptrSession, LockType_Shared), "Locking the running machine");
+    try
+    {
+        ComPtr<IConsole> ptrConsole;
+        BRIDGE_HRC(pCtx->ptrSession->COMGETTER(Console)(ptrConsole.asOutParam()), "Session console");
+        if (ptrConsole.isNull())
+            throw BridgeError("The machine is not running", E_FAIL);
+        if (strAction == "attach")
+            BRIDGE_HRC(ptrConsole->AttachUSBDevice(Bstr(strDevice).raw(), Bstr().raw()), "Attaching the USB device");
+        else if (strAction == "detach")
+        {
+            ComPtr<IUSBDevice> ptrGone;
+            BRIDGE_HRC(ptrConsole->DetachUSBDevice(Bstr(strDevice).raw(), ptrGone.asOutParam()), "Detaching the USB device");
+        }
+        else
+            throw BridgeError(Utf8StrFmt("Unknown USB action '%s'", strAction.c_str()), E_INVALIDARG);
+    }
+    catch (...)
+    {
+        pCtx->ptrSession->UnlockMachine();
+        throw;
+    }
+    pCtx->ptrSession->UnlockMachine();
+    j.beginObject().member("done", true).endObject();
+}
+
+/** system.properties: read, and optionally change, the default machine folder. */
+static void bridgeSystemProperties(PBRIDGECTX pCtx, RTJSONVAL hParams, BridgeJson &j)
+{
+    ComPtr<ISystemProperties> ptrProps;
+    BRIDGE_HRC(pCtx->ptrVBox->COMGETTER(SystemProperties)(ptrProps.asOutParam()), "IVirtualBox::SystemProperties");
+    Utf8Str strFolder = bridgeParamString(hParams, "defaultMachineFolder", false);
+    if (strFolder.isNotEmpty())
+        BRIDGE_HRC(ptrProps->COMSETTER(DefaultMachineFolder)(Bstr(strFolder).raw()), "Setting the default machine folder");
+    Bstr bstrFolder;
+    ptrProps->COMGETTER(DefaultMachineFolder)(bstrFolder.asOutParam());
+    j.beginObject().member("defaultMachineFolder", Utf8Str(bstrFolder)).endObject();
+}
+
+/*********************************************************************************************************************************
 *   Machine screen                                                                                                               *
 *                                                                                                                                *
 *   The shell has no native machine window: machines run headless and their screen is streamed through these calls.  The   *
@@ -1333,6 +2379,17 @@ static const struct
     { "machine.create",     bridgeMachineCreate },
     { "machine.configure",  bridgeMachineConfigure },
     { "storage.mount",      bridgeStorageMount },
+    { "machine.settings",   bridgeMachineSettings },
+    { "machine.settingsUpdate", bridgeMachineSettingsUpdate },
+    { "machine.runtime",    bridgeMachineRuntime },
+    { "machine.clone",      bridgeMachineClone },
+    { "snapshots.action",   bridgeSnapshotAction },
+    { "media.action",       bridgeMediaAction },
+    { "networks.action",    bridgeNetworksAction },
+    { "extpacks.action",    bridgeExtPacksAction },
+    { "appliance",          bridgeAppliance },
+    { "usb",                bridgeUsb },
+    { "system.properties",  bridgeSystemProperties },
     { "machine.delete",     bridgeMachineDelete },
     { "snapshots.list",     bridgeSnapshotsList },
     { "snapshots.take",     bridgeSnapshotTake },

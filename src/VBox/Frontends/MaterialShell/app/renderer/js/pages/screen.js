@@ -5,7 +5,7 @@
  * releases the keyboard.
  */
 
-import { h, icon, ICONS, mount } from '../core.js';
+import { h, icon, ICONS, mount, stagger } from '../core.js';
 import { store, api, notify, recordHistory } from '../services.js';
 import { makeCode, breakCode, ctrlAltDel, buttonMask, toGuest } from '../logic/scancodes.js';
 import { stateLabel } from '../logic/format.js';
@@ -38,7 +38,7 @@ export function renderScreen(root) {
     if (!m) return mount(root, h('div', { class: 'page' }, h('div', { class: 'empty' }, 'This machine is no longer registered.')));
     if (session && session.root === root && document.contains(session.view)) { session.updateChrome(m); return; }
 
-    const st = { id, root, alive: true, guest: { width: 0, height: 0 }, captured: false, scale: 'fit', frames: 0, fps: 0, lastFpsAt: performance.now(), error: null, island: true, pendingMove: null };
+    const st = { id, root, alive: true, guest: { width: 0, height: 0 }, captured: false, scale: 'fit', devices: false, frames: 0, fps: 0, lastFpsAt: performance.now(), error: null, island: true, pendingMove: null };
     session = st;
 
     const img = h('img', { alt: 'Screen of ' + m.name, draggable: 'false', style: { maxWidth: '100%', maxHeight: '100%', objectFit: 'contain', imageRendering: 'auto', userSelect: 'none', cursor: 'none', borderRadius: '6px', boxShadow: '0 30px 80px rgba(0,0,0,.6)' } });
@@ -93,12 +93,14 @@ export function renderScreen(root) {
                 h('button', { class: 'icon-btn st', 'aria-label': paused ? 'Resume' : 'Pause', title: paused ? 'Resume' : 'Pause', onclick: () => control(paused ? 'resume' : 'pause') }, icon(paused ? ICONS.play : ICONS.pause, 18)),
                 h('button', { class: 'icon-btn st', 'aria-label': 'Take snapshot', title: 'Take snapshot', onclick: async () => { try { await api('snapshots.take', { id, name: 'Snapshot ' + new Date().toLocaleString() }); notify({ kind: 'success', title: 'Snapshot taken', body: mm.name }); } catch { /* notified */ } } }, icon(ICONS.camera, 18)),
                 h('button', { class: 'btn st mono', style: { height: '40px', padding: '0 12px', fontSize: '12px' }, 'aria-label': 'Send Ctrl+Alt+Del', onclick: () => send(ctrlAltDel()) }, 'C·A·Del'),
+                h('button', { class: 'icon-btn st', 'aria-label': 'Devices', title: 'Devices: USB, clipboard, drag and drop', 'aria-expanded': String(st.devices), onclick: () => { st.devices = !st.devices; st.island = st.island || st.devices; st.updateChrome(mm); } }, icon('M12 3v14M12 3l-2 3h4zM8 10v3l4 2M16 9v3l-4 2M12 17a2 2 0 1 0 0 4 2 2 0 0 0 0-4', 18)),
                 h('button', { class: 'icon-btn st', 'aria-label': 'Full screen', title: 'Full screen', onclick: () => (document.fullscreenElement ? document.exitFullscreen() : frameWrap.requestFullscreen()).catch(() => null) }, icon(scales[2][2], 18)),
                 h('button', { class: 'icon-btn st tone-error', 'aria-label': 'Shut down', title: 'Shut down (ACPI)', onclick: () => control('acpiShutdown') }, icon(ICONS.power, 18)),
                 h('button', { class: 'icon-btn st', 'aria-label': 'Back to the library', title: 'Back to the library', onclick: () => { closeScreen(); store.set({ route: 'machines' }); } }, icon(ICONS.close, 18))),
             st.island ? h('div', { class: 'fade', style: { display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: '8px', padding: '4px 14px 14px' } }, scales.map(([k, label, ic]) =>
                 h('button', { class: 'st', 'aria-pressed': String(st.scale === k), style: { display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px', padding: '12px 6px', borderRadius: '18px', fontSize: '12px', fontWeight: 650, background: st.scale === k ? 'var(--primary-container)' : 'rgba(43,41,48,.8)', color: st.scale === k ? 'var(--on-primary-container)' : 'var(--on-surface-variant)' }, onclick: () => { st.scale = k; applyScale(); st.updateChrome(mm); } }, icon(ic, 22), label))) : null);
-        island.style.width = st.island ? '560px' : '';
+        if (st.island && st.devices) { const panel = h('div', { class: 'fade', style: { padding: '0 14px 14px', display: 'flex', flexDirection: 'column', gap: '8px' } }, h('span', { class: 'muted' }, 'Reading devices…')); islandBody.appendChild(panel); drawDevices(panel, mm, () => st.updateChrome(mm)); }
+        island.style.width = st.island ? (st.devices ? '620px' : '560px') : '';
         if (mm.state !== 'running' && mm.state !== 'paused') {
             st.alive = false;
             mount(view, h('div', { class: 'empty', style: { background: 'transparent' } }, h('div', { class: 'headline' }, mm.name + ' is ' + stateLabel(mm.state).toLowerCase()),
@@ -170,6 +172,37 @@ export function renderScreen(root) {
         }
     };
     loop();
+}
+
+const MODES = [['disabled', 'Off'], ['hostToGuest', 'Host → guest'], ['guestToHost', 'Guest → host'], ['bidirectional', 'Both']];
+
+/** The Devices panel of the island: host USB devices, clipboard and drag and drop. */
+async function drawDevices(panel, m, redraw) {
+    const [usb, set] = await Promise.all([api('usb', { action: 'list' }, { quiet: true }).catch((e) => ({ error: e.message })), api('machine.settings', { id: m.id }, { quiet: true }).catch(() => null)]);
+    if (!document.contains(panel)) return;
+    const clean = (e) => String(e.message || e).replace(/^Error invoking remote method '[^']+': (Error: )?/, '');
+    const usbAct = async (u, action) => {
+        try {
+            await api('usb', { action, id: m.id, deviceId: u.id }, { quiet: true });
+            recordHistory({ title: 'USB ' + (action === 'attach' ? 'attached' : 'detached') + ': ' + (u.product || u.id), scope: m.name, category: 'Devices', diff: [[action === 'attach' ? '+' : '-', u.product || u.id]] });
+            notify({ kind: 'success', title: action === 'attach' ? 'Attached to ' + m.name : 'Returned to this computer', body: u.product || u.id });
+        } catch (e) { notify({ kind: 'error', title: 'USB device', body: clean(e) }); }
+        redraw();
+    };
+    const mode = async (key, value) => { try { await api('machine.runtime', { id: m.id, [key]: value }, { quiet: true }); notify({ kind: 'success', title: (key === 'dndMode' ? 'Drag and drop' : 'Clipboard') + ': ' + MODES.find((x) => x[0] === value)[1], body: m.name }); } catch (e) { notify({ kind: 'error', title: 'Could not change it', body: clean(e) }); } redraw(); };
+    const seg = (label, key) => h('div', { class: 'row', style: { flexWrap: 'nowrap' } }, h('span', { style: { width: '120px', fontSize: '12.5px', fontWeight: 650 } }, label),
+        h('div', { class: 'segmented grow', role: 'radiogroup', 'aria-label': label }, MODES.map(([k, l]) => h('button', { class: 'st grow', role: 'radio', 'aria-checked': String(set && set[key] === k), style: { padding: '0 8px', fontSize: '12px', height: '34px' }, onclick: () => mode(key, k) }, l))));
+    mount(panel,
+        h('span', { class: 'kicker' }, 'USB devices on this computer'),
+        usb.error ? h('div', { class: 'banner error' }, usb.error)
+            : usb.length ? usb.map((u, i) => {
+                const mine = u.state === 'captured';
+                return h('div', { class: 'row slide', style: { flexWrap: 'nowrap', padding: '6px 6px 6px 12px', borderRadius: '16px', background: mine ? 'var(--primary-container)' : 'rgba(43,41,48,.8)', ...stagger(i, 40) } },
+                    h('span', { class: 'grow' }, h('strong', { style: { fontSize: '13px' } }, u.product || 'Unknown device'), h('div', { class: 'mono muted', style: { fontSize: '11px' } }, (u.manufacturer ? u.manufacturer + ' · ' : '') + u.vendorId + ':' + u.productId + ' · ' + u.state)),
+                    h('button', { class: 'btn st', style: { height: '32px', padding: '0 12px', fontSize: '12.5px' }, disabled: !mine && u.state !== 'available' ? true : undefined, onclick: () => usbAct(u, mine ? 'detach' : 'attach') }, mine ? 'Detach' : 'Attach'));
+            }) : h('span', { class: 'muted', style: { fontSize: '12.5px' } }, 'No USB devices found.'),
+        h('span', { class: 'muted', style: { fontSize: '11.5px' } }, 'An attached device belongs to the guest until you detach it.'),
+        seg('Clipboard', 'clipboardMode'), seg('Drag and drop', 'dndMode'));
 }
 
 /** Starts a stopped machine headless and opens its screen. */

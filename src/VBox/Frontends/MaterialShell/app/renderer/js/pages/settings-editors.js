@@ -7,6 +7,7 @@
 
 import { h, icon, ICONS, mount, stagger } from '../core.js';
 import { api, notify, recordHistory } from '../services.js';
+import { detachDevice } from './settings-more.js';
 
 let cache = { id: null, details: null, draft: null, nets: null, newFolder: { name: '', hostPath: '', writable: true, autoMount: true }, iso: {} };
 
@@ -154,7 +155,8 @@ export function renderEditor(section, m, grid, rerender) {
                 h('label', { class: 'field grow', style: { height: '42px' } }, h('span', { class: 'sr-only' }, 'Image file'), h('input', { placeholder: 'E:\\ISOs\\installer.iso', value: cache.iso[key] || '', oninput: (e) => { cache.iso[key] = e.target.value; } })),
                 h('button', { class: 'btn tonal st', onclick: async () => { const loc = (cache.iso[key] || '').trim(); if (!loc) return; try { await api('storage.mount', { id: m.id, controller: s.controller, port: s.port, device: s.device, location: loc }); recordHistory({ title: 'Image inserted: ' + loc.split(/[\\/]/).pop(), scope: m.name, category: 'Settings', diff: [['-', key + ' ' + (s.location || 'empty')], ['+', key + ' ' + loc]], undo: { method: 'storage.mount', params: { id: m.id, controller: s.controller, port: s.port, device: s.device, location: s.location || '' } } }); notify({ kind: 'success', title: 'Image inserted', body: loc }); invalidateEditors(); rerender(); } catch { /* notified */ } } }, 'Insert'),
                 s.location ? h('button', { class: 'btn outlined st', onclick: async () => { try { await api('storage.mount', { id: m.id, controller: s.controller, port: s.port, device: s.device, location: '' }); recordHistory({ title: 'Image ejected', scope: m.name, category: 'Settings', diff: [['-', key + ' ' + s.location]], undo: { method: 'storage.mount', params: { id: m.id, controller: s.controller, port: s.port, device: s.device, location: s.location } } }); notify({ kind: 'success', title: 'Image ejected', body: m.name }); invalidateEditors(); rerender(); } catch { /* notified */ } } }, 'Eject') : null)
-                : h('span', { class: 'muted', style: { fontSize: '12.5px' } }, 'Resize, compact or copy disks from Media.'));
+                : h('span', { class: 'muted', style: { fontSize: '12.5px' } }, 'Resize, compact or copy disks from Media.'),
+            h('button', { class: 'btn st tone-error', style: { alignSelf: 'flex-start' }, disabled: live ? true : undefined, onclick: () => detachDevice(m, s, () => { invalidateEditors(); rerender(); }) }, 'Detach'));
     }), h('div', { class: 'muted', style: { gridColumn: 'span 6', fontSize: '12.5px' } }, 'Inserting and ejecting works while the machine runs.'));
     return true;
 }
