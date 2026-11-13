@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>First-run setup</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Roboto+Flex:opsz,wdth,wght@8..144,25..151,300..900&family=Roboto+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#0B0A0F}
+a{color:#D0BCFF}a:hover{color:#EADDFF}
+button{font:inherit;color:inherit;border:0;background:none;cursor:pointer}
+@keyframes mvIn{from{opacity:0;transform:translateX(50px);filter:blur(6px)}to{opacity:1;transform:none;filter:none}}
+@keyframes mvBlob{0%,100%{border-radius:42% 58% 63% 37%/41% 44% 56% 59%}50%{border-radius:58% 42% 38% 62%/57% 36% 64% 43%}}
+@keyframes mvSpin{to{transform:rotate(360deg)}}
+@keyframes mvCheck{from{stroke-dashoffset:30}to{stroke-dashoffset:0}}
+@keyframes mvRow{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+.mv-st{transition:background-color 180ms cubic-bezier(.2,0,0,1),transform 320ms cubic-bezier(.34,1.56,.64,1),color 180ms}
+.mv-st:hover{background-color:rgba(230,224,233,.08)}
+.mv-st:active{transform:scale(.95)}
+.mv-st:focus-visible{outline:3px solid #D0BCFF;outline-offset:2px}
+@media (prefers-reduced-motion: reduce){*,*::before,*::after{animation:none!important;transition:none!important}}
+</style>
+</helmet>
+<div style="position: relative; overflow: hidden; min-height: 900px; display: flex; flex-wrap: wrap; background: #0B0A0F; color: #E6E0E9; font-family: 'Roboto Flex', 'Segoe UI', system-ui, sans-serif; font-size: 14px">
+  <div style="position: relative; flex: 1 1 420px; max-width: 560px; min-height: 900px; display: grid; place-items: center; background: linear-gradient(170deg, #2B2340, #120F18)">
+    <div aria-hidden="true" style="width: 340px; height: 340px; background: linear-gradient(135deg, #D0BCFF, #EFB8C8 60%, #FFB869); animation: mvBlob 9s ease-in-out infinite, mvSpin 40s linear infinite; opacity: .9"></div>
+    <div style="position: absolute; display: flex; flex-direction: column; align-items: center; gap: 6px; text-align: center">
+      <span style="font-size: 96px; line-height: 1; font-weight: 900; color: #1D1B20; font-variation-settings: 'wdth' 150">{{ stepNo }}</span>
+      <span style="font-weight: 800; color: #1D1B20">of 5</span>
+    </div>
+    <ol aria-label="Setup steps" style="position: absolute; left: 36px; bottom: 36px; margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 6px">
+      <sc-for list="{{ steps }}" as="s" hint-placeholder-count="5">
+        <li style="display: flex; align-items: center; gap: 10px; font-weight: 650; color: {{ s.fg }}"><span style="width: {{ s.w }}; height: 6px; border-radius: 3px; background: {{ s.bar }}; transition: width 500ms cubic-bezier(.34,1.56,.64,1), background-color 300ms"></span>{{ s.label }}<span style="font-size: 12px; color: #938F99">{{ s.note }}</span></li>
+      </sc-for>
+    </ol>
+  </div>
+
+  <main style="flex: 999 1 560px; min-width: 0; padding: 56px 56px 40px; display: flex; flex-direction: column; gap: 22px">
+    <sc-for list="{{ pane }}" as="p" hint-placeholder-count="1">
+      <div style="display: flex; flex-direction: column; gap: 22px; animation: mvIn 560ms cubic-bezier(.05,.7,.1,1) both">
+        <span style="font-size: 12px; font-weight: 800; letter-spacing: 1.2px; text-transform: uppercase; color: #D0BCFF">{{ p.kicker }}</span>
+        <h1 style="margin: 0; font-size: 60px; line-height: .95; font-weight: 900; letter-spacing: -1.8px; font-variation-settings: 'wdth' 135">{{ p.title }}</h1>
+        <p style="margin: 0; max-width: 560px; color: #CAC4D0; font-size: 16px; line-height: 1.5">{{ p.body }}</p>
+        <div style="display: flex; flex-direction: column; gap: 8px; max-width: 620px">
+          <sc-for list="{{ p.tasks }}" as="t" hint-placeholder-count="3">
+            <div style="display: flex; align-items: center; gap: 14px; padding: 14px 16px; border-radius: 20px; background: #17151C; animation: mvRow 420ms both; animation-delay: {{ t.delay }}">
+              <span style="width: 32px; height: 32px; border-radius: 16px; display: grid; place-items: center; background: {{ t.bg }}">
+                <sc-if value="{{ t.done }}" hint-placeholder-val="{{ true }}"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#0B0A0F" stroke-width="3" stroke-linecap="round" stroke-dasharray="30" aria-hidden="true" style="animation: mvCheck 500ms both; animation-delay: {{ t.delay }}"><path d="M5 12l5 5 9-10"></path></svg></sc-if>
+                <sc-if value="{{ t.busy }}" hint-placeholder-val="{{ false }}"><span style="width: 18px; height: 18px; border-radius: 9px; border: 3px solid #D0BCFF; border-right-color: transparent; animation: mvSpin 800ms linear infinite"></span></sc-if>
+              </span>
+              <span style="flex: 1; display: flex; flex-direction: column"><span style="font-weight: 750">{{ t.label }}</span><span style="font-size: 12.5px; color: #CAC4D0">{{ t.result }}</span></span>
+            </div>
+          </sc-for>
+        </div>
+      </div>
+    </sc-for>
+    <div style="flex: 1"></div>
+    <div style="display: flex; gap: 10px; flex-wrap: wrap; align-items: center">
+      <button class="mv-st" onClick="{{ back }}" style="height: 52px; padding: 0 24px; border-radius: 26px; border: 1px solid #49454F; font-weight: 700">Back</button>
+      <button class="mv-st" onClick="{{ skip }}" style="height: 52px; padding: 0 20px; border-radius: 26px; color: #CAC4D0; font-weight: 700">{{ skipLabel }}</button>
+      <div style="flex: 1"></div>
+      <span style="font-size: 12px; color: #938F99">Progress saves as you go</span>
+      <button class="mv-st" onClick="{{ next }}" style="height: 56px; padding: 0 32px; border-radius: 28px; background: #D0BCFF; color: #381E72; font-weight: 900; font-size: 16px; box-shadow: 0 12px 30px rgba(208,188,255,.3)">{{ nextLabel }}</button>
+    </div>
+  </main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":900}}'>
+class Component extends DCLogic {
+  constructor(p) { super(p); this.state = { step: 1, skipped: [] }; }
+  renderVals() {
+    const s = this.state.step;
+    const names = ['Language and look', 'Check this computer', 'Machine folder', 'Import machines', 'First machine'];
+    const steps = names.map((l, i) => ({ label: l, note: this.state.skipped.indexOf(i) >= 0 ? 'skipped' : '', w: i === s ? '36px' : '14px', bar: i < s ? '#A6D7A0' : (i === s ? '#1D1B20' : 'rgba(29,27,32,.35)'), fg: i === s ? '#1D1B20' : 'rgba(29,27,32,.75)' }));
+    const panes = [
+      ['Step 1', 'Make it yours', 'Pick English, playful Cantonese or both, then a seed colour and motion level.', [['Language', 'English', 1], ['Theme', 'Dark, seed #6750A4', 1], ['Motion', 'Lively, follows reduced motion', 1]]],
+      ['Step 2', 'Check this computer', 'Real checks, real results. Anything amber links straight to the fix.', [['Virtualization in firmware', 'Enabled (VT-x)', 1], ['Hypervisor driver', 'Unsigned: needs your choice to allow unsigned drivers', 2], ['Free space on D:', '412 GB available', 1]]],
+      ['Step 3', 'Where machines live', 'New machines and their disks go here. You can change it per machine.', [['Default folder', 'D:\\VMs', 1], ['Snapshots', 'Inside each machine folder', 1]]],
+      ['Step 4', 'Bring machines in', 'Found machines from an older install. Pick which to register.', [['Ubuntu 24.04 Server', 'Registered', 1], ['Fedora Workstation', 'Registering', 0]]],
+      ['Step 5', 'Your first machine', 'Start the New VM wizard now, or open the library and look around.', [['Library', 'Ready', 1]]]];
+    const p = panes[s];
+    const pane = [{ kicker: p[0], title: p[1], body: p[2], k: s, tasks: p[3].map((t, i) => ({ label: t[0], result: t[1], done: t[2] === 1, busy: t[2] === 0, bg: t[2] === 1 ? '#A6D7A0' : (t[2] === 2 ? '#FFB869' : '#2B2930'), delay: (200 + i * 160) + 'ms' })) }];
+    return { steps, pane, stepNo: s + 1, nextLabel: s === 4 ? 'Open the library' : 'Next', skipLabel: s === 4 ? '' : 'Skip this step',
+      next: () => this.setState({ step: Math.min(4, s + 1) }), back: () => this.setState({ step: Math.max(0, s - 1) }),
+      skip: () => this.setState({ step: Math.min(4, s + 1), skipped: this.state.skipped.concat([s]) }) };
+  }
+}
+</script>
+</body>
+</html>
