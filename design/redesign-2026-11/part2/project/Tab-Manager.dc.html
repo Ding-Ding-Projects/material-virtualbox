@@ -1,0 +1,109 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Tabs and tab manager</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Roboto+Flex:opsz,wdth,wght@8..144,25..151,300..900&family=Roboto+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#0B0A0F}
+a{color:#D0BCFF}a:hover{color:#EADDFF}
+button{font:inherit;color:inherit;border:0;background:none;cursor:pointer}
+input{font:inherit;color:inherit}
+@keyframes mvTab{from{opacity:0;transform:translateY(10px) scale(.9)}to{opacity:1;transform:none}}
+@keyframes mvOut{0%{opacity:1}100%{opacity:.25;transform:scale(.96);filter:grayscale(1)}}
+@keyframes mvRise{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:none}}
+.mv-st{transition:background-color 180ms cubic-bezier(.2,0,0,1),transform 320ms cubic-bezier(.34,1.56,.64,1),color 180ms,opacity 300ms}
+.mv-st:hover{background-color:rgba(230,224,233,.08)}
+.mv-st:active{transform:scale(.96)}
+.mv-st:focus-visible{outline:3px solid #D0BCFF;outline-offset:2px}
+.mv-tabx{opacity:0;transition:opacity 180ms}
+.mv-tabh:hover .mv-tabx,.mv-tabh:focus-within .mv-tabx{opacity:1}
+@media (prefers-reduced-motion: reduce){*,*::before,*::after{animation:none!important;transition:none!important}}
+</style>
+</helmet>
+<div style="min-height: 900px; display: flex; flex-direction: column; background: #0B0A0F; color: #E6E0E9; font-family: 'Roboto Flex', 'Segoe UI', system-ui, sans-serif; font-size: 14px">
+  <div role="tablist" aria-label="Open tabs" style="display: flex; align-items: flex-end; gap: 4px; padding: 10px 12px 0; background: #141218; overflow-x: auto">
+    <sc-for list="{{ strip }}" as="t" hint-placeholder-count="8">
+      <div class="mv-tabh" role="tab" aria-selected="{{ t.on }}" style="display: flex; align-items: center; gap: 8px; height: 42px; padding: 0 8px 0 12px; border-radius: 14px 14px 0 0; background: {{ t.bg }}; border-top: 3px solid {{ t.group }}; min-width: {{ t.minw }}; animation: mvTab 420ms cubic-bezier(.34,1.56,.64,1) both, {{ t.fade }}; animation-delay: {{ t.delay }}">
+        <sc-if value="{{ t.pinned }}" hint-placeholder-val="{{ false }}"><svg width="14" height="14" viewBox="0 0 24 24" fill="#D0BCFF" aria-label="Pinned"><path d="M14 3l7 7-3 1-4 4 1 5-2 1-4-5-5 5-1-1 5-5-5-4 1-2 5 1 4-4z"></path></svg></sc-if>
+        <span style="font-weight: 650; white-space: nowrap; color: {{ t.fg }}">{{ t.label }}</span>
+        <button class="mv-st mv-tabx" aria-label="Close {{ t.label }}" style="width: 26px; height: 26px; border-radius: 13px; display: grid; place-items: center; opacity: {{ t.xop }}"><svg width="12" height="12" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"></path></svg></button>
+      </div>
+    </sc-for>
+    <button class="mv-st" style="height: 36px; padding: 0 12px; margin-bottom: 3px; border-radius: 18px; color: #D0BCFF; font-weight: 700; white-space: nowrap">Open every tab</button>
+  </div>
+
+  <div style="flex: 1; display: flex; flex-wrap: wrap; gap: 20px; padding: 24px 32px">
+    <main style="flex: 999 1 600px; min-width: 0; display: flex; flex-direction: column; gap: 16px">
+      <div style="display: flex; align-items: flex-end; gap: 16px; flex-wrap: wrap; justify-content: space-between">
+        <h1 style="margin: 0; font-size: 56px; line-height: .95; font-weight: 900; letter-spacing: -1.5px; font-variation-settings: 'wdth' 135">Tab manager</h1>
+        <span style="font-family: 'Roboto Mono', monospace; font-size: 12px; padding: 6px 10px; border-radius: 8px; border: 1px solid #49454F; color: #CAC4D0">Ctrl+Shift+T</span>
+      </div>
+      <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px">
+        <sc-for list="{{ searches }}" as="s" hint-placeholder-count="4">
+          <label style="display: flex; flex-direction: column; gap: 6px; padding: 12px 14px; border-radius: 20px; background: {{ s.bg }}; border: 2px solid {{ s.border }}; animation: mvRise 420ms both; animation-delay: {{ s.delay }}">
+            <span style="font-size: 12px; font-weight: 800; color: {{ s.c }}">{{ s.label }}</span>
+            <span style="display: flex; gap: 8px; align-items: center">
+              <input value="{{ s.value }}" placeholder="{{ s.ph }}" style="flex: 1; min-width: 0; border: 0; outline: 0; background: transparent; font-family: 'Roboto Mono', monospace">
+              <span title="Regular expression builder" style="font-family: 'Roboto Mono', monospace; font-size: 11px; padding: 5px 8px; border-radius: 10px; background: #2B2930; color: #D0BCFF">.*</span>
+            </span>
+          </label>
+        </sc-for>
+      </div>
+      <div role="list" aria-label="Matching tabs" style="display: flex; flex-direction: column; gap: 6px">
+        <sc-for list="{{ rows }}" as="r" hint-placeholder-count="8">
+          <div role="listitem" style="display: flex; align-items: center; gap: 12px; padding: 10px 14px; border-radius: 16px; background: {{ r.bg }}; opacity: {{ r.op }}; transition: opacity 400ms, background-color 300ms; animation: mvRise 380ms both; animation-delay: {{ r.delay }}">
+            <span style="width: 10px; height: 10px; border-radius: 5px; background: {{ r.group }}"></span>
+            <span style="flex: 1; font-weight: 650; text-decoration: {{ r.strike }}">{{ r.label }}</span>
+            <span style="font-size: 12px; color: #CAC4D0">{{ r.groupName }}</span>
+            <span style="font-size: 11px; font-weight: 800; padding: 4px 8px; border-radius: 8px; background: {{ r.tagBg }}; color: {{ r.tagFg }}">{{ r.tag }}</span>
+          </div>
+        </sc-for>
+      </div>
+    </main>
+    <aside aria-label="Close set" style="flex: 1 1 340px; max-width: 400px; display: flex; flex-direction: column; gap: 14px">
+      <div style="padding: 22px; border-radius: 30px; background: linear-gradient(160deg, #3A1C1A, #17151C); display: flex; flex-direction: column; gap: 14px">
+        <span style="font-size: 12px; font-weight: 800; letter-spacing: 1.2px; text-transform: uppercase; color: #F2B8B5">Preview, then authorise</span>
+        <div role="radiogroup" aria-label="Close mode" style="display: flex; padding: 4px; border-radius: 22px; background: rgba(15,13,19,.6)">
+          <sc-for list="{{ modes }}" as="m" hint-placeholder-count="2">
+            <button class="mv-st" role="radio" aria-checked="{{ m.on }}" onClick="{{ m.pick }}" style="flex: 1; height: 40px; border-radius: 18px; font-weight: 750; font-size: 13px; background: {{ m.bg }}; color: {{ m.fg }}">{{ m.label }}</button>
+          </sc-for>
+        </div>
+        <div style="font-size: 72px; line-height: 1; font-weight: 900; font-variation-settings: 'wdth' 140; color: #FFDAD6">{{ closing }}</div>
+        <span style="color: #E6E0E9">tabs will close. Pinned tabs and {{ keeping }} others stay open.</span>
+        <button class="mv-st" style="height: 52px; border-radius: 26px; background: #F2B8B5; color: #601410; font-weight: 850">Close {{ closing }} tabs</button>
+        <span style="font-size: 12px; color: #CAC4D0">Closed tabs stay closed after restart. Open every tab or the New tab catalog brings them back.</span>
+      </div>
+    </aside>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":900}}'>
+class Component extends DCLogic {
+  constructor(p) { super(p); this.state = { mode: 0 }; }
+  renderVals() {
+    const G = { lab: ['#EFB8C8', 'Lab'], dev: ['#D0BCFF', 'Development'], tools: ['#A6D7A0', 'Tools'] };
+    const tabs = [['Machines', 'tools', true], ['Windows 11 Dev Box', 'dev', false], ['Ubuntu 24.04 Server', 'lab', false], ['Fedora Workstation', 'lab', false], ['Ubuntu logs', 'lab', false],
+      ['Media', 'tools', false], ['Network', 'tools', false], ['Debian Build Agent', 'dev', false]];
+    const mode = this.state.mode;
+    const hit = (t) => /Ubuntu|Fedora/.test(t[0]);
+    const closes = (t) => !t[2] && (mode === 0 ? hit(t) : !hit(t));
+    const strip = tabs.map((t, i) => ({ label: t[0], pinned: t[2], group: G[t[1]][0], on: i === 1 ? 'true' : 'false', bg: i === 1 ? '#0B0A0F' : '#1D1B20', fg: i === 1 ? '#E6E0E9' : '#CAC4D0',
+      minw: t[2] ? '0' : '120px', xop: i === 1 ? '1' : '', fade: closes(t) ? 'mvOut 600ms 900ms both' : 'none', delay: (i * 50) + 'ms' }));
+    const sdefs = [['Title contains', 'Ubuntu|Fedora', '#D0BCFF'], ['Title does not contain', '', '#EFB8C8'], ['Group', 'Lab', '#A6D7A0'], ['Machine state', 'running', '#9ECAFF']];
+    const searches = sdefs.map((s, i) => ({ label: s[0], value: s[1], ph: 'Any', c: s[2], bg: s[1] ? '#211F26' : '#17151C', border: s[1] ? '#4F378B' : 'transparent', delay: (i * 60) + 'ms' }));
+    const rows = tabs.map((t, i) => { const c = closes(t); return { label: t[0], group: G[t[1]][0], groupName: G[t[1]][1], tag: t[2] ? 'Pinned' : (c ? 'Will close' : 'Stays'),
+      tagBg: t[2] ? '#4F378B' : (c ? '#8C1D18' : '#2B2930'), tagFg: t[2] ? '#EADDFF' : (c ? '#FFDAD6' : '#CAC4D0'), bg: c ? '#2A1A1C' : '#17151C', op: c ? '.75' : '1', strike: c ? 'line-through' : 'none', delay: (i * 40) + 'ms' }; });
+    const closing = tabs.filter(closes).length;
+    const modes = ['Close containing', 'Close not containing'].map((l, i) => ({ label: l, on: i === mode ? 'true' : 'false', bg: i === mode ? '#F2B8B5' : 'transparent', fg: i === mode ? '#601410' : '#E6E0E9', pick: () => this.setState({ mode: i }) }));
+    return { strip, searches, rows, closing, keeping: tabs.length - closing - 1, modes };
+  }
+}
+</script>
+</body>
+</html>
