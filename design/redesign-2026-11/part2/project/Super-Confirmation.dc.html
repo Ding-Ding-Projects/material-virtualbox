@@ -1,0 +1,106 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Two-key super confirmation</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Roboto+Flex:opsz,wdth,wght@8..144,25..151,300..900&family=Roboto+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#0B0A0F}
+a{color:#D0BCFF}a:hover{color:#EADDFF}
+button{font:inherit;color:inherit;border:0;background:none;cursor:pointer}
+input{font:inherit;color:inherit}
+@keyframes mvPop{0%{opacity:0;transform:translateY(20px) scale(.92)}70%{transform:scale(1.01)}100%{opacity:1;transform:none}}
+@keyframes mvTurn{0%{transform:rotate(0)}60%{transform:rotate(100deg)}100%{transform:rotate(90deg)}}
+@keyframes mvGlow{0%,100%{box-shadow:0 0 0 0 rgba(242,184,181,.5)}50%{box-shadow:0 0 0 10px rgba(242,184,181,0)}}
+@keyframes mvBurst{0%{transform:scale(.4);opacity:1}100%{transform:scale(2.4);opacity:0}}
+@keyframes mvShake{0%,100%{transform:translateX(0)}25%{transform:translateX(-4px)}75%{transform:translateX(4px)}}
+.mv-st{transition:background-color 180ms cubic-bezier(.2,0,0,1),transform 320ms cubic-bezier(.34,1.56,.64,1),color 180ms,box-shadow 250ms}
+.mv-st:hover{background-color:rgba(230,224,233,.08)}
+.mv-st:active{transform:scale(.95)}
+.mv-st:focus-visible{outline:3px solid #D0BCFF;outline-offset:2px}
+@media (prefers-reduced-motion: reduce){*,*::before,*::after{animation:none!important;transition:none!important}}
+</style>
+</helmet>
+<div style="position: relative; overflow: hidden; min-height: 900px; display: flex; flex-wrap: wrap; gap: 28px; padding: 28px 32px; background: radial-gradient(900px 500px at 70% 40%, #2A1416 0%, #0B0A0F 65%); color: #E6E0E9; font-family: 'Roboto Flex', 'Segoe UI', system-ui, sans-serif; font-size: 14px">
+  <div style="flex: 1 1 380px; max-width: 460px; display: flex; flex-direction: column; gap: 14px">
+    <span style="font-size: 12px; font-weight: 800; letter-spacing: 1.2px; text-transform: uppercase; color: #F2B8B5">Every irreversible action</span>
+    <h1 style="margin: 0; font-size: 56px; line-height: .95; font-weight: 900; letter-spacing: -1.5px; font-variation-settings: 'wdth' 135">Two keys, one slider</h1>
+    <p style="margin: 0; color: #CAC4D0; font-size: 16px; line-height: 1.5">Anchored beside the button that started it. Nothing happens until both keys are turned and the slider reaches the end. Emergency exit is always the default.</p>
+    <ol style="margin: 8px 0 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 8px">
+      <sc-for list="{{ checklist }}" as="c" hint-placeholder-count="4">
+        <li style="display: flex; align-items: center; gap: 12px; padding: 12px 14px; border-radius: 16px; background: {{ c.bg }}; transition: background-color 300ms">
+          <span style="width: 26px; height: 26px; border-radius: 13px; display: grid; place-items: center; background: {{ c.dot }}; color: #0B0A0F; font-size: 12px; font-weight: 900; transition: background-color 300ms">{{ c.mark }}</span>
+          <span style="font-weight: 650; color: {{ c.fg }}">{{ c.label }}</span>
+        </li>
+      </sc-for>
+    </ol>
+  </div>
+
+  <section role="alertdialog" aria-label="Delete Fedora Workstation" style="flex: 999 1 560px; min-width: 0; align-self: flex-start; padding: 28px; border-radius: 36px; background: #1D1416; border: 1px solid #5C2A2A; box-shadow: 0 40px 100px rgba(0,0,0,.6); display: flex; flex-direction: column; gap: 22px; animation: mvPop 600ms cubic-bezier(.34,1.56,.64,1) both, {{ shake }}">
+    <div style="display: flex; gap: 16px; align-items: center">
+      <span style="width: 56px; height: 56px; border-radius: 18px; display: grid; place-items: center; background: #8C1D18; color: #FFDAD6; animation: mvGlow 2s infinite">
+        <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"></path></svg>
+      </span>
+      <div style="display: flex; flex-direction: column"><h2 style="margin: 0; font-size: 28px; font-weight: 900">Delete Fedora Workstation</h2><span style="color: #F2B8B5">Removes the machine, 3 snapshots and fedora.vmdk (17.5 GB). This cannot be undone.</span></div>
+    </div>
+
+    <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px">
+      <sc-for list="{{ keys }}" as="k" hint-placeholder-count="2">
+        <button class="mv-st" onClick="{{ k.turn }}" aria-pressed="{{ k.on }}" style="position: relative; display: flex; flex-direction: column; align-items: center; gap: 14px; padding: 24px; border-radius: 28px; background: {{ k.bg }}; border: 2px solid {{ k.border }}">
+          <span style="position: relative; width: 84px; height: 84px; border-radius: 42px; display: grid; place-items: center; background: #0F0D13; border: 3px solid {{ k.ring }}">
+            <svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="{{ k.ring }}" stroke-width="2.2" stroke-linecap="round" aria-hidden="true" style="animation: {{ k.anim }}; transform: rotate({{ k.rot }})"><circle cx="7.5" cy="12" r="3.5"></circle><path d="M11 12h10M17 12v3M20 12v2"></path></svg>
+            <sc-if value="{{ k.burst }}" hint-placeholder-val="{{ false }}"><span aria-hidden="true" style="position: absolute; inset: 0; border-radius: 42px; border: 3px solid #A6D7A0; animation: mvBurst 700ms both"></span></sc-if>
+          </span>
+          <span style="font-weight: 800">{{ k.label }}</span>
+          <span style="font-size: 12px; color: #CAC4D0">{{ k.state }}</span>
+        </button>
+      </sc-for>
+    </div>
+
+    <div style="display: flex; flex-direction: column; gap: 10px; opacity: {{ sliderOp }}; transition: opacity 400ms">
+      <span style="display: flex; justify-content: space-between"><span style="font-weight: 750">Slide to authorise</span><span style="font-family: 'Roboto Mono', monospace; color: #F2B8B5">{{ pct }}%</span></span>
+      <div style="position: relative; height: 64px; border-radius: 32px; background: #2B1A1C; overflow: hidden">
+        <div style="position: absolute; left: 0; top: 0; bottom: 0; width: {{ fill }}; border-radius: 32px; background: linear-gradient(90deg, #8C1D18, #F2B8B5); transition: width 500ms cubic-bezier(.05,.7,.1,1)"></div>
+        <span style="position: absolute; top: 6px; left: {{ thumb }}; width: 52px; height: 52px; border-radius: 26px; background: #FFDAD6; color: #601410; display: grid; place-items: center; box-shadow: 0 6px 18px rgba(0,0,0,.4); transition: left 500ms cubic-bezier(.05,.7,.1,1)">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"></path></svg>
+        </span>
+      </div>
+      <div style="display: flex; gap: 6px">
+        <sc-for list="{{ steps }}" as="s" hint-placeholder-count="4">
+          <button class="mv-st" onClick="{{ s.go }}" disabled="{{ s.disabled }}" style="flex: 1; height: 36px; border-radius: 12px; font-size: 12px; font-weight: 700; background: #2B2930; color: {{ s.fg }}">{{ s.label }}</button>
+        </sc-for>
+      </div>
+    </div>
+
+    <div style="display: flex; gap: 10px; flex-wrap: wrap">
+      <button class="mv-st" onClick="{{ exit }}" style="flex: 2; height: 56px; border-radius: 28px; background: #E6E0E9; color: #1D1B20; font-weight: 900; font-size: 16px; box-shadow: 0 0 0 3px #0B0A0F, 0 0 0 6px #E6E0E9">Emergency exit</button>
+      <button class="mv-st" disabled="{{ notReady }}" style="flex: 1; height: 56px; border-radius: 28px; background: {{ goBg }}; color: {{ goFg }}; font-weight: 850; transition: background-color 400ms">Delete</button>
+    </div>
+  </section>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":900}}'>
+class Component extends DCLogic {
+  constructor(p) { super(p); this.state = { k: [true, false], pct: 0, shake: 0 }; }
+  renderVals() {
+    const k = this.state.k, both = k[0] && k[1], pct = both ? this.state.pct : 0;
+    const keys = ['Key one', 'Key two'].map((l, i) => ({ label: l, on: k[i] ? 'true' : 'false', state: k[i] ? 'Turned' : 'Click to turn',
+      bg: k[i] ? '#1E2A1E' : '#211F26', border: k[i] ? '#A6D7A0' : '#49454F', ring: k[i] ? '#A6D7A0' : '#938F99', rot: k[i] ? '90deg' : '0deg', anim: k[i] ? 'mvTurn 600ms cubic-bezier(.34,1.56,.64,1) both' : 'none', burst: k[i],
+      turn: () => { const n = k.slice(); n[i] = !n[i]; this.setState({ k: n, pct: 0 }); } }));
+    const steps = [25, 50, 75, 100].map((v) => ({ label: v + '%', disabled: both ? undefined : 'disabled', fg: both ? '#E6E0E9' : '#625B71', go: () => this.setState({ pct: v }) }));
+    const done = both && pct === 100;
+    const checklist = [['Exact action and data named', true], ['Key one turned', k[0]], ['Key two turned', k[1]], ['Slider at 100%', done]]
+      .map((c) => ({ label: c[0], mark: c[1] ? '✓' : '', dot: c[1] ? '#A6D7A0' : '#2B2930', bg: c[1] ? '#17201A' : '#17151C', fg: c[1] ? '#E6E0E9' : '#CAC4D0' }));
+    return { keys, steps, checklist, pct, fill: 'calc((100% - 64px) * ' + (pct / 100) + ' + 64px)', thumb: 'calc((100% - 64px) * ' + (pct / 100) + ' + 6px)',
+      sliderOp: both ? '1' : '.35', notReady: done ? undefined : 'disabled', goBg: done ? '#F2B8B5' : '#2B2930', goFg: done ? '#601410' : '#625B71',
+      shake: this.state.shake ? 'mvShake 300ms both' : 'none', exit: () => this.setState({ k: [false, false], pct: 0, shake: this.state.shake + 1 }) };
+  }
+}
+</script>
+</body>
+</html>

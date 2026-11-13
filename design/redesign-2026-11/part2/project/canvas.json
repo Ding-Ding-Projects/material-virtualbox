@@ -41,13 +41,23 @@
    "expand": "fill",
    "title": "Per-element appearance editor",
    "is_interactive": true
+  },
+  "Super-Confirmation.dc.html": {
+   "x": 1520,
+   "y": 1020,
+   "w": 1440,
+   "h": 900,
+   "expand": "fill",
+   "title": "Two-key super confirmation",
+   "is_interactive": true
   }
  },
  "order": [
   "Main.dc.html",
   "Regex-Builder.dc.html",
   "Tab-Manager.dc.html",
-  "Appearance-Editor.dc.html"
+  "Appearance-Editor.dc.html",
+  "Super-Confirmation.dc.html"
  ],
  "notes": {
   "title": {
