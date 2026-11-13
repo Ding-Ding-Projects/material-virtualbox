@@ -1,0 +1,100 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Log viewer</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Roboto+Flex:opsz,wdth,wght@8..144,25..151,300..900&family=Roboto+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#0B0A0F}
+a{color:#D0BCFF}a:hover{color:#EADDFF}
+button{font:inherit;color:inherit;border:0;background:none;cursor:pointer}
+input{font:inherit;color:inherit}
+@keyframes mvRow{from{opacity:0;transform:translateX(-12px)}to{opacity:1;transform:none}}
+@keyframes mvHit{0%{background-color:rgba(208,188,255,.55)}100%{background-color:rgba(208,188,255,.18)}}
+@keyframes mvRise{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:none}}
+.mv-st{transition:background-color 200ms cubic-bezier(.2,0,0,1),transform 320ms cubic-bezier(.34,1.56,.64,1),color 200ms}
+.mv-st:hover{background-color:rgba(230,224,233,.08)}
+.mv-st:active{transform:scale(.96)}
+.mv-st:focus-visible{outline:3px solid #D0BCFF;outline-offset:2px}
+.mv-row{transition:background-color 180ms}
+.mv-row:hover{background-color:#1D1B20}
+@media (prefers-reduced-motion: reduce){*,*::before,*::after{animation:none!important;transition:none!important}}
+</style>
+</helmet>
+<div style="min-height: 900px; display: flex; flex-direction: column; gap: 14px; padding: 28px 32px; background: #0B0A0F; color: #E6E0E9; font-family: 'Roboto Flex', 'Segoe UI', system-ui, sans-serif; font-size: 14px">
+  <div style="display: flex; flex-wrap: wrap; gap: 16px; align-items: flex-end; justify-content: space-between">
+    <div>
+      <span style="font-family: 'Roboto Mono', monospace; font-size: 12px; color: #CAC4D0">Windows 11 Dev Box · VBox.log</span>
+      <h1 style="margin: 4px 0 0; font-size: 56px; line-height: .95; font-weight: 900; letter-spacing: -1.5px; font-variation-settings: 'wdth' 135">Logs</h1>
+    </div>
+    <div role="tablist" aria-label="Log files" style="display: flex; gap: 6px; flex-wrap: wrap">
+      <sc-for list="{{ files }}" as="f" hint-placeholder-count="4">
+        <button role="tab" class="mv-st" onClick="{{ f.pick }}" aria-selected="{{ f.on }}" style="height: 38px; padding: 0 14px; border-radius: 19px; font-family: 'Roboto Mono', monospace; font-size: 12.5px; background: {{ f.bg }}; color: {{ f.fg }}">{{ f.label }}</button>
+      </sc-for>
+    </div>
+  </div>
+
+  <div style="display: flex; flex-wrap: wrap; gap: 10px; align-items: center">
+    <label style="flex: 1 1 420px; display: flex; align-items: center; gap: 10px; height: 52px; padding: 0 8px 0 18px; border-radius: 26px; background: #1D1B20; border: 2px solid #4F378B">
+      <span style="font-family: 'Roboto Mono', monospace; font-size: 13px; color: #D0BCFF; font-weight: 600">/</span>
+      <span style="position: absolute; left: -9999px">Search the log</span>
+      <input value="(USB|Guest Additions).*" style="flex: 1; min-width: 0; border: 0; outline: 0; background: transparent; font-family: 'Roboto Mono', monospace; font-size: 14px">
+      <span style="font-family: 'Roboto Mono', monospace; font-size: 13px; color: #D0BCFF; font-weight: 600">/i</span>
+      <span style="padding: 6px 12px; border-radius: 14px; background: #4F378B; color: #EADDFF; font-weight: 750; font-size: 12px; animation: mvRise 400ms both">{{ hits }} matches</span>
+      <span title="Regular expression builder" style="font-family: 'Roboto Mono', monospace; font-size: 12px; padding: 9px 12px; border-radius: 18px; background: #D0BCFF; color: #381E72; font-weight: 700">.* Builder</span>
+    </label>
+    <div role="group" aria-label="Severity" style="display: flex; gap: 6px">
+      <sc-for list="{{ sev }}" as="s" hint-placeholder-count="4">
+        <button class="mv-st" onClick="{{ s.flip }}" aria-pressed="{{ s.on }}" style="display: flex; align-items: center; gap: 6px; height: 40px; padding: 0 14px; border-radius: 12px; font-weight: 700; font-size: 13px; background: {{ s.bg }}; color: {{ s.fg }}; border: 1px solid {{ s.border }}">
+          <span style="width: 8px; height: 8px; border-radius: 4px; background: {{ s.c }}"></span>{{ s.label }}
+        </button>
+      </sc-for>
+    </div>
+  </div>
+
+  <div style="flex: 1; display: flex; gap: 12px; min-height: 0">
+    <div role="log" aria-label="Log lines" style="flex: 1; min-width: 0; padding: 10px 0; border-radius: 24px; background: #121016; border: 1px solid #211F26; font-family: 'Roboto Mono', monospace; font-size: 12.5px; line-height: 1.75; overflow: hidden">
+      <sc-for list="{{ lines }}" as="l" hint-placeholder-count="16">
+        <div class="mv-row" style="display: flex; gap: 14px; padding: 0 18px; animation: mvRow 360ms cubic-bezier(.2,0,0,1) both; animation-delay: {{ l.delay }}">
+          <span style="width: 38px; text-align: right; color: #625B71">{{ l.n }}</span>
+          <span style="color: #938F99">{{ l.t }}</span>
+          <span style="width: 6px; align-self: stretch; margin: 5px 0; border-radius: 3px; background: {{ l.c }}"></span>
+          <span style="flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: {{ l.fg }}">{{ l.pre }}<sc-if value="{{ l.hit }}" hint-placeholder-val="{{ false }}"><mark style="padding: 1px 4px; border-radius: 5px; color: #EADDFF; background: rgba(208,188,255,.18); animation: mvHit 1.2s both">{{ l.match }}</mark></sc-if>{{ l.post }}</span>
+        </div>
+      </sc-for>
+    </div>
+    <div aria-label="Match map" role="img" style="flex: 0 0 18px; position: relative; border-radius: 9px; background: #1D1B20">
+      <sc-for list="{{ marks }}" as="m" hint-placeholder-count="5"><span style="position: absolute; left: 3px; right: 3px; top: {{ m.top }}; height: 6px; border-radius: 3px; background: {{ m.c }}"></span></sc-for>
+    </div>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":900}}'>
+class Component extends DCLogic {
+  constructor(p) { super(p); this.state = { file: 0, sev: [true, true, true, true] }; }
+  renderVals() {
+    const files = ['VBox.log', 'VBox.log.1', 'VBoxHardening.log', 'VBoxSVC.log'].map((l, i) => ({ label: l, on: i === this.state.file ? 'true' : 'false', bg: i === this.state.file ? '#4F378B' : '#1D1B20', fg: i === this.state.file ? '#EADDFF' : '#CAC4D0', pick: () => this.setState({ file: i }) }));
+    const sdefs = [['Info', '#9ECAFF'], ['Notice', '#A6D7A0'], ['Warning', '#FFB869'], ['Error', '#F2B8B5']];
+    const sev = sdefs.map((s, i) => { const on = this.state.sev[i]; return { label: s[0], c: s[1], on: on ? 'true' : 'false', bg: on ? '#2B2930' : 'transparent', fg: on ? '#E6E0E9' : '#938F99', border: on ? '#49454F' : '#2B2930',
+      flip: () => { const n = this.state.sev.slice(); n[i] = !n[i]; this.setState({ sev: n }); } }; });
+    const raw = [[0, 'VirtualBox VM 7.2.97 r170000 win.amd64', ''], [0, 'Host: Windows 11 Pro 24H2, 16 threads, 32 GB', ''], [1, 'NEM: Hyper-V API is available', ''],
+      [0, 'PDM: loaded VMMR0.r0', ''], [0, 'Firmware: UEFI with Secure Boot', ''], [2, 'CPUM: guest requested ', 'AVX-512, masked'], [0, 'Display: VMSVGA 3D enabled', ''],
+      [1, '', 'Guest Additions: 7.2.97 reported, facilities ready'], [0, 'Shared folder Projects mapped to D:\\Projects', ''], [2, '', 'USB: filter matched Logitech Webcam C920, device busy on host'],
+      [0, 'Audio: Windows Audio Session backend', ''], [3, '', 'USB: proxy failed to claim device, rc=VERR_SHARING_VIOLATION'], [0, 'NAT: DNS proxy using host resolver', ''],
+      [1, '', 'Guest Additions: seamless mode capability on'], [0, 'Snapshot: none pending', ''], [0, 'Recording: off', '']];
+    const lines = raw.filter((r) => this.state.sev[r[0]]).map((r, i) => {
+      const hit = !!r[2]; const m = hit ? (r[2].match(/^(USB|Guest Additions)/) || [''])[0] : '';
+      return { n: 1000 + i * 7, t: '22:41:' + String(7 + i).padStart(2, '0') + '.' + String(100 + i * 37).slice(0, 3), c: sdefs[r[0]][1], fg: r[0] === 3 ? '#F2B8B5' : '#CAC4D0',
+        hit, pre: hit ? '' : r[1], match: m, post: hit ? r[2].slice(m.length) : '', delay: (i * 35) + 'ms' }; });
+    const marks = raw.map((r, i) => ({ r, i })).filter((x) => x.r[2]).map((x) => ({ top: (x.i / raw.length * 100).toFixed(1) + '%', c: sdefs[x.r[0]][1] }));
+    return { files, sev, lines, marks, hits: lines.filter((l) => l.hit).length };
+  }
+}
+</script>
+</body>
+</html>
