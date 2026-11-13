@@ -1,0 +1,150 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>New virtual machine wizard</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Roboto+Flex:opsz,wdth,wght@8..144,25..151,300..900&family=Roboto+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#0B0A0F}
+a{color:#D0BCFF}a:hover{color:#EADDFF}
+button{font:inherit;color:inherit;border:0;background:none;cursor:pointer}
+input{font:inherit;color:inherit}
+@keyframes mvRise{from{opacity:0;transform:translateY(24px) scale(.98);filter:blur(8px)}to{opacity:1;transform:none;filter:none}}
+@keyframes mvIn{from{opacity:0;transform:translateX(40px)}to{opacity:1;transform:none}}
+@keyframes mvSpin{to{transform:rotate(360deg)}}
+@keyframes mvOrbit{0%{transform:rotate(0) translateX(150px) rotate(0)}100%{transform:rotate(360deg) translateX(150px) rotate(-360deg)}}
+@keyframes mvBreath{0%,100%{transform:scale(1);opacity:.9}50%{transform:scale(1.06);opacity:1}}
+@keyframes mvGrow{from{transform:scaleX(0)}}
+.mv-st{transition:background-color 200ms cubic-bezier(.2,0,0,1),transform 320ms cubic-bezier(.34,1.56,.64,1),box-shadow 300ms,border-color 250ms,color 200ms}
+.mv-st:hover{background-color:rgba(230,224,233,.08)}
+.mv-st:active{transform:scale(.96)}
+.mv-st:focus-visible{outline:3px solid #D0BCFF;outline-offset:2px}
+.mv-card:hover{transform:translateY(-6px) rotate(-.4deg);box-shadow:0 22px 44px rgba(0,0,0,.55)}
+@media (prefers-reduced-motion: reduce){*,*::before,*::after{animation:none!important;transition:none!important}}
+</style>
+</helmet>
+<div style="position: relative; overflow: hidden; min-height: 900px; display: flex; flex-direction: column; background: radial-gradient(1200px 600px at 85% -10%, #2A1F45 0%, #0B0A0F 60%); color: #E6E0E9; font-family: 'Roboto Flex', 'Segoe UI', system-ui, sans-serif; font-size: 14px">
+  <header style="display: flex; flex-wrap: wrap; align-items: center; gap: 16px; padding: 22px 36px">
+    <span style="font-family: 'Roboto Mono', monospace; font-size: 12px; color: #CAC4D0">New virtual machine</span>
+    <div style="flex: 1"></div>
+    <ol aria-label="Steps" style="list-style: none; display: flex; gap: 8px; margin: 0; padding: 0; flex-wrap: wrap">
+      <sc-for list="{{ steps }}" as="s" hint-placeholder-count="5">
+        <li>
+          <button class="mv-st" onClick="{{ s.pick }}" aria-current="{{ s.current }}" style="display: flex; align-items: center; gap: 8px; height: 40px; padding: 0 16px 0 6px; border-radius: 20px; background: {{ s.bg }}; color: {{ s.fg }}; font-weight: 650">
+            <span style="width: 28px; height: 28px; border-radius: 14px; display: grid; place-items: center; font-size: 12px; font-weight: 800; background: {{ s.dot }}; color: {{ s.dotFg }}; transition: background-color 300ms, transform 400ms cubic-bezier(.34,1.56,.64,1)">{{ s.mark }}</span>{{ s.label }}
+          </button>
+        </li>
+      </sc-for>
+    </ol>
+    <button class="mv-st" aria-label="Close wizard" style="width: 44px; height: 44px; border-radius: 22px; display: grid; place-items: center; border: 1px solid #49454F">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"></path></svg>
+    </button>
+  </header>
+  <div aria-hidden="true" style="height: 4px; margin: 0 36px; border-radius: 2px; background: #211F26; overflow: hidden">
+    <div style="height: 100%; width: {{ progress }}; border-radius: 2px; background: linear-gradient(90deg, #D0BCFF, #EFB8C8); transition: width 600ms cubic-bezier(.05,.7,.1,1)"></div>
+  </div>
+
+  <div style="flex: 1; display: flex; flex-wrap: wrap; gap: 28px; padding: 32px 36px">
+    <main style="flex: 999 1 560px; min-width: 0; display: flex; flex-direction: column; gap: 22px">
+      <sc-if value="{{ onOs }}" hint-placeholder-val="{{ true }}">
+        <div style="display: flex; flex-direction: column; gap: 22px; animation: mvIn 520ms cubic-bezier(.05,.7,.1,1) both">
+          <h1 style="margin: 0; font-size: 64px; line-height: .95; font-weight: 900; letter-spacing: -2px; font-variation-settings: 'wdth' 140">Pick an<br>operating system</h1>
+          <p style="margin: 0; max-width: 560px; color: #CAC4D0; font-size: 16px; line-height: 1.5">Drop an ISO anywhere on this window, or pick a family. Unattended install fills in the rest.</p>
+          <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px">
+            <sc-for list="{{ oses }}" as="o" hint-placeholder-count="6">
+              <button class="mv-st mv-card" onClick="{{ o.pick }}" aria-pressed="{{ o.pressed }}" style="position: relative; overflow: hidden; display: flex; flex-direction: column; align-items: flex-start; gap: 18px; padding: 20px; min-height: 150px; border-radius: 28px; text-align: left; background: {{ o.bg }}; border: 2px solid {{ o.border }}; animation: mvRise 560ms cubic-bezier(.05,.7,.1,1) both; animation-delay: {{ o.delay }}">
+                <span style="width: 52px; height: 52px; border-radius: 18px; display: grid; place-items: center; background: {{ o.glyph }}; color: #0B0A0F; font-size: 22px; font-weight: 900">{{ o.mono }}</span>
+                <span style="display: flex; flex-direction: column; gap: 4px"><span style="font-size: 18px; font-weight: 750">{{ o.name }}</span><span style="font-size: 12.5px; color: #CAC4D0">{{ o.sub }}</span></span>
+                <sc-if value="{{ o.selected }}" hint-placeholder-val="{{ false }}">
+                  <span style="position: absolute; top: 16px; right: 16px; width: 30px; height: 30px; border-radius: 15px; background: #D0BCFF; color: #381E72; display: grid; place-items: center; animation: mvRise 400ms both">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" aria-hidden="true"><path d="M5 12l5 5 9-10"></path></svg>
+                  </span>
+                </sc-if>
+              </button>
+            </sc-for>
+          </div>
+        </div>
+      </sc-if>
+      <sc-if value="{{ onOther }}" hint-placeholder-val="{{ false }}">
+        <div style="display: flex; flex-direction: column; gap: 22px; animation: mvIn 520ms cubic-bezier(.05,.7,.1,1) both">
+          <h1 style="margin: 0; font-size: 64px; line-height: .95; font-weight: 900; letter-spacing: -2px; font-variation-settings: 'wdth' 140">{{ stepTitle }}</h1>
+          <p style="margin: 0; max-width: 560px; color: #CAC4D0; font-size: 16px; line-height: 1.5">{{ stepSub }}</p>
+          <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px">
+            <sc-for list="{{ fields }}" as="f" hint-placeholder-count="4">
+              <label style="display: flex; flex-direction: column; gap: 8px; padding: 18px 20px; border-radius: 24px; background: rgba(33,31,38,.7); border: 1px solid rgba(202,196,208,.14); animation: mvRise 520ms cubic-bezier(.05,.7,.1,1) both; animation-delay: {{ f.delay }}">
+                <span style="font-size: 12px; font-weight: 700; letter-spacing: .8px; text-transform: uppercase; color: #D0BCFF">{{ f.label }}</span>
+                <input value="{{ f.value }}" style="border: 0; outline: 0; background: transparent; font-size: 22px; font-weight: 650">
+                <span style="font-size: 12px; color: #CAC4D0">{{ f.hint }}</span>
+              </label>
+            </sc-for>
+          </div>
+        </div>
+      </sc-if>
+    </main>
+
+    <aside aria-label="Summary" style="flex: 1 1 320px; max-width: 420px; display: flex; flex-direction: column; gap: 16px">
+      <div style="position: relative; height: 340px; border-radius: 36px; background: linear-gradient(160deg, #2B2340, #1A1720); overflow: hidden; display: grid; place-items: center">
+        <div aria-hidden="true" style="position: absolute; width: 300px; height: 300px; border-radius: 50%; border: 1px dashed rgba(208,188,255,.25); animation: mvSpin 40s linear infinite"></div>
+        <span aria-hidden="true" style="position: absolute; width: 18px; height: 18px; border-radius: 9px; background: #EFB8C8; animation: mvOrbit 9s linear infinite"></span>
+        <span aria-hidden="true" style="position: absolute; width: 12px; height: 12px; border-radius: 6px; background: #A6D7A0; animation: mvOrbit 14s linear infinite reverse"></span>
+        <div style="width: 160px; height: 160px; border-radius: 48px; display: grid; place-items: center; background: {{ chosen.glyph }}; color: #0B0A0F; font-size: 72px; font-weight: 900; animation: mvBreath 4s ease-in-out infinite; transition: background 500ms">{{ chosen.mono }}</div>
+      </div>
+      <dl style="margin: 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px">
+        <sc-for list="{{ summary }}" as="m" hint-placeholder-count="4">
+          <div style="padding: 14px 16px; border-radius: 20px; background: rgba(33,31,38,.7)">
+            <dt style="font-size: 12px; color: #CAC4D0">{{ m.k }}</dt>
+            <dd style="margin: 4px 0 0; font-size: 17px; font-weight: 750">{{ m.v }}</dd>
+          </div>
+        </sc-for>
+      </dl>
+      <div style="display: flex; gap: 10px">
+        <button class="mv-st" onClick="{{ back }}" style="flex: 1; height: 56px; border-radius: 28px; border: 1px solid #49454F; font-weight: 700">Back</button>
+        <button class="mv-st" onClick="{{ next }}" style="flex: 2; height: 56px; border-radius: 28px; background: #D0BCFF; color: #381E72; font-weight: 850; font-size: 16px; box-shadow: 0 10px 30px rgba(208,188,255,.3)">{{ nextLabel }}</button>
+      </div>
+    </aside>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":900}}'>
+class Component extends DCLogic {
+  constructor(p) { super(p); this.state = { step: 0, os: 0 }; }
+  renderVals() {
+    const names = ['System', 'Hardware', 'Disk', 'Unattended', 'Review'];
+    const step = this.state.step;
+    const steps = names.map((l, i) => ({ label: l, mark: i < step ? '✓' : String(i + 1), current: i === step ? 'step' : 'false',
+      bg: i === step ? 'rgba(79,55,139,.6)' : 'transparent', fg: i <= step ? '#EADDFF' : '#CAC4D0',
+      dot: i < step ? '#A6D7A0' : (i === step ? '#D0BCFF' : '#2B2930'), dotFg: i <= step ? '#0B0A0F' : '#CAC4D0',
+      pick: () => this.setState({ step: i }) }));
+    const defs = [['Windows', 'W', 'Windows 11, 10, Server', 'linear-gradient(135deg,#9ECAFF,#D0BCFF)'],
+      ['Ubuntu', 'U', 'Desktop and Server LTS', 'linear-gradient(135deg,#FFB869,#EFB8C8)'],
+      ['Fedora', 'F', 'Workstation, Silverblue', 'linear-gradient(135deg,#9ECAFF,#A6D7A0)'],
+      ['Debian', 'D', 'Stable and testing', 'linear-gradient(135deg,#EFB8C8,#F2B8B5)'],
+      ['macOS', 'M', 'Requires a supported host', 'linear-gradient(135deg,#E6E0E9,#938F99)'],
+      ['Other', '?', 'Custom ISO or blank disk', 'linear-gradient(135deg,#D0BCFF,#A6D7A0)']];
+    const oses = defs.map((d, i) => ({ name: d[0], mono: d[1], sub: d[2], glyph: d[3], selected: i === this.state.os, pressed: i === this.state.os ? 'true' : 'false',
+      bg: i === this.state.os ? 'rgba(79,55,139,.45)' : 'rgba(33,31,38,.7)', border: i === this.state.os ? '#D0BCFF' : 'transparent',
+      delay: (i * 60) + 'ms', pick: () => this.setState({ os: i }) }));
+    const text = [null, ['Shape the hardware', 'Memory, processors and firmware. Values above the host safe range turn amber.'],
+      ['Give it a disk', 'Dynamically allocated disks only take the space the guest writes.'],
+      ['Unattended install', 'Account, hostname and product key go straight to the installer.'],
+      ['Review and create', 'Everything below becomes the first entry in this machine history.']][step] || ['', ''];
+    const fieldSets = [[], [['Memory', '16 GB', 'Host has 32 GB'], ['Processors', '8', 'Host has 16 threads'], ['Firmware', 'UEFI', 'Secure Boot on'], ['TPM', '2.0', 'Needed by Windows 11']],
+      [['Size', '80 GB', 'Grows as needed'], ['Format', 'VDI', 'Native format'], ['Location', 'D:\\VMs\\Dev Box', 'Change folder'], ['Controller', 'NVMe', 'Fastest for modern guests']],
+      [['User name', 'swift', 'Local administrator'], ['Hostname', 'devbox', 'Letters and digits'], ['Guest Additions', 'Install', 'Recommended'], ['Locale', 'en-CA', 'From host']],
+      [['Name', 'Windows 11 Dev Box', 'Shown in the library'], ['Group', 'Development', 'Optional'], ['Snapshot after install', 'Yes', 'Named Clean install'], ['Start when done', 'Yes', 'Opens the window']]];
+    const fields = (fieldSets[step] || []).map((f, i) => ({ label: f[0], value: f[1], hint: f[2], delay: (i * 70) + 'ms' }));
+    const chosen = oses[this.state.os];
+    const summary = [['System', chosen.name], ['Memory', '16 GB'], ['Disk', '80 GB'], ['Processors', '8']].map((s) => ({ k: s[0], v: s[1] }));
+    return { steps, oses, fields, chosen, summary, onOs: step === 0, onOther: step > 0, stepTitle: text[0], stepSub: text[1],
+      progress: ((step + 1) / 5 * 100) + '%', nextLabel: step === 4 ? 'Create machine' : 'Next',
+      next: () => this.setState({ step: Math.min(4, step + 1) }), back: () => this.setState({ step: Math.max(0, step - 1) }) };
+  }
+}
+</script>
+</body>
+</html>
