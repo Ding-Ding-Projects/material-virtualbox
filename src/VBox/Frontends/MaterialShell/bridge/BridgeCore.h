@@ -44,17 +44,17 @@
  */
 typedef struct BRIDGECTX
 {
-    com::ComPtr<IVirtualBoxClient>  ptrClient;
-    com::ComPtr<IVirtualBox>        ptrVBox;
-    com::ComPtr<ISession>           ptrSession;
+    ComPtr<IVirtualBoxClient>  ptrClient;
+    ComPtr<IVirtualBox>        ptrVBox;
+    ComPtr<ISession>           ptrSession;
     /** The machine screen this channel is attached to, if any. */
     struct
     {
         com::Utf8Str                strMachineId;
-        com::ComPtr<ISession>       ptrSession;
-        com::ComPtr<IDisplay>       ptrDisplay;
-        com::ComPtr<IKeyboard>      ptrKeyboard;
-        com::ComPtr<IMouse>         ptrMouse;
+        ComPtr<ISession>       ptrSession;
+        ComPtr<IDisplay>       ptrDisplay;
+        ComPtr<IKeyboard>      ptrKeyboard;
+        ComPtr<IMouse>         ptrMouse;
     } Screen;
     /** When set, screen.frame leaves the PNG in abFrame instead of base64 JSON. */
     bool                            fBinaryFrames;

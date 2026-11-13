@@ -605,7 +605,6 @@ static void bridgeMachineUpdate(PBRIDGECTX pCtx, RTJSONVAL hParams, BridgeJson &
     {
         ComPtr<IMachine> ptrMutable;
         BRIDGE_HRC(pCtx->ptrSession->COMGETTER(Machine)(ptrMutable.asOutParam()), "Session machine");
-        int64_t i64 = 0;
         if (bridgeParamInt(hParams, "memoryMB", &i64))
             BRIDGE_HRC(ptrMutable->COMSETTER(MemorySize)((ULONG)i64), "Setting memory");
         if (bridgeParamInt(hParams, "cpus", &i64))
@@ -1452,7 +1451,6 @@ static void bridgeMachineSettingsUpdate(PBRIDGECTX pCtx, RTJSONVAL hParams, Brid
     {
         ComPtr<IMachine> m;
         BRIDGE_HRC(pCtx->ptrSession->COMGETTER(Machine)(m.asOutParam()), "Session machine");
-        int64_t i64 = 0;
         bool f = false;
 
         Utf8Str str = bridgeParamString(hParams, "description", false);
@@ -2312,7 +2310,6 @@ static void bridgeScreenKeys(PBRIDGECTX pCtx, RTJSONVAL hParams, BridgeJson &j)
     for (unsigned i = 0; i < aCodes.size(); i++)
     {
         RTJSONVAL hCode = NIL_RTJSONVAL;
-        int64_t i64 = 0;
         if (RT_SUCCESS(RTJsonValueQueryByIndex(hCodes, i, &hCode)))
         {
             RTJsonValueQueryInteger(hCode, &i64);
