@@ -67,6 +67,33 @@ ipcMain.handle('bridge:call', async (_e, method, params) => {
     return provider.call(method, params);
 });
 
+/*
+ * Machine screens: one bridge process per open screen, so megabyte frames
+ * never queue behind library calls.  Closing the screen ends the process.
+ */
+const screens = new Map();
+const SCREEN_METHODS = new Set(['screen.attach', 'screen.frame', 'screen.keys', 'screen.mouse', 'screen.resize', 'screen.detach']);
+
+ipcMain.handle('screen:call', async (_e, method, params) => {
+    if (!SCREEN_METHODS.has(method)) throw new Error('Method not allowed: ' + method);
+    const id = String(params && params.id || '');
+    if (!id) throw new Error('A machine id is required');
+    if (providerInfo.mode === 'demo') return provider.call(method, params);
+    if (providerInfo.mode !== 'bridge') throw new Error(providerInfo.reason || 'No VirtualBox connection');
+    let client = screens.get(id);
+    if (!client) {
+        client = new BridgeClient(provider.exePath);
+        screens.set(id, client);
+    }
+    try {
+        return await client.call(method, params);
+    } finally {
+        if (method === 'screen.detach') { client.stop(); screens.delete(id); }
+    }
+});
+
+app.on('before-quit', () => { for (const c of screens.values()) c.stop(); });
+
 ipcMain.on('window:minimize', (e) => BrowserWindow.fromWebContents(e.sender)?.minimize());
 ipcMain.on('window:toggleMaximize', (e) => {
     const w = BrowserWindow.fromWebContents(e.sender);

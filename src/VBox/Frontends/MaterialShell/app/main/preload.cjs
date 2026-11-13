@@ -15,6 +15,7 @@ contextBridge.exposeInMainWorld('mvb', {
         return ipcRenderer.invoke('bridge:call', method, params || {});
     },
     status: () => ipcRenderer.invoke('bridge:status'),
+    screen: (method, params) => ipcRenderer.invoke('screen:call', String(method), params || {}),
     window: {
         minimize: () => ipcRenderer.send('window:minimize'),
         toggleMaximize: () => ipcRenderer.send('window:toggleMaximize'),

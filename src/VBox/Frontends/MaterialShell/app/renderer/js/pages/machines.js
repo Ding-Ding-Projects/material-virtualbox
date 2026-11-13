@@ -7,6 +7,7 @@
 import { h, icon, ICONS, mount, stagger, persist } from '../core.js';
 import { store, api, notify, recordHistory, t } from '../services.js';
 import { searchField, confirmDestructive, openExport, registerPaletteSource } from '../features/overlays.js';
+import { openScreen, startAndOpen } from './screen.js';
 import { megabytes, bytes, stateLabel, stateTone, primaryAction, monogram, relativeTime, parseLog } from '../logic/format.js';
 
 const TILE = [['#4F378B', '#EADDFF'], ['#633B48', '#FFD8E4'], ['#1E3A5F', '#D1E4FF'], ['#4A4458', '#E8DEF8'], ['#5C3F1E', '#FFDDB8'], ['#2E4A2C', '#C4EEBE']];
@@ -27,10 +28,9 @@ export async function refreshMachines() {
 
 export async function machineAction(m, action) {
     try {
-        if (action === 'start' || action === 'show') {
-            notify({ kind: 'info', title: action === 'show' ? 'Opening ' + m.name : 'Starting ' + m.name, body: 'The machine window opens in its own process.' });
-            if (action === 'start') await api('machine.start', { id: m.id, type: 'gui' });
-            else await api('machine.control', { id: m.id, action: 'show' });
+        if (action === 'show') { openScreen(m.id); return; }
+        if (action === 'start') {
+            await startAndOpen(m);
         } else {
             await api('machine.control', { id: m.id, action });
         }

@@ -597,8 +597,9 @@ function Invoke-VirtualBoxBuild {
         & cmd.exe /d /c "call `"$repoRoot\env.bat`" && kmk VBOX_SVN_REV=$revision SDK_WINSDK10_MAX_VERSION=10.0.22621.0 VBOX_WINDDK_GST_W7=WINSDK10-KM VBOX_WINDDK_GST_W8=WINSDK10-KM VBOX_WINDDK_GST_WLH=WINDDK71WLH VBOX_WINDDK_GST_W2K3=WINSDK10-KM VBOX_WINDDK_GST_WXP=WINSDK10-KM VBOX_WINDDK_GST_W2K=WINSDK10-KM VBOX_WINDDK_GST_NT4=WINSDK10-KM VBOX_USE_RTISOMAKER=1 VBOX_WITHOUT_WIN_HOST_INSTALLER=1 VBOX_WITHOUT_RUN_BUILD_TESTCASES=1 packing"
     }
     $payload = Join-Path $repoRoot 'out\win.amd64\release\bin'
-    if (-not (Test-Path -LiteralPath (Join-Path $payload 'VirtualBox.exe'))) {
-        throw "The build completed without $payload\VirtualBox.exe."
+    # The Material shell is the only user interface; Config.kmk never builds the Qt GUI.
+    if (-not (Test-Path -LiteralPath (Join-Path $payload 'VBoxMaterialBridge.exe'))) {
+        throw "The build completed without $payload\VBoxMaterialBridge.exe."
     }
     # The five host kernel drivers (src/VBox/HostDrivers/{Support,VBoxUSB,VBoxNetFlt,VBoxNetAdp})
     # are ordinary SYSMODS gated only by VBOX_WITH_VBOXDRV/_USB/_NETFLT/_NETADP, all of which
@@ -649,14 +650,23 @@ if ($Mode -eq 'Installer') {
     # installation. It builds straight from $payload; there is no separate
     # staging copy the way Squirrel's NuGet packaging needed.
     $nsisInstallerScript = Join-Path $repoRoot 'tools\build-windows-nsis-installer.ps1'
+    Write-Host "==> Package the Material shell into the payload"
+    Push-Location (Join-Path $repoRoot 'src\VBox\Frontends\MaterialShell\app')
+    try {
+        npm install --no-audit --no-fund
+        if ($LASTEXITCODE -ne 0) { throw 'npm install failed for the Material shell.' }
+        npm run package:win
+        if ($LASTEXITCODE -ne 0) { throw 'Packaging the Material shell failed.' }
+        $packagedShell = Get-ChildItem -Path 'out' -Directory | Select-Object -First 1
+    } finally { Pop-Location }
+    $shellDir = Join-Path $payload 'Shell'
+    if (Test-Path -LiteralPath $shellDir) { Remove-Item -LiteralPath $shellDir -Recurse -Force }
+    Copy-Item -LiteralPath $packagedShell.FullName -Destination $shellDir -Recurse
     Write-Host "==> Build the unsigned NSIS host installer"
     & $nsisInstallerScript -PayloadDir $payload
     Write-Host "Installer artifacts remain at $(Join-Path $repoRoot 'out\win.amd64\release\nsis-installer') for inspection."
 } elseif (-not $Silent) {
-    $answer = Read-Host 'Build succeeded. Launch VirtualBox.exe now? [y/N]'
-    if ($answer -match '^(y|yes)$') {
-        Start-Process -FilePath (Join-Path $payload 'VirtualBox.exe')
-    }
+    Write-Host 'Build succeeded. Run the Material shell with: npm start (in src\VBox\Frontends\MaterialShell\app).'
 }
 
 Write-Host "Completed $Mode mode without code signing."

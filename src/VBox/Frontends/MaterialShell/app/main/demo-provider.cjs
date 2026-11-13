@@ -40,6 +40,22 @@ const LOG = [
 ].join('\n');
 
 let tick = 0;
+const demoInput = { x: 640, y: 400, buttons: 0, keys: 0 };
+
+/** A sample desktop drawn as SVG; the pointer and key count prove input arrives. */
+function demoFrame(m) {
+    const t = new Date().toLocaleTimeString();
+    return '<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="800" viewBox="0 0 1280 800">' +
+        '<defs><linearGradient id="g" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#13243B"/><stop offset="1" stop-color="#0E1626"/></linearGradient></defs>' +
+        '<rect width="1280" height="800" fill="url(#g)"/>' +
+        '<rect x="80" y="120" width="560" height="320" rx="14" fill="#F2F3F7"/><rect x="104" y="148" width="220" height="14" rx="7" fill="#C9CCD3"/>' +
+        '<rect x="104" y="180" width="480" height="9" rx="4" fill="#E3E5EA"/><rect x="104" y="202" width="420" height="9" rx="4" fill="#E3E5EA"/>' +
+        '<text x="104" y="300" font-family="Segoe UI, sans-serif" font-size="28" fill="#1D1B20">' + m.name.replace(/[<&]/g, '') + '</text>' +
+        '<text x="104" y="340" font-family="Segoe UI, sans-serif" font-size="18" fill="#49454F">Demo guest · ' + t + ' · keys received: ' + demoInput.keys + '</text>' +
+        '<rect x="440" y="740" width="400" height="44" rx="14" fill="rgba(255,255,255,.14)"/>' +
+        '<path d="M' + demoInput.x + ' ' + demoInput.y + ' l0 22 l6 -6 l5 11 l4 -2 l-5 -11 l8 0 z" fill="' + (demoInput.buttons ? '#FFB869' : '#FFFFFF') + '" stroke="#000" stroke-width="1"/>' +
+        '</svg>';
+}
 
 function find(id) {
     const m = machines.find((x) => x.id === id || x.name === id);
@@ -115,6 +131,16 @@ async function call(method, p = {}) {
             return [{ metric: 'CPU/Load/User', object: 'host', unit: '%', value: wave(0) }, { metric: 'RAM/Usage/Used', object: 'host', unit: 'kB', value: (18 + Math.sin(tick / 9)) * 1024 * 1024 }]
                 .concat(machines.filter((m) => m.state === 'running').map((m, i) => ({ metric: 'CPU/Load/User', object: m.id, unit: '%', value: wave(i + 1) })));
         }
+        case 'screen.attach': {
+            const m = find(p.id);
+            if (m.state !== 'running' && m.state !== 'paused') throw new Error('The machine is not running');
+            return { width: 1280, height: 800 };
+        }
+        case 'screen.frame': return { width: 1280, height: 800, format: 'svg', data: Buffer.from(demoFrame(find(p.id))).toString('base64') };
+        case 'screen.keys': demoInput.keys += (p.scancodes || []).length; return { stored: (p.scancodes || []).length };
+        case 'screen.mouse': demoInput.x = p.x; demoInput.y = p.y; demoInput.buttons = p.buttons; return { done: true };
+        case 'screen.resize': return { requested: true };
+        case 'screen.detach': return { detached: true };
         default: throw new Error("Unknown method '" + method + "'");
     }
 }

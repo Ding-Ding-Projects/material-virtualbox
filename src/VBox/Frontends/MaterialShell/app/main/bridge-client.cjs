@@ -12,13 +12,14 @@ const path = require('node:path');
 const readline = require('node:readline');
 
 const DEFAULT_TIMEOUT_MS = 30000;
-const LONG_METHODS = new Set(['machine.start', 'machine.control', 'machine.delete', 'snapshots.take']);
+const LONG_METHODS = new Set(['machine.start', 'machine.control', 'machine.delete', 'machine.create', 'snapshots.take']);
 
 /** Where to look for the bridge: next to the shell, then the VirtualBox install folder. */
 function findBridge(appDir) {
     const exe = process.platform === 'win32' ? 'VBoxMaterialBridge.exe' : 'VBoxMaterialBridge';
     const candidates = [
         process.env.MVB_BRIDGE_PATH,
+        path.join(path.dirname(process.execPath), '..', exe),
         path.join(appDir, '..', exe),
         path.join(appDir, 'bridge', exe),
         process.env.VBOX_MSI_INSTALL_PATH && path.join(process.env.VBOX_MSI_INSTALL_PATH, exe),

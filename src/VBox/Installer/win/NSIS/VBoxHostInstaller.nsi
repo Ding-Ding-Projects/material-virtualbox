@@ -125,14 +125,14 @@ VIAddVersionKey "LegalCopyright"  "(C) ${VBOX_VENDOR}"
 ; Make the unsigned-build fact impossible to miss: it is stated on the very
 ; first page, not only in the log and the Finish-page driver summary.
 !define MUI_WELCOMEPAGE_TITLE "Welcome to the ${PRODUCT_NAME} ${PRODUCT_VERSION} Setup Wizard"
-!define MUI_WELCOMEPAGE_TEXT "This will install ${PRODUCT_NAME} ${PRODUCT_VERSION} on your computer.$\r$\n$\r$\nIMPORTANT: this build is UNSIGNED -- code signing is permanently disabled for this project. Windows will show an unknown-publisher warning, and any kernel driver this setup attempts to install (support, USB) will most likely be refused by Driver Signature Enforcement. VirtualBox Manager will still install and run; starting a virtual machine will not work until the affected driver(s) are permitted to load on this system. This setup will never change Driver Signature Enforcement, BCD test-signing, or any other system security setting.$\r$\n$\r$\nClick Next to continue."
+!define MUI_WELCOMEPAGE_TEXT "This will install ${PRODUCT_NAME} ${PRODUCT_VERSION} on your computer.$\r$\n$\r$\nIMPORTANT: this build is UNSIGNED -- code signing is permanently disabled for this project. Windows will show an unknown-publisher warning, and any kernel driver this setup attempts to install (support, USB) will most likely be refused by Driver Signature Enforcement. The Material Virtual Machine app will still install and run; starting a virtual machine will not work until the affected driver(s) are permitted to load on this system. This setup will never change Driver Signature Enforcement, BCD test-signing, or any other system security setting.$\r$\n$\r$\nClick Next to continue."
 !insertmacro MUI_PAGE_WELCOME
 ; This project's licensed base package text; ${__FILEDIR__} is this script's
 ; own directory, five levels below the repository root.
 !insertmacro MUI_PAGE_LICENSE "${__FILEDIR__}\..\..\..\..\..\doc\License-gpl-3.0.rtf"
 !insertmacro MUI_PAGE_DIRECTORY
 !insertmacro MUI_PAGE_INSTFILES
-!define MUI_FINISHPAGE_RUN "$INSTDIR\VirtualBox.exe"
+!define MUI_FINISHPAGE_RUN "$INSTDIR\Shell\MaterialVirtualMachine.exe"
 !define MUI_FINISHPAGE_RUN_TEXT "Start ${PRODUCT_NAME} now"
 !define MUI_FINISHPAGE_SHOWREADME "$INSTDIR\VBoxHostInstaller_Install.log"
 !define MUI_FINISHPAGE_SHOWREADME_TEXT "View the installer log"
@@ -194,6 +194,22 @@ Section "-VirtualBox" SecMain
   ${HostLog} "Install directory: $INSTDIR"
   ${HostLog} "This build is UNSIGNED: code signing is permanently disabled for this project."
 
+  ; ---- Retire the Qt user interface ----------------------------------------
+  ; The Material shell is the only user interface. An upgrade over an older
+  ; install must not leave the Qt manager, the Qt machine window or their Qt
+  ; runtime behind, because File /r below only adds and overwrites.
+  ${HostLog} "Removing any Qt user interface left by an earlier install..."
+  Delete "$INSTDIR\VirtualBox.exe"
+  Delete "$INSTDIR\VirtualBoxVM.exe"
+  Delete "$INSTDIR\VirtualBoxVM.dll"
+  Delete "$INSTDIR\UICommon.dll"
+  Delete "$INSTDIR\VBoxDbg.dll"
+  Delete "$INSTDIR\Qt6*.dll"
+  RMDir /r "$INSTDIR\platforms"
+  RMDir /r "$INSTDIR\styles"
+  RMDir /r "$INSTDIR\imageformats"
+  RMDir /r "$INSTDIR\nls"
+
   ; ---- Payload -----------------------------------------------------------
   ${HostLog} "Copying program files from the staged release payload..."
   File /r "${PAYLOAD_DIR}\*.*"
@@ -243,9 +259,9 @@ Section "-VirtualBox" SecMain
 
   ; ---- Start Menu / Desktop shortcuts -------------------------------------
   CreateDirectory "$SMPROGRAMS\${PRODUCT_NAME}"
-  CreateShortcut "$SMPROGRAMS\${PRODUCT_NAME}\${PRODUCT_NAME}.lnk" "$INSTDIR\VirtualBox.exe"
+  CreateShortcut "$SMPROGRAMS\${PRODUCT_NAME}\${PRODUCT_NAME}.lnk" "$INSTDIR\Shell\MaterialVirtualMachine.exe"
   CreateShortcut "$SMPROGRAMS\${PRODUCT_NAME}\Uninstall ${PRODUCT_NAME}.lnk" "$INSTDIR\uninstall.exe"
-  CreateShortcut "$DESKTOP\${PRODUCT_NAME}.lnk" "$INSTDIR\VirtualBox.exe"
+  CreateShortcut "$DESKTOP\${PRODUCT_NAME}.lnk" "$INSTDIR\Shell\MaterialVirtualMachine.exe"
 
   ; ---- Registry ------------------------------------------------------------
   WriteRegStr HKLM "${REGISTRY_KEY_ROOT}" "InstallDir" "$INSTDIR"
@@ -257,7 +273,7 @@ Section "-VirtualBox" SecMain
   WriteRegStr   HKLM "${ARP_KEY}" "DisplayVersion"        "${PRODUCT_VERSION}"
   WriteRegStr   HKLM "${ARP_KEY}" "Publisher"             "${PRODUCT_PUBLISHER}"
   WriteRegStr   HKLM "${ARP_KEY}" "InstallLocation"       "$INSTDIR"
-  WriteRegStr   HKLM "${ARP_KEY}" "DisplayIcon"           "$INSTDIR\VirtualBox.exe"
+  WriteRegStr   HKLM "${ARP_KEY}" "DisplayIcon"           "$INSTDIR\Shell\MaterialVirtualMachine.exe"
   WriteRegStr   HKLM "${ARP_KEY}" "UninstallString"       '"$INSTDIR\uninstall.exe"'
   WriteRegStr   HKLM "${ARP_KEY}" "QuietUninstallString"  '"$INSTDIR\uninstall.exe" /S'
   WriteRegDWORD HKLM "${ARP_KEY}" "NoModify" 1
@@ -285,12 +301,12 @@ Section "Uninstall"
 
   ; Warn (but do not force-kill) if VirtualBox or its services look to be
   ; running; an in-use file simply gets scheduled for delete-on-reboot below.
-  nsProcess::_FindProcess "VirtualBox.exe"
+  nsProcess::_FindProcess "MaterialVirtualMachine.exe"
   Pop $0
   ${If} $0 == 0
-    ${HostLog} "VirtualBox.exe appears to be running."
+    ${HostLog} "MaterialVirtualMachine.exe appears to be running."
     ${IfNot} ${Silent}
-      MessageBox MB_OK|MB_ICONEXCLAMATION "Please close VirtualBox Manager and any running virtual machines before continuing. Uninstall will proceed regardless, but files still in use will be removed on next reboot."
+      MessageBox MB_OK|MB_ICONEXCLAMATION "Please close Material Virtual Machine and any running virtual machines before continuing. Uninstall will proceed regardless, but files still in use will be removed on next reboot."
     ${EndIf}
   ${EndIf}
   nsProcess::_Unload

@@ -5,7 +5,8 @@
 - [x] Redesign every manager surface and product-wide feature as 20 boards in `design/redesign-2026-11`.
 - [x] Build the Material shell front end from the boards, with a Main API bridge and unit tests.
 - [x] Port upstream VirtualBox changes through `b6bea7211`.
-- [ ] Confirm the first CI build of the bridge and the merged upstream tree.
+- [x] Make the Material shell the only user interface: no Qt GUI built or shipped, machine screens streamed into the shell.
+- [ ] Confirm the first CI build of the bridge and the merged upstream tree without the Qt GUI.
 - [ ] Run the packaged shell against a real `VBoxSVC` and capture it.
 - [ ] Make the remaining settings pages editable in the shell (Display, Storage, Network, Shared folders).
 

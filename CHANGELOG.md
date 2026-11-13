@@ -96,6 +96,24 @@ a published release.
 
 ## [Unreleased]
 
+### Changed — The Material shell is the only user interface (2026-11-13)
+
+- `Config.kmk` forces `VBOX_WITH_QTGUI` and `VBOX_WITH_DEBUGGER_GUI` off with
+  `override`: the Qt manager, the Qt machine window and the Qt debugger are no
+  longer built by any build of this tree.
+- Machines run headless and their screen opens inside the shell: the bridge
+  gained `screen.attach`, `screen.frame`, `screen.keys`, `screen.mouse`,
+  `screen.resize` and `screen.detach`, and each open screen gets its own bridge
+  process.
+- The release workflow stages the shell under `bin\Shell`; the installer points
+  every shortcut, the Finish page and the uninstall entry at
+  `Shell\MaterialVirtualMachine.exe`, deletes Qt user-interface files left by an
+  older install, and both the workflow and `tools/build-windows-nsis-installer.ps1`
+  refuse a payload that contains them.
+- Fourteen unit tests now pass, including scan code and pointer mapping.
+- **Not yet proven:** none of this has been compiled or installed outside CI; the
+  screen page has only run against the demo provider in a browser.
+
 ### Added — Material shell and the November 2026 redesign (2026-11-13)
 
 Design: [`design/redesign-2026-11`](design/redesign-2026-11/README.md), twenty

@@ -86,12 +86,17 @@ if (-not (Test-Path -LiteralPath $PayloadDir -PathType Container)) {
     throw "Payload directory does not exist: $PayloadDir. Build the Windows host binaries first (tools\build-windows.ps1 -Mode Build)."
 }
 $payloadRequired = @(
-    'VirtualBox.exe', 'VBoxSVC.exe', 'VBoxSDS.exe',
+    'Shell\MaterialVirtualMachine.exe', 'VBoxMaterialBridge.exe', 'VBoxSVC.exe', 'VBoxSDS.exe',
     'VBoxProxyStub.dll', 'VBoxC.dll', 'VBoxDrvInst.exe'
 )
 $missingPayload = @($payloadRequired | Where-Object { -not (Test-Path -LiteralPath (Join-Path $PayloadDir $_)) })
 if ($missingPayload.Count -gt 0) {
-    throw "The staged release payload at $PayloadDir is missing required file(s): $($missingPayload -join ', '). Build the Windows host binaries first (tools\build-windows.ps1 -Mode Build)."
+    throw "The staged release payload at $PayloadDir is missing required file(s): $($missingPayload -join ', '). Build the Windows host binaries and stage the Material shell first."
+}
+# The Material shell is the only user interface: refuse to package any Qt user interface.
+$qtUi = @(Get-ChildItem -LiteralPath $PayloadDir -File | Where-Object { $_.Name -in @('VirtualBox.exe', 'VirtualBoxVM.exe', 'VirtualBoxVM.dll', 'UICommon.dll', 'VBoxDbg.dll') -or $_.Name -like 'Qt6*.dll' })
+if ($qtUi.Count -gt 0) {
+    throw "The staged payload still contains Qt user-interface file(s): $(($qtUi | ForEach-Object Name) -join ', '). Only the Material shell may ship."
 }
 Write-Host "Using payload at $PayloadDir"
 

@@ -1745,6 +1745,17 @@ ifndef VBOX_WITH_MAIN
  VBOX_WITH_DOCS =
 endif
 
+#
+# Material Virtual Machine: the Material shell (src/VBox/Frontends/MaterialShell)
+# is the only user interface.  The Qt manager (VirtualBox), the Qt machine window
+# (VirtualBoxVM) and the Qt debugger GUI are never built, whatever LocalConfig.kmk,
+# the environment or the kmk command line ask for, so no build of this tree can
+# produce or ship them.  Machines run headless and the shell streams their screen.
+#
+VBOX_WITH_MATERIAL_SHELL = 1
+override VBOX_WITH_QTGUI :=
+override VBOX_WITH_DEBUGGER_GUI :=
+
 ifdef VBOX_WITH_EXTPACK_PUEL_BUILD
  VBOX_WITH_EXTPACK_PUEL = 1
 endif

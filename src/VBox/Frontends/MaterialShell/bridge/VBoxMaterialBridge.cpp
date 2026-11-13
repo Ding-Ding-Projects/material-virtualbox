@@ -54,6 +54,7 @@
 #include <iprt/string.h>
 #include <iprt/message.h>
 #include <iprt/path.h>
+#include <iprt/base64.h>
 
 using namespace com;
 
@@ -118,22 +119,27 @@ private:
     void appendString(const char *psz)
     {
         m_str.append('"');
-        for (const unsigned char *pb = (const unsigned char *)psz; *pb; pb++)
+        /* Copy runs of plain characters in one go: frames are megabytes of base64. */
+        const char *pszRun = psz;
+        for (const unsigned char *pb = (const unsigned char *)psz; ; pb++)
         {
-            switch (*pb)
+            unsigned char const ch = *pb;
+            if (ch >= 0x20 && ch != '"' && ch != '\\')
+                continue;
+            if ((const char *)pb > pszRun)
+                m_str.append(pszRun, (size_t)((const char *)pb - pszRun));
+            if (ch == '\0')
+                break;
+            switch (ch)
             {
                 case '"':  m_str.append("\\\""); break;
                 case '\\': m_str.append("\\\\"); break;
                 case '\n': m_str.append("\\n"); break;
                 case '\r': m_str.append("\\r"); break;
                 case '\t': m_str.append("\\t"); break;
-                default:
-                    if (*pb < 0x20)
-                        m_str.appendPrintf("\\u%04x", *pb);
-                    else
-                        m_str.append((char)*pb);
-                    break;
+                default:   m_str.appendPrintf("\\u%04x", ch); break;
             }
+            pszRun = (const char *)pb + 1;
         }
         m_str.append('"');
     }
@@ -894,6 +900,162 @@ static void bridgeMetricsSample(PBRIDGECTX pCtx, RTJSONVAL, BridgeJson &j)
 
 
 /*********************************************************************************************************************************
+*   Machine screen                                                                                                               *
+*                                                                                                                                *
+*   The shell has no native machine window: machines run headless and their screen is streamed through these calls.  The   *
+*   front end runs one bridge process per open screen so frame traffic never queues behind library calls.                  *
+*********************************************************************************************************************************/
+/** The screen this bridge process is attached to, if any. */
+static struct
+{
+    Utf8Str             strMachineId;
+    ComPtr<ISession>    ptrSession;
+    ComPtr<IDisplay>    ptrDisplay;
+    ComPtr<IKeyboard>   ptrKeyboard;
+    ComPtr<IMouse>      ptrMouse;
+} g_Screen;
+
+static void bridgeScreenRequire(RTJSONVAL hParams)
+{
+    Utf8Str strId = bridgeParamString(hParams, "id");
+    if (g_Screen.ptrDisplay.isNull() || strId != g_Screen.strMachineId)
+        throw BridgeError("This screen is not attached; call screen.attach first", E_FAIL);
+}
+
+static void bridgeScreenDetachInternal(void)
+{
+    g_Screen.ptrMouse.setNull();
+    g_Screen.ptrKeyboard.setNull();
+    g_Screen.ptrDisplay.setNull();
+    if (!g_Screen.ptrSession.isNull())
+        g_Screen.ptrSession->UnlockMachine();
+    g_Screen.ptrSession.setNull();
+    g_Screen.strMachineId.setNull();
+}
+
+static void bridgeScreenAttach(PBRIDGECTX pCtx, RTJSONVAL hParams, BridgeJson &j)
+{
+    ComPtr<IMachine> ptrMachine = bridgeFindMachine(pCtx, hParams);
+    bridgeScreenDetachInternal();
+
+    ComPtr<ISession> ptrSession;
+    BRIDGE_HRC(ptrSession.createInprocObject(CLSID_Session), "Session");
+    BRIDGE_HRC(ptrMachine->LockMachine(ptrSession, LockType_Shared), "Attaching to the machine");
+    ComPtr<IConsole> ptrConsole;
+    ptrSession->COMGETTER(Console)(ptrConsole.asOutParam());
+    if (ptrConsole.isNull())
+    {
+        ptrSession->UnlockMachine();
+        throw BridgeError("The machine is not running", E_FAIL);
+    }
+    g_Screen.ptrSession = ptrSession;
+    ptrConsole->COMGETTER(Display)(g_Screen.ptrDisplay.asOutParam());
+    ptrConsole->COMGETTER(Keyboard)(g_Screen.ptrKeyboard.asOutParam());
+    ptrConsole->COMGETTER(Mouse)(g_Screen.ptrMouse.asOutParam());
+    g_Screen.strMachineId = bridgeParamString(hParams, "id");
+    if (g_Screen.ptrDisplay.isNull())
+    {
+        bridgeScreenDetachInternal();
+        throw BridgeError("The machine has no display", E_FAIL);
+    }
+
+    ULONG cx = 0, cy = 0, cBits = 0;
+    LONG xOrigin = 0, yOrigin = 0;
+    GuestMonitorStatus_T enmStatus = GuestMonitorStatus_Enabled;
+    g_Screen.ptrDisplay->GetScreenResolution(0, &cx, &cy, &cBits, &xOrigin, &yOrigin, &enmStatus);
+    j.beginObject().member("width", (int64_t)cx).member("height", (int64_t)cy).endObject();
+}
+
+static void bridgeScreenFrame(PBRIDGECTX, RTJSONVAL hParams, BridgeJson &j)
+{
+    bridgeScreenRequire(hParams);
+    ULONG cx = 0, cy = 0, cBits = 0;
+    LONG xOrigin = 0, yOrigin = 0;
+    GuestMonitorStatus_T enmStatus = GuestMonitorStatus_Enabled;
+    BRIDGE_HRC(g_Screen.ptrDisplay->GetScreenResolution(0, &cx, &cy, &cBits, &xOrigin, &yOrigin, &enmStatus), "Reading the screen size");
+    if (cx == 0 || cy == 0)
+    {
+        j.beginObject().member("width", (int64_t)0).member("height", (int64_t)0).member("format", "none").member("data", "").endObject();
+        return;
+    }
+
+    SafeArray<BYTE> aPng;
+    BRIDGE_HRC(g_Screen.ptrDisplay->TakeScreenShotToArray(0, cx, cy, BitmapFormat_PNG, ComSafeArrayAsOutParam(aPng)), "Capturing the screen");
+
+    size_t const cchB64 = RTBase64EncodedLengthEx(aPng.size(), RTBASE64_FLAGS_NO_LINE_BREAKS);
+    char *pszB64 = (char *)RTMemAlloc(cchB64 + 1);
+    if (!pszB64)
+        throw BridgeError("Out of memory encoding the frame", E_OUTOFMEMORY);
+    size_t cchActual = 0;
+    int vrc = RTBase64EncodeEx(aPng.raw(), aPng.size(), RTBASE64_FLAGS_NO_LINE_BREAKS, pszB64, cchB64 + 1, &cchActual);
+    if (RT_FAILURE(vrc))
+    {
+        RTMemFree(pszB64);
+        throw BridgeError("Could not encode the frame", E_FAIL);
+    }
+    j.beginObject().member("width", (int64_t)cx).member("height", (int64_t)cy).member("format", "png").member("data", pszB64).endObject();
+    RTMemFree(pszB64);
+}
+
+static void bridgeScreenKeys(PBRIDGECTX, RTJSONVAL hParams, BridgeJson &j)
+{
+    bridgeScreenRequire(hParams);
+    RTJSONVAL hCodes = NIL_RTJSONVAL;
+    if (RT_FAILURE(RTJsonValueQueryByName(hParams, "scancodes", &hCodes)))
+        throw BridgeError("Missing array parameter 'scancodes'", E_INVALIDARG);
+    unsigned const cCodes = RTJsonValueGetArraySize(hCodes);
+    SafeArray<LONG> aCodes(RT_MIN(cCodes, 256U));
+    for (unsigned i = 0; i < aCodes.size(); i++)
+    {
+        RTJSONVAL hCode = NIL_RTJSONVAL;
+        int64_t i64 = 0;
+        if (RT_SUCCESS(RTJsonValueQueryByIndex(hCodes, i, &hCode)))
+        {
+            RTJsonValueQueryInteger(hCode, &i64);
+            RTJsonValueRelease(hCode);
+        }
+        aCodes[i] = (LONG)(i64 & 0xff);
+    }
+    RTJsonValueRelease(hCodes);
+    ULONG cStored = 0;
+    BRIDGE_HRC(g_Screen.ptrKeyboard->PutScancodes(ComSafeArrayAsInParam(aCodes), &cStored), "Sending keys");
+    j.beginObject().member("stored", (int64_t)cStored).endObject();
+}
+
+static void bridgeScreenMouse(PBRIDGECTX, RTJSONVAL hParams, BridgeJson &j)
+{
+    bridgeScreenRequire(hParams);
+    int64_t x = 0, y = 0, dz = 0, dw = 0, fButtons = 0;
+    bridgeParamInt(hParams, "x", &x);
+    bridgeParamInt(hParams, "y", &y);
+    bridgeParamInt(hParams, "dz", &dz);
+    bridgeParamInt(hParams, "dw", &dw);
+    bridgeParamInt(hParams, "buttons", &fButtons);
+    /* The Main API counts absolute positions from 1. */
+    BRIDGE_HRC(g_Screen.ptrMouse->PutMouseEventAbsolute((LONG)x + 1, (LONG)y + 1, (LONG)dz, (LONG)dw, (LONG)(fButtons & 0x1f)), "Moving the mouse");
+    j.beginObject().member("done", true).endObject();
+}
+
+static void bridgeScreenResize(PBRIDGECTX, RTJSONVAL hParams, BridgeJson &j)
+{
+    bridgeScreenRequire(hParams);
+    int64_t cx = 0, cy = 0;
+    bridgeParamInt(hParams, "width", &cx);
+    bridgeParamInt(hParams, "height", &cy);
+    if (cx < 640 || cy < 480 || cx > 8192 || cy > 8192)
+        throw BridgeError("Screen size must be between 640x480 and 8192x8192", E_INVALIDARG);
+    BRIDGE_HRC(g_Screen.ptrDisplay->SetVideoModeHint(0, TRUE, FALSE, 0, 0, (ULONG)cx, (ULONG)cy, 32, TRUE), "Asking the guest to resize");
+    j.beginObject().member("requested", true).endObject();
+}
+
+static void bridgeScreenDetach(PBRIDGECTX, RTJSONVAL, BridgeJson &j)
+{
+    bridgeScreenDetachInternal();
+    j.beginObject().member("detached", true).endObject();
+}
+
+
+/*********************************************************************************************************************************
 *   Dispatcher                                                                                                                   *
 *********************************************************************************************************************************/
 typedef void FNBRIDGEHANDLER(PBRIDGECTX pCtx, RTJSONVAL hParams, BridgeJson &j);
@@ -919,6 +1081,12 @@ static const struct
     { "logs.read",          bridgeLogsRead },
     { "extpacks.list",      bridgeExtPacksList },
     { "metrics.sample",     bridgeMetricsSample },
+    { "screen.attach",      bridgeScreenAttach },
+    { "screen.frame",       bridgeScreenFrame },
+    { "screen.keys",        bridgeScreenKeys },
+    { "screen.mouse",       bridgeScreenMouse },
+    { "screen.resize",      bridgeScreenResize },
+    { "screen.detach",      bridgeScreenDetach },
 };
 
 static void bridgeHandleLine(PBRIDGECTX pCtx, const char *pszLine)
@@ -968,7 +1136,8 @@ static void bridgeHandleLine(PBRIDGECTX pCtx, const char *pszLine)
         RTJsonValueRelease(hParams);
     RTJsonValueRelease(hReq);
 
-    RTPrintf("%s\n", j.str().c_str());
+    RTStrmWrite(g_pStdOut, j.str().c_str(), j.str().length());
+    RTStrmWrite(g_pStdOut, "\n", 1);
     RTStrmFlush(g_pStdOut);
 }
 
@@ -1013,6 +1182,7 @@ int main(int argc, char **argv)
                 if (szLine[0] != '\0')
                     bridgeHandleLine(&Ctx, szLine);
             }
+            bridgeScreenDetachInternal();
         }
     }
 

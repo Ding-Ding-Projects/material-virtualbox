@@ -438,8 +438,13 @@ jobs:
         run: |
           $ErrorActionPreference = 'Stop'
           $payload = Resolve-Path 'out\win.amd64\release\bin'
-          if (-not (Test-Path (Join-Path $payload 'VirtualBox.exe'))) {
-            throw 'The packaged Windows payload is missing VirtualBox.exe.'
+          if (-not (Test-Path (Join-Path $payload 'VBoxMaterialBridge.exe'))) {
+            throw 'The packaged Windows payload is missing VBoxMaterialBridge.exe, the Material shell bridge.'
+          }
+          # The Material shell is the only user interface (Config.kmk forces VBOX_WITH_QTGUI off).
+          $qtUi = @(Get-ChildItem -LiteralPath $payload -File | Where-Object { $_.Name -in @('VirtualBox.exe', 'VirtualBoxVM.exe', 'VirtualBoxVM.dll', 'UICommon.dll', 'VBoxDbg.dll') -or $_.Name -like 'Qt6*.dll' })
+          if ($qtUi.Count -gt 0) {
+            throw "The payload still contains Qt user-interface file(s): $(($qtUi | ForEach-Object Name) -join ', ')."
           }
           # The five host kernel drivers (Support/VBoxUSB/VBoxNetFlt/VBoxNetAdp) are ordinary
           # SYSMODS gated only by VBOX_WITH_VBOXDRV/_USB/_NETFLT/_NETADP, which all default to 1
@@ -464,22 +469,17 @@ jobs:
           if (-not (Test-Path $additionsIso)) {
             throw "The packaged Windows payload is missing the Guest Additions ISO at $additionsIso."
           }
-          Write-Host "Payload verified: VirtualBox.exe, all five host driver file pairs, and $additionsIso are present."
+          Write-Host "Payload verified: VBoxMaterialBridge.exe, no Qt user interface, all five host driver file pairs, and $additionsIso are present."
 
-      - name: Build and package the Material shell (best effort)
-        # The Material shell is a separate front end (src/VBox/Frontends/MaterialShell):
-        # a desktop web UI plus VBoxMaterialBridge, a small Main API client. It is
-        # built after the main payload and must never block the installer or the
-        # release, so a failure here only drops the shell asset from the release.
-        continue-on-error: true
+      - name: Build and stage the Material shell
+        # The Material shell (src/VBox/Frontends/MaterialShell) is the only user
+        # interface: Config.kmk never builds the Qt GUI. VBoxMaterialBridge.exe is
+        # already in the payload from the main build; this step tests and packages
+        # the desktop front end and stages it under bin\Shell for the installer.
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
-          $revision = (Select-String configure.py -Pattern '\$Id: configure.py (\d+)').Matches[0].Groups[1].Value
-          & cmd.exe /d /c "call `"$PWD\env.bat`" && kmk -C src\VBox\Frontends\MaterialShell VBOX_SVN_REV=$revision SDK_WINSDK10_MAX_VERSION=10.0.22621.0 VBOX_WITHOUT_RUN_BUILD_TESTCASES=1"
-          if ($LASTEXITCODE -ne 0) { throw "VBoxMaterialBridge build failed with exit code $LASTEXITCODE." }
-          $bridge = Get-ChildItem -Path 'out\win.amd64\release' -Recurse -Filter 'VBoxMaterialBridge.exe' | Select-Object -First 1
-          if (-not $bridge) { throw 'VBoxMaterialBridge.exe was not produced.' }
+          $payload = Resolve-Path 'out\win.amd64\release\bin'
           Push-Location 'src\VBox\Frontends\MaterialShell\app'
           npm test
           if ($LASTEXITCODE -ne 0) { throw 'Material shell unit tests failed.' }
@@ -488,12 +488,15 @@ jobs:
           npm run package:win
           if ($LASTEXITCODE -ne 0) { throw 'Packaging the Material shell failed.' }
           $packaged = Get-ChildItem -Path 'out' -Directory | Select-Object -First 1
-          Copy-Item -LiteralPath $bridge.FullName -Destination $packaged.FullName
+          if (-not $packaged -or -not (Test-Path (Join-Path $packaged.FullName 'MaterialVirtualMachine.exe'))) { throw 'The packaged shell has no MaterialVirtualMachine.exe.' }
           Pop-Location
+          $shellDir = Join-Path $payload 'Shell'
+          if (Test-Path $shellDir) { Remove-Item -LiteralPath $shellDir -Recurse -Force }
+          Copy-Item -LiteralPath $packaged.FullName -Destination $shellDir -Recurse
           $zip = Join-Path $env:RUNNER_TEMP 'MaterialVirtualMachine-Shell-win-x64.zip'
-          Compress-Archive -Path (Join-Path $packaged.FullName '*') -DestinationPath $zip -Force
+          Compress-Archive -Path (Join-Path $shellDir '*'), (Join-Path $payload 'VBoxMaterialBridge.exe') -DestinationPath $zip -Force
           Set-Content -LiteralPath (Join-Path $env:RUNNER_TEMP 'material-shell-asset.txt') -Value $zip -Encoding utf8
-          Write-Host "Material shell packaged: $zip ($((Get-Item $zip).Length) bytes)"
+          Write-Host "Material shell staged at $shellDir and zipped to $zip ($((Get-Item $zip).Length) bytes)"
 
       - name: Build the unsigned NSIS host installer
         shell: pwsh
@@ -501,7 +504,7 @@ jobs:
           $ErrorActionPreference = 'Stop'
           # This is the ONE Windows installer this project ships. It requests
           # Administrator elevation and installs the complete host product --
-          # VirtualBox Manager, VBoxSVC, the VBoxSDS service and its COM
+          # the Material shell, VBoxSVC, the VBoxSDS service and its COM
           # registration, the Guest Additions ISO (staged under
           # out\win.amd64\release\bin\additions\, swept up by the installer's
           # `File /r` of the whole payload), and the host kernel drivers just

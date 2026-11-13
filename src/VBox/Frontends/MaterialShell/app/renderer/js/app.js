@@ -10,6 +10,7 @@ import { reconcile, closeTab, openTab, openEvery, togglePin } from './logic/tabs
 import { renderMachines, refreshMachines } from './pages/machines.js';
 import { renderSettings, renderNewVm } from './pages/settings.js';
 import { renderMedia, renderNetwork, renderExtensions, renderLogs, renderActivity } from './pages/tools.js';
+import { renderScreen, closeScreen } from './pages/screen.js';
 import { renderHistory, renderPrefs, renderTabManager, renderOnboarding } from './pages/app-pages.js';
 
 const CATALOG = [
@@ -26,7 +27,8 @@ const EXTRA = {
     settings: { label: 'Settings', render: renderSettings },
     newvm: { label: 'New machine', render: renderNewVm },
     tabs: { label: 'Tab manager', render: (root) => renderTabManager(root, tabsApi) },
-    onboarding: { label: 'First-run setup', render: renderOnboarding }
+    onboarding: { label: 'First-run setup', render: renderOnboarding },
+    screen: { label: 'Machine screen', render: renderScreen }
 };
 
 let tabs = reconcile(CATALOG, persist.load('tabs', null));
@@ -78,6 +80,7 @@ function drawBell() {
 function route() {
     const r = store.get().route;
     const page = CATALOG.find((c) => c.id === r) || EXTRA[r] || CATALOG[0];
+    if (r !== 'screen') closeScreen();
     els.main.scrollTop = 0;
     page.render(els.main);
 }
@@ -143,6 +146,7 @@ async function start() {
         else if (s.machines !== last.machines || s.selectedId !== last.selectedId || s.prefs !== last.prefs) {
             persist.save('selectedId', s.selectedId);
             if (['machines', 'settings', 'logs', 'prefs'].includes(s.route)) route();
+            else if (s.route === 'screen') renderScreen(els.main);
             if (s.prefs !== last.prefs) { drawTabs(); drawRail(); }
         }
         if (s.notifications !== last.notifications) drawBell();

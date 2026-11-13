@@ -112,3 +112,21 @@ test('formatting helpers', () => {
     assert.equal(rows[1].severity, 'error');
     assert.equal(rows[0].time, '00:00:01.123');
 });
+
+import { makeCode, breakCode, ctrlAltDel, buttonMask, toGuest } from '../renderer/js/logic/scancodes.js';
+
+test('scan codes follow set 1 with extended prefixes', () => {
+    assert.deepEqual(makeCode('KeyA'), [0x1e]);
+    assert.deepEqual(breakCode('KeyA'), [0x9e]);
+    assert.deepEqual(makeCode('ArrowUp'), [0xe0, 0x48]);
+    assert.deepEqual(breakCode('ArrowUp'), [0xe0, 0xc8]);
+    assert.equal(makeCode('Fn'), null);
+    assert.deepEqual(ctrlAltDel(), [0x1d, 0x38, 0xe0, 0x53, 0xe0, 0xd3, 0xb8, 0x9d]);
+});
+
+test('pointer maps to guest pixels and buttons to the Main API mask', () => {
+    assert.deepEqual(toGuest(150, 100, { left: 100, top: 50, width: 640, height: 400 }, { width: 1280, height: 800 }), { x: 100, y: 100 });
+    assert.deepEqual(toGuest(-5, 9999, { left: 0, top: 0, width: 640, height: 400 }, { width: 1280, height: 800 }), { x: 0, y: 799 });
+    assert.equal(buttonMask(1 | 2 | 4), 7);
+    assert.equal(buttonMask(0), 0);
+});
