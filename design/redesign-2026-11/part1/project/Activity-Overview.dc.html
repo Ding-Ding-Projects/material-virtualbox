@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Activity overview</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Roboto+Flex:opsz,wdth,wght@8..144,25..151,300..900&family=Roboto+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#0B0A0F}
+a{color:#D0BCFF}a:hover{color:#EADDFF}
+button{font:inherit;color:inherit;border:0;background:none;cursor:pointer}
+@keyframes mvRise{from{opacity:0;transform:translateY(18px);filter:blur(5px)}to{opacity:1;transform:none;filter:none}}
+@keyframes mvLive{0%,100%{opacity:1}50%{opacity:.3}}
+.mv-st{transition:background-color 200ms cubic-bezier(.2,0,0,1),transform 320ms cubic-bezier(.34,1.56,.64,1),color 200ms}
+.mv-st:hover{background-color:rgba(230,224,233,.08)}
+.mv-st:active{transform:scale(.96)}
+.mv-st:focus-visible{outline:3px solid #D0BCFF;outline-offset:2px}
+.mv-card{transition:transform 380ms cubic-bezier(.34,1.56,.64,1),box-shadow 300ms}
+.mv-card:hover{transform:translateY(-4px);box-shadow:0 18px 40px rgba(0,0,0,.5)}
+.mv-line{transition:all 900ms cubic-bezier(.2,0,0,1)}
+@media (prefers-reduced-motion: reduce){*,*::before,*::after{animation:none!important;transition:none!important}}
+</style>
+</helmet>
+<div style="min-height: 900px; padding: 28px 32px; display: flex; flex-direction: column; gap: 18px; background: #0B0A0F; color: #E6E0E9; font-family: 'Roboto Flex', 'Segoe UI', system-ui, sans-serif; font-size: 14px">
+  <div style="display: flex; flex-wrap: wrap; gap: 16px; align-items: flex-end; justify-content: space-between">
+    <div>
+      <span style="display: inline-flex; align-items: center; gap: 8px; font-size: 12px; font-weight: 800; letter-spacing: 1.2px; text-transform: uppercase; color: #A6D7A0"><span style="width: 8px; height: 8px; border-radius: 4px; background: #A6D7A0; animation: mvLive 1.2s infinite"></span>Live</span>
+      <h1 style="margin: 4px 0 0; font-size: 56px; line-height: .95; font-weight: 900; letter-spacing: -1.5px; font-variation-settings: 'wdth' 135">Activity</h1>
+    </div>
+    <div role="group" aria-label="Time range" style="display: flex; padding: 4px; border-radius: 24px; background: #1D1B20">
+      <sc-for list="{{ ranges }}" as="r" hint-placeholder-count="4">
+        <button class="mv-st" onClick="{{ r.pick }}" aria-pressed="{{ r.on }}" style="height: 40px; padding: 0 16px; border-radius: 20px; font-weight: 700; background: {{ r.bg }}; color: {{ r.fg }}">{{ r.label }}</button>
+      </sc-for>
+    </div>
+  </div>
+
+  <section class="mv-card" aria-label="Host total" style="position: relative; padding: 24px; border-radius: 32px; background: linear-gradient(140deg, #2B2340, #17151C 70%); animation: mvRise 600ms cubic-bezier(.05,.7,.1,1) both">
+    <div style="display: flex; flex-wrap: wrap; gap: 28px; align-items: flex-end">
+      <div><div style="font-size: 12px; color: #CAC4D0">Host CPU</div><div style="font-size: 64px; line-height: 1; font-weight: 900; font-variation-settings: 'wdth' 125; color: #D0BCFF">{{ hostCpu }}</div></div>
+      <div><div style="font-size: 12px; color: #CAC4D0">Host memory</div><div style="font-size: 64px; line-height: 1; font-weight: 900; font-variation-settings: 'wdth' 125; color: #EFB8C8">{{ hostMem }}</div></div>
+      <div><div style="font-size: 12px; color: #CAC4D0">Disk I/O</div><div style="font-size: 64px; line-height: 1; font-weight: 900; font-variation-settings: 'wdth' 125; color: #A6D7A0">{{ hostIo }}</div></div>
+    </div>
+    <svg viewBox="0 0 1000 180" preserveAspectRatio="none" role="img" aria-label="Host CPU over the last minute" style="width: 100%; height: 180px; margin-top: 12px">
+      <defs><linearGradient id="mva" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#D0BCFF" stop-opacity=".45"></stop><stop offset="1" stop-color="#D0BCFF" stop-opacity="0"></stop></linearGradient></defs>
+      <path class="mv-line" d="{{ hostArea }}" fill="url(#mva)"></path>
+      <path class="mv-line" d="{{ hostLine }}" fill="none" stroke="#D0BCFF" stroke-width="3" stroke-linejoin="round"></path>
+      <circle class="mv-line" cx="1000" cy="{{ hostLastY }}" r="7" fill="#D0BCFF"></circle>
+    </svg>
+  </section>
+
+  <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px">
+    <sc-for list="{{ vms }}" as="v" hint-placeholder-count="3">
+      <section class="mv-card" style="padding: 18px; border-radius: 26px; background: #17151C; display: flex; flex-direction: column; gap: 10px; animation: mvRise 600ms cubic-bezier(.05,.7,.1,1) both; animation-delay: {{ v.delay }}">
+        <div style="display: flex; align-items: center; gap: 10px">
+          <span style="width: 36px; height: 36px; border-radius: 12px; display: grid; place-items: center; font-weight: 800; background: {{ v.tile }}; color: {{ v.tileFg }}">{{ v.m }}</span>
+          <span style="flex: 1; font-weight: 750">{{ v.name }}</span>
+          <span style="font-size: 26px; font-weight: 850; color: {{ v.c }}">{{ v.now }}</span>
+        </div>
+        <svg viewBox="0 0 300 70" preserveAspectRatio="none" role="img" aria-label="{{ v.name }} CPU trend" style="width: 100%; height: 70px">
+          <path class="mv-line" d="{{ v.line }}" fill="none" stroke="{{ v.c }}" stroke-width="2.5" stroke-linejoin="round"></path>
+        </svg>
+        <div style="display: flex; gap: 14px; font-size: 12px; color: #CAC4D0"><span>RAM {{ v.ram }}</span><span>Net {{ v.net }}</span><span>Disk {{ v.disk }}</span></div>
+      </section>
+    </sc-for>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":900}}'>
+class Component extends DCLogic {
+  constructor(p) {
+    super(p);
+    const seed = (k, n) => Array.from({ length: n }, (_, i) => 30 + 25 * Math.sin(k + i * 0.45) + 12 * Math.cos(k * 2 + i * 0.9));
+    this.state = { range: 0, t: 0, host: seed(1, 40), a: seed(2, 30), b: seed(3, 30), c: seed(4, 30) };
+  }
+  componentDidMount() {
+    this.timer = setInterval(() => {
+      const push = (arr) => { const last = arr[arr.length - 1]; const nx = Math.max(4, Math.min(96, last + (Math.random() - 0.5) * 22)); return arr.slice(1).concat([nx]); };
+      this.setState({ t: this.state.t + 1, host: push(this.state.host), a: push(this.state.a), b: push(this.state.b), c: push(this.state.c) });
+    }, 1100);
+  }
+  componentWillUnmount() { clearInterval(this.timer); }
+  renderVals() {
+    const path = (arr, w, h) => arr.map((v, i) => (i ? 'L' : 'M') + (i * w / (arr.length - 1)).toFixed(1) + ' ' + (h - v / 100 * h).toFixed(1)).join(' ');
+    const host = this.state.host;
+    const hostLine = path(host, 1000, 180);
+    const ranges = ['1 min', '5 min', '1 h', '24 h'].map((l, i) => ({ label: l, on: i === this.state.range ? 'true' : 'false', bg: i === this.state.range ? '#4F378B' : 'transparent', fg: i === this.state.range ? '#EADDFF' : '#CAC4D0', pick: () => this.setState({ range: i }) }));
+    const defs = [['Windows 11 Dev Box', 'W', '#4F378B', '#EADDFF', '#D0BCFF', this.state.a, '9.4 GB', '2.1 MB/s', '14 MB/s'],
+      ['Ubuntu 24.04 Server', 'U', '#633B48', '#FFD8E4', '#EFB8C8', this.state.b, '3.2 GB', '640 KB/s', '2 MB/s'],
+      ['FreeBSD Router', 'B', '#5C3F1E', '#FFDDB8', '#FFB869', this.state.c, '512 MB', '8.8 MB/s', '0.1 MB/s']];
+    const vms = defs.map((d, i) => ({ name: d[0], m: d[1], tile: d[2], tileFg: d[3], c: d[4], line: path(d[5], 300, 70), now: Math.round(d[5][d[5].length - 1]) + '%', ram: d[6], net: d[7], disk: d[8], delay: (150 + i * 90) + 'ms' }));
+    const last = host[host.length - 1];
+    return { ranges, vms, hostLine, hostArea: hostLine + ' L1000 180 L0 180 Z', hostLastY: (180 - last / 100 * 180).toFixed(1),
+      hostCpu: Math.round(last) + '%', hostMem: (18 + (this.state.t % 5) * 0.1).toFixed(1) + ' GB', hostIo: (20 + Math.round(last / 3)) + ' MB/s' };
+  }
+}
+</script>
+</body>
+</html>
