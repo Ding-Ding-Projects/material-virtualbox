@@ -47,6 +47,7 @@
 #include <VBox/com/string.h>
 #include <VBox/version.h>
 
+#include <iprt/err.h>
 #include <iprt/initterm.h>
 #include <iprt/critsect.h>
 #include <iprt/semaphore.h>

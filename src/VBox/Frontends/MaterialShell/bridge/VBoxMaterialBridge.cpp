@@ -31,6 +31,7 @@
 
 #include <VBox/com/com.h>
 #include <VBox/version.h>
+#include <iprt/err.h>
 #include <iprt/initterm.h>
 #include <iprt/message.h>
 #include <iprt/stream.h>
