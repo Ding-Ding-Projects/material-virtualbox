@@ -10,8 +10,9 @@
 | Screens | Every settings page (General, System, Display, Storage with controllers, Network, Shared folders, Audio, Serial ports, USB, Clipboard and drag), snapshot restore/rename/delete, Clone, appliance export and import, media, network and extension pack management, the screen's Devices menu, the default machine folder and the per-element appearance editor |
 | Tests | `npm test` in `MaterialShell/app`: 21 passing locally; also run by the `Material shell checks` workflow |
 | Upstream | Ported upstream `9fe5508a2..b6bea7211` (291 commits) in `4e10237fe7dbbea3a9cebf27213a870baf097b47` |
-| Not proven | Neither the bridge nor the merged upstream tree has been compiled outside CI; the shell has only run against its demo data in a browser |
-| Next check | Windows release run `43374805086` on `596d085`: the first compile of the merged tree, the bridge (every handler) and the in-process module; the shell step is mandatory, so a compile error fails the run |
+| Not proven | The shell has only run against its demo data in a browser; no build has been installed or launched |
+| Windows build | Run `43398597440` on `4032433` is green: the merged upstream tree, the no-Qt build, `VBoxMaterialBridgeNode.dll`, `VBoxMaterialBridge.exe` and the shell package all built; release `v7.2.97-ci.123` carries `VirtualBox-7.2.97-Setup.exe` and `MaterialVirtualMachine-Shell-win-x64.zip` |
+| Next check | Install `ci.123` on a real Windows host and run the shell against VBoxSVC; nothing has been installed or launched yet |
 
 ## Current closeout snapshot
 

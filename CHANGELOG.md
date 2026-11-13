@@ -112,8 +112,10 @@ a published release.
   or Shift+F10 on the focused item) with Reset all in Preferences. Destructive steps use the two-key confirmation and
   every change is recorded in History.
 - Six new unit tests for the demo provider (21 in total).
-- **Not yet proven:** exercised against the demo provider only; the new C++ has
-  not been compiled yet.
+- Compiled and packaged by Windows run `43398597440` into release
+  `v7.2.97-ci.123`, after four compile fixes in the bridge sources.
+- **Not yet proven:** exercised against the demo provider only; nothing has
+  been installed or launched.
 
 ### Added — Display, Network, Shared folders and Storage settings in the shell (2026-11-13)
 
