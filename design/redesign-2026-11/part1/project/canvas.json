@@ -68,6 +68,15 @@
    "expand": "fill",
    "title": "Activity overview",
    "is_interactive": true
+  },
+  "Extensions.dc.html": {
+   "x": 1520,
+   "y": 2040,
+   "w": 1440,
+   "h": 900,
+   "expand": "fill",
+   "title": "Extensions and extension packs",
+   "is_interactive": true
   }
  },
  "order": [
@@ -77,7 +86,8 @@
   "Runtime-Window.dc.html",
   "Media-Manager.dc.html",
   "Network-Manager.dc.html",
-  "Activity-Overview.dc.html"
+  "Activity-Overview.dc.html",
+  "Extensions.dc.html"
  ],
  "notes": {
   "title": {

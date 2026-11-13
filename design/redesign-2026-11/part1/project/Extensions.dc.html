@@ -1,0 +1,117 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Extensions and extension packs</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Roboto+Flex:opsz,wdth,wght@8..144,25..151,300..900&family=Roboto+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#0B0A0F}
+a{color:#D0BCFF}a:hover{color:#EADDFF}
+button{font:inherit;color:inherit;border:0;background:none;cursor:pointer}
+input{font:inherit;color:inherit}
+@keyframes mvRise{from{opacity:0;transform:translateY(20px) scale(.97)}to{opacity:1;transform:none}}
+@keyframes mvSheet{from{transform:translateY(100%)}to{transform:none}}
+@keyframes mvScrim{from{opacity:0}to{opacity:1}}
+@keyframes mvSpin{to{transform:rotate(360deg)}}
+.mv-st{transition:background-color 200ms cubic-bezier(.2,0,0,1),transform 320ms cubic-bezier(.34,1.56,.64,1),color 200ms}
+.mv-st:hover{background-color:rgba(230,224,233,.08)}
+.mv-st:active{transform:scale(.96)}
+.mv-st:focus-visible{outline:3px solid #D0BCFF;outline-offset:2px}
+.mv-card{transition:transform 380ms cubic-bezier(.34,1.56,.64,1),box-shadow 300ms}
+.mv-card:hover{transform:translateY(-5px) rotate(.3deg);box-shadow:0 20px 44px rgba(0,0,0,.5)}
+@media (prefers-reduced-motion: reduce){*,*::before,*::after{animation:none!important;transition:none!important}}
+</style>
+</helmet>
+<div style="position: relative; overflow: hidden; min-height: 900px; padding: 28px 32px; display: flex; flex-direction: column; gap: 18px; background: #0B0A0F; color: #E6E0E9; font-family: 'Roboto Flex', 'Segoe UI', system-ui, sans-serif; font-size: 14px">
+  <div style="display: flex; flex-wrap: wrap; gap: 16px; align-items: flex-end; justify-content: space-between">
+    <h1 style="margin: 0; font-size: 56px; line-height: .95; font-weight: 900; letter-spacing: -1.5px; font-variation-settings: 'wdth' 135">Extensions</h1>
+    <div style="display: flex; gap: 8px; flex-wrap: wrap">
+      <label style="display: flex; align-items: center; gap: 8px; height: 44px; width: 320px; padding: 0 6px 0 14px; border-radius: 22px; background: #1D1B20; color: #CAC4D0">
+        <span style="position: absolute; left: -9999px">Search extensions</span>
+        <input placeholder="Search extensions" style="flex: 1; min-width: 0; border: 0; outline: 0; background: transparent">
+        <span title="Regular expression builder" style="font-family: 'Roboto Mono', monospace; font-size: 12px; padding: 7px 10px; border-radius: 16px; background: #2B2930; color: #D0BCFF">.*</span>
+      </label>
+      <button class="mv-st" onClick="{{ openSheet }}" style="height: 44px; padding: 0 20px; border-radius: 22px; background: #D0BCFF; color: #381E72; font-weight: 800">Install from file</button>
+    </div>
+  </div>
+
+  <h2 style="margin: 6px 0 0; font-size: 14px; font-weight: 800; letter-spacing: 1.2px; text-transform: uppercase; color: #CAC4D0">Extension pack</h2>
+  <section class="mv-card" style="display: flex; flex-wrap: wrap; align-items: center; gap: 20px; padding: 22px; border-radius: 32px; background: linear-gradient(120deg, #2B2340, #1A1720); animation: mvRise 560ms cubic-bezier(.05,.7,.1,1) both">
+    <span style="width: 72px; height: 72px; border-radius: 24px; display: grid; place-items: center; background: linear-gradient(135deg, #D0BCFF, #EFB8C8); color: #21005D">
+      <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 16V8l-9-5-9 5v8l9 5 9-5zM3.3 7L12 12l8.7-5M12 22V12"></path></svg>
+    </span>
+    <div style="flex: 1 1 300px; display: flex; flex-direction: column; gap: 4px">
+      <span style="font-size: 22px; font-weight: 800">Oracle VirtualBox Extension Pack</span>
+      <span style="color: #CAC4D0">Version 7.2.97 · USB 3 passthrough, disk encryption, PXE boot, webcam</span>
+    </div>
+    <span style="padding: 8px 14px; border-radius: 14px; background: rgba(166,215,160,.16); color: #A6D7A0; font-weight: 750">Usable</span>
+    <button class="mv-st" style="height: 44px; padding: 0 18px; border-radius: 22px; border: 1px solid #49454F; font-weight: 700">Uninstall</button>
+  </section>
+
+  <h2 style="margin: 6px 0 0; font-size: 14px; font-weight: 800; letter-spacing: 1.2px; text-transform: uppercase; color: #CAC4D0">App extensions</h2>
+  <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px">
+    <sc-for list="{{ exts }}" as="e" hint-placeholder-count="6">
+      <article class="mv-card" style="display: flex; flex-direction: column; gap: 12px; padding: 18px; border-radius: 26px; background: #17151C; animation: mvRise 520ms cubic-bezier(.05,.7,.1,1) both; animation-delay: {{ e.delay }}">
+        <div style="display: flex; align-items: center; gap: 12px">
+          <span style="width: 44px; height: 44px; border-radius: 14px; display: grid; place-items: center; background: {{ e.bg }}; color: {{ e.fg }}; font-weight: 900">{{ e.m }}</span>
+          <span style="flex: 1; display: flex; flex-direction: column"><span style="font-weight: 800">{{ e.name }}</span><span style="font-size: 12px; color: #CAC4D0">{{ e.author }} · v{{ e.ver }}</span></span>
+          <button class="mv-st" role="switch" aria-checked="{{ e.checked }}" aria-label="Enable {{ e.name }}" onClick="{{ e.flip }}" style="width: 52px; height: 30px; border-radius: 15px; padding: 0 4px; display: flex; align-items: center; background: {{ e.track }}; border: 2px solid {{ e.border }}">
+            <span style="width: {{ e.size }}; height: {{ e.size }}; border-radius: 11px; background: {{ e.knob }}; transform: translateX({{ e.x }}); transition: transform 360ms cubic-bezier(.34,1.56,.64,1), width 250ms, height 250ms"></span>
+          </button>
+        </div>
+        <p style="margin: 0; color: #CAC4D0; line-height: 1.45">{{ e.desc }}</p>
+        <div style="display: flex; gap: 6px; flex-wrap: wrap">
+          <sc-for list="{{ e.perms }}" as="p" hint-placeholder-count="2"><span style="padding: 4px 10px; border-radius: 8px; border: 1px solid #49454F; font-size: 12px; color: #CAC4D0">{{ p }}</span></sc-for>
+        </div>
+      </article>
+    </sc-for>
+  </div>
+
+  <sc-if value="{{ sheet }}" hint-placeholder-val="{{ false }}">
+    <div style="position: absolute; inset: 0; background: rgba(0,0,0,.55); animation: mvScrim 300ms both"></div>
+    <div role="dialog" aria-label="Review permissions" style="position: absolute; left: 50%; bottom: 0; width: 640px; margin-left: -320px; padding: 28px; border-radius: 32px 32px 0 0; background: #211F26; display: flex; flex-direction: column; gap: 16px; animation: mvSheet 520ms cubic-bezier(.05,.7,.1,1) both">
+      <span style="align-self: center; width: 40px; height: 4px; border-radius: 2px; background: #49454F"></span>
+      <h2 style="margin: 0; font-size: 26px; font-weight: 850">Snapshot Scheduler wants to</h2>
+      <sc-for list="{{ asks }}" as="a" hint-placeholder-count="3">
+        <div style="display: flex; gap: 14px; align-items: center; padding: 12px 14px; border-radius: 18px; background: #2B2930">
+          <span style="width: 36px; height: 36px; border-radius: 12px; display: grid; place-items: center; background: {{ a.bg }}; color: {{ a.fg }}"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="{{ a.icon }}"></path></svg></span>
+          <span style="flex: 1; display: flex; flex-direction: column"><span style="font-weight: 750">{{ a.t }}</span><span style="font-size: 12px; color: #CAC4D0">{{ a.s }}</span></span>
+        </div>
+      </sc-for>
+      <p style="margin: 0; font-size: 12.5px; color: #CAC4D0">Runs out of process with a 5 s call budget and a 4 MB payload limit. It never sees passwords, keys or disk encryption secrets.</p>
+      <div style="display: flex; gap: 10px; justify-content: flex-end">
+        <button class="mv-st" onClick="{{ closeSheet }}" style="height: 48px; padding: 0 22px; border-radius: 24px; font-weight: 700">Cancel</button>
+        <button class="mv-st" onClick="{{ closeSheet }}" style="height: 48px; padding: 0 26px; border-radius: 24px; background: #D0BCFF; color: #381E72; font-weight: 850">Allow and install</button>
+      </div>
+    </div>
+  </sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":900}}'>
+class Component extends DCLogic {
+  constructor(p) { super(p); this.state = { on: [true, true, false, true, false, true], sheet: true }; }
+  renderVals() {
+    const defs = [['Snapshot Scheduler', 'S', 'Built in', '1.4.0', 'Takes and prunes snapshots on a schedule you set per machine.', ['Snapshots', 'Schedule'], '#4F378B', '#EADDFF'],
+      ['Guest Clipboard History', 'C', 'Built in', '1.1.2', 'Keeps the last 50 clipboard items shared with guests, searchable.', ['Clipboard'], '#633B48', '#FFD8E4'],
+      ['Cloud Sync', 'Y', 'Built in', '0.9.0', 'Mirrors machine settings to a cloud profile you choose.', ['Network', 'Settings'], '#1E3A5F', '#D1E4FF'],
+      ['Port Forward Presets', 'P', 'Community', '2.0.1', 'One-click port forwarding sets for SSH, RDP and web servers.', ['Network'], '#5C3F1E', '#FFDDB8'],
+      ['Disk Space Watcher', 'D', 'Community', '1.0.3', 'Warns before dynamic disks outgrow the host drive.', ['Media', 'Notifications'], '#4A4458', '#E8DEF8'],
+      ['VS Code Hand-off', 'V', 'Built in', '1.2.0', 'Opens machine logs and config in your external editor.', ['Files'], '#2E4A2C', '#C4EEBE']];
+    const exts = defs.map((d, i) => { const on = this.state.on[i]; return { name: d[0], m: d[1], author: d[2], ver: d[3], desc: d[4], perms: d[5], bg: d[6], fg: d[7],
+      checked: on ? 'true' : 'false', track: on ? '#D0BCFF' : '#36343B', border: on ? '#D0BCFF' : '#938F99', knob: on ? '#381E72' : '#938F99', size: on ? '22px' : '14px', x: on ? '22px' : '4px',
+      delay: (i * 60) + 'ms', flip: () => { const n = this.state.on.slice(); n[i] = !n[i]; this.setState({ on: n }); } }; });
+    const asks = [['Read and create snapshots', 'For the machines you pick', 'M4 8h3l2-3h6l2 3h3v11H4z', '#4F378B', '#EADDFF'],
+      ['Run on a schedule', 'Background timer while the manager is open', 'M12 7v5l3 2M3 12a9 9 0 1 0 18 0 9 9 0 1 0-18 0', '#633B48', '#FFD8E4'],
+      ['Post notifications', 'Shown in the notification centre', 'M6 8a6 6 0 1 1 12 0c0 7 3 9 3 9H3s3-2 3-9', '#1E3A5F', '#D1E4FF']]
+      .map((a) => ({ t: a[0], s: a[1], icon: a[2], bg: a[3], fg: a[4] }));
+    return { exts, asks, sheet: this.state.sheet, openSheet: () => this.setState({ sheet: true }), closeSheet: () => this.setState({ sheet: false }) };
+  }
+}
+</script>
+</body>
+</html>
