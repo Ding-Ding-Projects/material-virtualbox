@@ -108,7 +108,8 @@ a published release.
   resize, compact, copy, release and delete; NAT network, port forwarding and
   host-only adapter management; extension pack install (license accepted first)
   and uninstall; a Devices menu on the machine screen; the default machine
-  folder in Preferences. Destructive steps use the two-key confirmation and
+  folder in Preferences; the per-element appearance editor (Shift + right-click,
+  or Shift+F10 on the focused item) with Reset all in Preferences. Destructive steps use the two-key confirmation and
   every change is recorded in History.
 - Six new unit tests for the demo provider (21 in total).
 - **Not yet proven:** exercised against the demo provider only; the new C++ has

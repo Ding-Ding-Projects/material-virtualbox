@@ -8,6 +8,7 @@ import { searchField, openExport } from '../features/overlays.js';
 import { relativeTime, megabytes } from '../logic/format.js';
 import { filterTabs, resolveCloseSet } from '../logic/tabs-model.js';
 import { refreshMachines } from './machines.js';
+import { resetAllAppearance } from '../features/appearance.js';
 
 /* ---------------------------------------------------------------- history */
 
@@ -87,6 +88,9 @@ export function renderPrefs(root) {
                         } catch { /* notified */ }
                     } }, 'Save')),
                 h('span', { class: 'muted', style: { fontSize: '12.5px' } }, 'New machines, clones and imports go here. Stored by VirtualBox for every front end on this computer.')),
+            h('section', { class: 'card rise', id: 'pref-appearance', tabindex: '-1', style: { gridColumn: 'span 6', display: 'flex', alignItems: 'center', gap: '14px', borderRadius: '24px' } },
+                h('span', { class: 'grow' }, h('strong', null, 'Per-element appearance'), h('div', { class: 'muted', style: { fontSize: '12.5px' } }, 'Shift + right-click (or Shift+F10 on the focused item) any card, button, chip or row to restyle it. ' + Object.keys(store.get().appearance || {}).length + ' override(s) saved.')),
+                h('button', { class: 'btn outlined st', disabled: Object.keys(store.get().appearance || {}).length ? undefined : true, onclick: () => { resetAllAppearance(); renderPrefs(root); } }, 'Reset all')),
             toggle('lowStim', 'Low stimulation', 'Calmer motion and solid surfaces'),
             toggle('school', 'School mode', 'Plain wording everywhere'),
             toggle('emoji', 'Dialog emojis', 'Playful emoji on confirmations'),

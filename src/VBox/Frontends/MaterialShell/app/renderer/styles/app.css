@@ -216,3 +216,4 @@ input[type=range].authorise { width: 100%; height: 56px; accent-color: var(--err
     *, *::before, *::after { animation: none !important; transition: none !important; }
 }
 :root[data-motion="off"] *, :root[data-motion="off"] *::before, :root[data-motion="off"] *::after { animation: none !important; transition: none !important; }
+.appearance-target { outline: 3px dashed var(--tertiary) !important; outline-offset: 4px; }

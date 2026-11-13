@@ -13,6 +13,7 @@ import { renderMedia, renderNetwork, renderExtensions, renderLogs, renderActivit
 import { renderScreen, closeScreen } from './pages/screen.js';
 import { renderHistory, renderPrefs, renderTabManager, renderOnboarding } from './pages/app-pages.js';
 import { renderAppliance } from './pages/appliance.js';
+import { installAppearanceEditor } from './features/appearance.js';
 
 const CATALOG = [
     { id: 'machines', label: 'Machines', icon: ICONS.machine, render: renderMachines },
@@ -136,6 +137,7 @@ document.addEventListener('keydown', (e) => {
 async function start() {
     applyPrefs(store.get().prefs);
     build();
+    installAppearanceEditor();
     const status = await window.mvb.status();
     store.set({ status });
     if (status.mode !== 'missing') {
