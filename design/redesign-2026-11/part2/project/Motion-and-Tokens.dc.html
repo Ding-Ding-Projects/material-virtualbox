@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Motion and design tokens</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Roboto+Flex:opsz,wdth,wght@8..144,25..151,300..900&family=Roboto+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#0B0A0F}
+a{color:#D0BCFF}a:hover{color:#EADDFF}
+button{font:inherit;color:inherit;border:0;background:none;cursor:pointer}
+@keyframes mvGo{from{left:8px}to{left:calc(100% - 44px)}}
+@keyframes mvRise{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:none}}
+.mv-st{transition:background-color 180ms cubic-bezier(.2,0,0,1),transform 320ms cubic-bezier(.34,1.56,.64,1),color 180ms}
+.mv-st:hover{background-color:rgba(230,224,233,.08)}
+.mv-st:active{transform:scale(.95)}
+.mv-st:focus-visible{outline:3px solid #D0BCFF;outline-offset:2px}
+@media (prefers-reduced-motion: reduce){*,*::before,*::after{animation:none!important;transition:none!important}}
+</style>
+</helmet>
+<div style="min-height: 900px; padding: 28px 32px; display: flex; flex-direction: column; gap: 18px; background: #0B0A0F; color: #E6E0E9; font-family: 'Roboto Flex', 'Segoe UI', system-ui, sans-serif; font-size: 14px">
+  <div style="display: flex; flex-wrap: wrap; gap: 16px; align-items: flex-end; justify-content: space-between">
+    <h1 style="margin: 0; font-size: 56px; line-height: .95; font-weight: 900; letter-spacing: -1.5px; font-variation-settings: 'wdth' 135">Motion and tokens</h1>
+    <button class="mv-st" onClick="{{ replay }}" style="height: 48px; padding: 0 24px; border-radius: 24px; background: #D0BCFF; color: #381E72; font-weight: 850">Replay all</button>
+  </div>
+
+  <section aria-label="Easing" style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px">
+    <sc-for list="{{ eases }}" as="e" hint-placeholder-count="6">
+      <div style="display: flex; flex-direction: column; gap: 8px; padding: 14px 16px; border-radius: 22px; background: #17151C; animation: mvRise 420ms both; animation-delay: {{ e.delay }}">
+        <div style="display: flex; justify-content: space-between; gap: 10px"><span style="font-weight: 800">{{ e.name }}</span><span style="font-family: 'Roboto Mono', monospace; font-size: 12px; color: #CAC4D0">{{ e.curve }} · {{ e.ms }} ms</span></div>
+        <div style="position: relative; height: 52px; border-radius: 26px; background: #0F0D13">
+          <span style="position: absolute; top: 8px; width: 36px; height: 36px; border-radius: 18px; background: {{ e.c }}; animation: mvGo {{ e.ms }}ms {{ e.curve }} {{ e.iter }} alternate both"></span>
+        </div>
+        <span style="font-size: 12.5px; color: #CAC4D0">{{ e.use }}</span>
+      </div>
+    </sc-for>
+  </section>
+
+  <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px">
+    <section aria-label="Colour roles" style="padding: 18px; border-radius: 26px; background: #17151C; display: flex; flex-direction: column; gap: 8px">
+      <h2 style="margin: 0 0 4px; font-size: 16px">Colour roles · dark</h2>
+      <sc-for list="{{ colors }}" as="c" hint-placeholder-count="8">
+        <div style="display: flex; align-items: center; gap: 10px"><span style="width: 34px; height: 24px; border-radius: 8px; background: {{ c.hex }}; border: 1px solid #2B2930"></span><span style="flex: 1">{{ c.role }}</span><span style="font-family: 'Roboto Mono', monospace; font-size: 12px; color: #CAC4D0">{{ c.hex }}</span></div>
+      </sc-for>
+    </section>
+    <section aria-label="Type scale" style="padding: 18px; border-radius: 26px; background: #17151C; display: flex; flex-direction: column; gap: 6px">
+      <h2 style="margin: 0 0 4px; font-size: 16px">Type · Roboto Flex</h2>
+      <sc-for list="{{ type }}" as="t" hint-placeholder-count="6">
+        <div style="display: flex; align-items: baseline; justify-content: space-between; gap: 10px"><span style="font-size: {{ t.size }}; font-weight: {{ t.w }}; font-variation-settings: 'wdth' {{ t.wd }}; line-height: 1.1">{{ t.name }}</span><span style="font-family: 'Roboto Mono', monospace; font-size: 11.5px; color: #CAC4D0; white-space: nowrap">{{ t.spec }}</span></div>
+      </sc-for>
+    </section>
+    <section aria-label="Shape and elevation" style="padding: 18px; border-radius: 26px; background: #17151C; display: flex; flex-direction: column; gap: 10px">
+      <h2 style="margin: 0 0 4px; font-size: 16px">Shape and surfaces</h2>
+      <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px">
+        <sc-for list="{{ shapes }}" as="s" hint-placeholder-count="6">
+          <div style="display: flex; flex-direction: column; align-items: center; gap: 4px"><span style="width: 56px; height: 56px; border-radius: {{ s.r }}; background: #4F378B"></span><span style="font-family: 'Roboto Mono', monospace; font-size: 11px; color: #CAC4D0">{{ s.name }}</span></div>
+        </sc-for>
+      </div>
+      <span style="font-size: 12.5px; color: #CAC4D0; line-height: 1.5">Glass surface: 62% Surface Container, 22 px blur, 140% saturation, 12% outline. Off when Low stimulation is on.</span>
+    </section>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":900}}'>
+class Component extends DCLogic {
+  constructor(p) { super(p); this.state = { n: 0 }; }
+  renderVals() {
+    const iter = this.state.n % 2 ? '2' : 'infinite';
+    const eases = [['Emphasized decelerate', 'cubic-bezier(.05,.7,.1,1)', 500, 'Entering surfaces, page and pane changes', '#D0BCFF'],
+      ['Emphasized accelerate', 'cubic-bezier(.3,0,.8,.15)', 200, 'Leaving surfaces, dismissals', '#EFB8C8'],
+      ['Standard', 'cubic-bezier(.2,0,0,1)', 300, 'State layers, colour, small moves', '#A6D7A0'],
+      ['Spring (expressive)', 'cubic-bezier(.34,1.56,.64,1)', 400, 'Presses, toggles, chips, tab indicators', '#FFB869'],
+      ['Morph', 'ease-in-out', 1600, 'Ambient shape morphing, low priority', '#9ECAFF'],
+      ['Linear', 'linear', 1200, 'Progress, live chart scroll, sheen', '#F2B8B5']]
+      .map((e, i) => ({ name: e[0], curve: e[1], ms: e[2], use: e[3], c: e[4], iter, delay: (i * 50) + 'ms' }));
+    const colors = [['Primary', '#D0BCFF'], ['On primary', '#381E72'], ['Primary container', '#4F378B'], ['Tertiary', '#EFB8C8'], ['Surface', '#141218'], ['Surface container', '#211F26'], ['On surface', '#E6E0E9'], ['Outline', '#938F99'], ['Error', '#F2B8B5'], ['Success (data)', '#A6D7A0']]
+      .map((c) => ({ role: c[0], hex: c[1] }));
+    const type = [['Display', '56px', 900, 135, '56 / 900 / wdth 135'], ['Headline', '34px', 750, 115, '34 / 750 / wdth 115'], ['Title', '22px', 700, 110, '22 / 700 / wdth 110'], ['Body', '14px', 400, 100, '14 / 400'], ['Label', '12px', 700, 100, '12 / 700 / +1.2 caps'], ['Mono', '12.5px', 500, 100, 'Roboto Mono 12.5']]
+      .map((t) => ({ name: t[0], size: t[1], w: t[2], wd: t[3], spec: t[4] }));
+    const shapes = [['XS 4', '4px'], ['S 8', '8px'], ['M 12', '12px'], ['L 20', '20px'], ['XL 28', '28px'], ['XXL 36', '36px']].map((s) => ({ name: s[0], r: s[1] }));
+    return { eases, colors, type, shapes, replay: () => this.setState({ n: this.state.n + 1 }) };
+  }
+}
+</script>
+</body>
+</html>

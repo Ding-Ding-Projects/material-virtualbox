@@ -86,6 +86,15 @@
    "expand": "fill",
    "title": "First-run setup",
    "is_interactive": true
+  },
+  "Motion-and-Tokens.dc.html": {
+   "x": 0,
+   "y": 3060,
+   "w": 1440,
+   "h": 900,
+   "expand": "fill",
+   "title": "Motion and design tokens",
+   "is_interactive": true
   }
  },
  "order": [
@@ -97,7 +106,8 @@
   "History.dc.html",
   "Export.dc.html",
   "Notifications.dc.html",
-  "Onboarding.dc.html"
+  "Onboarding.dc.html",
+  "Motion-and-Tokens.dc.html"
  ],
  "notes": {
   "title": {
