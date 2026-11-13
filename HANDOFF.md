@@ -7,10 +7,11 @@
 | Default branch | `main`, pushed and read back with `git ls-remote` after every commit in this pass |
 | Redesign | 20 boards in `design/redesign-2026-11` (two canvases of 10), each committed on its own |
 | User interface | The Material shell is the only one: `Config.kmk` never builds the Qt GUI, machines run headless and their screen streams into the shell; see `src/VBox/Frontends/MaterialShell/README.md` |
-| Tests | `npm test` in `MaterialShell/app`: 15 passing locally; also run by the `Material shell checks` workflow |
+| Screens | Every settings page (General, System, Display, Storage with controllers, Network, Shared folders, Audio, Serial ports, USB, Clipboard and drag), snapshot restore/rename/delete, Clone, appliance export and import, media, network and extension pack management, the screen's Devices menu, the default machine folder and the per-element appearance editor |
+| Tests | `npm test` in `MaterialShell/app`: 21 passing locally; also run by the `Material shell checks` workflow |
 | Upstream | Ported upstream `9fe5508a2..b6bea7211` (291 commits) in `4e10237fe7dbbea3a9cebf27213a870baf097b47` |
 | Not proven | Neither the bridge nor the merged upstream tree has been compiled outside CI; the shell has only run against its demo data in a browser |
-| Next check | The first Windows release run after this pass: it builds the merged tree, then the bridge and shell in a best-effort step |
+| Next check | Windows release run `43374805086` on `596d085`: the first compile of the merged tree, the bridge (every handler) and the in-process module; the shell step is mandatory, so a compile error fails the run |
 
 ## Current closeout snapshot
 
