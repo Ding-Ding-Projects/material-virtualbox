@@ -1,0 +1,122 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Preferences: appearance and language</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Roboto+Flex:opsz,wdth,wght@8..144,25..151,300..900&family=Roboto+Mono:wght@400;500&family=Noto+Sans+HK:wght@500;800&display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#0B0A0F}
+a{color:#D0BCFF}a:hover{color:#EADDFF}
+button{font:inherit;color:inherit;border:0;background:none;cursor:pointer}
+input{font:inherit;color:inherit}
+@keyframes mvRise{from{opacity:0;transform:translateY(18px) scale(.98)}to{opacity:1;transform:none}}
+@keyframes mvBounce{0%,100%{transform:translateY(0)}50%{transform:translateY(-10px)}}
+@keyframes mvSwatch{0%{transform:scale(.6) rotate(-20deg);opacity:0}70%{transform:scale(1.12) rotate(4deg)}100%{transform:none;opacity:1}}
+.mv-st{transition:background-color 200ms cubic-bezier(.2,0,0,1),transform 320ms cubic-bezier(.34,1.56,.64,1),color 200ms,box-shadow 300ms}
+.mv-st:hover{background-color:rgba(230,224,233,.08)}
+.mv-st:active{transform:scale(.94)}
+.mv-st:focus-visible{outline:3px solid #D0BCFF;outline-offset:2px}
+.mv-tile{transition:transform 380ms cubic-bezier(.34,1.56,.64,1),box-shadow 300ms}
+.mv-tile:hover{transform:translateY(-4px);box-shadow:0 18px 40px rgba(0,0,0,.5)}
+.mv-theme{transition:background 600ms cubic-bezier(.2,0,0,1),color 400ms}
+@media (prefers-reduced-motion: reduce){*,*::before,*::after{animation:none!important;transition:none!important}}
+</style>
+</helmet>
+<div style="min-height: 900px; display: flex; flex-wrap: wrap; gap: 20px; padding: 28px 32px; background: #0B0A0F; color: #E6E0E9; font-family: 'Roboto Flex', 'Segoe UI', system-ui, sans-serif; font-size: 14px">
+  <main style="flex: 999 1 560px; min-width: 0; display: flex; flex-direction: column; gap: 16px">
+    <h1 style="margin: 0; font-size: 56px; line-height: .95; font-weight: 900; letter-spacing: -1.5px; font-variation-settings: 'wdth' 135">Preferences</h1>
+    <div style="display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 14px">
+      <section class="mv-tile" style="grid-column: span 6; padding: 22px; border-radius: 28px; background: #17151C; display: flex; flex-direction: column; gap: 14px; animation: mvRise 560ms cubic-bezier(.05,.7,.1,1) both">
+        <h2 style="margin: 0; font-size: 18px">Theme seed</h2>
+        <div style="display: flex; gap: 12px; flex-wrap: wrap">
+          <sc-for list="{{ seeds }}" as="s" hint-placeholder-count="8">
+            <button class="mv-st" onClick="{{ s.pick }}" aria-label="Seed {{ s.hex }}" aria-pressed="{{ s.on }}" style="width: 56px; height: 56px; border-radius: {{ s.r }}; background: {{ s.hex }}; box-shadow: {{ s.ring }}; animation: mvSwatch 600ms cubic-bezier(.34,1.56,.64,1) both; animation-delay: {{ s.delay }}; transition: border-radius 400ms cubic-bezier(.34,1.56,.64,1), box-shadow 300ms"></button>
+          </sc-for>
+          <button class="mv-st" style="height: 56px; padding: 0 20px; border-radius: 28px; border: 1px dashed #938F99; font-weight: 700">Any colour…</button>
+        </div>
+      </section>
+      <section class="mv-tile" style="grid-column: span 3; padding: 22px; border-radius: 28px; background: #17151C; display: flex; flex-direction: column; gap: 14px; animation: mvRise 560ms cubic-bezier(.05,.7,.1,1) 80ms both">
+        <h2 style="margin: 0; font-size: 18px">Language</h2>
+        <div role="radiogroup" aria-label="Language" style="display: flex; flex-direction: column; gap: 8px">
+          <sc-for list="{{ langs }}" as="l" hint-placeholder-count="3">
+            <button class="mv-st" role="radio" aria-checked="{{ l.on }}" onClick="{{ l.pick }}" style="display: flex; align-items: center; gap: 12px; height: 52px; padding: 0 16px; border-radius: 18px; text-align: left; background: {{ l.bg }}; color: {{ l.fg }}; font-weight: 700">
+              <span style="font-family: 'Noto Sans HK', sans-serif; font-size: 18px; width: 34px">{{ l.glyph }}</span>{{ l.label }}
+            </button>
+          </sc-for>
+        </div>
+      </section>
+      <section class="mv-tile" style="grid-column: span 3; padding: 22px; border-radius: 28px; background: #17151C; display: flex; flex-direction: column; gap: 16px; animation: mvRise 560ms cubic-bezier(.05,.7,.1,1) 140ms both">
+        <h2 style="margin: 0; font-size: 18px">Motion</h2>
+        <div style="display: flex; justify-content: space-between"><span style="color: #CAC4D0">Animation level</span><span style="font-weight: 800; color: #D0BCFF">{{ motionLabel }}</span></div>
+        <div role="radiogroup" aria-label="Animation level" style="display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px">
+          <sc-for list="{{ motions }}" as="m" hint-placeholder-count="4">
+            <button class="mv-st" role="radio" aria-checked="{{ m.on }}" onClick="{{ m.pick }}" style="height: 44px; border-radius: 14px; font-weight: 700; font-size: 13px; background: {{ m.bg }}; color: {{ m.fg }}">{{ m.label }}</button>
+          </sc-for>
+        </div>
+        <div style="display: flex; gap: 8px; align-items: flex-end; height: 56px">
+          <sc-for list="{{ dots }}" as="d" hint-placeholder-count="5"><span style="width: 22px; height: 22px; border-radius: 11px; background: #D0BCFF; animation: {{ d.anim }}"></span></sc-for>
+        </div>
+        <span style="font-size: 12.5px; color: #CAC4D0">Off follows the system reduced-motion setting and never hides a state change.</span>
+      </section>
+      <sc-for list="{{ toggles }}" as="t" hint-placeholder-count="4">
+        <section class="mv-tile" style="grid-column: span 3; padding: 18px 20px; border-radius: 24px; background: #17151C; display: flex; align-items: center; gap: 14px; animation: mvRise 520ms cubic-bezier(.05,.7,.1,1) both; animation-delay: {{ t.delay }}">
+          <span style="flex: 1; display: flex; flex-direction: column; gap: 3px"><span style="font-weight: 750">{{ t.label }}</span><span style="font-size: 12.5px; color: #CAC4D0">{{ t.sub }}</span></span>
+          <button class="mv-st" role="switch" aria-checked="{{ t.checked }}" aria-label="{{ t.label }}" onClick="{{ t.flip }}" style="width: 56px; height: 32px; flex: none; border-radius: 16px; padding: 0 4px; display: flex; align-items: center; background: {{ t.track }}; border: 2px solid {{ t.border }}">
+            <span style="width: {{ t.size }}; height: {{ t.size }}; border-radius: 12px; background: {{ t.knob }}; transform: translateX({{ t.x }}); transition: transform 360ms cubic-bezier(.34,1.56,.64,1), width 250ms, height 250ms"></span>
+          </button>
+        </section>
+      </sc-for>
+    </div>
+  </main>
+
+  <aside aria-label="Live preview" style="flex: 1 1 340px; max-width: 420px; display: flex; flex-direction: column; gap: 12px">
+    <span style="font-size: 12px; font-weight: 800; letter-spacing: 1.2px; text-transform: uppercase; color: #CAC4D0">Live preview</span>
+    <div class="mv-theme" style="flex: 1; padding: 22px; border-radius: 32px; background: {{ pv.surface }}; color: {{ pv.on }}; display: flex; flex-direction: column; gap: 14px">
+      <div style="display: flex; align-items: center; gap: 12px">
+        <span class="mv-theme" style="width: 48px; height: 48px; border-radius: 16px; display: grid; place-items: center; background: {{ pv.primary }}; color: {{ pv.onPrimary }}; font-weight: 900; font-size: 20px">W</span>
+        <span style="display: flex; flex-direction: column"><span style="font-weight: 800; font-size: 17px">{{ pv.title }}</span><span style="font-size: 12.5px; opacity: .8">{{ pv.sub }}</span></span>
+      </div>
+      <div class="mv-theme" style="padding: 16px; border-radius: 22px; background: {{ pv.container }}; display: flex; flex-direction: column; gap: 8px">
+        <span style="font-weight: 750">{{ pv.cardTitle }}</span>
+        <span style="height: 8px; border-radius: 4px; background: {{ pv.primary }}; width: 70%"></span>
+        <span style="height: 8px; border-radius: 4px; background: {{ pv.primary }}; opacity: .5; width: 45%"></span>
+      </div>
+      <div style="display: flex; gap: 8px">
+        <span class="mv-theme" style="flex: 1; height: 48px; border-radius: 24px; display: grid; place-items: center; background: {{ pv.primary }}; color: {{ pv.onPrimary }}; font-weight: 800">{{ pv.cta }}</span>
+        <span class="mv-theme" style="flex: 1; height: 48px; border-radius: 24px; display: grid; place-items: center; background: {{ pv.container }}; font-weight: 700">{{ pv.cta2 }}</span>
+      </div>
+    </div>
+  </aside>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":900}}'>
+class Component extends DCLogic {
+  constructor(p) { super(p); this.state = { seed: 0, lang: 0, motion: 2, on: [true, false, false, true] }; }
+  renderVals() {
+    const pal = [['#6750A4', '#D0BCFF', '#381E72', '#2B2340', '#141218'], ['#006A6A', '#4CDADA', '#003737', '#16302F', '#0E1514'], ['#B3261E', '#FFB4AB', '#690005', '#3A1C1A', '#1A1111'],
+      ['#8B5000', '#FFB869', '#4A2800', '#33261A', '#17120C'], ['#006E1C', '#78DC77', '#00390A', '#1C2E1B', '#0F150E'], ['#0061A4', '#9ECAFF', '#003258', '#1A2838', '#0F1418'],
+      ['#984061', '#FFB0C8', '#5E1133', '#3A1F29', '#191114'], ['#5D5F5F', '#C6C7C7', '#2F3131', '#262828', '#121414']];
+    const seeds = pal.map((p, i) => ({ hex: p[0], on: i === this.state.seed ? 'true' : 'false', r: i === this.state.seed ? '18px' : '28px',
+      ring: i === this.state.seed ? '0 0 0 4px #0B0A0F, 0 0 0 7px ' + p[1] : 'none', delay: (i * 50) + 'ms', pick: () => this.setState({ seed: i }) }));
+    const L = this.state.lang;
+    const langs = [['A', 'English'], ['粵', '廣東話 (playful)'], ['A粵', 'Bilingual compact']].map((l, i) => ({ glyph: l[0], label: l[1], on: i === L ? 'true' : 'false', bg: i === L ? '#4F378B' : '#211F26', fg: i === L ? '#EADDFF' : '#E6E0E9', pick: () => this.setState({ lang: i }) }));
+    const mnames = ['Off', 'Calm', 'Lively', 'Super'];
+    const motions = mnames.map((l, i) => ({ label: l, on: i === this.state.motion ? 'true' : 'false', bg: i === this.state.motion ? '#D0BCFF' : '#211F26', fg: i === this.state.motion ? '#381E72' : '#E6E0E9', pick: () => this.setState({ motion: i }) }));
+    const speed = [0, 1.6, 1.0, 0.6][this.state.motion];
+    const dots = [0, 1, 2, 3, 4].map((i) => ({ anim: speed ? 'mvBounce ' + speed + 's ' + (i * speed / 8).toFixed(2) + 's ease-in-out infinite' : 'none' }));
+    const tdefs = [['Dialog emojis', 'Playful emoji on confirmations'], ['Low stimulation', 'Mutes colour and slows motion'], ['School mode', 'Hides playful wording'], ['Dim sum surprise', 'A random dish on idle screens']];
+    const toggles = tdefs.map((t, i) => { const on = this.state.on[i]; return { label: t[0], sub: t[1], checked: on ? 'true' : 'false', track: on ? '#D0BCFF' : '#36343B', border: on ? '#D0BCFF' : '#938F99', knob: on ? '#381E72' : '#938F99', size: on ? '24px' : '16px', x: on ? '24px' : '4px', delay: (200 + i * 60) + 'ms', flip: () => { const n = this.state.on.slice(); n[i] = !n[i]; this.setState({ on: n }); } }; });
+    const p = pal[this.state.seed];
+    const copy = [['Windows 11 Dev Box', 'Running · 8 vCPU', 'Snapshot ready', 'Show', 'Settings'], ['Windows 11 開發機', '跑緊 · 8 核', '快照準備好喇', '睇吓', '設定'], ['Windows 11 Dev Box 開發機', 'Running 跑緊', 'Snapshot 快照', 'Show 睇', 'Settings 設定']][L];
+    return { seeds, langs, motions, dots, toggles, motionLabel: mnames[this.state.motion],
+      pv: { primary: p[1], onPrimary: p[2], container: p[3], surface: p[4], on: '#E6E0E9', title: copy[0], sub: copy[1], cardTitle: copy[2], cta: copy[3], cta2: copy[4] } };
+  }
+}
+</script>
+</body>
+</html>

@@ -86,6 +86,15 @@
    "expand": "fill",
    "title": "Log viewer",
    "is_interactive": true
+  },
+  "Preferences.dc.html": {
+   "x": 0,
+   "y": 3060,
+   "w": 1440,
+   "h": 900,
+   "expand": "fill",
+   "title": "Preferences",
+   "is_interactive": true
   }
  },
  "order": [
@@ -97,7 +106,8 @@
   "Network-Manager.dc.html",
   "Activity-Overview.dc.html",
   "Extensions.dc.html",
-  "Log-Viewer.dc.html"
+  "Log-Viewer.dc.html",
+  "Preferences.dc.html"
  ],
  "notes": {
   "title": {
