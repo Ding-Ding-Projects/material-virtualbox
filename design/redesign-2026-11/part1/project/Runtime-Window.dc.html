@@ -1,0 +1,128 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Running machine window</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Roboto+Flex:opsz,wdth,wght@8..144,25..151,300..900&family=Roboto+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#050407}
+a{color:#D0BCFF}a:hover{color:#EADDFF}
+button{font:inherit;color:inherit;border:0;background:none;cursor:pointer}
+@keyframes mvDrop{from{opacity:0;transform:translate(-50%,-30px) scale(.9)}to{opacity:1;transform:translate(-50%,0)}}
+@keyframes mvFade{from{opacity:0}to{opacity:1}}
+@keyframes mvBlink{0%,100%{opacity:.25}50%{opacity:1}}
+@keyframes mvWave{0%{transform:translateX(-30%) rotate(0)}100%{transform:translateX(30%) rotate(8deg)}}
+@keyframes mvRise{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:none}}
+@keyframes mvPause{from{opacity:0;backdrop-filter:blur(0)}to{opacity:1;backdrop-filter:blur(14px)}}
+.mv-st{transition:background-color 200ms cubic-bezier(.2,0,0,1),transform 320ms cubic-bezier(.34,1.56,.64,1),color 200ms}
+.mv-st:hover{background-color:rgba(230,224,233,.12)}
+.mv-st:active{transform:scale(.92)}
+.mv-st:focus-visible{outline:3px solid #D0BCFF;outline-offset:2px}
+.mv-island{transition:width 520ms cubic-bezier(.34,1.3,.64,1),height 520ms cubic-bezier(.34,1.3,.64,1),border-radius 520ms cubic-bezier(.34,1.3,.64,1)}
+@media (prefers-reduced-motion: reduce){*,*::before,*::after{animation:none!important;transition:none!important}}
+</style>
+</helmet>
+<div style="min-height: 900px; display: flex; flex-direction: column; background: #050407; color: #E6E0E9; font-family: 'Roboto Flex', 'Segoe UI', system-ui, sans-serif; font-size: 14px">
+  <header style="display: flex; align-items: center; gap: 12px; height: 48px; padding: 0 8px 0 16px; background: #141218">
+    <span style="width: 10px; height: 10px; border-radius: 5px; background: #A6D7A0; animation: mvBlink 2.4s infinite"></span>
+    <span style="font-weight: 700">Windows 11 Dev Box</span>
+    <span style="font-size: 12px; color: #CAC4D0">Running · 1920 × 1080 · 01:42:17</span>
+    <div style="flex: 1"></div>
+    <nav aria-label="Machine menus" style="display: flex; gap: 2px; flex-wrap: wrap">
+      <sc-for list="{{ menus }}" as="m" hint-placeholder-count="6">
+        <button class="mv-st" style="height: 36px; padding: 0 14px; border-radius: 18px; color: #CAC4D0; font-weight: 600">{{ m }}</button>
+      </sc-for>
+    </nav>
+    <div style="display: flex">
+      <button class="mv-st" aria-label="Minimize" style="width: 44px; height: 36px; border-radius: 8px; display: grid; place-items: center"><svg width="14" height="14" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M4 12h16"></path></svg></button>
+      <button class="mv-st" aria-label="Maximize" style="width: 44px; height: 36px; border-radius: 8px; display: grid; place-items: center"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="5" y="5" width="14" height="14" rx="2"></rect></svg></button>
+      <button class="mv-st" aria-label="Close" style="width: 44px; height: 36px; border-radius: 8px; display: grid; place-items: center"><svg width="14" height="14" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"></path></svg></button>
+    </div>
+  </header>
+
+  <div style="position: relative; flex: 1; min-height: 640px; overflow: hidden; background: linear-gradient(180deg, #13243B 0%, #0E1626 100%)">
+    <div aria-hidden="true" style="position: absolute; left: -10%; right: -10%; bottom: -40%; height: 90%; border-radius: 50%; background: radial-gradient(ellipse at center, rgba(158,202,255,.35), transparent 60%); filter: blur(30px); animation: mvWave 12s ease-in-out infinite alternate"></div>
+    <div aria-hidden="true" style="position: absolute; left: 50%; bottom: 18px; transform: translateX(-50%); display: flex; gap: 10px; padding: 10px 14px; border-radius: 22px; background: rgba(255,255,255,.12); backdrop-filter: blur(20px)">
+      <sc-for list="{{ dock }}" as="d" hint-placeholder-count="6"><span style="width: 40px; height: 40px; border-radius: 12px; background: {{ d }}"></span></sc-for>
+    </div>
+    <div aria-hidden="true" style="position: absolute; left: 48px; top: 120px; width: 520px; height: 300px; border-radius: 14px; background: rgba(255,255,255,.9); box-shadow: 0 30px 60px rgba(0,0,0,.4); padding: 18px; display: flex; flex-direction: column; gap: 10px">
+      <span style="width: 40%; height: 12px; border-radius: 6px; background: #C9CCD3"></span>
+      <span style="width: 90%; height: 8px; border-radius: 4px; background: #E3E5EA"></span>
+      <span style="width: 80%; height: 8px; border-radius: 4px; background: #E3E5EA"></span>
+      <span style="width: 70%; height: 8px; border-radius: 4px; background: #E3E5EA"></span>
+    </div>
+    <p style="position: absolute; right: 40px; top: 40px; margin: 0; font-size: 12px; color: rgba(255,255,255,.6)">Guest display</p>
+
+    <div class="mv-island" style="position: absolute; left: 50%; top: 14px; transform: translateX(-50%); width: {{ islandW }}; height: {{ islandH }}; border-radius: {{ islandR }}; background: rgba(20,18,24,.86); backdrop-filter: blur(24px) saturate(150%); border: 1px solid rgba(202,196,208,.18); box-shadow: 0 20px 50px rgba(0,0,0,.5); overflow: hidden; animation: mvDrop 700ms cubic-bezier(.34,1.56,.64,1) both">
+      <div style="display: flex; align-items: center; gap: 6px; height: 56px; padding: 0 8px 0 18px">
+        <button class="mv-st" onClick="{{ toggleIsland }}" aria-expanded="{{ islandOpen }}" style="display: flex; align-items: center; gap: 10px; height: 40px; padding: 0 12px 0 0; border-radius: 20px; font-weight: 700">
+          <span style="width: 8px; height: 8px; border-radius: 4px; background: {{ stateDot }}"></span>{{ stateLabel }}
+        </button>
+        <div style="flex: 1"></div>
+        <button class="mv-st" onClick="{{ togglePause }}" aria-label="{{ pauseLabel }}" style="width: 40px; height: 40px; border-radius: 20px; display: grid; place-items: center">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="{{ pauseIcon }}"></path></svg>
+        </button>
+        <button class="mv-st" aria-label="Take snapshot" style="width: 40px; height: 40px; border-radius: 20px; display: grid; place-items: center">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 8h3l2-3h6l2 3h3v11H4z"></path><circle cx="12" cy="13" r="3.5"></circle></svg>
+        </button>
+        <button class="mv-st" aria-label="Send Ctrl+Alt+Del" style="height: 40px; padding: 0 12px; border-radius: 20px; font-family: 'Roboto Mono', monospace; font-size: 12px">C·A·Del</button>
+        <button class="mv-st" aria-label="Power off" style="width: 40px; height: 40px; border-radius: 20px; display: grid; place-items: center; color: #F2B8B5">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M12 3v8M6.5 6.5a8 8 0 1 0 11 0"></path></svg>
+        </button>
+      </div>
+      <sc-if value="{{ islandOpen }}" hint-placeholder-val="{{ false }}">
+        <div style="display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; padding: 4px 14px 14px; animation: mvFade 300ms 150ms both">
+          <sc-for list="{{ scales }}" as="s" hint-placeholder-count="4">
+            <button class="mv-st" onClick="{{ s.pick }}" style="display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 12px 6px; border-radius: 18px; background: {{ s.bg }}; color: {{ s.fg }}; font-size: 12px; font-weight: 650">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="{{ s.icon }}"></path></svg>{{ s.label }}
+            </button>
+          </sc-for>
+        </div>
+      </sc-if>
+    </div>
+
+    <sc-if value="{{ paused }}" hint-placeholder-val="{{ false }}">
+      <div style="position: absolute; inset: 0; display: grid; place-items: center; background: rgba(5,4,7,.55); backdrop-filter: blur(14px); animation: mvPause 400ms both">
+        <div style="display: flex; flex-direction: column; align-items: center; gap: 14px; animation: mvRise 500ms 100ms both">
+          <span style="font-size: 88px; font-weight: 900; letter-spacing: -3px; font-variation-settings: 'wdth' 150">Paused</span>
+          <button class="mv-st" onClick="{{ togglePause }}" style="height: 56px; padding: 0 32px; border-radius: 28px; background: #D0BCFF; color: #381E72; font-weight: 850; font-size: 16px">Resume</button>
+        </div>
+      </div>
+    </sc-if>
+  </div>
+
+  <footer aria-label="Devices" style="display: flex; flex-wrap: wrap; align-items: center; gap: 6px; padding: 8px 12px; background: #141218">
+    <sc-for list="{{ devices }}" as="d" hint-placeholder-count="8">
+      <button class="mv-st" title="{{ d.label }}" style="display: flex; align-items: center; gap: 8px; height: 36px; padding: 0 12px; border-radius: 18px; background: #211F26; font-size: 12px; color: #CAC4D0; animation: mvRise 400ms both; animation-delay: {{ d.delay }}">
+        <span style="width: 7px; height: 7px; border-radius: 4px; background: {{ d.led }}; animation: {{ d.blink }}"></span>{{ d.label }}
+      </button>
+    </sc-for>
+    <div style="flex: 1"></div>
+    <span style="font-family: 'Roboto Mono', monospace; font-size: 12px; color: #CAC4D0">Host key: Right Ctrl</span>
+  </footer>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":900}}'>
+class Component extends DCLogic {
+  constructor(p) { super(p); this.state = { open: true, paused: false, scale: 0 }; }
+  renderVals() {
+    const open = this.state.open, paused = this.state.paused;
+    const sdefs = [['Window', 'M4 5h16v14H4z'], ['Full screen', 'M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5'], ['Seamless', 'M4 6h7v7H4zM13 11h7v7h-7z'], ['Scaled', 'M4 4h16v16H4zM9 9h6v6H9z']];
+    const scales = sdefs.map((s, i) => ({ label: s[0], icon: s[1], bg: i === this.state.scale ? '#4F378B' : 'rgba(43,41,48,.8)', fg: i === this.state.scale ? '#EADDFF' : '#CAC4D0', pick: () => this.setState({ scale: i }) }));
+    const ddefs = [['Disk', '#A6D7A0', true], ['Optical', '#49454F', false], ['Audio', '#A6D7A0', false], ['Network', '#9ECAFF', true], ['USB 2', '#EFB8C8', false], ['Shared folders', '#A6D7A0', false], ['Display 3D', '#D0BCFF', false], ['Recording off', '#49454F', false]];
+    const devices = ddefs.map((d, i) => ({ label: d[0], led: d[1], blink: d[2] ? 'mvBlink ' + (0.6 + i * 0.2) + 's infinite' : 'none', delay: (i * 50) + 'ms' }));
+    return { menus: ['Machine', 'View', 'Input', 'Devices', 'Help'], dock: ['#5B8DEF', '#F4B860', '#7BD389', '#E06C9F', '#9B8CFF', '#56C7D9'],
+      islandOpen: open, islandW: open ? '600px' : '520px', islandH: open ? '160px' : '56px', islandR: open ? '32px' : '28px',
+      toggleIsland: () => this.setState({ open: !open }), paused, togglePause: () => this.setState({ paused: !paused }),
+      stateLabel: paused ? 'Paused' : 'Running', stateDot: paused ? '#FFB869' : '#A6D7A0',
+      pauseLabel: paused ? 'Resume' : 'Pause', pauseIcon: paused ? 'M7 4v16l13-8z' : 'M6 4h4v16H6zM14 4h4v16h-4z', scales, devices };
+  }
+}
+</script>
+</body>
+</html>

@@ -32,12 +32,22 @@
    "expand": "fill",
    "title": "New virtual machine wizard",
    "is_interactive": true
+  },
+  "Runtime-Window.dc.html": {
+   "x": 0,
+   "y": 1020,
+   "w": 1440,
+   "h": 900,
+   "expand": "fill",
+   "title": "Running machine window",
+   "is_interactive": true
   }
  },
  "order": [
   "Main.dc.html",
   "VM-Settings.dc.html",
-  "New-VM-Wizard.dc.html"
+  "New-VM-Wizard.dc.html",
+  "Runtime-Window.dc.html"
  ],
  "notes": {
   "title": {
