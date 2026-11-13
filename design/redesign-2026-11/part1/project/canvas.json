@@ -1,9 +1,5 @@
 {
  "v": 3,
- "createdOnFiles": {
-  "v": 1,
-  "at": "2026-11-13T03:53:44Z"
- },
  "title": "Material VirtualBox Redesign · Part 1",
  "launch": {
   "view": "canvas"
@@ -18,10 +14,20 @@
    "expand": "fill",
    "title": "Manager · VM library",
    "is_interactive": true
+  },
+  "VM-Settings.dc.html": {
+   "x": 1520,
+   "y": 0,
+   "w": 1440,
+   "h": 900,
+   "expand": "fill",
+   "title": "Machine settings",
+   "is_interactive": true
   }
  },
  "order": [
-  "Main.dc.html"
+  "Main.dc.html",
+  "VM-Settings.dc.html"
  ],
  "notes": {
   "title": {

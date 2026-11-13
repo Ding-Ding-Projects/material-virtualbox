@@ -1,0 +1,151 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Machine settings</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Roboto+Flex:opsz,wdth,wght@8..144,25..151,300..900&family=Roboto+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#0B0A0F}
+a{color:#D0BCFF}a:hover{color:#EADDFF}
+button{font:inherit;color:inherit;border:0;background:none;cursor:pointer}
+input{font:inherit;color:inherit}
+@keyframes mvRise{from{opacity:0;transform:translateY(20px) scale(.98);filter:blur(6px)}to{opacity:1;transform:none;filter:none}}
+@keyframes mvSlide{from{opacity:0;transform:translateX(-18px)}to{opacity:1;transform:none}}
+@keyframes mvDrift{0%{transform:translate(0,0) scale(1)}50%{transform:translate(60px,-40px) scale(1.15)}100%{transform:translate(0,0) scale(1)}}
+@keyframes mvDrift2{0%{transform:translate(0,0) scale(1.1)}50%{transform:translate(-80px,50px) scale(.9)}100%{transform:translate(0,0) scale(1.1)}}
+@keyframes mvFill{from{width:0}}
+@keyframes mvTick{0%{transform:scale(0) rotate(-30deg)}70%{transform:scale(1.2) rotate(6deg)}100%{transform:scale(1)}}
+.mv-st{transition:background-color 200ms cubic-bezier(.2,0,0,1),transform 320ms cubic-bezier(.34,1.56,.64,1),color 200ms,box-shadow 300ms}
+.mv-st:hover{background-color:rgba(230,224,233,.08)}
+.mv-st:active{transform:scale(.96)}
+.mv-st:focus-visible{outline:3px solid #D0BCFF;outline-offset:2px}
+.mv-glass{background:rgba(33,31,38,.62);backdrop-filter:blur(22px) saturate(140%);-webkit-backdrop-filter:blur(22px) saturate(140%);border:1px solid rgba(202,196,208,.12)}
+.mv-tile{transition:transform 380ms cubic-bezier(.34,1.56,.64,1),box-shadow 300ms,border-color 300ms}
+.mv-tile:hover{transform:translateY(-4px) scale(1.01);box-shadow:0 18px 40px rgba(0,0,0,.5);border-color:rgba(208,188,255,.4)}
+.mv-knob{transition:transform 360ms cubic-bezier(.34,1.56,.64,1),background-color 250ms,width 250ms}
+@media (prefers-reduced-motion: reduce){*,*::before,*::after{animation:none!important;transition:none!important}}
+</style>
+</helmet>
+<div style="position: relative; overflow: hidden; min-height: 900px; display: flex; flex-wrap: wrap; background: #0B0A0F; color: #E6E0E9; font-family: 'Roboto Flex', 'Segoe UI', system-ui, sans-serif; font-size: 14px; -webkit-font-smoothing: antialiased">
+  <div aria-hidden="true" style="position: absolute; width: 620px; height: 620px; left: -120px; top: -180px; border-radius: 50%; background: radial-gradient(circle, rgba(103,80,164,.55), transparent 65%); filter: blur(40px); animation: mvDrift 18s ease-in-out infinite"></div>
+  <div aria-hidden="true" style="position: absolute; width: 560px; height: 560px; right: -140px; bottom: -160px; border-radius: 50%; background: radial-gradient(circle, rgba(125,82,96,.45), transparent 65%); filter: blur(50px); animation: mvDrift2 22s ease-in-out infinite"></div>
+
+  <aside class="mv-glass" style="position: relative; flex: 1 1 280px; max-width: 320px; margin: 16px 0 16px 16px; padding: 20px 14px; border-radius: 32px; display: flex; flex-direction: column; gap: 6px">
+    <span style="font-size: 12px; letter-spacing: 1.4px; text-transform: uppercase; color: #D0BCFF; font-weight: 800; padding: 0 10px">Windows 11 Dev Box</span>
+    <h1 style="margin: 2px 10px 12px; font-size: 32px; line-height: 1; font-weight: 850; font-variation-settings: 'wdth' 125">Settings</h1>
+    <label style="display: flex; align-items: center; gap: 8px; height: 46px; margin-bottom: 8px; padding: 0 6px 0 14px; border-radius: 23px; background: rgba(15,13,19,.7); border: 1px solid rgba(202,196,208,.14); color: #CAC4D0">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"></circle><path d="M20 20l-3.5-3.5"></path></svg>
+      <span style="position: absolute; left: -9999px">Search every setting</span>
+      <input placeholder="Search every setting" style="flex: 1; min-width: 0; border: 0; outline: 0; background: transparent">
+      <span title="Regular expression builder" style="font-family: 'Roboto Mono', monospace; font-size: 12px; padding: 7px 10px; border-radius: 16px; background: #4F378B; color: #EADDFF">.*</span>
+    </label>
+    <sc-for list="{{ sections }}" as="s" hint-placeholder-count="10">
+      <button class="mv-st" onClick="{{ s.pick }}" aria-current="{{ s.current }}" style="display: flex; align-items: center; gap: 12px; height: 46px; padding: 0 14px; border-radius: 23px; text-align: left; background: {{ s.bg }}; color: {{ s.fg }}; font-weight: 600; animation: mvSlide 480ms cubic-bezier(.2,0,0,1) both; animation-delay: {{ s.delay }}">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="{{ s.icon }}"></path></svg>
+        <span style="flex: 1">{{ s.label }}</span>
+        <sc-if value="{{ s.warn }}" hint-placeholder-val="{{ false }}"><span style="width: 8px; height: 8px; border-radius: 4px; background: #FFB869"></span></sc-if>
+      </button>
+    </sc-for>
+  </aside>
+
+  <main style="position: relative; flex: 999 1 560px; min-width: 0; padding: 28px 32px; display: flex; flex-direction: column; gap: 18px">
+    <div style="display: flex; flex-wrap: wrap; align-items: flex-end; gap: 16px; justify-content: space-between">
+      <div>
+        <span style="font-family: 'Roboto Mono', monospace; font-size: 12px; color: #CAC4D0">Settings / {{ current }}</span>
+        <h2 style="margin: 6px 0 0; font-size: 56px; line-height: .95; font-weight: 900; letter-spacing: -1.5px; font-variation-settings: 'wdth' 135; background: linear-gradient(90deg, #EADDFF, #EFB8C8); -webkit-background-clip: text; background-clip: text; color: transparent">{{ current }}</h2>
+      </div>
+      <div style="display: flex; gap: 8px">
+        <button class="mv-st" style="height: 48px; padding: 0 22px; border-radius: 24px; border: 1px solid #49454F; font-weight: 600">Discard</button>
+        <button class="mv-st" style="height: 48px; padding: 0 26px; border-radius: 24px; background: #D0BCFF; color: #381E72; font-weight: 800; box-shadow: 0 8px 24px rgba(208,188,255,.25)">Apply</button>
+      </div>
+    </div>
+
+    <div class="mv-glass" role="status" style="display: flex; align-items: center; gap: 12px; padding: 12px 16px; border-radius: 20px; border-color: rgba(255,184,105,.35); animation: mvRise 600ms 200ms both">
+      <span style="width: 32px; height: 32px; border-radius: 16px; display: grid; place-items: center; background: #5C3F1E; color: #FFDDB8; animation: mvTick 600ms 500ms both">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M12 8v5M12 16.5v.5"></path></svg>
+      </span>
+      <span style="flex: 1">Memory is above half of the host's 32 GB. The host may page while this machine runs.</span>
+      <button class="mv-st" style="padding: 8px 14px; border-radius: 16px; color: #FFDDB8; font-weight: 700">Use 12 GB</button>
+    </div>
+
+    <div style="display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 14px">
+      <section class="mv-glass mv-tile" style="grid-column: span 4; padding: 22px; border-radius: 28px; display: flex; flex-direction: column; gap: 16px; animation: mvRise 640ms cubic-bezier(.05,.7,.1,1) both; animation-delay: 80ms">
+        <div style="display: flex; justify-content: space-between; align-items: baseline"><h3 style="margin: 0; font-size: 18px">Base memory</h3><span style="font-size: 40px; font-weight: 850; font-variation-settings: 'wdth' 120; color: #D0BCFF">{{ ram }} GB</span></div>
+        <div style="position: relative; height: 18px; border-radius: 9px; background: rgba(15,13,19,.8); overflow: hidden">
+          <div style="height: 100%; width: {{ ramPct }}; border-radius: 9px; background: linear-gradient(90deg, #A6D7A0 0%, #D0BCFF 55%, #FFB869 100%); animation: mvFill 900ms cubic-bezier(.05,.7,.1,1) both"></div>
+          <div aria-hidden="true" style="position: absolute; top: 0; bottom: 0; left: 50%; width: 2px; background: rgba(255,255,255,.5)"></div>
+        </div>
+        <div style="display: flex; gap: 8px; flex-wrap: wrap">
+          <sc-for list="{{ ramSteps }}" as="r" hint-placeholder-count="5">
+            <button class="mv-st" onClick="{{ r.pick }}" style="height: 36px; padding: 0 16px; border-radius: 18px; font-weight: 700; background: {{ r.bg }}; color: {{ r.fg }}">{{ r.label }}</button>
+          </sc-for>
+        </div>
+      </section>
+      <section class="mv-glass mv-tile" style="grid-column: span 2; padding: 22px; border-radius: 28px; display: flex; flex-direction: column; justify-content: space-between; gap: 10px; animation: mvRise 640ms cubic-bezier(.05,.7,.1,1) both; animation-delay: 140ms">
+        <h3 style="margin: 0; font-size: 18px">Processors</h3>
+        <span style="font-size: 72px; line-height: 1; font-weight: 900; font-variation-settings: 'wdth' 140; color: #EFB8C8">{{ cpu }}</span>
+        <div style="display: flex; gap: 8px">
+          <button class="mv-st" onClick="{{ cpuDown }}" aria-label="Fewer processors" style="flex: 1; height: 44px; border-radius: 22px; background: #2B2930; font-size: 20px; font-weight: 700">−</button>
+          <button class="mv-st" onClick="{{ cpuUp }}" aria-label="More processors" style="flex: 1; height: 44px; border-radius: 22px; background: #633B48; color: #FFD8E4; font-size: 20px; font-weight: 700">+</button>
+        </div>
+      </section>
+
+      <sc-for list="{{ toggles }}" as="t" hint-placeholder-count="4">
+        <section class="mv-glass mv-tile" style="grid-column: span 3; padding: 18px 20px; border-radius: 24px; display: flex; align-items: center; gap: 16px; animation: mvRise 600ms cubic-bezier(.05,.7,.1,1) both; animation-delay: {{ t.delay }}">
+          <span style="flex: 1; display: flex; flex-direction: column; gap: 3px"><span style="font-weight: 700">{{ t.label }}</span><span style="font-size: 12.5px; color: #CAC4D0">{{ t.sub }}</span></span>
+          <button class="mv-st" role="switch" aria-checked="{{ t.checked }}" aria-label="{{ t.label }}" onClick="{{ t.flip }}" style="width: 56px; height: 32px; flex: none; border-radius: 16px; padding: 0 4px; display: flex; align-items: center; background: {{ t.track }}; border: 2px solid {{ t.border }}">
+            <span class="mv-knob" style="width: {{ t.size }}; height: {{ t.size }}; border-radius: 12px; background: {{ t.knob }}; transform: translateX({{ t.x }})"></span>
+          </button>
+        </section>
+      </sc-for>
+
+      <section class="mv-glass mv-tile" style="grid-column: span 6; padding: 20px 22px; border-radius: 28px; display: flex; flex-direction: column; gap: 12px; animation: mvRise 640ms cubic-bezier(.05,.7,.1,1) both; animation-delay: 420ms">
+        <h3 style="margin: 0; font-size: 18px">Boot order</h3>
+        <div style="display: flex; gap: 10px; flex-wrap: wrap">
+          <sc-for list="{{ boot }}" as="b" hint-placeholder-count="4">
+            <span style="display: flex; align-items: center; gap: 10px; padding: 10px 16px 10px 10px; border-radius: 18px; background: {{ b.bg }}; color: {{ b.fg }}; font-weight: 650">
+              <span style="width: 26px; height: 26px; border-radius: 13px; display: grid; place-items: center; background: rgba(0,0,0,.25); font-family: 'Roboto Mono', monospace; font-size: 12px">{{ b.n }}</span>{{ b.label }}
+            </span>
+          </sc-for>
+        </div>
+      </section>
+    </div>
+  </main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":900}}'>
+class Component extends DCLogic {
+  constructor(props) { super(props); this.state = { sec: 1, ram: 16, cpu: 8, on: [true, true, false, true] }; }
+  renderVals() {
+    const defs = [
+      ['General', 'M4 4h16v16H4zM4 9h16'], ['System', 'M7 7h10v10H7zM3 10h4M17 10h4M10 3v4M14 17v4'],
+      ['Display', 'M3 5h18v11H3zM8 20h8'], ['Storage', 'M4 6h16v5H4zM4 13h16v5H4z'], ['Audio', 'M4 10v4h4l5 4V6L8 10zM17 9a4 4 0 0 1 0 6'],
+      ['Network', 'M5 12h14M12 5v14'], ['Serial ports', 'M4 8h16v8H4zM8 12h.01M12 12h.01M16 12h.01'], ['USB', 'M12 3v14M8 7l4-4 4 4M7 13h4M13 10h4'],
+      ['Shared folders', 'M3 7h6l2 2h10v10H3z'], ['User interface', 'M4 4h16v16H4zM4 8h16M9 8v12']
+    ];
+    const sections = defs.map((d, i) => ({ label: d[0], icon: d[1], warn: i === 1,
+      bg: i === this.state.sec ? 'linear-gradient(90deg, #4F378B, #4A4458)' : 'transparent',
+      fg: i === this.state.sec ? '#EADDFF' : '#CAC4D0', current: i === this.state.sec ? 'page' : 'false',
+      delay: (i * 45) + 'ms', pick: () => this.setState({ sec: i }) }));
+    const ram = this.state.ram;
+    const ramSteps = [4, 8, 12, 16, 24].map((g) => ({ label: g + ' GB', bg: g === ram ? '#D0BCFF' : '#2B2930', fg: g === ram ? '#381E72' : '#E6E0E9', pick: () => this.setState({ ram: g }) }));
+    const tdefs = [['Enable EFI', 'Required for Windows 11 and Secure Boot'], ['Trusted Platform Module 2.0', 'Measured boot and disk encryption'],
+      ['Nested virtualization', 'Run hypervisors inside this machine'], ['Hardware clock in UTC', 'Recommended for Linux guests']];
+    const toggles = tdefs.map((t, i) => { const on = this.state.on[i]; return { label: t[0], sub: t[1], checked: on ? 'true' : 'false',
+      track: on ? '#D0BCFF' : '#36343B', border: on ? '#D0BCFF' : '#938F99', knob: on ? '#381E72' : '#938F99', size: on ? '24px' : '16px', x: on ? '24px' : '4px',
+      delay: (200 + i * 60) + 'ms', flip: () => { const n = this.state.on.slice(); n[i] = !n[i]; this.setState({ on: n }); } }; });
+    const boot = [['Hard disk', '#4F378B', '#EADDFF'], ['Optical', '#4A4458', '#E8DEF8'], ['Network', '#2B2930', '#CAC4D0'], ['Floppy (off)', '#211F26', '#938F99']]
+      .map((b, i) => ({ n: i + 1, label: b[0], bg: b[1], fg: b[2] }));
+    return { sections, current: defs[this.state.sec][0], ram, ramPct: Math.round(ram / 32 * 100) + '%', ramSteps, cpu: this.state.cpu,
+      cpuUp: () => this.setState({ cpu: Math.min(32, this.state.cpu + 1) }), cpuDown: () => this.setState({ cpu: Math.max(1, this.state.cpu - 1) }),
+      toggles, boot };
+  }
+}
+</script>
+</body>
+</html>
