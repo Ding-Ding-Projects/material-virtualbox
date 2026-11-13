@@ -53,6 +53,7 @@
 #include <iprt/stream.h>
 #include <iprt/string.h>
 #include <iprt/message.h>
+#include <iprt/path.h>
 
 using namespace com;
 
@@ -439,6 +440,19 @@ static void bridgeMachineControl(PBRIDGECTX pCtx, RTJSONVAL hParams, BridgeJson 
     ComPtr<IMachine> ptrMachine = bridgeFindMachine(pCtx, hParams);
     Utf8Str strAction = bridgeParamString(hParams, "action");
 
+    if (strAction == "show")
+    {
+        /* Brings the native VirtualBoxVM window of a running machine to the front. */
+        BOOL fCanShow = FALSE;
+        BRIDGE_HRC(ptrMachine->CanShowConsoleWindow(&fCanShow), "Checking the machine window");
+        if (!fCanShow)
+            throw BridgeError("This machine has no window to show (it may be running headless)", E_FAIL);
+        LONG64 idWindow = 0;
+        BRIDGE_HRC(ptrMachine->ShowConsoleWindow(&idWindow), "Showing the machine window");
+        j.beginObject().member("done", true).member("windowId", (int64_t)idWindow).endObject();
+        return;
+    }
+
     BRIDGE_HRC(ptrMachine->LockMachine(pCtx->ptrSession, LockType_Shared), "Locking the machine");
     try
     {
@@ -505,6 +519,112 @@ static void bridgeMachineUpdate(PBRIDGECTX pCtx, RTJSONVAL hParams, BridgeJson &
     }
     pCtx->ptrSession->UnlockMachine();
     bridgeWriteMachineSummary(j, ptrMachine);
+}
+
+/**
+ * Creates and registers a machine with the OS type's defaults, then, when
+ * diskGB is given, creates a dynamically allocated VDI next to the settings
+ * file and attaches it to the first free port of the default controller.
+ */
+static void bridgeMachineCreate(PBRIDGECTX pCtx, RTJSONVAL hParams, BridgeJson &j)
+{
+    Utf8Str strName  = bridgeParamString(hParams, "name");
+    Utf8Str strOs    = bridgeParamString(hParams, "osTypeId");
+    Utf8Str strGroup = bridgeParamString(hParams, "group", false);
+    int64_t cMB = 0, cCpus = 0, cGB = 0;
+    bridgeParamInt(hParams, "memoryMB", &cMB);
+    bridgeParamInt(hParams, "cpus", &cCpus);
+    bridgeParamInt(hParams, "diskGB", &cGB);
+
+    SafeArray<BSTR> aGroups;
+    if (strGroup.isNotEmpty())
+    {
+        Utf8Str strPath = strGroup;
+        if (strPath.c_str()[0] != '/')
+            strPath = Utf8StrFmt("/%s", strGroup.c_str());
+        aGroups.resize(1);
+        Bstr(strPath).detachTo(&aGroups[0]);
+    }
+
+    ComPtr<IMachine> ptrMachine;
+    BRIDGE_HRC(pCtx->ptrVBox->CreateMachine(Bstr().raw(), Bstr(strName).raw(), PlatformArchitecture_x86,
+                                            ComSafeArrayAsInParam(aGroups), Bstr(strOs).raw(), Bstr().raw(),
+                                            Bstr().raw(), Bstr().raw(), Bstr().raw(), ptrMachine.asOutParam()),
+               "Creating the machine");
+    BRIDGE_HRC(ptrMachine->SaveSettings(), "Saving the new machine");
+    BRIDGE_HRC(pCtx->ptrVBox->RegisterMachine(ptrMachine), "Registering the machine");
+
+    BRIDGE_HRC(ptrMachine->LockMachine(pCtx->ptrSession, LockType_Write), "Locking the new machine");
+    Bstr bstrDisk;
+    try
+    {
+        ComPtr<IMachine> ptrMutable;
+        BRIDGE_HRC(pCtx->ptrSession->COMGETTER(Machine)(ptrMutable.asOutParam()), "Session machine");
+        BRIDGE_HRC(ptrMutable->ApplyDefaults(Bstr().raw()), "Applying defaults for the OS type");
+        if (cMB > 0)
+            BRIDGE_HRC(ptrMutable->COMSETTER(MemorySize)((ULONG)cMB), "Setting memory");
+        if (cCpus > 0)
+            BRIDGE_HRC(ptrMutable->COMSETTER(CPUCount)((ULONG)cCpus), "Setting processors");
+
+        if (cGB > 0)
+        {
+            Bstr bstrSettings;
+            ptrMutable->COMGETTER(SettingsFilePath)(bstrSettings.asOutParam());
+            Utf8Str strDir(bstrSettings);
+            strDir.stripFilename();
+            Utf8Str strDisk = strDir;
+            strDisk.append(RTPATH_SLASH_STR).append(strName).append(".vdi");
+
+            ComPtr<IMedium> ptrMedium;
+            BRIDGE_HRC(pCtx->ptrVBox->CreateMedium(Bstr("VDI").raw(), Bstr(strDisk).raw(), AccessMode_ReadWrite,
+                                                   DeviceType_HardDisk, ptrMedium.asOutParam()), "Creating the disk");
+            SafeArray<MediumVariant_T> aVariant(1);
+            aVariant[0] = MediumVariant_Standard;
+            ComPtr<IProgress> ptrProgress;
+            BRIDGE_HRC(ptrMedium->CreateBaseStorage((LONG64)cGB * _1G, ComSafeArrayAsInParam(aVariant), ptrProgress.asOutParam()),
+                       "Allocating the disk");
+            bridgeWaitProgress(ptrProgress, "Allocating the disk");
+
+            /* First controller the defaults created, then its first port with nothing on it. */
+            SafeIfaceArray<IStorageController> aCtls;
+            ptrMutable->COMGETTER(StorageControllers)(ComSafeArrayAsOutParam(aCtls));
+            if (aCtls.size() == 0)
+                throw BridgeError("The OS defaults created no storage controller", E_FAIL);
+            Bstr bstrCtl;
+            aCtls[0]->COMGETTER(Name)(bstrCtl.asOutParam());
+            SafeIfaceArray<IMediumAttachment> aAtt;
+            ptrMutable->COMGETTER(MediumAttachments)(ComSafeArrayAsOutParam(aAtt));
+            LONG iPort = 0;
+            for (bool fBusy = true; fBusy && iPort < 30; )
+            {
+                fBusy = false;
+                for (size_t i = 0; i < aAtt.size(); i++)
+                {
+                    Bstr bstrAttCtl;
+                    LONG iAttPort = -1;
+                    aAtt[i]->COMGETTER(Controller)(bstrAttCtl.asOutParam());
+                    aAtt[i]->COMGETTER(Port)(&iAttPort);
+                    if (bstrAttCtl == bstrCtl && iAttPort == iPort)
+                        fBusy = true;
+                }
+                if (fBusy)
+                    iPort++;
+            }
+            BRIDGE_HRC(ptrMutable->AttachDevice(bstrCtl.raw(), iPort, 0, DeviceType_HardDisk, ptrMedium), "Attaching the disk");
+            bstrDisk = Bstr(strDisk);
+        }
+        BRIDGE_HRC(ptrMutable->SaveSettings(), "Saving settings");
+    }
+    catch (...)
+    {
+        pCtx->ptrSession->UnlockMachine();
+        throw;
+    }
+    pCtx->ptrSession->UnlockMachine();
+
+    j.beginObject().key("machine");
+    bridgeWriteMachineSummary(j, ptrMachine);
+    j.member("disk", Utf8Str(bstrDisk)).endObject();
 }
 
 static void bridgeMachineDelete(PBRIDGECTX pCtx, RTJSONVAL hParams, BridgeJson &j)
@@ -790,6 +910,7 @@ static const struct
     { "machine.start",      bridgeMachineStart },
     { "machine.control",    bridgeMachineControl },
     { "machine.update",     bridgeMachineUpdate },
+    { "machine.create",     bridgeMachineCreate },
     { "machine.delete",     bridgeMachineDelete },
     { "snapshots.list",     bridgeSnapshotsList },
     { "snapshots.take",     bridgeSnapshotTake },

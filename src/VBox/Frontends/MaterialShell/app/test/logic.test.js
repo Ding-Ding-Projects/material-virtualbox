@@ -71,6 +71,8 @@ test('pinned tabs move first and survive bulk close', () => {
     assert.deepEqual(set.closing, ['media']);
     const inverse = resolveCloseSet(tabs, 'Media', 'notContaining', { pinned: s.pinned });
     assert.deepEqual(inverse.closing, ['machines']);
+    assert.deepEqual(resolveCloseSet(tabs, '  ', 'containing').closing, []);
+    assert.deepEqual(resolveCloseSet(tabs, '', 'notContaining').closing, []);
 });
 
 test('four tab searches compose', () => {

@@ -64,6 +64,8 @@ export function filterTabs(tabs, q) {
  * "notContaining"; pinned tabs and the active tab are never included.
  */
 export function resolveCloseSet(tabs, query, mode, { pinned = [], activeId = null } = {}) {
+    /* An empty query never selects anything: bulk close needs an explicit pattern. */
+    if (!String(query || '').trim()) return { closing: [], keeping: tabs.map((t) => t.id) };
     const match = makeMatcher(query);
     const candidates = tabs.filter((t) => !pinned.includes(t.id) && t.id !== activeId);
     const closing = candidates.filter((t) => (mode === 'notContaining' ? !match(t.title) : match(t.title)));

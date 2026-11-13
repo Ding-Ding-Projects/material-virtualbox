@@ -466,6 +466,35 @@ jobs:
           }
           Write-Host "Payload verified: VirtualBox.exe, all five host driver file pairs, and $additionsIso are present."
 
+      - name: Build and package the Material shell (best effort)
+        # The Material shell is a separate front end (src/VBox/Frontends/MaterialShell):
+        # a desktop web UI plus VBoxMaterialBridge, a small Main API client. It is
+        # built after the main payload and must never block the installer or the
+        # release, so a failure here only drops the shell asset from the release.
+        continue-on-error: true
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $revision = (Select-String configure.py -Pattern '\$Id: configure.py (\d+)').Matches[0].Groups[1].Value
+          & cmd.exe /d /c "call `"$PWD\env.bat`" && kmk -C src\VBox\Frontends\MaterialShell VBOX_SVN_REV=$revision SDK_WINSDK10_MAX_VERSION=10.0.22621.0 VBOX_WITHOUT_RUN_BUILD_TESTCASES=1"
+          if ($LASTEXITCODE -ne 0) { throw "VBoxMaterialBridge build failed with exit code $LASTEXITCODE." }
+          $bridge = Get-ChildItem -Path 'out\win.amd64\release' -Recurse -Filter 'VBoxMaterialBridge.exe' | Select-Object -First 1
+          if (-not $bridge) { throw 'VBoxMaterialBridge.exe was not produced.' }
+          Push-Location 'src\VBox\Frontends\MaterialShell\app'
+          npm test
+          if ($LASTEXITCODE -ne 0) { throw 'Material shell unit tests failed.' }
+          npm install --no-audit --no-fund
+          if ($LASTEXITCODE -ne 0) { throw 'npm install failed for the Material shell.' }
+          npm run package:win
+          if ($LASTEXITCODE -ne 0) { throw 'Packaging the Material shell failed.' }
+          $packaged = Get-ChildItem -Path 'out' -Directory | Select-Object -First 1
+          Copy-Item -LiteralPath $bridge.FullName -Destination $packaged.FullName
+          Pop-Location
+          $zip = Join-Path $env:RUNNER_TEMP 'MaterialVirtualMachine-Shell-win-x64.zip'
+          Compress-Archive -Path (Join-Path $packaged.FullName '*') -DestinationPath $zip -Force
+          Set-Content -LiteralPath (Join-Path $env:RUNNER_TEMP 'material-shell-asset.txt') -Value $zip -Encoding utf8
+          Write-Host "Material shell packaged: $zip ($((Get-Item $zip).Length) bytes)"
+
       - name: Build the unsigned NSIS host installer
         shell: pwsh
         run: |
@@ -834,6 +863,11 @@ jobs:
           if (Test-Path -LiteralPath $dimSumAssetPath) {
             $photo = (Get-Content -LiteralPath $dimSumAssetPath -Raw -Encoding utf8).Trim()
             if ($photo -and (Test-Path -LiteralPath $photo)) { $assets += $photo }
+          }
+          $shellAssetPath = Join-Path $env:RUNNER_TEMP 'material-shell-asset.txt'
+          if (Test-Path -LiteralPath $shellAssetPath) {
+            $shellZip = (Get-Content -LiteralPath $shellAssetPath -Raw -Encoding utf8).Trim()
+            if ($shellZip -and (Test-Path -LiteralPath $shellZip)) { $assets += $shellZip }
           }
           gh release create $tag $assets --target $env:GITHUB_SHA --title $title --notes-file $notesPath --draft
           gh release edit $tag --draft=false

@@ -1,0 +1,30 @@
+name: Material shell checks
+
+on:
+  push:
+    paths:
+      - 'src/VBox/Frontends/MaterialShell/**'
+      - '.github/workflows/material-shell.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout: src/VBox/Frontends/MaterialShell
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Syntax check every script
+        working-directory: src/VBox/Frontends/MaterialShell/app
+        run: |
+          for f in $(find main renderer -name '*.js' -o -name '*.cjs'); do node --check "$f"; done
+      - name: Unit tests (regex builder, tabs, export, formatting)
+        working-directory: src/VBox/Frontends/MaterialShell/app
+        run: npm test
