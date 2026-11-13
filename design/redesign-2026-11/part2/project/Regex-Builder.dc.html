@@ -1,0 +1,120 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Regular expression builder</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Roboto+Flex:opsz,wdth,wght@8..144,25..151,300..900&family=Roboto+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#0B0A0F}
+a{color:#D0BCFF}a:hover{color:#EADDFF}
+button{font:inherit;color:inherit;border:0;background:none;cursor:pointer}
+input{font:inherit;color:inherit}
+@keyframes mvChip{0%{opacity:0;transform:translateY(-14px) scale(.7)}70%{transform:translateY(2px) scale(1.06)}100%{opacity:1;transform:none}}
+@keyframes mvRise{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:none}}
+@keyframes mvCaret{0%,100%{opacity:1}50%{opacity:0}}
+@keyframes mvHit{from{background-color:rgba(208,188,255,.7)}to{background-color:rgba(208,188,255,.22)}}
+.mv-st{transition:background-color 180ms cubic-bezier(.2,0,0,1),transform 320ms cubic-bezier(.34,1.56,.64,1),color 180ms,box-shadow 250ms}
+.mv-st:hover{background-color:rgba(230,224,233,.08)}
+.mv-st:active{transform:scale(.95)}
+.mv-st:focus-visible{outline:3px solid #D0BCFF;outline-offset:2px}
+.mv-brick:hover{transform:translateY(-3px);box-shadow:0 10px 24px rgba(0,0,0,.45)}
+@media (prefers-reduced-motion: reduce){*,*::before,*::after{animation:none!important;transition:none!important}}
+</style>
+</helmet>
+<div style="min-height: 900px; display: flex; flex-wrap: wrap; gap: 20px; padding: 28px 32px; background: #0B0A0F; color: #E6E0E9; font-family: 'Roboto Flex', 'Segoe UI', system-ui, sans-serif; font-size: 14px">
+  <main style="flex: 999 1 600px; min-width: 0; display: flex; flex-direction: column; gap: 16px">
+    <div>
+      <span style="font-size: 12px; font-weight: 800; letter-spacing: 1.2px; text-transform: uppercase; color: #D0BCFF">Every search field · the .* button</span>
+      <h1 style="margin: 4px 0 0; font-size: 56px; line-height: .95; font-weight: 900; letter-spacing: -1.5px; font-variation-settings: 'wdth' 135">Regex builder</h1>
+    </div>
+
+    <section aria-label="Pattern" style="padding: 18px; border-radius: 28px; background: #17151C; display: flex; flex-direction: column; gap: 14px">
+      <div style="display: flex; flex-wrap: wrap; align-items: center; gap: 8px; min-height: 56px; padding: 8px 12px; border-radius: 20px; background: #0F0D13; border: 2px solid #4F378B">
+        <span style="font-family: 'Roboto Mono', monospace; color: #938F99; font-size: 18px">/</span>
+        <sc-for list="{{ chips }}" as="c" hint-placeholder-count="4">
+          <span style="display: flex; align-items: center; gap: 8px; height: 40px; padding: 0 6px 0 12px; border-radius: 14px; background: {{ c.bg }}; color: {{ c.fg }}; animation: mvChip 460ms cubic-bezier(.34,1.56,.64,1) both; animation-delay: {{ c.delay }}">
+            <span style="display: flex; flex-direction: column; line-height: 1.1"><span style="font-size: 11px; font-weight: 700; opacity: .85">{{ c.label }}</span><span style="font-family: 'Roboto Mono', monospace; font-weight: 600">{{ c.src }}</span></span>
+            <button class="mv-st" onClick="{{ c.remove }}" aria-label="Remove {{ c.label }}" style="width: 26px; height: 26px; border-radius: 13px; display: grid; place-items: center"><svg width="12" height="12" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"></path></svg></button>
+          </span>
+        </sc-for>
+        <span aria-hidden="true" style="width: 2px; height: 28px; background: #D0BCFF; animation: mvCaret 1s steps(1) infinite"></span>
+        <span style="font-family: 'Roboto Mono', monospace; color: #938F99; font-size: 18px">/{{ flagStr }}</span>
+        <div style="flex: 1"></div>
+        <span style="padding: 6px 12px; border-radius: 12px; background: rgba(166,215,160,.16); color: #A6D7A0; font-size: 12px; font-weight: 750">Valid · {{ ms }} ms</span>
+      </div>
+      <div style="display: flex; align-items: center; gap: 10px; font-family: 'Roboto Mono', monospace; font-size: 15px; padding: 10px 14px; border-radius: 14px; background: #211F26; overflow-x: auto"><span style="color: #CAC4D0">Source</span><span style="color: #EADDFF">{{ source }}</span></div>
+    </section>
+
+    <section aria-label="Add a construct" style="display: flex; flex-direction: column; gap: 10px">
+      <h2 style="margin: 0; font-size: 14px; font-weight: 800; letter-spacing: 1px; text-transform: uppercase; color: #CAC4D0">Add a construct</h2>
+      <div style="display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px">
+        <sc-for list="{{ bricks }}" as="b" hint-placeholder-count="12">
+          <button class="mv-st mv-brick" onClick="{{ b.add }}" style="display: flex; flex-direction: column; align-items: flex-start; gap: 4px; padding: 12px 14px; border-radius: 18px; text-align: left; background: #17151C; animation: mvRise 420ms both; animation-delay: {{ b.delay }}">
+            <span style="font-family: 'Roboto Mono', monospace; font-weight: 600; color: {{ b.c }}">{{ b.src }}</span>
+            <span style="font-size: 12.5px; color: #CAC4D0">{{ b.label }}</span>
+          </button>
+        </sc-for>
+      </div>
+    </section>
+
+    <section aria-label="Flags" style="display: flex; gap: 8px; flex-wrap: wrap">
+      <sc-for list="{{ flags }}" as="f" hint-placeholder-count="4">
+        <button class="mv-st" onClick="{{ f.flip }}" aria-pressed="{{ f.on }}" style="display: flex; align-items: center; gap: 8px; height: 42px; padding: 0 16px; border-radius: 12px; font-weight: 700; background: {{ f.bg }}; color: {{ f.fg }}; border: 1px solid {{ f.border }}">
+          <span style="font-family: 'Roboto Mono', monospace">{{ f.k }}</span>{{ f.label }}
+        </button>
+      </sc-for>
+    </section>
+  </main>
+
+  <aside aria-label="Live preview" style="flex: 1 1 380px; max-width: 460px; display: flex; flex-direction: column; gap: 12px">
+    <span style="font-size: 12px; font-weight: 800; letter-spacing: 1.2px; text-transform: uppercase; color: #CAC4D0">Live preview on sample</span>
+    <div style="padding: 16px; border-radius: 28px; background: #17151C; display: flex; flex-direction: column; gap: 6px; font-family: 'Roboto Mono', monospace; font-size: 13px">
+      <sc-for list="{{ samples }}" as="s" hint-placeholder-count="6">
+        <div style="display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-radius: 12px; background: {{ s.bg }}; transition: background-color 300ms">
+          <span style="width: 18px; height: 18px; border-radius: 9px; display: grid; place-items: center; background: {{ s.dot }}; color: #0B0A0F; font-size: 11px; font-weight: 800">{{ s.mark }}</span>
+          <span style="color: {{ s.fg }}">{{ s.pre }}<sc-if value="{{ s.hit }}" hint-placeholder-val="{{ false }}"><mark style="padding: 0 3px; border-radius: 4px; color: #EADDFF; animation: mvHit 900ms both">{{ s.match }}</mark></sc-if>{{ s.post }}</span>
+        </div>
+      </sc-for>
+    </div>
+    <div style="padding: 16px 18px; border-radius: 24px; background: #2B2340; display: flex; flex-direction: column; gap: 8px">
+      <span style="font-weight: 800">In plain words</span>
+      <span style="color: #E8DEF8; line-height: 1.5">{{ plain }}</span>
+    </div>
+    <div style="display: flex; gap: 8px">
+      <button class="mv-st" style="flex: 1; height: 48px; border-radius: 24px; border: 1px solid #49454F; font-weight: 700">Save as preset</button>
+      <button class="mv-st" style="flex: 1; height: 48px; border-radius: 24px; background: #D0BCFF; color: #381E72; font-weight: 850">Use pattern</button>
+    </div>
+  </aside>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":900}}'>
+class Component extends DCLogic {
+  constructor(p) { super(p); this.state = { parts: [0, 4, 6, 7], flags: [true, false, false, false] }; }
+  renderVals() {
+    const lib = [['^', 'Start of name', '#D0BCFF'], ['$', 'End of name', '#D0BCFF'], ['\\d+', 'One or more digits', '#EFB8C8'], ['[A-Za-z]+', 'Letters', '#EFB8C8'],
+      ['(Windows|Ubuntu)', 'Either word', '#A6D7A0'], ['\\s', 'A space', '#9ECAFF'], ['\\s*\\d{2}', 'Two-digit number', '#EFB8C8'], ['.*', 'Anything after', '#FFB869'],
+      ['(?!Server)', 'Not followed by Server', '#F2B8B5'], ['\\b', 'Word boundary', '#9ECAFF'], ['[^\\\\/]+', 'No slashes', '#FFB869'], ['\\.vdi', 'Ends in .vdi', '#A6D7A0']];
+    const bg = { '#D0BCFF': '#4F378B', '#EFB8C8': '#633B48', '#A6D7A0': '#2E4A2C', '#9ECAFF': '#1E3A5F', '#FFB869': '#5C3F1E', '#F2B8B5': '#8C1D18' };
+    const parts = this.state.parts;
+    const chips = parts.map((p, i) => ({ src: lib[p][0], label: lib[p][1], bg: bg[lib[p][2]], fg: '#F5EFF7', delay: (i * 70) + 'ms', remove: () => this.setState({ parts: parts.filter((_, j) => j !== i) }) }));
+    const bricks = lib.map((b, i) => ({ src: b[0], label: b[1], c: b[2], delay: (i * 30) + 'ms', add: () => this.setState({ parts: parts.concat([i]) }) }));
+    const fdefs = [['i', 'Ignore case'], ['m', 'Multiline'], ['s', 'Dot matches newline'], ['u', 'Unicode']];
+    const flags = fdefs.map((f, i) => { const on = this.state.flags[i]; return { k: f[0], label: f[1], on: on ? 'true' : 'false', bg: on ? '#4A4458' : 'transparent', fg: on ? '#E8DEF8' : '#CAC4D0', border: on ? '#4A4458' : '#49454F', flip: () => { const n = this.state.flags.slice(); n[i] = !n[i]; this.setState({ flags: n }); } }; });
+    const flagStr = fdefs.filter((_, i) => this.state.flags[i]).map((f) => f[0]).join('');
+    const source = parts.map((p) => lib[p][0]).join('');
+    let re = null; try { re = new RegExp(source, flagStr); } catch (e) { re = null; }
+    const names = ['Windows 11 Dev Box', 'Ubuntu 24.04 Server', 'Fedora Workstation', 'windows 10 legacy', 'Debian Build Agent', 'Ubuntu 22 desktop'];
+    const samples = names.map((n) => { const m = re ? n.match(re) : null; if (!m) return { pre: n, post: '', match: '', hit: false, bg: 'transparent', dot: '#49454F', mark: '', fg: '#938F99' };
+      const at = m.index; return { pre: n.slice(0, at), match: m[0], post: n.slice(at + m[0].length), hit: true, bg: '#211F26', dot: '#A6D7A0', mark: '✓', fg: '#E6E0E9' }; });
+    const plain = parts.length ? 'Matches names that ' + parts.map((p) => lib[p][1].toLowerCase()).join(', then ') + '.' : 'Add a construct to start.';
+    return { chips, bricks, flags, flagStr, source: '/' + source + '/' + flagStr, samples, plain, ms: (0.2 + parts.length * 0.05).toFixed(2) };
+  }
+}
+</script>
+</body>
+</html>
