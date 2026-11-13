@@ -1,0 +1,112 @@
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+
+import { buildSource, buildFlags, compile, preview, describe, makeMatcher, escapeLiteral } from '../renderer/js/logic/regex-model.js';
+import { reconcile, closeTab, openTab, openEvery, togglePin, filterTabs, resolveCloseSet } from '../renderer/js/logic/tabs-model.js';
+import { FORMATS, exportRows, importRows } from '../renderer/js/logic/export-formats.js';
+import { bytes, megabytes, primaryAction, stateTone, parseLog, monogram } from '../renderer/js/logic/format.js';
+
+test('regex builder composes constructs, literals and alternations', () => {
+    const src = buildSource(['start', { either: ['Windows', 'Ubuntu'] }, 'optSpace', 'digits']);
+    assert.equal(src, '^(?:Windows|Ubuntu)\\s*\\d+');
+    assert.equal(buildFlags(['u', 'i']), 'iu');
+    const r = preview(src, 'i', ['Windows 11 Dev Box', 'Fedora 41', 'ubuntu 24.04']);
+    assert.deepEqual(r.results.map((x) => x.hit), [true, false, true]);
+    assert.equal(r.results[0].match, 'Windows 11');
+});
+
+test('regex builder reports invalid patterns without throwing', () => {
+    const c = compile('(unclosed', '');
+    assert.equal(c.ok, false);
+    assert.ok(c.error);
+    const p = preview('(', '', ['x']);
+    assert.equal(p.ok, false);
+});
+
+test('regex preview stops at the time budget', () => {
+    let t = 0;
+    const r = preview('a', '', Array.from({ length: 50 }, () => 'a'), () => (t += 40));
+    assert.equal(r.truncated, true);
+    assert.ok(r.results.length < 50);
+});
+
+test('literals are escaped and descriptions are plain', () => {
+    assert.equal(escapeLiteral('a.vdi (copy)'), 'a\\.vdi \\(copy\\)');
+    assert.equal(describe([]), 'Add a construct to start.');
+    assert.match(describe(['start', { literal: 'Win' }]), /start of text, then "Win"/);
+});
+
+test('matcher accepts /regex/flags and plain text', () => {
+    assert.equal(makeMatcher('/^ub/i')('Ubuntu'), true);
+    assert.equal(makeMatcher('dev')('Windows 11 Dev Box'), true);
+    assert.equal(makeMatcher('/(/')('anything'), false);
+    assert.equal(makeMatcher('')('x'), true);
+});
+
+const CATALOG = [{ id: 'machines' }, { id: 'media' }, { id: 'network' }];
+
+test('every tab opens on a fresh install and closed tabs stay closed', () => {
+    let s = reconcile(CATALOG, null);
+    assert.deepEqual(s.open, ['machines', 'media', 'network']);
+    s = closeTab(s, 'media');
+    const again = reconcile(CATALOG, s);
+    assert.deepEqual(again.open, ['machines', 'network']);
+    assert.deepEqual(again.closed, ['media']);
+});
+
+test('an update opens only tabs the strip never offered', () => {
+    const s = closeTab(reconcile(CATALOG, null), 'media');
+    const next = reconcile([...CATALOG, { id: 'activity' }], s);
+    assert.deepEqual(next.open, ['machines', 'network', 'activity']);
+    assert.deepEqual(openEvery(next, CATALOG).open, ['machines', 'network', 'activity', 'media']);
+    assert.deepEqual(openTab(next, 'media').closed, []);
+});
+
+test('pinned tabs move first and survive bulk close', () => {
+    let s = reconcile(CATALOG, null);
+    s = togglePin(s, 'network');
+    assert.deepEqual(s.open, ['network', 'machines', 'media']);
+    const tabs = [{ id: 'network', title: 'Network' }, { id: 'machines', title: 'Machines' }, { id: 'media', title: 'Media' }];
+    const set = resolveCloseSet(tabs, '/^M/', 'containing', { pinned: s.pinned, activeId: 'machines' });
+    assert.deepEqual(set.closing, ['media']);
+    const inverse = resolveCloseSet(tabs, 'Media', 'notContaining', { pinned: s.pinned });
+    assert.deepEqual(inverse.closing, ['machines']);
+});
+
+test('four tab searches compose', () => {
+    const tabs = [{ id: 1, title: 'Ubuntu Server', group: 'Lab', state: 'running' }, { id: 2, title: 'Ubuntu Desktop', group: 'Lab', state: 'poweredOff' }, { id: 3, title: 'Fedora', group: 'Lab', state: 'running' }];
+    assert.deepEqual(filterTabs(tabs, { title: 'ubuntu', notTitle: '', group: 'lab', state: 'running' }).map((t) => t.id), [1]);
+    assert.deepEqual(filterTabs(tabs, { title: '', notTitle: 'Desktop', group: '', state: '' }).map((t) => t.id), [1, 3]);
+});
+
+const ROWS = [
+    { section: 'general', key: 'name', value: 'Windows 11 "Dev", Box' },
+    { section: 'system', key: 'memoryMB', value: '16384' },
+    { section: 'system', key: 'note', value: 'line one\nline two' }
+];
+
+test('every export format produces text', () => {
+    for (const f of FORMATS) {
+        const out = exportRows(f.ext, ROWS, { source: 'test' });
+        assert.ok(out.length > 10, f.ext);
+    }
+});
+
+test('json, ndjson, csv and tsv round trip', () => {
+    for (const ext of ['json', 'ndjson', 'csv', 'tsv']) {
+        assert.deepEqual(importRows(ext, exportRows(ext, ROWS, {})), ROWS, ext);
+    }
+});
+
+test('formatting helpers', () => {
+    assert.equal(bytes(1536), '1.5 KB');
+    assert.equal(megabytes(16384), '16 GB');
+    assert.equal(megabytes(512), '512 MB');
+    assert.equal(primaryAction('running').id, 'show');
+    assert.equal(primaryAction('saved').label, 'Resume');
+    assert.equal(stateTone('aborted'), 'error');
+    assert.equal(monogram('  ubuntu'), 'U');
+    const rows = parseLog('00:00:01.123456 VMM: starting\n00:00:02.000000 USB: proxy failed VERR_SHARING_VIOLATION');
+    assert.equal(rows[1].severity, 'error');
+    assert.equal(rows[0].time, '00:00:01.123');
+});
