@@ -50,6 +50,15 @@
    "expand": "fill",
    "title": "Media manager",
    "is_interactive": true
+  },
+  "Network-Manager.dc.html": {
+   "x": 3040,
+   "y": 1020,
+   "w": 1440,
+   "h": 900,
+   "expand": "fill",
+   "title": "Network manager",
+   "is_interactive": true
   }
  },
  "order": [
@@ -57,7 +66,8 @@
   "VM-Settings.dc.html",
   "New-VM-Wizard.dc.html",
   "Runtime-Window.dc.html",
-  "Media-Manager.dc.html"
+  "Media-Manager.dc.html",
+  "Network-Manager.dc.html"
  ],
  "notes": {
   "title": {

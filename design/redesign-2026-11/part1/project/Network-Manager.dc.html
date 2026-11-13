@@ -1,0 +1,103 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Network manager</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Roboto+Flex:opsz,wdth,wght@8..144,25..151,300..900&family=Roboto+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#0B0A0F}
+a{color:#D0BCFF}a:hover{color:#EADDFF}
+button{font:inherit;color:inherit;border:0;background:none;cursor:pointer}
+input{font:inherit;color:inherit}
+@keyframes mvFlow{to{background-position:40px 0}}
+@keyframes mvFlowV{to{background-position:0 40px}}
+@keyframes mvNode{from{opacity:0;transform:scale(.7)}to{opacity:1;transform:none}}
+@keyframes mvHalo{0%{box-shadow:0 0 0 0 rgba(208,188,255,.45)}100%{box-shadow:0 0 0 22px rgba(208,188,255,0)}}
+@keyframes mvRise{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:none}}
+.mv-st{transition:background-color 200ms cubic-bezier(.2,0,0,1),transform 320ms cubic-bezier(.34,1.56,.64,1),color 200ms,box-shadow 300ms}
+.mv-st:hover{background-color:rgba(230,224,233,.08)}
+.mv-st:active{transform:scale(.96)}
+.mv-st:focus-visible{outline:3px solid #D0BCFF;outline-offset:2px}
+.mv-node:hover{transform:scale(1.05)}
+@media (prefers-reduced-motion: reduce){*,*::before,*::after{animation:none!important;transition:none!important}}
+</style>
+</helmet>
+<div style="min-height: 900px; display: flex; flex-wrap: wrap; background: #0B0A0F; color: #E6E0E9; font-family: 'Roboto Flex', 'Segoe UI', system-ui, sans-serif; font-size: 14px">
+  <main style="flex: 999 1 640px; min-width: 0; padding: 28px 32px; display: flex; flex-direction: column; gap: 18px">
+    <div style="display: flex; flex-wrap: wrap; gap: 16px; align-items: flex-end; justify-content: space-between">
+      <h1 style="margin: 0; font-size: 56px; line-height: .95; font-weight: 900; letter-spacing: -1.5px; font-variation-settings: 'wdth' 135">Networks</h1>
+      <div style="display: flex; gap: 8px; flex-wrap: wrap">
+        <button class="mv-st" style="height: 44px; padding: 0 18px; border-radius: 22px; background: #4A4458; color: #E8DEF8; font-weight: 700">Add host-only</button>
+        <button class="mv-st" style="height: 44px; padding: 0 18px; border-radius: 22px; background: #D0BCFF; color: #381E72; font-weight: 800">Add NAT network</button>
+      </div>
+    </div>
+
+    <div aria-label="Topology" role="group" style="position: relative; height: 470px; border-radius: 32px; background: radial-gradient(circle at 1px 1px, #2B2930 1px, transparent 1.5px) 0 0 / 24px 24px, #121016; border: 1px solid #211F26; overflow: hidden">
+      <div aria-hidden="true" style="position: absolute; left: 50%; top: 52px; transform: translateX(-50%); width: 2px; height: 120px; background: repeating-linear-gradient(180deg, #D0BCFF 0 8px, transparent 8px 20px); animation: mvFlowV 1.2s linear infinite"></div>
+      <div aria-hidden="true" style="position: absolute; left: 18%; right: 18%; top: 172px; height: 2px; background: repeating-linear-gradient(90deg, #D0BCFF 0 8px, transparent 8px 20px); animation: mvFlow 1.2s linear infinite"></div>
+      <sc-for list="{{ drops }}" as="d" hint-placeholder-count="3">
+        <div aria-hidden="true" style="position: absolute; left: {{ d.x }}; top: 172px; width: 2px; height: 110px; background: repeating-linear-gradient(180deg, {{ d.c }} 0 8px, transparent 8px 20px); animation: mvFlowV 1.4s linear infinite"></div>
+      </sc-for>
+      <div class="mv-node" style="position: absolute; left: 50%; top: 14px; transform: translateX(-50%); padding: 10px 18px; border-radius: 20px; background: #E6E0E9; color: #1D1B20; font-weight: 800; animation: mvNode 500ms both; transition: transform 300ms cubic-bezier(.34,1.56,.64,1)">Host · Wi-Fi 6E</div>
+      <sc-for list="{{ nets }}" as="n" hint-placeholder-count="3">
+        <button class="mv-st mv-node" onClick="{{ n.pick }}" aria-pressed="{{ n.on }}" style="position: absolute; left: {{ n.x }}; top: 282px; transform: translateX(-50%); width: 220px; display: flex; flex-direction: column; gap: 6px; padding: 16px; border-radius: 26px; text-align: left; background: {{ n.bg }}; border: 2px solid {{ n.border }}; animation: mvNode 600ms cubic-bezier(.34,1.56,.64,1) both, {{ n.halo }}; animation-delay: {{ n.delay }}">
+          <span style="font-size: 11px; font-weight: 800; letter-spacing: 1px; text-transform: uppercase; color: {{ n.c }}">{{ n.kind }}</span>
+          <span style="font-size: 18px; font-weight: 800">{{ n.name }}</span>
+          <span style="font-family: 'Roboto Mono', monospace; font-size: 12px; color: #CAC4D0">{{ n.cidr }}</span>
+          <span style="display: flex; gap: 4px; margin-top: 4px">
+            <sc-for list="{{ n.vms }}" as="v" hint-placeholder-count="2"><span style="width: 26px; height: 26px; border-radius: 9px; display: grid; place-items: center; font-size: 11px; font-weight: 800; background: {{ v.bg }}; color: {{ v.fg }}">{{ v.m }}</span></sc-for>
+          </span>
+        </button>
+      </sc-for>
+      <div style="position: absolute; left: 16px; bottom: 14px; display: flex; gap: 14px; font-size: 12px; color: #CAC4D0">
+        <span style="display: flex; align-items: center; gap: 6px"><span style="width: 18px; height: 2px; background: #D0BCFF"></span>Traffic</span>
+        <span style="display: flex; align-items: center; gap: 6px"><span style="width: 10px; height: 10px; border-radius: 3px; background: #4F378B"></span>Selected</span>
+      </div>
+    </div>
+  </main>
+
+  <aside aria-label="Network settings" style="flex: 1 1 340px; max-width: 400px; margin: 16px 16px 16px 0; padding: 24px; border-radius: 32px; background: #17151C; display: flex; flex-direction: column; gap: 14px">
+    <sc-for list="{{ curList }}" as="c" hint-placeholder-count="1">
+      <div style="display: flex; flex-direction: column; gap: 14px; animation: mvRise 420ms cubic-bezier(.05,.7,.1,1) both">
+        <span style="font-size: 12px; font-weight: 800; letter-spacing: 1.2px; text-transform: uppercase; color: {{ c.c }}">{{ c.kind }}</span>
+        <h2 style="margin: 0; font-size: 30px; font-weight: 850">{{ c.name }}</h2>
+        <sc-for list="{{ c.fields }}" as="f" hint-placeholder-count="4">
+          <label style="display: flex; flex-direction: column; gap: 6px; padding: 12px 14px; border-radius: 16px; background: #211F26">
+            <span style="font-size: 12px; color: #CAC4D0">{{ f.k }}</span>
+            <input value="{{ f.v }}" style="border: 0; outline: 0; background: transparent; font-family: 'Roboto Mono', monospace; font-size: 15px">
+          </label>
+        </sc-for>
+        <div style="display: flex; align-items: center; gap: 12px; padding: 12px 14px; border-radius: 16px; background: #211F26">
+          <span style="flex: 1; font-weight: 650">DHCP server</span>
+          <span role="switch" aria-checked="true" aria-label="DHCP server" style="width: 52px; height: 30px; border-radius: 15px; background: #D0BCFF; display: flex; align-items: center; justify-content: flex-end; padding: 0 4px"><span style="width: 22px; height: 22px; border-radius: 11px; background: #381E72"></span></span>
+        </div>
+      </div>
+    </sc-for>
+  </aside>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":900}}'>
+class Component extends DCLogic {
+  constructor(p) { super(p); this.state = { cur: 0 }; }
+  renderVals() {
+    const tile = (m, bg, fg) => ({ m, bg, fg });
+    const W = tile('W', '#4F378B', '#EADDFF'), U = tile('U', '#633B48', '#FFD8E4'), F = tile('F', '#1E3A5F', '#D1E4FF'), D = tile('D', '#4A4458', '#E8DEF8'), B = tile('B', '#5C3F1E', '#FFDDB8');
+    const raw = [['NAT network', 'LabNet', '10.0.2.0/24', '#D0BCFF', '18%', [U, F, D], [['Network CIDR', '10.0.2.0/24'], ['Port forward', 'TCP 2222 to 22'], ['IPv6', 'Off'], ['Gateway', '10.0.2.1']]],
+      ['Host-only', 'Host-only #1', '192.168.56.0/24', '#EFB8C8', '50%', [W, U], [['Host address', '192.168.56.1'], ['Mask', '255.255.255.0'], ['Lower bound', '192.168.56.101'], ['Upper bound', '192.168.56.254']]],
+      ['Bridged', 'Wi-Fi 6E bridge', 'Host LAN', '#A6D7A0', '82%', [B], [['Adapter', 'Intel AX211'], ['Promiscuous', 'Deny'], ['MTU', '1500'], ['Cable', 'Connected']]]];
+    const nets = raw.map((n, i) => ({ kind: n[0], name: n[1], cidr: n[2], c: n[3], x: n[4], vms: n[5], on: i === this.state.cur ? 'true' : 'false',
+      bg: i === this.state.cur ? '#2B2340' : '#1D1B20', border: i === this.state.cur ? n[3] : 'transparent',
+      halo: i === this.state.cur ? 'mvHalo 1.8s 700ms infinite' : 'none', delay: (150 + i * 120) + 'ms', pick: () => this.setState({ cur: i }) }));
+    const drops = raw.map((n) => ({ x: n[4], c: n[3] }));
+    const c = raw[this.state.cur];
+    return { nets, drops, curList: [{ kind: c[0], name: c[1], c: c[3], fields: c[6].map((f) => ({ k: f[0], v: f[1] })), key: this.state.cur }] };
+  }
+}
+</script>
+</body>
+</html>
