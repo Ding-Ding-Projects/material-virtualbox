@@ -40,6 +40,17 @@ const LOG = [
 ].join('\n');
 
 let tick = 0;
+const configs = new Map();
+
+function demoConfig(m) {
+    if (!configs.has(m.id)) {
+        configs.set(m.id, { vramMB: 128, controller: 'VMSVGA', monitors: 1, accel3d: true, iso: '',
+            adapters: [0, 1, 2, 3].map((slot) => ({ slot, enabled: slot < 2, attachment: ['nat', 'hostOnly', 'none', 'none'][slot], cableConnected: true,
+                mac: '080027' + (0xA1B2C0 + slot).toString(16).toUpperCase(), bridgedInterface: 'Wi-Fi', hostOnlyInterface: slot === 1 ? 'VirtualBox Host-Only Ethernet Adapter' : '', internalNetwork: 'intnet', natNetwork: 'LabNet' })),
+            folders: [{ name: 'Projects', hostPath: 'D:\\Projects', writable: true, autoMount: true, autoMountPoint: '' }] });
+    }
+    return configs.get(m.id);
+}
 const demoInput = { x: 640, y: 400, buttons: 0, keys: 0 };
 
 /** A sample desktop drawn as SVG; the pointer and key count prove input arrives. */
@@ -69,13 +80,31 @@ async function call(method, p = {}) {
         case 'machines.list': return machines.map((m) => ({ ...m }));
         case 'machine.details': {
             const m = find(p.id);
+            const c = demoConfig(m);
             return {
-                summary: { ...m }, vramMB: 128, firmware: 'UEFI', description: '', settingsFile: 'D:\\VMs\\' + m.name + '\\' + m.name + '.vbox',
-                storage: [{ controller: 'NVMe', port: 0, device: 0, type: 'disk', medium: m.name + '.vdi', logicalSize: 80 * GB }, { controller: 'SATA', port: 1, device: 0, type: 'optical' }],
-                network: [{ slot: 0, attachment: 'nat' }, { slot: 1, attachment: 'hostOnly' }],
-                sharedFolders: [{ name: 'Projects', hostPath: 'D:\\Projects' }]
+                summary: { ...m }, vramMB: c.vramMB, graphicsController: c.controller, monitors: c.monitors, accel3d: c.accel3d, firmware: 'UEFI', description: '', settingsFile: 'D:\\VMs\\' + m.name + '\\' + m.name + '.vbox',
+                storage: [{ controller: 'NVMe', port: 0, device: 0, type: 'disk', medium: m.name + '.vdi', location: 'D:\\VMs\\' + m.name + '\\' + m.name + '.vdi', logicalSize: 80 * GB },
+                    { controller: 'SATA', port: 1, device: 0, type: 'optical', medium: c.iso ? c.iso.split('\\').pop() : undefined, location: c.iso || undefined }],
+                network: c.adapters.filter((a) => a.enabled).map((a) => ({ slot: a.slot, attachment: a.attachment })),
+                adapters: c.adapters.map((a) => ({ ...a })),
+                sharedFolders: c.folders.map((f) => ({ ...f }))
             };
         }
+        case 'machine.configure': {
+            const m = find(p.id);
+            if (m.state === 'running' || m.state === 'paused') throw new Error('Locking the machine for changes (power it off first) failed');
+            const c = demoConfig(m);
+            let changes = 0;
+            if (p.display) { for (const k of ['vramMB', 'controller', 'accel3d', 'monitors']) if (p.display[k] !== undefined) { c[k] = p.display[k]; changes++; } }
+            for (const a of p.adapters || []) { Object.assign(c.adapters[a.slot], a); changes++; }
+            for (const f of p.sharedFoldersRemove || []) { c.folders = c.folders.filter((x) => x.name !== f.name); changes++; }
+            for (const f of p.sharedFoldersAdd || []) {
+                if (c.folders.some((x) => x.name === f.name)) throw new Error('A shared folder named ' + f.name + ' already exists');
+                c.folders.push({ name: f.name, hostPath: f.hostPath, writable: f.writable !== false, autoMount: f.autoMount !== false, autoMountPoint: f.autoMountPoint || '' }); changes++;
+            }
+            return { changes };
+        }
+        case 'storage.mount': { const c = demoConfig(find(p.id)); c.iso = p.location || ''; return { mounted: !!p.location }; }
         case 'machine.start': { const m = find(p.id); m.state = 'running'; m.lastStateChangeMs = Date.now(); return { started: true }; }
         case 'machine.control': {
             const m = find(p.id);

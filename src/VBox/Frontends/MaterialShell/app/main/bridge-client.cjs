@@ -12,7 +12,7 @@ const path = require('node:path');
 const readline = require('node:readline');
 
 const DEFAULT_TIMEOUT_MS = 30000;
-const LONG_METHODS = new Set(['machine.start', 'machine.control', 'machine.delete', 'machine.create', 'snapshots.take']);
+const LONG_METHODS = new Set(['machine.start', 'machine.control', 'machine.delete', 'machine.create', 'machine.configure', 'storage.mount', 'snapshots.take']);
 
 /** Where to look for the bridge: next to the shell, then the VirtualBox install folder. */
 function findBridge(appDir) {

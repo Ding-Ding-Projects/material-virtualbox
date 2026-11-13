@@ -18,6 +18,6 @@ First jobs:
 1. Read the first Windows release run of the no-Qt build. Fix compile errors in the
    merged tree and VBoxMaterialBridge first (the bridge is now a required target).
 2. Run the packaged shell against a real VBoxSVC and capture every screen.
-3. Make Display, Storage, Network and Shared folders editable in the shell settings.
+3. Make Audio, Serial ports, USB and storage controllers editable in the shell settings.
 Do not claim a VM can start: the unsigned hypervisor driver ceiling still applies.
 ```

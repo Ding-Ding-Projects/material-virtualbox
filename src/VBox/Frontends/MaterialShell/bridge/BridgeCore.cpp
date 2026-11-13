@@ -228,6 +228,81 @@ static void bridgeWaitProgress(ComPtr<IProgress> &ptrProgress, const char *pszWh
     }
 }
 
+static const char *bridgeAttachmentName(NetworkAttachmentType_T enmAttach)
+{
+    switch (enmAttach)
+    {
+        case NetworkAttachmentType_NAT:        return "nat";
+        case NetworkAttachmentType_Bridged:    return "bridged";
+        case NetworkAttachmentType_Internal:   return "internal";
+        case NetworkAttachmentType_HostOnly:   return "hostOnly";
+        case NetworkAttachmentType_NATNetwork: return "natNetwork";
+        default:                               return "none";
+    }
+}
+
+static NetworkAttachmentType_T bridgeAttachmentFromName(const Utf8Str &str)
+{
+    if (str == "nat")        return NetworkAttachmentType_NAT;
+    if (str == "bridged")    return NetworkAttachmentType_Bridged;
+    if (str == "internal")   return NetworkAttachmentType_Internal;
+    if (str == "hostOnly")   return NetworkAttachmentType_HostOnly;
+    if (str == "natNetwork") return NetworkAttachmentType_NATNetwork;
+    if (str == "none")       return NetworkAttachmentType_Null;
+    throw BridgeError(Utf8StrFmt("Unknown network attachment '%s'", str.c_str()), E_INVALIDARG);
+}
+
+static const char *bridgeGraphicsName(GraphicsControllerType_T enmType)
+{
+    switch (enmType)
+    {
+        case GraphicsControllerType_VBoxVGA:  return "VBoxVGA";
+        case GraphicsControllerType_VMSVGA:   return "VMSVGA";
+        case GraphicsControllerType_VBoxSVGA: return "VBoxSVGA";
+        default:                              return "None";
+    }
+}
+
+static GraphicsControllerType_T bridgeGraphicsFromName(const Utf8Str &str)
+{
+    if (str == "VBoxVGA")  return GraphicsControllerType_VBoxVGA;
+    if (str == "VMSVGA")   return GraphicsControllerType_VMSVGA;
+    if (str == "VBoxSVGA") return GraphicsControllerType_VBoxSVGA;
+    throw BridgeError(Utf8StrFmt("Unknown graphics controller '%s'", str.c_str()), E_INVALIDARG);
+}
+
+static bool bridgeParamBool(RTJSONVAL hParams, const char *pszName, bool *pf)
+{
+    return hParams != NIL_RTJSONVAL && RT_SUCCESS(RTJsonValueQueryBooleanByName(hParams, pszName, pf));
+}
+
+/** Calls pfnItem for every object in the named array parameter. */
+template<typename Fn> static void bridgeForEachObject(RTJSONVAL hParams, const char *pszName, Fn fnItem)
+{
+    RTJSONVAL hArray = NIL_RTJSONVAL;
+    if (hParams == NIL_RTJSONVAL || RT_FAILURE(RTJsonValueQueryByName(hParams, pszName, &hArray)))
+        return;
+    unsigned const cItems = RTJsonValueGetArraySize(hArray);
+    for (unsigned i = 0; i < cItems && i < 64; i++)
+    {
+        RTJSONVAL hItem = NIL_RTJSONVAL;
+        if (RT_FAILURE(RTJsonValueQueryByIndex(hArray, i, &hItem)))
+            continue;
+        try
+        {
+            fnItem(hItem);
+        }
+        catch (...)
+        {
+            RTJsonValueRelease(hItem);
+            RTJsonValueRelease(hArray);
+            throw;
+        }
+        RTJsonValueRelease(hItem);
+    }
+    RTJsonValueRelease(hArray);
+}
+
 static void bridgeWriteMachineSummary(BridgeJson &j, ComPtr<IMachine> &ptrMachine)
 {
     Bstr bstrId, bstrName, bstrOs;
@@ -314,10 +389,17 @@ static void bridgeMachineDetails(PBRIDGECTX pCtx, RTJSONVAL hParams, BridgeJson 
     BridgeJson jSummary;
     bridgeWriteMachineSummary(jSummary, ptrMachine);
 
-    ULONG cVramMB = 0;
+    ULONG cVramMB = 0, cMonitors = 1;
+    BOOL f3D = FALSE;
+    GraphicsControllerType_T enmGfx = GraphicsControllerType_Null;
     ComPtr<IGraphicsAdapter> ptrGfx;
     if (SUCCEEDED(ptrMachine->COMGETTER(GraphicsAdapter)(ptrGfx.asOutParam())) && !ptrGfx.isNull())
+    {
         ptrGfx->COMGETTER(VRAMSize)(&cVramMB);
+        ptrGfx->COMGETTER(MonitorCount)(&cMonitors);
+        ptrGfx->COMGETTER(GraphicsControllerType)(&enmGfx);
+        ptrGfx->IsFeatureEnabled(GraphicsFeature_Acceleration3D, &f3D);
+    }
 
     FirmwareType_T enmFw = FirmwareType_BIOS;
     ComPtr<IFirmwareSettings> ptrFw;
@@ -330,6 +412,9 @@ static void bridgeMachineDetails(PBRIDGECTX pCtx, RTJSONVAL hParams, BridgeJson 
 
     j.beginObject().key("summary").raw(jSummary.str())
      .member("vramMB", (int64_t)cVramMB)
+     .member("graphicsController", bridgeGraphicsName(enmGfx))
+     .member("monitors", (int64_t)cMonitors)
+     .member("accel3d", (bool)f3D)
      .member("firmware", enmFw == FirmwareType_BIOS ? "BIOS" : "UEFI")
      .member("description", Utf8Str(bstrDesc))
      .member("settingsFile", Utf8Str(bstrFolder));
@@ -358,15 +443,17 @@ static void bridgeMachineDetails(PBRIDGECTX pCtx, RTJSONVAL hParams, BridgeJson 
         {
             Bstr bstrName;
             LONG64 cbLogical = 0;
+            Bstr bstrLoc;
             ptrMedium->COMGETTER(Name)(bstrName.asOutParam());
+            ptrMedium->COMGETTER(Location)(bstrLoc.asOutParam());
             ptrMedium->COMGETTER(LogicalSize)(&cbLogical);
-            j.member("medium", Utf8Str(bstrName)).member("logicalSize", (int64_t)cbLogical);
+            j.member("medium", Utf8Str(bstrName)).member("location", Utf8Str(bstrLoc)).member("logicalSize", (int64_t)cbLogical);
         }
         j.endObject();
     }
     j.endArray();
 
-    /* Network adapters: walk slots until the machine says there are no more. */
+    /* Network adapters: "network" lists the enabled ones, "adapters" the first four slots in full. */
     j.key("network").beginArray();
     for (ULONG iSlot = 0; iSlot < 8; iSlot++)
     {
@@ -379,17 +466,33 @@ static void bridgeMachineDetails(PBRIDGECTX pCtx, RTJSONVAL hParams, BridgeJson 
         if (!fEnabled)
             continue;
         ptrNic->COMGETTER(AttachmentType)(&enmAttach);
-        const char *pszAttach = "none";
-        switch (enmAttach)
-        {
-            case NetworkAttachmentType_NAT:        pszAttach = "nat"; break;
-            case NetworkAttachmentType_Bridged:    pszAttach = "bridged"; break;
-            case NetworkAttachmentType_Internal:   pszAttach = "internal"; break;
-            case NetworkAttachmentType_HostOnly:   pszAttach = "hostOnly"; break;
-            case NetworkAttachmentType_NATNetwork: pszAttach = "natNetwork"; break;
-            default: break;
-        }
-        j.beginObject().member("slot", (int64_t)iSlot).member("attachment", pszAttach).endObject();
+        j.beginObject().member("slot", (int64_t)iSlot).member("attachment", bridgeAttachmentName(enmAttach)).endObject();
+    }
+    j.endArray();
+
+    j.key("adapters").beginArray();
+    for (ULONG iSlot = 0; iSlot < 4; iSlot++)
+    {
+        ComPtr<INetworkAdapter> ptrNic;
+        if (FAILED(ptrMachine->GetNetworkAdapter(iSlot, ptrNic.asOutParam())) || ptrNic.isNull())
+            break;
+        BOOL fEnabled = FALSE, fCable = FALSE;
+        NetworkAttachmentType_T enmAttach = NetworkAttachmentType_Null;
+        Bstr bstrMac, bstrBridged, bstrHostOnly, bstrInternal, bstrNatNet;
+        ptrNic->COMGETTER(Enabled)(&fEnabled);
+        ptrNic->COMGETTER(AttachmentType)(&enmAttach);
+        ptrNic->COMGETTER(CableConnected)(&fCable);
+        ptrNic->COMGETTER(MACAddress)(bstrMac.asOutParam());
+        ptrNic->COMGETTER(BridgedInterface)(bstrBridged.asOutParam());
+        ptrNic->COMGETTER(HostOnlyInterface)(bstrHostOnly.asOutParam());
+        ptrNic->COMGETTER(InternalNetwork)(bstrInternal.asOutParam());
+        ptrNic->COMGETTER(NATNetwork)(bstrNatNet.asOutParam());
+        j.beginObject()
+         .member("slot", (int64_t)iSlot).member("enabled", (bool)fEnabled).member("attachment", bridgeAttachmentName(enmAttach))
+         .member("cableConnected", (bool)fCable).member("mac", Utf8Str(bstrMac))
+         .member("bridgedInterface", Utf8Str(bstrBridged)).member("hostOnlyInterface", Utf8Str(bstrHostOnly))
+         .member("internalNetwork", Utf8Str(bstrInternal)).member("natNetwork", Utf8Str(bstrNatNet))
+         .endObject();
     }
     j.endArray();
 
@@ -398,10 +501,15 @@ static void bridgeMachineDetails(PBRIDGECTX pCtx, RTJSONVAL hParams, BridgeJson 
     j.key("sharedFolders").beginArray();
     for (size_t i = 0; i < aFolders.size(); i++)
     {
-        Bstr bstrName, bstrPath;
+        Bstr bstrName, bstrPath, bstrMountPoint;
+        BOOL fWritable = FALSE, fAutoMount = FALSE;
         aFolders[i]->COMGETTER(Name)(bstrName.asOutParam());
         aFolders[i]->COMGETTER(HostPath)(bstrPath.asOutParam());
-        j.beginObject().member("name", Utf8Str(bstrName)).member("hostPath", Utf8Str(bstrPath)).endObject();
+        aFolders[i]->COMGETTER(Writable)(&fWritable);
+        aFolders[i]->COMGETTER(AutoMount)(&fAutoMount);
+        aFolders[i]->COMGETTER(AutoMountPoint)(bstrMountPoint.asOutParam());
+        j.beginObject().member("name", Utf8Str(bstrName)).member("hostPath", Utf8Str(bstrPath))
+         .member("writable", (bool)fWritable).member("autoMount", (bool)fAutoMount).member("autoMountPoint", Utf8Str(bstrMountPoint)).endObject();
     }
     j.endArray().endObject();
 }
@@ -620,6 +728,167 @@ static void bridgeMachineCreate(PBRIDGECTX pCtx, RTJSONVAL hParams, BridgeJson &
     j.beginObject().key("machine");
     bridgeWriteMachineSummary(j, ptrMachine);
     j.member("disk", Utf8Str(bstrDisk)).endObject();
+}
+
+/**
+ * Changes display, network adapters and shared folders of a powered-off
+ * machine in one write lock, then saves.  Every part is optional:
+ *  display: { vramMB, controller, accel3d, monitors }
+ *  adapters: [{ slot, enabled, attachment, bridgedInterface, hostOnlyInterface, internalNetwork, natNetwork, cableConnected }]
+ *  sharedFoldersAdd: [{ name, hostPath, writable, autoMount, autoMountPoint }]
+ *  sharedFoldersRemove: [{ name }]
+ */
+static void bridgeMachineConfigure(PBRIDGECTX pCtx, RTJSONVAL hParams, BridgeJson &j)
+{
+    ComPtr<IMachine> ptrMachine = bridgeFindMachine(pCtx, hParams);
+    BRIDGE_HRC(ptrMachine->LockMachine(pCtx->ptrSession, LockType_Write), "Locking the machine for changes (power it off first)");
+    unsigned cChanges = 0;
+    try
+    {
+        ComPtr<IMachine> ptrMutable;
+        BRIDGE_HRC(pCtx->ptrSession->COMGETTER(Machine)(ptrMutable.asOutParam()), "Session machine");
+
+        RTJSONVAL hDisplay = NIL_RTJSONVAL;
+        if (RT_SUCCESS(RTJsonValueQueryByName(hParams, "display", &hDisplay)))
+        {
+            try
+            {
+                ComPtr<IGraphicsAdapter> ptrGfx;
+                BRIDGE_HRC(ptrMutable->COMGETTER(GraphicsAdapter)(ptrGfx.asOutParam()), "Graphics adapter");
+                int64_t i64 = 0;
+                bool f = false;
+                Utf8Str strCtl = bridgeParamString(hDisplay, "controller", false);
+                if (strCtl.isNotEmpty())
+                {
+                    BRIDGE_HRC(ptrGfx->COMSETTER(GraphicsControllerType)(bridgeGraphicsFromName(strCtl)), "Setting the graphics controller");
+                    cChanges++;
+                }
+                if (bridgeParamInt(hDisplay, "vramMB", &i64))
+                {
+                    BRIDGE_HRC(ptrGfx->COMSETTER(VRAMSize)((ULONG)i64), "Setting video memory");
+                    cChanges++;
+                }
+                if (bridgeParamInt(hDisplay, "monitors", &i64))
+                {
+                    BRIDGE_HRC(ptrGfx->COMSETTER(MonitorCount)((ULONG)i64), "Setting the monitor count");
+                    cChanges++;
+                }
+                if (bridgeParamBool(hDisplay, "accel3d", &f))
+                {
+                    BRIDGE_HRC(ptrGfx->SetFeature(GraphicsFeature_Acceleration3D, f), "Setting 3D acceleration");
+                    cChanges++;
+                }
+            }
+            catch (...)
+            {
+                RTJsonValueRelease(hDisplay);
+                throw;
+            }
+            RTJsonValueRelease(hDisplay);
+        }
+
+        bridgeForEachObject(hParams, "adapters", [&](RTJSONVAL hNic)
+        {
+            int64_t iSlot = -1;
+            if (!bridgeParamInt(hNic, "slot", &iSlot) || iSlot < 0 || iSlot > 7)
+                throw BridgeError("Each adapter needs a slot from 0 to 7", E_INVALIDARG);
+            ComPtr<INetworkAdapter> ptrNic;
+            BRIDGE_HRC(ptrMutable->GetNetworkAdapter((ULONG)iSlot, ptrNic.asOutParam()), "Network adapter");
+            bool f = false;
+            if (bridgeParamBool(hNic, "enabled", &f))
+                BRIDGE_HRC(ptrNic->COMSETTER(Enabled)(f), "Enabling the adapter");
+            Utf8Str strAttach = bridgeParamString(hNic, "attachment", false);
+            if (strAttach.isNotEmpty())
+                BRIDGE_HRC(ptrNic->COMSETTER(AttachmentType)(bridgeAttachmentFromName(strAttach)), "Setting the attachment");
+            Utf8Str str = bridgeParamString(hNic, "bridgedInterface", false);
+            if (str.isNotEmpty())
+                BRIDGE_HRC(ptrNic->COMSETTER(BridgedInterface)(Bstr(str).raw()), "Setting the bridged interface");
+            str = bridgeParamString(hNic, "hostOnlyInterface", false);
+            if (str.isNotEmpty())
+                BRIDGE_HRC(ptrNic->COMSETTER(HostOnlyInterface)(Bstr(str).raw()), "Setting the host-only interface");
+            str = bridgeParamString(hNic, "internalNetwork", false);
+            if (str.isNotEmpty())
+                BRIDGE_HRC(ptrNic->COMSETTER(InternalNetwork)(Bstr(str).raw()), "Setting the internal network");
+            str = bridgeParamString(hNic, "natNetwork", false);
+            if (str.isNotEmpty())
+                BRIDGE_HRC(ptrNic->COMSETTER(NATNetwork)(Bstr(str).raw()), "Setting the NAT network");
+            if (bridgeParamBool(hNic, "cableConnected", &f))
+                BRIDGE_HRC(ptrNic->COMSETTER(CableConnected)(f), "Setting the cable");
+            cChanges++;
+        });
+
+        bridgeForEachObject(hParams, "sharedFoldersRemove", [&](RTJSONVAL hFolder)
+        {
+            Utf8Str strName = bridgeParamString(hFolder, "name");
+            BRIDGE_HRC(ptrMutable->RemoveSharedFolder(Bstr(strName).raw()), "Removing the shared folder");
+            cChanges++;
+        });
+
+        bridgeForEachObject(hParams, "sharedFoldersAdd", [&](RTJSONVAL hFolder)
+        {
+            Utf8Str strName = bridgeParamString(hFolder, "name");
+            Utf8Str strPath = bridgeParamString(hFolder, "hostPath");
+            Utf8Str strMountPoint = bridgeParamString(hFolder, "autoMountPoint", false);
+            bool fWritable = true, fAutoMount = true;
+            bridgeParamBool(hFolder, "writable", &fWritable);
+            bridgeParamBool(hFolder, "autoMount", &fAutoMount);
+            BRIDGE_HRC(ptrMutable->CreateSharedFolder(Bstr(strName).raw(), Bstr(strPath).raw(), fWritable, fAutoMount,
+                                                     Bstr(strMountPoint).raw()), "Adding the shared folder");
+            cChanges++;
+        });
+
+        BRIDGE_HRC(ptrMutable->SaveSettings(), "Saving settings");
+    }
+    catch (...)
+    {
+        pCtx->ptrSession->UnlockMachine();
+        throw;
+    }
+    pCtx->ptrSession->UnlockMachine();
+    j.beginObject().member("changes", (int64_t)cChanges).endObject();
+}
+
+/**
+ * Inserts an image into, or ejects one from, an optical or floppy drive.
+ * Works on running machines too: a write lock is tried first, a shared lock
+ * when the machine is running.  An empty location ejects.
+ */
+static void bridgeStorageMount(PBRIDGECTX pCtx, RTJSONVAL hParams, BridgeJson &j)
+{
+    ComPtr<IMachine> ptrMachine = bridgeFindMachine(pCtx, hParams);
+    Utf8Str strController = bridgeParamString(hParams, "controller");
+    Utf8Str strLocation   = bridgeParamString(hParams, "location", false);
+    int64_t iPort = 0, iDevice = 0;
+    bridgeParamInt(hParams, "port", &iPort);
+    bridgeParamInt(hParams, "device", &iDevice);
+
+    ComPtr<IMedium> ptrMedium;
+    if (strLocation.isNotEmpty())
+        BRIDGE_HRC(pCtx->ptrVBox->OpenMedium(Bstr(strLocation).raw(), DeviceType_DVD, AccessMode_ReadOnly, FALSE,
+                                             ptrMedium.asOutParam()), "Opening the image");
+
+    bool fShared = false;
+    if (FAILED(ptrMachine->LockMachine(pCtx->ptrSession, LockType_Write)))
+    {
+        BRIDGE_HRC(ptrMachine->LockMachine(pCtx->ptrSession, LockType_Shared), "Locking the machine");
+        fShared = true;
+    }
+    try
+    {
+        ComPtr<IMachine> ptrMutable;
+        BRIDGE_HRC(pCtx->ptrSession->COMGETTER(Machine)(ptrMutable.asOutParam()), "Session machine");
+        BRIDGE_HRC(ptrMutable->MountMedium(Bstr(strController).raw(), (LONG)iPort, (LONG)iDevice, ptrMedium, TRUE /*fForce*/),
+                   strLocation.isNotEmpty() ? "Inserting the image" : "Ejecting the image");
+        if (!fShared)
+            BRIDGE_HRC(ptrMutable->SaveSettings(), "Saving settings");
+    }
+    catch (...)
+    {
+        pCtx->ptrSession->UnlockMachine();
+        throw;
+    }
+    pCtx->ptrSession->UnlockMachine();
+    j.beginObject().member("mounted", strLocation.isNotEmpty()).endObject();
 }
 
 static void bridgeMachineDelete(PBRIDGECTX pCtx, RTJSONVAL hParams, BridgeJson &j)
@@ -1062,6 +1331,8 @@ static const struct
     { "machine.control",    bridgeMachineControl },
     { "machine.update",     bridgeMachineUpdate },
     { "machine.create",     bridgeMachineCreate },
+    { "machine.configure",  bridgeMachineConfigure },
+    { "storage.mount",      bridgeStorageMount },
     { "machine.delete",     bridgeMachineDelete },
     { "snapshots.list",     bridgeSnapshotsList },
     { "snapshots.take",     bridgeSnapshotTake },

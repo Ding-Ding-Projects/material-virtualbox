@@ -6,7 +6,7 @@
 
 const { contextBridge, ipcRenderer } = require('electron');
 
-const METHODS = ['host.info', 'machines.list', 'machine.details', 'machine.start', 'machine.control', 'machine.update', 'machine.create', 'machine.delete',
+const METHODS = ['host.info', 'machines.list', 'machine.details', 'machine.start', 'machine.control', 'machine.update', 'machine.create', 'machine.configure', 'storage.mount', 'machine.delete',
     'snapshots.list', 'snapshots.take', 'media.list', 'networks.list', 'logs.read', 'extpacks.list', 'metrics.sample'];
 
 contextBridge.exposeInMainWorld('mvb', {

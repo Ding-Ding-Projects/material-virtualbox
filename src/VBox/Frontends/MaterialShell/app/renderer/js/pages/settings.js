@@ -8,6 +8,7 @@ import { store, api, notify, recordHistory } from '../services.js';
 import { searchField, registerPaletteSource, teleport } from '../features/overlays.js';
 import { megabytes, monogram } from '../logic/format.js';
 import { refreshMachines } from './machines.js';
+import { renderEditor, invalidateEditors } from './settings-editors.js';
 
 const SECTIONS = [['general', 'General', ICONS.info], ['system', 'System', ICONS.chip], ['display', 'Display', ICONS.display], ['storage', 'Storage', ICONS.disk], ['network', 'Network', ICONS.network], ['folders', 'Shared folders', ICONS.folder]];
 let section = 'system';
@@ -27,7 +28,7 @@ export function renderSettings(root) {
     const s = store.get();
     const m = s.machines.find((x) => x.id === s.selectedId);
     if (!m) return mount(root, h('div', { class: 'page' }, h('div', { class: 'empty' }, 'Select a machine first.')));
-    if (!draft || draft.id !== m.id) draft = { id: m.id, name: m.name, memoryMB: m.memoryMB, cpus: m.cpus };
+    if (!draft || draft.id !== m.id) { draft = { id: m.id, name: m.name, memoryMB: m.memoryMB, cpus: m.cpus }; invalidateEditors(); }
     const host = s.host || { memoryMB: 0, cpus: 0 };
     const live = m.state === 'running' || m.state === 'paused' || m.state === 'saved';
     const dirty = draft.name !== m.name || draft.memoryMB !== m.memoryMB || draft.cpus !== m.cpus;
@@ -68,20 +69,23 @@ export function renderSettings(root) {
                     h('button', { class: 'btn tonal st grow', 'aria-label': 'More processors', disabled: live || (host.cpus && draft.cpus >= host.cpus) ? true : undefined, onclick: () => { draft.cpus++; renderSettings(root); } }, '+'))));
     } else if (section === 'general') {
         tiles.push(h('label', { class: 'input-card rise', id: 'set-name', style: { gridColumn: 'span 6' } }, h('span', { class: 'kicker' }, 'Name'), h('input', { value: draft.name, oninput: (e) => { draft.name = e.target.value; } , onchange: () => renderSettings(root) }), h('span', { class: 'muted', style: { fontSize: '12px' } }, 'Shown in the library and on the machine window.')));
-    } else {
-        tiles.push(h('div', { class: 'card rise', style: { gridColumn: 'span 6' } }, h('h3', { class: 'title' }, SECTIONS.find((x) => x[0] === section)[1]), h('p', { class: 'muted' }, 'Read-only here for now. The Details pane shows the current values; the classic settings dialog still edits this page.'),
-            h('button', { class: 'btn tonal st', onclick: () => store.set({ route: 'machines' }) }, 'Open Details')));
     }
 
+    const editorSection = ['display', 'network', 'folders', 'storage'].includes(section);
+    const editorGrid = (t) => {
+        const grid = h('div', { class: 'grid g6' }, t);
+        if (editorSection) renderEditor(section, m, grid, () => renderSettings(root));
+        return grid;
+    };
     mount(root, h('div', { style: { display: 'flex', flexWrap: 'wrap', minHeight: '100%' } }, side,
         h('div', { class: 'page', style: { flex: '999 1 560px', minWidth: 0 } },
             h('div', { class: 'spread' },
                 h('div', null, h('span', { class: 'mono muted', style: { fontSize: '12px' } }, 'Settings / ' + SECTIONS.find((x) => x[0] === section)[1]),
                     h('h2', { class: 'display', style: { background: 'linear-gradient(90deg, var(--on-primary-container), var(--tertiary))', WebkitBackgroundClip: 'text', backgroundClip: 'text', color: 'transparent' } }, SECTIONS.find((x) => x[0] === section)[1])),
-                h('div', { class: 'row' }, h('button', { class: 'btn outlined st', disabled: dirty ? undefined : true, onclick: () => { draft = null; renderSettings(root); } }, 'Discard'), h('button', { class: 'btn filled st', disabled: dirty && !live && draft.name.trim() ? undefined : true, onclick: apply }, 'Apply'))),
-            live ? h('div', { class: 'banner info rise' }, icon(ICONS.info), 'Power the machine off to change hardware. Running and saved machines keep their hardware fixed.') : null,
+                editorSection ? null : h('div', { class: 'row' }, h('button', { class: 'btn outlined st', disabled: dirty ? undefined : true, onclick: () => { draft = null; renderSettings(root); } }, 'Discard'), h('button', { class: 'btn filled st', disabled: dirty && !live && draft.name.trim() ? undefined : true, onclick: apply }, 'Apply'))),
+            live && section !== 'storage' ? h('div', { class: 'banner info rise' }, icon(ICONS.info), 'Power the machine off to change hardware. Running and saved machines keep their hardware fixed.') : null,
             memWarn ? h('div', { class: 'banner warn rise' }, icon(ICONS.info), 'Memory is above half of the host\'s ' + megabytes(host.memoryMB) + '. The host may page while this machine runs.') : null,
-            h('div', { class: 'grid g6' }, tiles))));
+            editorGrid(tiles))));
 }
 
 /* ------------------------------------------------------------- the wizard */

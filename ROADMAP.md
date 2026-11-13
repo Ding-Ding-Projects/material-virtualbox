@@ -8,7 +8,8 @@
 - [x] Make the Material shell the only user interface: no Qt GUI built or shipped, machine screens streamed into the shell.
 - [ ] Confirm the first CI build of the bridge and the merged upstream tree without the Qt GUI.
 - [ ] Run the packaged shell against a real `VBoxSVC` and capture it.
-- [ ] Make the remaining settings pages editable in the shell (Display, Storage, Network, Shared folders).
+- [x] Make Display, Storage (optical images), Network and Shared folders editable in the shell.
+- [ ] Make Audio, Serial ports, USB and storage controllers editable in the shell.
 
 ## Closeout status, 2026-09-18
 

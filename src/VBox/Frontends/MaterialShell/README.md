@@ -65,6 +65,8 @@ Requests and responses are single lines of JSON on the bridge's stdin and stdout
 | `machine.start` | `id`, `type?` (`gui`, `headless`, `separate`) | Launches the machine process |
 | `machine.control` | `id`, `action` (`show`, `pause`, `resume`, `reset`, `acpiShutdown`, `powerOff`, `saveState`) | Controls a running machine |
 | `machine.update` | `id`, `name?`, `memoryMB?`, `cpus?`, `description?` | Changes settings and saves them |
+| `machine.configure` | `id`, `display?`, `adapters?`, `sharedFoldersAdd?`, `sharedFoldersRemove?` | Display (video memory, controller, monitors, 3D), network adapters 1 to 4 and shared folders of a powered-off machine, in one write lock |
+| `storage.mount` | `id`, `controller`, `port`, `device`, `location?` | Inserts an image into a drive, or ejects with an empty location; works while running |
 | `machine.delete` | `id`, `confirmName` | Unregisters and deletes files; the name must match |
 | `snapshots.list` / `snapshots.take` | `id` (+ `name`, `description?`) | Snapshot tree / new snapshot |
 | `media.list` | `kind?` (`disk`, `optical`, `floppy`) | Registered media and what uses them |
@@ -119,7 +121,8 @@ and the notification centre.
   second, fine for desktops and installers, not for games.
 - `VBoxManage startvm` without `--type headless` fails, because there is no
   `VirtualBoxVM` to start; that is intended.
-- Settings pages other than General and System are read-only in the shell for
-  now; the classic Qt settings dialog still edits them.
+- Settings cover General, System, Display, Storage (optical images), Network
+  and Shared folders. Audio, serial ports, USB and storage controllers are not
+  editable in the shell yet; there is no other user interface to edit them.
 - No virtual machine can start on a host that refuses the unsigned hypervisor
   driver. The shell reports that failure as VBoxSVC returns it.

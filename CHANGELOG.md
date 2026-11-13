@@ -96,6 +96,17 @@ a published release.
 
 ## [Unreleased]
 
+### Added — Display, Network, Shared folders and Storage settings in the shell (2026-11-13)
+
+- Bridge: `machine.configure` (display, network adapters 1 to 4, shared folders,
+  one write lock and save) and `storage.mount` (insert or eject an optical image,
+  also while the machine runs); `machine.details` now reports the graphics
+  controller, monitor count, 3D acceleration, full adapter settings, shared folder
+  options and medium locations.
+- Shell: editors for those four pages, each with Apply and Discard, and history
+  entries that restore the previous values as a new revision.
+- **Not yet proven:** exercised against the demo provider only.
+
 ### Changed — The bridge runs inside the Material shell (2026-11-13)
 
 - New `VBoxMaterialBridgeNode.dll`: the bridge handlers as a Node-API module
