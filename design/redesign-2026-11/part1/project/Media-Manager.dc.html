@@ -1,0 +1,128 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Media manager</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Roboto+Flex:opsz,wdth,wght@8..144,25..151,300..900&family=Roboto+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#0B0A0F}
+a{color:#D0BCFF}a:hover{color:#EADDFF}
+button{font:inherit;color:inherit;border:0;background:none;cursor:pointer}
+input{font:inherit;color:inherit}
+@keyframes mvRise{from{opacity:0;transform:translateY(16px);filter:blur(4px)}to{opacity:1;transform:none;filter:none}}
+@keyframes mvRing{from{stroke-dashoffset:302}}
+@keyframes mvDrawer{from{opacity:0;transform:translateX(40px)}to{opacity:1;transform:none}}
+@keyframes mvBulk{from{opacity:0;transform:translate(-50%,40px) scale(.9)}to{opacity:1;transform:translate(-50%,0)}}
+.mv-st{transition:background-color 200ms cubic-bezier(.2,0,0,1),transform 320ms cubic-bezier(.34,1.56,.64,1),color 200ms}
+.mv-st:hover{background-color:rgba(230,224,233,.08)}
+.mv-st:active{transform:scale(.97)}
+.mv-st:focus-visible{outline:3px solid #D0BCFF;outline-offset:2px}
+@media (prefers-reduced-motion: reduce){*,*::before,*::after{animation:none!important;transition:none!important}}
+</style>
+</helmet>
+<div style="position: relative; min-height: 900px; display: flex; flex-wrap: wrap; background: #0B0A0F; color: #E6E0E9; font-family: 'Roboto Flex', 'Segoe UI', system-ui, sans-serif; font-size: 14px">
+  <main style="flex: 999 1 640px; min-width: 0; padding: 28px 32px; display: flex; flex-direction: column; gap: 18px">
+    <div style="display: flex; flex-wrap: wrap; gap: 16px; align-items: flex-end; justify-content: space-between">
+      <h1 style="margin: 0; font-size: 56px; line-height: .95; font-weight: 900; letter-spacing: -1.5px; font-variation-settings: 'wdth' 135">Media</h1>
+      <div role="tablist" aria-label="Media type" style="display: flex; padding: 4px; border-radius: 24px; background: #1D1B20">
+        <sc-for list="{{ kinds }}" as="k" hint-placeholder-count="3">
+          <button role="tab" class="mv-st" onClick="{{ k.pick }}" aria-selected="{{ k.on }}" style="height: 40px; padding: 0 18px; border-radius: 20px; font-weight: 700; background: {{ k.bg }}; color: {{ k.fg }}">{{ k.label }}</button>
+        </sc-for>
+      </div>
+    </div>
+    <div style="display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px">
+      <sc-for list="{{ stats }}" as="s" hint-placeholder-count="4">
+        <div style="padding: 18px; border-radius: 24px; background: {{ s.bg }}; animation: mvRise 520ms cubic-bezier(.05,.7,.1,1) both; animation-delay: {{ s.delay }}">
+          <div style="font-size: 12px; color: {{ s.sub }}; font-weight: 700; letter-spacing: .6px; text-transform: uppercase">{{ s.k }}</div>
+          <div style="font-size: 36px; font-weight: 850; font-variation-settings: 'wdth' 120; color: {{ s.fg }}">{{ s.v }}</div>
+        </div>
+      </sc-for>
+    </div>
+    <label style="display: flex; align-items: center; gap: 8px; height: 48px; padding: 0 6px 0 16px; border-radius: 24px; background: #1D1B20; color: #CAC4D0">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"></circle><path d="M20 20l-3.5-3.5"></path></svg>
+      <span style="position: absolute; left: -9999px">Search media</span>
+      <input placeholder="Search media by name, path or format" style="flex: 1; min-width: 0; border: 0; outline: 0; background: transparent">
+      <span title="Regular expression builder" style="font-family: 'Roboto Mono', monospace; font-size: 12px; padding: 8px 12px; border-radius: 18px; background: #2B2930; color: #D0BCFF">.*</span>
+    </label>
+    <div role="table" aria-label="Disks" style="display: flex; flex-direction: column; gap: 6px">
+      <div role="row" style="display: grid; grid-template-columns: 44px minmax(0,2fr) minmax(0,1fr) minmax(0,1fr) minmax(0,1.4fr); gap: 12px; padding: 0 14px; font-size: 12px; color: #CAC4D0; font-weight: 700">
+        <span role="columnheader"></span><span role="columnheader">Name</span><span role="columnheader">Format</span><span role="columnheader">Size</span><span role="columnheader">Attached to</span>
+      </div>
+      <sc-for list="{{ disks }}" as="d" hint-placeholder-count="6">
+        <div role="row" style="display: grid; grid-template-columns: 44px minmax(0,2fr) minmax(0,1fr) minmax(0,1fr) minmax(0,1.4fr); gap: 12px; align-items: center; padding: 10px 14px; border-radius: 18px; background: {{ d.bg }}; transition: background-color 250ms; animation: mvRise 460ms cubic-bezier(.05,.7,.1,1) both; animation-delay: {{ d.delay }}">
+          <button class="mv-st" role="checkbox" aria-checked="{{ d.checked }}" aria-label="Select {{ d.name }}" onClick="{{ d.toggle }}" style="width: 28px; height: 28px; border-radius: 9px; border: 2px solid {{ d.box }}; background: {{ d.fill }}; color: #381E72; display: grid; place-items: center">
+            <sc-if value="{{ d.sel }}" hint-placeholder-val="{{ false }}"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.5" stroke-linecap="round" aria-hidden="true"><path d="M5 12l5 5 9-10"></path></svg></sc-if>
+          </button>
+          <button class="mv-st" onClick="{{ d.open }}" role="cell" style="display: flex; flex-direction: column; text-align: left; padding: 4px 8px; border-radius: 10px"><span style="font-weight: 700">{{ d.name }}</span><span style="font-family: 'Roboto Mono', monospace; font-size: 11.5px; color: #CAC4D0">{{ d.path }}</span></button>
+          <span role="cell"><span style="padding: 4px 10px; border-radius: 8px; background: #2B2930; font-family: 'Roboto Mono', monospace; font-size: 12px">{{ d.fmt }}</span></span>
+          <span role="cell" style="display: flex; flex-direction: column; gap: 6px"><span style="font-weight: 650">{{ d.size }}</span><span style="height: 6px; border-radius: 3px; background: #2B2930; overflow: hidden"><span style="display: block; height: 100%; width: {{ d.pct }}; border-radius: 3px; background: #D0BCFF"></span></span></span>
+          <span role="cell" style="color: {{ d.attFg }}">{{ d.att }}</span>
+        </div>
+      </sc-for>
+    </div>
+  </main>
+
+  <aside aria-label="Disk details" style="flex: 1 1 340px; max-width: 400px; margin: 16px 16px 16px 0; padding: 24px; border-radius: 32px; background: linear-gradient(170deg, #2B2340, #17151C); display: flex; flex-direction: column; gap: 18px; animation: mvDrawer 560ms cubic-bezier(.05,.7,.1,1) both">
+    <span style="font-size: 12px; font-weight: 800; letter-spacing: 1.2px; text-transform: uppercase; color: #D0BCFF">Details</span>
+    <h2 style="margin: 0; font-size: 28px; line-height: 1.1; font-weight: 800">{{ cur.name }}</h2>
+    <div style="position: relative; width: 200px; height: 200px; align-self: center">
+      <svg width="200" height="200" viewBox="0 0 120 120" role="img" aria-label="{{ cur.pct }} of virtual size used">
+        <circle cx="60" cy="60" r="48" fill="none" stroke="#2B2930" stroke-width="12"></circle>
+        <circle cx="60" cy="60" r="48" fill="none" stroke="url(#mvg)" stroke-width="12" stroke-linecap="round" stroke-dasharray="302" stroke-dashoffset="{{ cur.offset }}" transform="rotate(-90 60 60)" style="animation: mvRing 1100ms cubic-bezier(.05,.7,.1,1) both; transition: stroke-dashoffset 700ms cubic-bezier(.05,.7,.1,1)"></circle>
+        <defs><linearGradient id="mvg" x1="0" x2="1"><stop offset="0" stop-color="#D0BCFF"></stop><stop offset="1" stop-color="#EFB8C8"></stop></linearGradient></defs>
+      </svg>
+      <div style="position: absolute; inset: 0; display: grid; place-items: center; text-align: center"><span><span style="display: block; font-size: 36px; font-weight: 900">{{ cur.pct }}</span><span style="font-size: 12px; color: #CAC4D0">of {{ cur.size }}</span></span></div>
+    </div>
+    <dl style="margin: 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px">
+      <div style="padding: 12px 14px; border-radius: 16px; background: rgba(15,13,19,.6)"><dt style="font-size: 12px; color: #CAC4D0">Format</dt><dd style="margin: 2px 0 0; font-weight: 700">{{ cur.fmt }}</dd></div>
+      <div style="padding: 12px 14px; border-radius: 16px; background: rgba(15,13,19,.6)"><dt style="font-size: 12px; color: #CAC4D0">Type</dt><dd style="margin: 2px 0 0; font-weight: 700">Normal, dynamic</dd></div>
+      <div style="padding: 12px 14px; border-radius: 16px; background: rgba(15,13,19,.6); grid-column: span 2"><dt style="font-size: 12px; color: #CAC4D0">Attached to</dt><dd style="margin: 2px 0 0; font-weight: 700">{{ cur.att }}</dd></div>
+    </dl>
+    <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px">
+      <button class="mv-st" style="height: 48px; border-radius: 24px; background: #4A4458; color: #E8DEF8; font-weight: 700">Resize</button>
+      <button class="mv-st" style="height: 48px; border-radius: 24px; background: #4A4458; color: #E8DEF8; font-weight: 700">Compact</button>
+      <button class="mv-st" style="height: 48px; border-radius: 24px; border: 1px solid #49454F; font-weight: 700">Copy</button>
+      <button class="mv-st" style="height: 48px; border-radius: 24px; border: 1px solid #8C1D18; color: #F2B8B5; font-weight: 700">Release</button>
+    </div>
+  </aside>
+
+  <sc-if value="{{ bulk }}" hint-placeholder-val="{{ false }}">
+    <div role="toolbar" aria-label="Bulk actions" style="position: absolute; left: 50%; bottom: 28px; transform: translateX(-50%); display: flex; align-items: center; gap: 8px; padding: 8px 8px 8px 20px; border-radius: 32px; background: #E6E0E9; color: #1D1B20; box-shadow: 0 20px 50px rgba(0,0,0,.55); animation: mvBulk 520ms cubic-bezier(.34,1.56,.64,1) both">
+      <span style="font-weight: 800">{{ count }} selected</span>
+      <button class="mv-st" style="height: 44px; padding: 0 16px; border-radius: 22px; font-weight: 700">Compact all</button>
+      <button class="mv-st" style="height: 44px; padding: 0 16px; border-radius: 22px; font-weight: 700">Export list</button>
+      <button class="mv-st" style="height: 44px; padding: 0 18px; border-radius: 22px; background: #8C1D18; color: #FFDAD6; font-weight: 800">Remove</button>
+      <button class="mv-st" onClick="{{ clear }}" aria-label="Clear selection" style="width: 44px; height: 44px; border-radius: 22px; display: grid; place-items: center"><svg width="16" height="16" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"></path></svg></button>
+    </div>
+  </sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":900}}'>
+class Component extends DCLogic {
+  constructor(p) { super(p); this.state = { kind: 0, sel: [false, true, true, false, false, false], cur: 0 }; }
+  renderVals() {
+    const kinds = ['Hard disks', 'Optical', 'Floppy'].map((l, i) => ({ label: l, on: i === this.state.kind ? 'true' : 'false', bg: i === this.state.kind ? '#4F378B' : 'transparent', fg: i === this.state.kind ? '#EADDFF' : '#CAC4D0', pick: () => this.setState({ kind: i }) }));
+    const stats = [['Disks', '6', '#1D1B20', '#E6E0E9', '#CAC4D0'], ['Allocated', '214 GB', '#1D1B20', '#E6E0E9', '#CAC4D0'], ['On host disk', '96 GB', '#1D1B20', '#E6E0E9', '#CAC4D0'], ['Reclaimable', '31 GB', '#4F378B', '#EADDFF', '#EADDFF']]
+      .map((s, i) => ({ k: s[0], v: s[1], bg: s[2], fg: s[3], sub: s[4], delay: (i * 60) + 'ms' }));
+    const raw = [['Dev Box.vdi', 'D:\\VMs\\Dev Box', 'VDI', '80 GB', 0.62, 'Windows 11 Dev Box'], ['ubuntu-server.vdi', 'D:\\VMs\\Ubuntu', 'VDI', '40 GB', 0.41, 'Ubuntu 24.04 Server'],
+      ['fedora.vmdk', 'E:\\Lab\\Fedora', 'VMDK', '50 GB', 0.35, 'Fedora Workstation'], ['debian-agent.vdi', 'D:\\VMs\\Debian', 'VDI', '20 GB', 0.22, 'Debian Build Agent'],
+      ['scratch.vhd', 'E:\\Scratch', 'VHD', '16 GB', 0.08, 'Not attached'], ['router.vdi', 'D:\\VMs\\Router', 'VDI', '8 GB', 0.55, 'FreeBSD Router']];
+    const sel = this.state.sel;
+    const disks = raw.map((d, i) => ({ name: d[0], path: d[1], fmt: d[2], size: d[3], pct: Math.round(d[4] * 100) + '%', att: d[5], attFg: d[5] === 'Not attached' ? '#FFB869' : '#CAC4D0',
+      sel: sel[i], checked: sel[i] ? 'true' : 'false', box: sel[i] ? '#D0BCFF' : '#938F99', fill: sel[i] ? '#D0BCFF' : 'transparent',
+      bg: i === this.state.cur ? '#2B2340' : (sel[i] ? '#211F26' : 'transparent'), delay: (i * 55) + 'ms',
+      toggle: () => { const n = sel.slice(); n[i] = !n[i]; this.setState({ sel: n }); }, open: () => this.setState({ cur: i }) }));
+    const c = raw[this.state.cur];
+    const count = sel.filter(Boolean).length;
+    return { kinds, stats, disks, cur: { name: c[0], fmt: c[2], size: c[3], att: c[5], pct: Math.round(c[4] * 100) + '%', offset: Math.round(302 * (1 - c[4])) },
+      bulk: count > 0, count, clear: () => this.setState({ sel: sel.map(() => false) }) };
+  }
+}
+</script>
+</body>
+</html>
