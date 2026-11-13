@@ -1,0 +1,118 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Per-element appearance editor</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Roboto+Flex:opsz,wdth,wght@8..144,25..151,300..900&family=Roboto+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#0B0A0F}
+a{color:#D0BCFF}a:hover{color:#EADDFF}
+button{font:inherit;color:inherit;border:0;background:none;cursor:pointer}
+input{font:inherit;color:inherit}
+@keyframes mvPop{0%{opacity:0;transform:translateY(10px) scale(.9)}70%{transform:scale(1.02)}100%{opacity:1;transform:none}}
+@keyframes mvDash{to{stroke-dashoffset:-24}}
+@keyframes mvMarch{to{background-position:20px 0,-20px 100%,0 -20px,100% 20px}}
+@keyframes mvHue{to{filter:hue-rotate(360deg)}}
+.mv-st{transition:background-color 180ms cubic-bezier(.2,0,0,1),transform 320ms cubic-bezier(.34,1.56,.64,1),color 180ms}
+.mv-st:hover{background-color:rgba(230,224,233,.08)}
+.mv-st:active{transform:scale(.95)}
+.mv-st:focus-visible{outline:3px solid #D0BCFF;outline-offset:2px}
+.mv-live{transition:background-color 500ms cubic-bezier(.2,0,0,1),border-radius 500ms cubic-bezier(.34,1.56,.64,1),font-size 400ms,font-weight 400ms,color 400ms}
+.mv-ants{background-image:linear-gradient(90deg,#D0BCFF 50%,transparent 50%),linear-gradient(90deg,#D0BCFF 50%,transparent 50%),linear-gradient(0deg,#D0BCFF 50%,transparent 50%),linear-gradient(0deg,#D0BCFF 50%,transparent 50%);background-repeat:repeat-x,repeat-x,repeat-y,repeat-y;background-size:10px 2px,10px 2px,2px 10px,2px 10px;background-position:0 0,0 100%,0 0,100% 0;animation:mvMarch 1s linear infinite}
+@media (prefers-reduced-motion: reduce){*,*::before,*::after{animation:none!important;transition:none!important}}
+</style>
+</helmet>
+<div style="position: relative; min-height: 900px; padding: 28px 32px; display: flex; flex-direction: column; gap: 18px; background: #0B0A0F; color: #E6E0E9; font-family: 'Roboto Flex', 'Segoe UI', system-ui, sans-serif; font-size: 14px">
+  <div>
+    <span style="font-size: 12px; font-weight: 800; letter-spacing: 1.2px; text-transform: uppercase; color: #D0BCFF">Shift + right-click any element</span>
+    <h1 style="margin: 4px 0 0; font-size: 56px; line-height: .95; font-weight: 900; letter-spacing: -1.5px; font-variation-settings: 'wdth' 135">Appearance editor</h1>
+  </div>
+
+  <div style="display: flex; flex-wrap: wrap; gap: 24px; align-items: flex-start">
+    <div style="flex: 999 1 520px; min-width: 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px">
+      <div class="mv-ants" style="position: relative; padding: 6px; border-radius: {{ outerR }}">
+        <div class="mv-live" style="padding: 22px; border-radius: {{ radius }}; background: {{ color }}; color: {{ ink }}; display: flex; flex-direction: column; gap: 10px; min-height: 200px">
+          <span style="font-size: 12px; font-weight: 800; letter-spacing: 1px; text-transform: uppercase; opacity: .85">Selected element</span>
+          <span class="mv-live" style="font-size: {{ size }}; font-weight: {{ weight }}; line-height: 1.05">Windows 11 Dev Box</span>
+          <span style="opacity: .85">Hero card · key manager.hero.card</span>
+        </div>
+        <span style="position: absolute; top: -12px; left: 18px; padding: 3px 10px; border-radius: 8px; background: #D0BCFF; color: #381E72; font-family: 'Roboto Mono', monospace; font-size: 11px; font-weight: 600">manager.hero.card</span>
+      </div>
+      <div style="padding: 22px; border-radius: 28px; background: #17151C; display: flex; flex-direction: column; gap: 10px; min-height: 200px">
+        <span style="font-size: 12px; font-weight: 800; letter-spacing: 1px; text-transform: uppercase; color: #CAC4D0">Untouched neighbour</span>
+        <span style="font-size: 28px; font-weight: 800">Snapshots</span>
+        <span style="color: #CAC4D0">Keeps the theme defaults</span>
+      </div>
+      <div style="grid-column: span 2; padding: 16px 18px; border-radius: 22px; background: #17151C; display: flex; gap: 10px; align-items: center; flex-wrap: wrap">
+        <span style="font-weight: 750">Applies to</span>
+        <sc-for list="{{ scopes }}" as="s" hint-placeholder-count="3">
+          <button class="mv-st" onClick="{{ s.pick }}" aria-pressed="{{ s.on }}" style="height: 38px; padding: 0 14px; border-radius: 12px; font-weight: 700; font-size: 13px; background: {{ s.bg }}; color: {{ s.fg }}">{{ s.label }}</button>
+        </sc-for>
+      </div>
+    </div>
+
+    <section role="dialog" aria-label="Edit appearance" style="flex: 1 1 380px; max-width: 440px; padding: 22px; border-radius: 32px; background: rgba(33,31,38,.95); border: 1px solid rgba(202,196,208,.16); box-shadow: 0 30px 70px rgba(0,0,0,.55); display: flex; flex-direction: column; gap: 16px; animation: mvPop 520ms cubic-bezier(.34,1.56,.64,1) both">
+      <div style="display: flex; align-items: center; justify-content: space-between"><h2 style="margin: 0; font-size: 20px; font-weight: 850">Hero card</h2><span style="font-family: 'Roboto Mono', monospace; font-size: 11px; color: #CAC4D0">rev 14</span></div>
+      <div style="display: flex; flex-direction: column; gap: 10px">
+        <span style="font-weight: 750">Colour</span>
+        <div aria-hidden="true" style="height: 120px; border-radius: 20px; background: linear-gradient(0deg, #000, transparent), linear-gradient(90deg, #fff, {{ color }}); position: relative">
+          <span style="position: absolute; left: 72%; top: 34%; width: 22px; height: 22px; border-radius: 11px; border: 3px solid #fff; box-shadow: 0 2px 8px rgba(0,0,0,.5); background: {{ color }}"></span>
+        </div>
+        <div aria-hidden="true" style="height: 14px; border-radius: 7px; background: linear-gradient(90deg, #f00, #ff0, #0f0, #0ff, #00f, #f0f, #f00)"></div>
+        <div style="display: flex; gap: 8px; flex-wrap: wrap">
+          <sc-for list="{{ swatches }}" as="w" hint-placeholder-count="7">
+            <button class="mv-st" onClick="{{ w.pick }}" aria-label="Colour {{ w.hex }}" aria-pressed="{{ w.on }}" style="width: 40px; height: 40px; border-radius: {{ w.r }}; background: {{ w.hex }}; box-shadow: {{ w.ring }}; transition: border-radius 350ms cubic-bezier(.34,1.56,.64,1)"></button>
+          </sc-for>
+        </div>
+        <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; font-family: 'Roboto Mono', monospace; font-size: 12px">
+          <span style="padding: 8px; border-radius: 10px; background: #2B2930">{{ color }}</span>
+          <span style="padding: 8px; border-radius: 10px; background: #2B2930">{{ rgb }}</span>
+          <span style="padding: 8px; border-radius: 10px; background: #2B2930">tone {{ tone }}</span>
+        </div>
+      </div>
+      <sc-for list="{{ sliders }}" as="s" hint-placeholder-count="3">
+        <label style="display: flex; flex-direction: column; gap: 8px">
+          <span style="display: flex; justify-content: space-between"><span style="font-weight: 750">{{ s.label }}</span><span style="font-family: 'Roboto Mono', monospace; color: #D0BCFF">{{ s.val }}</span></span>
+          <span style="display: flex; gap: 6px">
+            <sc-for list="{{ s.steps }}" as="t" hint-placeholder-count="5">
+              <button class="mv-st" onClick="{{ t.pick }}" style="flex: 1; height: 34px; border-radius: 10px; font-size: 12px; font-weight: 700; background: {{ t.bg }}; color: {{ t.fg }}">{{ t.label }}</button>
+            </sc-for>
+          </span>
+        </label>
+      </sc-for>
+      <div style="display: flex; gap: 8px">
+        <button class="mv-st" onClick="{{ reset }}" style="flex: 1; height: 46px; border-radius: 23px; border: 1px solid #49454F; font-weight: 700">Reset element</button>
+        <button class="mv-st" style="flex: 1; height: 46px; border-radius: 23px; background: #D0BCFF; color: #381E72; font-weight: 850">Done</button>
+      </div>
+    </section>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":900}}'>
+class Component extends DCLogic {
+  constructor(p) { super(p); this.state = { c: 0, r: 2, s: 2, w: 2, scope: 0 }; }
+  renderVals() {
+    const sw = ['#4F378B', '#633B48', '#1E3A5F', '#2E4A2C', '#5C3F1E', '#8C1D18', '#E6E0E9'];
+    const ink = this.state.c === 6 ? '#1D1B20' : '#F5EFF7';
+    const swatches = sw.map((h, i) => ({ hex: h, on: i === this.state.c ? 'true' : 'false', r: i === this.state.c ? '12px' : '20px', ring: i === this.state.c ? '0 0 0 3px #211F26, 0 0 0 5px #D0BCFF' : 'none', pick: () => this.setState({ c: i }) }));
+    const radii = ['0', '8px', '28px', '44px', '999px'], sizes = ['20px', '26px', '34px', '42px', '52px'], weights = ['400', '600', '800', '900', '950'];
+    const mk = (key, labels) => labels.map((l, i) => ({ label: l, bg: i === this.state[key] ? '#D0BCFF' : '#2B2930', fg: i === this.state[key] ? '#381E72' : '#E6E0E9', pick: () => this.setState({ [key]: i }) }));
+    const sliders = [{ label: 'Corner radius', val: radii[this.state.r], steps: mk('r', ['0', 'S', 'L', 'XL', 'Full']) },
+      { label: 'Text size', val: sizes[this.state.s], steps: mk('s', ['S', 'M', 'L', 'XL', 'XXL']) },
+      { label: 'Weight', val: weights[this.state.w], steps: mk('w', ['400', '600', '800', '900', '950']) }];
+    const scopes = ['This element', 'Every hero card', 'Theme default'].map((l, i) => ({ label: l, on: i === this.state.scope ? 'true' : 'false', bg: i === this.state.scope ? '#4A4458' : '#211F26', fg: i === this.state.scope ? '#E8DEF8' : '#CAC4D0', pick: () => this.setState({ scope: i }) }));
+    const h = sw[this.state.c]; const n = parseInt(h.slice(1), 16);
+    const rgb = ((n >> 16) & 255) + ' ' + ((n >> 8) & 255) + ' ' + (n & 255);
+    const r = radii[this.state.r];
+    return { swatches, sliders, scopes, color: h, ink, radius: r, outerR: r === '999px' ? '999px' : 'calc(' + r + ' + 6px)', size: sizes[this.state.s], weight: weights[this.state.w], rgb,
+      tone: Math.round(((n >> 16 & 255) * 0.3 + (n >> 8 & 255) * 0.59 + (n & 255) * 0.11) / 2.55), reset: () => this.setState({ c: 0, r: 2, s: 2, w: 2 }) };
+  }
+}
+</script>
+</body>
+</html>
