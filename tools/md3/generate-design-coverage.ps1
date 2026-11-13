@@ -8,7 +8,11 @@ $ErrorActionPreference = 'Stop'
 $root = (Resolve-Path $DesignRoot).Path
 $outDir = Split-Path -Parent $Output
 New-Item -ItemType Directory -Force $outDir | Out-Null
-$files = Get-ChildItem -LiteralPath $root -Recurse -File | Sort-Object FullName
+# The ledger covers the original handoff archive. Later redesign sets
+# (design/redesign-*) carry their own README index and are not archive rows.
+$files = Get-ChildItem -LiteralPath $root -Recurse -File |
+    Where-Object { $_.FullName.Substring($root.Length + 1).Replace('\','/') -notmatch '^redesign-' } |
+    Sort-Object FullName
 $rows = [System.Collections.Generic.List[string]]::new()
 $rows.Add('| Design ID | Archive path | SHA-256 | Source role | Required production disposition | Production path(s) | Behavior/test evidence | Status | Notes |')
 $rows.Add('|---|---|---|---|---|---|---|---|---|')
