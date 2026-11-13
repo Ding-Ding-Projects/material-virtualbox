@@ -1,0 +1,283 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Manager: virtual machine library</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Roboto+Flex:opsz,wdth,wght@8..144,25..151,300..800&family=Roboto+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#0F0D13}
+a{color:#D0BCFF}a:hover{color:#EADDFF}
+button{font:inherit;color:inherit;border:0;background:none;cursor:pointer}
+input{font:inherit;color:inherit}
+@keyframes mvRise{from{opacity:0;transform:translateY(18px) scale(.985)}to{opacity:1;transform:none}}
+@keyframes mvFade{from{opacity:0}to{opacity:1}}
+@keyframes mvSlide{from{opacity:0;transform:translateX(-22px)}to{opacity:1;transform:none}}
+@keyframes mvPop{0%{opacity:0;transform:scale(.88)}60%{opacity:1;transform:scale(1.03)}100%{transform:scale(1)}}
+@keyframes mvBar{from{transform:scaleY(.08)}to{transform:scaleY(1)}}
+@keyframes mvPulse{0%,100%{box-shadow:0 0 0 0 rgba(166,215,160,.55)}50%{box-shadow:0 0 0 7px rgba(166,215,160,0)}}
+@keyframes mvSheen{from{background-position:-200% 0}to{background-position:200% 0}}
+@keyframes mvMorph{0%,100%{border-radius:28px}50%{border-radius:44px 20px 44px 20px}}
+.mv-st{transition:background-color 200ms cubic-bezier(.2,0,0,1),transform 300ms cubic-bezier(.34,1.56,.64,1),box-shadow 300ms cubic-bezier(.2,0,0,1),color 200ms}
+.mv-st:hover{background-color:rgba(230,224,233,.08)}
+.mv-st:active{transform:scale(.97)}
+.mv-st:focus-visible{outline:3px solid #D0BCFF;outline-offset:2px}
+.mv-lift:hover{transform:translateY(-3px);box-shadow:0 10px 28px rgba(0,0,0,.45)}
+.mv-fab:hover{border-radius:20px;box-shadow:0 12px 30px rgba(208,188,255,.28)}
+</style>
+</helmet>
+<div style="min-height: 900px; display: flex; flex-direction: column; background: #0F0D13; color: #E6E0E9; font-family: 'Roboto Flex', 'Segoe UI', system-ui, sans-serif; font-size: 14px; -webkit-font-smoothing: antialiased">
+
+  <header style="display: flex; flex-wrap: wrap; align-items: center; gap: 12px; padding: 10px 16px; background: #141218; border-bottom: 1px solid #2B2930; animation: mvFade 400ms cubic-bezier(.2,0,0,1) both">
+    <div style="width: 36px; height: 36px; display: grid; place-items: center; border-radius: 12px; background: linear-gradient(135deg, #D0BCFF, #EFB8C8); color: #21005D; animation: mvMorph 6s ease-in-out infinite">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><rect x="3" y="4" width="18" height="12" rx="2"></rect><path d="M8 20h8M12 16v4"></path></svg>
+    </div>
+    <div style="display: flex; flex-direction: column; line-height: 1.15">
+      <span style="font-weight: 700; font-size: 15px; letter-spacing: .1px">Material Virtual Machine</span>
+      <span style="font-size: 12px; color: #CAC4D0">Manager</span>
+    </div>
+    <nav aria-label="Open tabs" style="display: flex; gap: 4px; margin-left: 12px; flex-wrap: wrap">
+      <sc-for list="{{ tabs }}" as="t" hint-placeholder-count="3">
+        <button class="mv-st" onClick="{{ t.pick }}" style="{{ t.style }}">
+          <span style="width: 8px; height: 8px; border-radius: 4px; background: {{ t.dot }}"></span>{{ t.label }}
+        </button>
+      </sc-for>
+      <button class="mv-st" aria-label="New tab" style="width: 34px; height: 34px; border-radius: 17px; color: #CAC4D0">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg>
+      </button>
+    </nav>
+    <div style="flex: 1 1 40px"></div>
+    <button class="mv-st" style="display: flex; align-items: center; gap: 10px; height: 40px; padding: 0 8px 0 16px; border-radius: 20px; background: #211F26; color: #CAC4D0; min-width: 260px">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"></circle><path d="M20 20l-3.5-3.5"></path></svg>
+      <span style="flex: 1; text-align: left">Search everything</span>
+      <span style="font-family: 'Roboto Mono', monospace; font-size: 11px; padding: 3px 8px; border-radius: 8px; border: 1px solid #49454F">Ctrl+Shift+F</span>
+    </button>
+    <button class="mv-st" aria-label="Notifications, 3 unread" style="position: relative; width: 40px; height: 40px; border-radius: 20px; color: #CAC4D0; display: grid; place-items: center">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 8a6 6 0 1 1 12 0c0 7 3 9 3 9H3s3-2 3-9"></path><path d="M10 21h4"></path></svg>
+      <span style="position: absolute; top: 6px; right: 6px; min-width: 16px; height: 16px; padding: 0 4px; border-radius: 8px; background: #F2B8B5; color: #601410; font-size: 10px; font-weight: 700; display: grid; place-items: center; animation: mvPop 500ms 600ms both">3</span>
+    </button>
+    <button class="mv-st" aria-label="History" style="width: 40px; height: 40px; border-radius: 20px; color: #CAC4D0; display: grid; place-items: center">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"></path><path d="M3 3v5h5M12 7v5l3 2"></path></svg>
+    </button>
+  </header>
+
+  <div style="flex: 1; display: flex; flex-wrap: wrap; min-height: 0">
+
+    <nav aria-label="Destinations" style="flex: 0 0 96px; display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 16px 0; background: #141218">
+      <button class="mv-st mv-fab" aria-label="New virtual machine" style="width: 56px; height: 56px; border-radius: 16px; background: #4F378B; color: #EADDFF; display: grid; place-items: center; margin-bottom: 14px; animation: mvPop 600ms 200ms both">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg>
+      </button>
+      <sc-for list="{{ rail }}" as="r" hint-placeholder-count="6">
+        <button class="mv-st" onClick="{{ r.pick }}" style="display: flex; flex-direction: column; align-items: center; gap: 4px; width: 80px; padding: 4px 0; border-radius: 16px; color: {{ r.fg }}; animation: mvSlide 500ms cubic-bezier(.2,0,0,1) both; animation-delay: {{ r.delay }}">
+          <span style="width: 56px; height: 32px; border-radius: 16px; display: grid; place-items: center; background: {{ r.pill }}; transition: background-color 300ms cubic-bezier(.2,0,0,1), width 300ms">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="{{ r.icon }}"></path></svg>
+          </span>
+          <span style="font-size: 12px; font-weight: 600">{{ r.label }}</span>
+        </button>
+      </sc-for>
+    </nav>
+
+    <section aria-label="Virtual machines" style="flex: 1 1 320px; max-width: 380px; min-width: 0; display: flex; flex-direction: column; gap: 10px; padding: 16px; background: #141218; border-right: 1px solid #211F26">
+      <div style="display: flex; align-items: baseline; justify-content: space-between">
+        <h1 style="margin: 0; font-size: 22px; font-weight: 700; font-variation-settings: 'wdth' 110">Machines</h1>
+        <span style="font-size: 12px; color: #CAC4D0">5 machines, 2 running</span>
+      </div>
+      <label style="display: flex; align-items: center; gap: 8px; height: 44px; padding: 0 6px 0 14px; border-radius: 22px; background: #211F26; color: #CAC4D0">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"></circle><path d="M20 20l-3.5-3.5"></path></svg>
+        <span style="position: absolute; left: -9999px">Filter machines</span>
+        <input placeholder="Filter machines" style="flex: 1; min-width: 0; border: 0; outline: 0; background: transparent; color: #E6E0E9">
+        <span aria-label="Regular expression builder" title="Regular expression builder" style="font-family: 'Roboto Mono', monospace; font-size: 12px; padding: 6px 10px; border-radius: 14px; background: #2B2930; color: #D0BCFF">.*</span>
+      </label>
+      <div role="group" aria-label="Filters" style="display: flex; gap: 6px; flex-wrap: wrap">
+        <span style="padding: 6px 12px; border-radius: 8px; background: #4A4458; color: #E8DEF8; font-size: 12px; font-weight: 600">All</span>
+        <span style="padding: 6px 12px; border-radius: 8px; border: 1px solid #49454F; color: #CAC4D0; font-size: 12px">Running</span>
+        <span style="padding: 6px 12px; border-radius: 8px; border: 1px solid #49454F; color: #CAC4D0; font-size: 12px">Saved</span>
+        <span style="padding: 6px 12px; border-radius: 8px; border: 1px solid #49454F; color: #CAC4D0; font-size: 12px">Group: Lab</span>
+      </div>
+      <div style="display: flex; flex-direction: column; gap: 6px; margin-top: 4px">
+        <sc-for list="{{ vms }}" as="vm" hint-placeholder-count="5">
+          <button class="mv-st mv-lift" onClick="{{ vm.pick }}" aria-pressed="{{ vm.pressed }}" style="display: flex; align-items: center; gap: 12px; padding: 12px; border-radius: 20px; text-align: left; background: {{ vm.bg }}; animation: mvRise 520ms cubic-bezier(.2,0,0,1) both; animation-delay: {{ vm.delay }}">
+            <span style="width: 44px; height: 44px; flex: none; border-radius: 14px; display: grid; place-items: center; background: {{ vm.tile }}; color: {{ vm.tileFg }}; font-weight: 800; font-size: 15px">{{ vm.mono }}</span>
+            <span style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px">
+              <span style="font-weight: 650; white-space: nowrap; overflow: hidden; text-overflow: ellipsis">{{ vm.name }}</span>
+              <span style="font-size: 12px; color: #CAC4D0">{{ vm.os }}</span>
+            </span>
+            <span style="display: flex; align-items: center; gap: 6px; font-size: 12px; color: {{ vm.stateFg }}">
+              <span style="width: 8px; height: 8px; border-radius: 4px; background: {{ vm.stateFg }}; animation: {{ vm.pulse }}"></span>{{ vm.state }}
+            </span>
+          </button>
+        </sc-for>
+      </div>
+    </section>
+
+    <main style="flex: 999 1 560px; min-width: 0; display: flex; flex-direction: column; gap: 16px; padding: 20px 24px; background: #0F0D13">
+      <sc-for list="{{ vms }}" as="vm" hint-placeholder-count="1">
+        <sc-if value="{{ vm.selected }}" hint-placeholder-val="{{ true }}">
+          <div style="display: flex; flex-direction: column; gap: 16px; animation: mvRise 560ms cubic-bezier(.05,.7,.1,1) both">
+            <div style="position: relative; overflow: hidden; display: flex; flex-wrap: wrap; align-items: center; gap: 20px; padding: 24px; border-radius: 28px; background: linear-gradient(120deg, #2B2340 0%, #211F26 55%, #2A1F26 100%)">
+              <div style="width: 88px; height: 88px; border-radius: 28px; display: grid; place-items: center; background: {{ vm.tile }}; color: {{ vm.tileFg }}; font-size: 32px; font-weight: 800; animation: mvPop 700ms 120ms both, mvMorph 8s 1s ease-in-out infinite">{{ vm.mono }}</div>
+              <div style="flex: 1 1 240px; min-width: 0; display: flex; flex-direction: column; gap: 6px">
+                <span style="font-size: 12px; letter-spacing: 1.2px; text-transform: uppercase; color: #D0BCFF; font-weight: 700">{{ vm.group }}</span>
+                <h2 style="margin: 0; font-size: 34px; line-height: 1.1; font-weight: 750; font-variation-settings: 'wdth' 115">{{ vm.name }}</h2>
+                <span style="color: #CAC4D0">{{ vm.os }} · {{ vm.cpu }} · {{ vm.ram }}</span>
+              </div>
+              <div style="display: flex; gap: 8px; flex-wrap: wrap">
+                <button class="mv-st mv-fab" style="display: flex; align-items: center; gap: 8px; height: 48px; padding: 0 24px; border-radius: 24px; background: #D0BCFF; color: #381E72; font-weight: 700">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M7 4v16l13-8z"></path></svg>{{ vm.primaryAction }}
+                </button>
+                <button class="mv-st" style="height: 48px; padding: 0 20px; border-radius: 24px; background: #4A4458; color: #E8DEF8; font-weight: 600">Settings</button>
+                <button class="mv-st" aria-label="More actions" style="width: 48px; height: 48px; border-radius: 24px; border: 1px solid #49454F; display: grid; place-items: center">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="12" cy="5" r="1.8"></circle><circle cx="12" cy="12" r="1.8"></circle><circle cx="12" cy="19" r="1.8"></circle></svg>
+                </button>
+              </div>
+              <div aria-hidden="true" style="position: absolute; inset: 0; pointer-events: none; background: linear-gradient(100deg, transparent 30%, rgba(208,188,255,.07) 50%, transparent 70%); background-size: 200% 100%; animation: mvSheen 5s linear infinite"></div>
+            </div>
+          </div>
+        </sc-if>
+      </sc-for>
+
+      <div role="tablist" aria-label="Machine tools" style="display: flex; gap: 4px; border-bottom: 1px solid #2B2930; flex-wrap: wrap">
+        <sc-for list="{{ panes }}" as="p" hint-placeholder-count="4">
+          <button role="tab" class="mv-st" onClick="{{ p.pick }}" aria-selected="{{ p.on }}" style="position: relative; padding: 12px 18px; border-radius: 12px 12px 0 0; font-weight: 600; color: {{ p.fg }}">
+            {{ p.label }}
+            <span style="position: absolute; left: 14px; right: 14px; bottom: -1px; height: 3px; border-radius: 3px 3px 0 0; background: #D0BCFF; transform: scaleX({{ p.scale }}); transition: transform 350ms cubic-bezier(.34,1.56,.64,1)"></span>
+          </button>
+        </sc-for>
+      </div>
+
+      <sc-if value="{{ showDetails }}" hint-placeholder-val="{{ true }}">
+        <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px">
+          <sc-for list="{{ details }}" as="d" hint-placeholder-count="6">
+            <div class="mv-lift" style="display: flex; flex-direction: column; gap: 8px; padding: 16px; border-radius: 20px; background: #1D1B20; transition: transform 300ms cubic-bezier(.34,1.56,.64,1), box-shadow 300ms; animation: mvRise 500ms cubic-bezier(.2,0,0,1) both; animation-delay: {{ d.delay }}">
+              <span style="display: flex; align-items: center; gap: 8px; color: #D0BCFF; font-weight: 700; font-size: 13px">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="{{ d.icon }}"></path></svg>{{ d.title }}
+              </span>
+              <span style="font-size: 15px; font-weight: 600">{{ d.value }}</span>
+              <span style="font-size: 12px; color: #CAC4D0">{{ d.sub }}</span>
+            </div>
+          </sc-for>
+        </div>
+      </sc-if>
+
+      <sc-if value="{{ showResources }}" hint-placeholder-val="{{ false }}">
+        <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; animation: mvFade 400ms both">
+          <sc-for list="{{ meters }}" as="m" hint-placeholder-count="2">
+            <div style="display: flex; flex-direction: column; gap: 12px; padding: 18px; border-radius: 24px; background: #1D1B20">
+              <div style="display: flex; justify-content: space-between; align-items: baseline">
+                <span style="font-weight: 700">{{ m.title }}</span>
+                <span style="font-size: 28px; font-weight: 750; color: {{ m.color }}">{{ m.now }}</span>
+              </div>
+              <div aria-hidden="true" style="height: 120px; display: flex; align-items: flex-end; gap: 4px">
+                <sc-for list="{{ m.bars }}" as="b" hint-placeholder-count="24">
+                  <span style="flex: 1; height: {{ b.h }}; border-radius: 6px 6px 2px 2px; background: {{ m.color }}; opacity: {{ b.o }}; transform-origin: bottom; animation: mvBar 700ms cubic-bezier(.34,1.56,.64,1) both; animation-delay: {{ b.delay }}"></span>
+                </sc-for>
+              </div>
+              <span style="font-size: 12px; color: #CAC4D0">{{ m.sub }}</span>
+            </div>
+          </sc-for>
+        </div>
+      </sc-if>
+
+      <sc-if value="{{ showSnapshots }}" hint-placeholder-val="{{ false }}">
+        <ol style="list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 0">
+          <sc-for list="{{ snaps }}" as="s" hint-placeholder-count="4">
+            <li style="display: flex; gap: 16px; align-items: stretch; animation: mvSlide 500ms cubic-bezier(.2,0,0,1) both; animation-delay: {{ s.delay }}">
+              <span aria-hidden="true" style="width: 24px; display: flex; flex-direction: column; align-items: center">
+                <span style="width: 16px; height: 16px; border-radius: 8px; margin-top: 18px; background: {{ s.dot }}; border: 3px solid #0F0D13; box-shadow: 0 0 0 2px {{ s.dot }}"></span>
+                <span style="flex: 1; width: 2px; background: #49454F"></span>
+              </span>
+              <span style="flex: 1; display: flex; justify-content: space-between; gap: 12px; padding: 12px 16px; margin: 4px 0; border-radius: 16px; background: #1D1B20">
+                <span style="display: flex; flex-direction: column; gap: 2px"><span style="font-weight: 650">{{ s.name }}</span><span style="font-size: 12px; color: #CAC4D0">{{ s.when }}</span></span>
+                <span style="font-size: 12px; color: #CAC4D0; align-self: center">{{ s.size }}</span>
+              </span>
+            </li>
+          </sc-for>
+        </ol>
+      </sc-if>
+
+      <sc-if value="{{ showLogs }}" hint-placeholder-val="{{ false }}">
+        <div style="padding: 16px; border-radius: 20px; background: #141218; border: 1px solid #2B2930; font-family: 'Roboto Mono', monospace; font-size: 12.5px; line-height: 1.7; color: #CAC4D0; animation: mvFade 400ms both">
+          <sc-for list="{{ logs }}" as="l" hint-placeholder-count="6">
+            <div style="display: flex; gap: 14px; animation: mvFade 300ms both; animation-delay: {{ l.delay }}"><span style="color: #938F99">{{ l.t }}</span><span style="color: {{ l.c }}">{{ l.text }}</span></div>
+          </sc-for>
+        </div>
+      </sc-if>
+    </main>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"selected":{"editor":"int","default":0,"min":0,"max":4,"section":"State"},"$preview":{"width":1440,"height":900}}'>
+class Component extends DCLogic {
+  constructor(props) { super(props); this.state = { sel: null, pane: 0, tab: 0, rail: 0 }; }
+  renderVals() {
+    const sel = this.state.sel ?? (this.props.selected ?? 0);
+    const data = [
+      { name: 'Windows 11 Dev Box', os: 'Windows 11 (64-bit)', state: 'Running', group: 'Development', cpu: '8 vCPU', ram: '16 GB', mono: 'W', tile: '#4F378B', tileFg: '#EADDFF', stateFg: '#A6D7A0', primaryAction: 'Show' },
+      { name: 'Ubuntu 24.04 Server', os: 'Ubuntu (64-bit)', state: 'Running', group: 'Lab', cpu: '4 vCPU', ram: '8 GB', mono: 'U', tile: '#633B48', tileFg: '#FFD8E4', stateFg: '#A6D7A0', primaryAction: 'Show' },
+      { name: 'Fedora Workstation', os: 'Fedora (64-bit)', state: 'Saved', group: 'Lab', cpu: '4 vCPU', ram: '6 GB', mono: 'F', tile: '#1E3A5F', tileFg: '#D1E4FF', stateFg: '#D0BCFF', primaryAction: 'Resume' },
+      { name: 'Debian Build Agent', os: 'Debian (64-bit)', state: 'Powered off', group: 'Build', cpu: '2 vCPU', ram: '4 GB', mono: 'D', tile: '#4A4458', tileFg: '#E8DEF8', stateFg: '#938F99', primaryAction: 'Start' },
+      { name: 'FreeBSD Router', os: 'FreeBSD (64-bit)', state: 'Aborted', group: 'Network', cpu: '1 vCPU', ram: '1 GB', mono: 'B', tile: '#5C3F1E', tileFg: '#FFDDB8', stateFg: '#F2B8B5', primaryAction: 'Start' }
+    ];
+    const vms = data.map((v, i) => ({
+      ...v, selected: i === sel, pressed: i === sel ? 'true' : 'false',
+      bg: i === sel ? '#2B2340' : 'transparent',
+      pulse: v.state === 'Running' ? 'mvPulse 2s infinite' : 'none',
+      delay: (80 + i * 70) + 'ms',
+      pick: () => this.setState({ sel: i })
+    }));
+    const tabNames = ['Machines', 'Lab group', 'Media'];
+    const tabs = tabNames.map((l, i) => ({ label: l, dot: ['#D0BCFF', '#EFB8C8', '#A6D7A0'][i],
+      style: 'display:flex;align-items:center;gap:8px;height:34px;padding:0 14px;border-radius:17px;font-size:13px;font-weight:600;' + (i === this.state.tab ? 'background:#2B2930;color:#E6E0E9' : 'color:#CAC4D0'),
+      pick: () => this.setState({ tab: i }) }));
+    const railDefs = [
+      ['Machines', 'M3 5h18v11H3zM8 20h8M12 16v4'], ['Media', 'M12 3a9 9 0 1 0 0 18 9 9 0 1 0 0-18zM12 10a2 2 0 1 0 0 4 2 2 0 1 0 0-4'],
+      ['Network', 'M5 12h14M12 5v14M5 5h4v4H5zM15 15h4v4h-4z'], ['Extensions', 'M10 3h4v4h-4zM4 10h4v4H4zM16 10h4v4h-4zM10 17h4v4h-4z'],
+      ['Cloud', 'M7 18a5 5 0 1 1 1-9.9A6 6 0 0 1 19 10a4 4 0 0 1 0 8z'], ['Activity', 'M3 12h4l3-8 4 16 3-8h4']
+    ];
+    const rail = railDefs.map((r, i) => ({ label: r[0], icon: r[1], delay: (60 + i * 60) + 'ms',
+      pill: i === this.state.rail ? '#4A4458' : 'transparent', fg: i === this.state.rail ? '#E8DEF8' : '#CAC4D0',
+      pick: () => this.setState({ rail: i }) }));
+    const paneNames = ['Details', 'Snapshots', 'Logs', 'Resource use'];
+    const panes = paneNames.map((l, i) => ({ label: l, on: i === this.state.pane ? 'true' : 'false',
+      fg: i === this.state.pane ? '#D0BCFF' : '#CAC4D0', scale: i === this.state.pane ? 1 : 0,
+      pick: () => this.setState({ pane: i }) }));
+    const v = data[sel];
+    const details = [
+      ['General', v.os, 'Name and operating system', 'M4 4h16v16H4zM4 9h16'],
+      ['System', v.cpu + ', ' + v.ram, 'Chipset ICH9, UEFI, TPM 2.0', 'M7 7h10v10H7zM3 10h4M3 14h4M17 10h4M17 14h4M10 3v4M14 3v4M10 17v4M14 17v4'],
+      ['Display', '128 MB video memory', 'VMSVGA, 3D acceleration on', 'M3 5h18v11H3zM8 20h8'],
+      ['Storage', '80 GB NVMe disk', 'Controller: NVMe, 1 optical drive', 'M4 6h16v5H4zM4 13h16v5H4z'],
+      ['Network', 'NAT, Bridged', 'Adapter 1 and 2 enabled', 'M5 12h14M12 5v14'],
+      ['Shared folders', '2 folders', 'Projects, Downloads', 'M3 7h6l2 2h10v10H3z']
+    ].map((d, i) => ({ title: d[0], value: d[1], sub: d[2], icon: d[3], delay: (i * 60) + 'ms' }));
+    const mk = (seed) => Array.from({ length: 28 }, (_, i) => {
+      const h = 22 + Math.round(70 * Math.abs(Math.sin(seed + i * 0.55)) * (0.55 + 0.45 * Math.abs(Math.cos(i * 0.31))));
+      return { h: h + '%', o: (0.45 + (i / 28) * 0.55).toFixed(2), delay: (i * 22) + 'ms' };
+    });
+    const meters = [
+      { title: 'CPU', now: '37%', color: '#D0BCFF', bars: mk(1.3), sub: 'Last 60 seconds, sampled every 2 s' },
+      { title: 'Memory', now: '9.4 GB', color: '#EFB8C8', bars: mk(2.7), sub: 'Of 16 GB assigned' }
+    ];
+    const snaps = [
+      ['Clean install', '12 Oct 2026, 09:14', '0 B', '#938F99'], ['Toolchain ready', '14 Oct 2026, 18:02', '3.1 GB', '#938F99'],
+      ['Before driver update', '2 Nov 2026, 22:40', '1.4 GB', '#EFB8C8'], ['Current state', 'Now', 'Live', '#D0BCFF']
+    ].map((s, i) => ({ name: s[0], when: s[1], size: s[2], dot: s[3], delay: (i * 80) + 'ms' }));
+    const logs = [
+      ['22:41:07.112', 'VMM: starting execution', '#CAC4D0'], ['22:41:07.340', 'NEM: Hyper-V API detected', '#CAC4D0'],
+      ['22:41:08.004', 'Display: resized to 1920x1080', '#D0BCFF'], ['22:41:09.551', 'Guest Additions: version 7.2.97 reported', '#A6D7A0'],
+      ['22:41:12.090', 'Shared folder Projects mounted', '#CAC4D0'], ['22:41:15.733', 'USB: device filter matched, not attached', '#EFB8C8']
+    ].map((l, i) => ({ t: l[0], text: l[1], c: l[2], delay: (i * 90) + 'ms' }));
+    return { vms, tabs, rail, panes, details, meters, snaps, logs,
+      showDetails: this.state.pane === 0, showSnapshots: this.state.pane === 1,
+      showLogs: this.state.pane === 2, showResources: this.state.pane === 3 };
+  }
+}
+</script>
+</body>
+</html>
