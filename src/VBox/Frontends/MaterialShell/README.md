@@ -27,6 +27,25 @@ them, and the installer deletes ones left by an older install.
 - **The renderer is sandboxed.** `contextIsolation` and `sandbox` are on, Node is
   off, and `main/preload.cjs` exposes a fixed list of bridge methods only.
 
+## In-process first, separate bridge as fallback
+
+The bridge comes in two builds of the same handlers (`bridge/BridgeCore.cpp`):
+
+- **`VBoxMaterialBridgeNode.dll`**, loaded into the shell's main process with
+  `process.dlopen`. Each channel (`main`, `screen:<id>`) runs on its own
+  VirtualBox thread with its own COM apartment, so the window thread never
+  waits on VirtualBox; calls are Node-API async work. Screen frames arrive as
+  raw PNG bytes (no base64), so the screen runs at up to about 30 frames a second.
+  Node-API functions are looked up in the host at load time, so the module
+  needs no Node headers or import libraries and builds with kBuild alone.
+- **`VBoxMaterialBridge.exe`**, the same handlers behind a hidden stdio pipe.
+
+The shell loads the module first. It switches to the separate bridge, and says
+so in a banner, when the module is missing or fails to load, or when two
+sessions in a row ended without a clean quit (a native crash takes the whole
+process down). `--reset-bridge` clears that count; `--separate-bridge` forces
+the separate bridge.
+
 ## Bridge protocol
 
 Requests and responses are single lines of JSON on the bridge's stdin and stdout:
@@ -61,8 +80,8 @@ Requests and responses are single lines of JSON on the bridge's stdin and stdout
 
 ## Building
 
-- **Bridge:** part of every full build (`VBOX_WITH_MATERIAL_SHELL` is always on);
-  on its own, `kmk -C src/VBox/Frontends/MaterialShell`.
+- **Bridge:** both builds are part of every full build (`VBOX_WITH_MATERIAL_SHELL`
+  is always on); on their own, `kmk -C src/VBox/Frontends/MaterialShell`.
 - **Front end:** in `app/`, `npm test` runs the unit tests with no installs;
   `npm install && npm run package:win` produces the Windows folder. Put
   `VBoxMaterialBridge.exe` next to `MaterialVirtualMachine.exe`, or set

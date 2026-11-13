@@ -438,8 +438,10 @@ jobs:
         run: |
           $ErrorActionPreference = 'Stop'
           $payload = Resolve-Path 'out\win.amd64\release\bin'
-          if (-not (Test-Path (Join-Path $payload 'VBoxMaterialBridge.exe'))) {
-            throw 'The packaged Windows payload is missing VBoxMaterialBridge.exe, the Material shell bridge.'
+          foreach ($bridgeFile in 'VBoxMaterialBridgeNode.dll', 'VBoxMaterialBridge.exe') {
+            if (-not (Test-Path (Join-Path $payload $bridgeFile))) {
+              throw "The packaged Windows payload is missing $bridgeFile, part of the Material shell bridge."
+            }
           }
           # The Material shell is the only user interface (Config.kmk forces VBOX_WITH_QTGUI off).
           $qtUi = @(Get-ChildItem -LiteralPath $payload -File | Where-Object { $_.Name -in @('VirtualBox.exe', 'VirtualBoxVM.exe', 'VirtualBoxVM.dll', 'UICommon.dll', 'VBoxDbg.dll') -or $_.Name -like 'Qt6*.dll' })
@@ -494,7 +496,7 @@ jobs:
           if (Test-Path $shellDir) { Remove-Item -LiteralPath $shellDir -Recurse -Force }
           Copy-Item -LiteralPath $packaged.FullName -Destination $shellDir -Recurse
           $zip = Join-Path $env:RUNNER_TEMP 'MaterialVirtualMachine-Shell-win-x64.zip'
-          Compress-Archive -Path (Join-Path $shellDir '*'), (Join-Path $payload 'VBoxMaterialBridge.exe') -DestinationPath $zip -Force
+          Compress-Archive -Path (Join-Path $shellDir '*'), (Join-Path $payload 'VBoxMaterialBridgeNode.dll'), (Join-Path $payload 'VBoxMaterialBridge.exe') -DestinationPath $zip -Force
           Set-Content -LiteralPath (Join-Path $env:RUNNER_TEMP 'material-shell-asset.txt') -Value $zip -Encoding utf8
           Write-Host "Material shell staged at $shellDir and zipped to $zip ($((Get-Item $zip).Length) bytes)"
 

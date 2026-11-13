@@ -94,4 +94,65 @@ class BridgeClient {
     }
 }
 
-module.exports = { BridgeClient, findBridge };
+/** Finds VBoxMaterialBridgeNode.dll, the in-process module, next to the bridge. */
+function findNativeModule(appDir) {
+    const name = process.platform === 'win32' ? 'VBoxMaterialBridgeNode.dll' : (process.platform === 'darwin' ? 'VBoxMaterialBridgeNode.dylib' : 'VBoxMaterialBridgeNode.so');
+    const candidates = [
+        process.env.MVB_NATIVE_PATH,
+        path.join(path.dirname(process.execPath), '..', name),
+        path.join(appDir, '..', name),
+        process.env.VBOX_MSI_INSTALL_PATH && path.join(process.env.VBOX_MSI_INSTALL_PATH, name),
+        process.env.VBOX_INSTALL_PATH && path.join(process.env.VBOX_INSTALL_PATH, name)
+    ].filter(Boolean);
+    return candidates.find((p) => { try { return fs.statSync(p).isFile(); } catch { return false; } }) || null;
+}
+
+/**
+ * The in-process provider: same protocol, no second process.  Each channel
+ * ("main", "screen:<id>") runs on its own VirtualBox thread inside the module.
+ */
+class NativeProvider {
+    constructor(mod) {
+        this.mod = mod;
+        this.nextId = 1;
+    }
+
+    static load(file) {
+        const m = { exports: {} };
+        process.dlopen(m, file);
+        if (typeof m.exports.call !== 'function' || typeof m.exports.frame !== 'function') throw new Error('The module exposes no bridge entry points');
+        return new NativeProvider(m.exports);
+    }
+
+    async request(channel, method, params, frame = false) {
+        const id = this.nextId++;
+        const req = JSON.stringify({ id, method, params: params || {} });
+        const out = frame ? await this.mod.frame(channel, req) : await this.mod.call(channel, req);
+        const msg = JSON.parse(frame ? out.json : out);
+        if (msg.error) {
+            const err = new Error(msg.error.message);
+            err.hrc = msg.error.hrc;
+            throw err;
+        }
+        if (frame && msg.result && out.png && out.png.length) msg.result.png = out.png;
+        return msg.result;
+    }
+
+    call(method, params) {
+        return this.request('main', method, params);
+    }
+
+    screen(id, method, params) {
+        const channel = 'screen:' + id;
+        if (method === 'screen.detach') {
+            return this.request(channel, method, params).finally(() => this.mod.close(channel));
+        }
+        return this.request(channel, method, params, method === 'screen.frame');
+    }
+
+    stop() {
+        try { this.mod.close('main'); } catch { /* already closed */ }
+    }
+}
+
+module.exports = { BridgeClient, NativeProvider, findBridge, findNativeModule };

@@ -11,7 +11,7 @@ import { makeCode, breakCode, ctrlAltDel, buttonMask, toGuest } from '../logic/s
 import { stateLabel } from '../logic/format.js';
 import { refreshMachines } from './machines.js';
 
-const MIN_FRAME_MS = 66; /* about 15 frames a second at most */
+const MIN_FRAME_MS = 33; /* about 30 frames a second at most */
 let session = null;
 
 function screenCall(method, params) {
@@ -127,7 +127,7 @@ export function renderScreen(root) {
     img.addEventListener('pointermove', (e) => { if (st.captured) st.pendingMove = e; });
     img.addEventListener('wheel', (e) => { if (st.captured) { pushMouse(e, Math.sign(e.deltaY)); e.preventDefault(); } }, { passive: false });
     img.addEventListener('contextmenu', (e) => e.preventDefault());
-    st.cleanup = () => { window.removeEventListener('keydown', onKey, true); window.removeEventListener('keyup', onKey, true); };
+    st.cleanup = () => { window.removeEventListener('keydown', onKey, true); window.removeEventListener('keyup', onKey, true); if (st.blobUrl) URL.revokeObjectURL(st.blobUrl); };
 
     /* Frames. */
     const loop = async () => {
@@ -145,7 +145,16 @@ export function renderScreen(root) {
                 const f = await screenCall('screen.frame', { id });
                 if (f.width) {
                     st.guest = { width: f.width, height: f.height };
-                    img.src = 'data:image/' + (f.format === 'svg' ? 'svg+xml' : 'png') + ';base64,' + f.data;
+                    if (f.png && f.png.byteLength) {
+                        /* In-process module: raw PNG bytes, shown through a blob URL. */
+                        const url = URL.createObjectURL(new Blob([f.png], { type: 'image/png' }));
+                        const prev = st.blobUrl;
+                        st.blobUrl = url;
+                        img.src = url;
+                        if (prev) setTimeout(() => URL.revokeObjectURL(prev), 1000);
+                    } else {
+                        img.src = 'data:image/' + (f.format === 'svg' ? 'svg+xml' : 'png') + ';base64,' + f.data;
+                    }
                     if (st.scale === 'actual') { img.style.width = f.width + 'px'; } else img.style.width = '';
                 }
                 st.frames++;

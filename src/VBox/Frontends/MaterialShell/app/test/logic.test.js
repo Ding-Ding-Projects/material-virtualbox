@@ -130,3 +130,23 @@ test('pointer maps to guest pixels and buttons to the Main API mask', () => {
     assert.equal(buttonMask(1 | 2 | 4), 7);
     assert.equal(buttonMask(0), 0);
 });
+
+import { createRequire } from 'node:module';
+const require = createRequire(import.meta.url);
+const { NativeProvider } = require('../main/bridge-client.cjs');
+
+test('in-process provider routes channels, frames and errors', async () => {
+    const seen = [];
+    const fake = {
+        call: async (channel, req) => { const r = JSON.parse(req); seen.push([channel, r.method]); return r.method === 'bad' ? JSON.stringify({ id: r.id, error: { message: 'nope', hrc: -1 } }) : JSON.stringify({ id: r.id, result: { ok: r.params.x } }); },
+        frame: async (channel, req) => { seen.push([channel, JSON.parse(req).method]); return { json: JSON.stringify({ id: 1, result: { width: 2, height: 1, format: 'png', data: '' } }), png: Buffer.from([137, 80]) }; },
+        close: (channel) => seen.push([channel, 'close'])
+    };
+    const p = new NativeProvider(fake);
+    assert.deepEqual(await p.call('host.info', { x: 3 }), { ok: 3 });
+    await assert.rejects(p.call('bad'), /nope/);
+    const f = await p.screen('vm1', 'screen.frame', { id: 'vm1' });
+    assert.equal(f.png.length, 2);
+    await p.screen('vm1', 'screen.detach', { id: 'vm1' });
+    assert.deepEqual(seen, [['main', 'host.info'], ['main', 'bad'], ['screen:vm1', 'screen.frame'], ['screen:vm1', 'screen.detach'], ['screen:vm1', 'close']]);
+});

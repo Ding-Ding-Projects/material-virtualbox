@@ -96,6 +96,17 @@ a published release.
 
 ## [Unreleased]
 
+### Changed — The bridge runs inside the Material shell (2026-11-13)
+
+- New `VBoxMaterialBridgeNode.dll`: the bridge handlers as a Node-API module
+  loaded into the shell's main process, one VirtualBox thread per channel, raw
+  PNG frames (screen limit raised from about 15 to about 30 frames a second).
+- The handlers moved to `bridge/BridgeCore.cpp`, shared by the module and the
+  stdio helper `VBoxMaterialBridge.exe`, which stays as the automatic fallback
+  when the module is missing, fails to load or crashed in two sessions in a row.
+- Fifteen unit tests pass, including the in-process provider's routing.
+- **Not yet proven:** neither build of the bridge has been compiled outside CI.
+
 ### Changed — The Material shell is the only user interface (2026-11-13)
 
 - `Config.kmk` forces `VBOX_WITH_QTGUI` and `VBOX_WITH_DEBUGGER_GUI` off with

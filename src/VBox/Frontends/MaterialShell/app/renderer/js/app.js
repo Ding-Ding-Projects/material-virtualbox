@@ -68,6 +68,7 @@ function drawBanner() {
     const s = store.get().status;
     if (s.mode === 'demo') mount(els.banner, h('div', { class: 'banner warn', role: 'status', style: { borderRadius: 0, padding: '8px 18px' } }, icon(ICONS.info, 18), h('strong', null, 'Demo data.'), 'Started with --demo: nothing here is a real machine, and no change reaches VirtualBox.'));
     else if (s.mode === 'missing') mount(els.banner, h('div', { class: 'banner error', role: 'alert', style: { borderRadius: 0, padding: '8px 18px' } }, icon(ICONS.info, 18), h('strong', null, 'Not connected to VirtualBox.'), s.reason, ' Install VBoxMaterialBridge next to VirtualBox, or start with --demo to look around.'));
+    else if (s.fallback) mount(els.banner, h('div', { class: 'banner warn', role: 'status', style: { borderRadius: 0, padding: '8px 18px' } }, icon(ICONS.info, 18), h('strong', null, 'Separate bridge in use.'), s.fallback));
     else mount(els.banner);
 }
 

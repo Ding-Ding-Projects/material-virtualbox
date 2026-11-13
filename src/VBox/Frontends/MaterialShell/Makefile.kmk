@@ -31,8 +31,25 @@
 SUB_DEPTH = ../../../..
 include $(KBUILD_PATH)/subheader.kmk
 
+#
+# The stdio helper: the shell's fallback when the in-process module cannot be used.
+#
 PROGRAMS += VBoxMaterialBridge
 VBoxMaterialBridge_TEMPLATE = VBoxMainClientExe
-VBoxMaterialBridge_SOURCES  = bridge/VBoxMaterialBridge.cpp
+VBoxMaterialBridge_SOURCES  = \
+	bridge/VBoxMaterialBridge.cpp \
+	bridge/BridgeCore.cpp
+
+#
+# The in-process Node-API module the shell loads first (process.dlopen).
+# Node-API functions are resolved from the host at load time, so no Node
+# headers or import libraries are needed here.
+#
+DLLS += VBoxMaterialBridgeNode
+VBoxMaterialBridgeNode_TEMPLATE = VBoxMainClientDll
+VBoxMaterialBridgeNode_SOURCES  = \
+	bridge/VBoxMaterialBridgeNode.cpp \
+	bridge/BridgeCore.cpp
+VBoxMaterialBridgeNode_LIBS.linux = dl
 
 include $(FILE_KBUILD_SUB_FOOTER)

@@ -7,7 +7,7 @@
 | Default branch | `main`, pushed and read back with `git ls-remote` after every commit in this pass |
 | Redesign | 20 boards in `design/redesign-2026-11` (two canvases of 10), each committed on its own |
 | User interface | The Material shell is the only one: `Config.kmk` never builds the Qt GUI, machines run headless and their screen streams into the shell; see `src/VBox/Frontends/MaterialShell/README.md` |
-| Tests | `npm test` in `MaterialShell/app`: 14 passing locally; also run by the `Material shell checks` workflow |
+| Tests | `npm test` in `MaterialShell/app`: 15 passing locally; also run by the `Material shell checks` workflow |
 | Upstream | Ported upstream `9fe5508a2..b6bea7211` (291 commits) in `4e10237fe7dbbea3a9cebf27213a870baf097b47` |
 | Not proven | Neither the bridge nor the merged upstream tree has been compiled outside CI; the shell has only run against its demo data in a browser |
 | Next check | The first Windows release run after this pass: it builds the merged tree, then the bridge and shell in a best-effort step |

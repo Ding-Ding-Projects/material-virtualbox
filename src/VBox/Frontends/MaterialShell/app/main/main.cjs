@@ -6,14 +6,29 @@
  */
 'use strict';
 
+/* Bridge calls such as starting a machine wait in Node's worker pool; give it room. */
+process.env.UV_THREADPOOL_SIZE = process.env.UV_THREADPOOL_SIZE || '16';
+
 const { app, BrowserWindow, ipcMain, dialog, shell } = require('electron');
 const fs = require('node:fs/promises');
+const fsSync = require('node:fs');
 const path = require('node:path');
-const { BridgeClient, findBridge } = require('./bridge-client.cjs');
+const { BridgeClient, NativeProvider, findBridge, findNativeModule } = require('./bridge-client.cjs');
 
 const DEMO = process.argv.includes('--demo') || process.env.MVB_DEMO === '1';
 let provider = null;
 let providerInfo = { mode: 'none', reason: '' };
+
+/*
+ * Crash guard for the in-process module.  A native crash takes the whole
+ * process down, so the count of unfinished native sessions lives on disk:
+ * it goes up before loading and back to zero on a clean quit.  After two
+ * sessions that never finished, the shell uses the separate bridge instead.
+ */
+const NATIVE_CRASH_LIMIT = 2;
+function guardPath() { return path.join(app.getPath('userData'), 'native-bridge-guard.json'); }
+function readGuard() { try { return JSON.parse(fsSync.readFileSync(guardPath(), 'utf8')); } catch { return { unfinished: 0 }; } }
+function writeGuard(g) { try { fsSync.mkdirSync(path.dirname(guardPath()), { recursive: true }); fsSync.writeFileSync(guardPath(), JSON.stringify(g)); } catch { /* best effort */ } }
 
 function initProvider() {
     if (DEMO) {
@@ -21,16 +36,36 @@ function initProvider() {
         providerInfo = { mode: 'demo', reason: 'Started with --demo: every screen shows sample data.' };
         return;
     }
+    const wantSeparate = process.argv.includes('--separate-bridge') || process.env.MVB_SEPARATE_BRIDGE === '1';
+    const guard = readGuard();
+    let fallbackReason = '';
+    const nativeFile = findNativeModule(app.getAppPath());
+    if (!wantSeparate && nativeFile && guard.unfinished < NATIVE_CRASH_LIMIT) {
+        writeGuard({ unfinished: guard.unfinished + 1 });
+        try {
+            provider = NativeProvider.load(nativeFile);
+            providerInfo = { mode: 'native', reason: nativeFile };
+            app.on('will-quit', () => { provider.stop(); writeGuard({ unfinished: 0 }); });
+            return;
+        } catch (e) {
+            writeGuard({ unfinished: 0 });
+            fallbackReason = 'The in-process module did not load (' + e.message + ').';
+        }
+    } else if (nativeFile && guard.unfinished >= NATIVE_CRASH_LIMIT) {
+        fallbackReason = 'The in-process module stopped unexpectedly twice, so the separate bridge is in use. Start once with --reset-bridge to try it again.';
+    }
     const exe = findBridge(app.getAppPath());
     if (!exe) {
-        providerInfo = { mode: 'missing', reason: 'VBoxMaterialBridge was not found next to the shell or in the VirtualBox folder.' };
+        providerInfo = { mode: 'missing', reason: 'Neither VBoxMaterialBridgeNode nor VBoxMaterialBridge was found next to the shell or in the VirtualBox folder.' };
         return;
     }
     const client = new BridgeClient(exe);
     provider = client;
-    providerInfo = { mode: 'bridge', reason: exe };
+    providerInfo = { mode: 'bridge', reason: exe, fallback: fallbackReason };
     app.on('before-quit', () => client.stop());
 }
+
+if (process.argv.includes('--reset-bridge')) app.whenReady().then(() => writeGuard({ unfinished: 0 }));
 
 function createWindow() {
     const win = new BrowserWindow({
@@ -79,6 +114,7 @@ ipcMain.handle('screen:call', async (_e, method, params) => {
     const id = String(params && params.id || '');
     if (!id) throw new Error('A machine id is required');
     if (providerInfo.mode === 'demo') return provider.call(method, params);
+    if (providerInfo.mode === 'native') return provider.screen(id, method, params);
     if (providerInfo.mode !== 'bridge') throw new Error(providerInfo.reason || 'No VirtualBox connection');
     let client = screens.get(id);
     if (!client) {

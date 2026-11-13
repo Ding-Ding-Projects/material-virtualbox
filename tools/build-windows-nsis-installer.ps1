@@ -86,7 +86,7 @@ if (-not (Test-Path -LiteralPath $PayloadDir -PathType Container)) {
     throw "Payload directory does not exist: $PayloadDir. Build the Windows host binaries first (tools\build-windows.ps1 -Mode Build)."
 }
 $payloadRequired = @(
-    'Shell\MaterialVirtualMachine.exe', 'VBoxMaterialBridge.exe', 'VBoxSVC.exe', 'VBoxSDS.exe',
+    'Shell\MaterialVirtualMachine.exe', 'VBoxMaterialBridgeNode.dll', 'VBoxMaterialBridge.exe', 'VBoxSVC.exe', 'VBoxSDS.exe',
     'VBoxProxyStub.dll', 'VBoxC.dll', 'VBoxDrvInst.exe'
 )
 $missingPayload = @($payloadRequired | Where-Object { -not (Test-Path -LiteralPath (Join-Path $PayloadDir $_)) })
