@@ -1,5 +1,14 @@
 # Material Virtual Machine roadmap
 
+## Redesign and Material shell, 2026-11-13
+
+- [x] Redesign every manager surface and product-wide feature as 20 boards in `design/redesign-2026-11`.
+- [x] Build the Material shell front end from the boards, with a Main API bridge and unit tests.
+- [x] Port upstream VirtualBox changes through `b6bea7211`.
+- [ ] Confirm the first CI build of the bridge and the merged upstream tree.
+- [ ] Run the packaged shell against a real `VBoxSVC` and capture it.
+- [ ] Make the remaining settings pages editable in the shell (Display, Storage, Network, Shared folders).
+
 ## Closeout status, 2026-09-18
 
 - [x] Fetch `origin` and reconcile the default branch without rewriting history. Local `main` and `origin/main` both resolve to `1344a2f80075abbb44f940fde6d25c2ba08049de`.

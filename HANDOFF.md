@@ -1,5 +1,17 @@
 # Handoff
 
+## Current snapshot, 2026-11-13
+
+| Fact | Evidence |
+|---|---|
+| Default branch | `main`, pushed and read back with `git ls-remote` after every commit in this pass |
+| Redesign | 20 boards in `design/redesign-2026-11` (two canvases of 10), each committed on its own |
+| New front end | `src/VBox/Frontends/MaterialShell`: desktop web UI plus `VBoxMaterialBridge` (Main API client); see its README |
+| Tests | `npm test` in `MaterialShell/app`: 12 passing locally; also run by the `Material shell checks` workflow |
+| Upstream | Ported upstream `9fe5508a2..b6bea7211` (291 commits) in `4e10237fe7dbbea3a9cebf27213a870baf097b47` |
+| Not proven | Neither the bridge nor the merged upstream tree has been compiled outside CI; the shell has only run against its demo data in a browser |
+| Next check | The first Windows release run after this pass: it builds the merged tree, then the bridge and shell in a best-effort step |
+
 ## Current closeout snapshot
 
 Recorded on 2026-09-18 after fetching `origin` from the primary checkout

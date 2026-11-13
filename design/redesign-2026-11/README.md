@@ -49,3 +49,9 @@ The front end is being rebuilt from these boards as a desktop web front end
 (`src/VBox/Frontends/MaterialShell`) that talks to the unchanged VirtualBox
 Main API through a small native bridge. The running machine window stays the
 native `VirtualBoxVM` process, restyled to match the running-window board.
+
+## Screenshots
+
+`shell-demo-machines.png` and `shell-demo-screens.png` show the shell's
+renderer in a browser against its built-in demo data (the yellow banner says
+so on every screen). They are not captures of an installed release.

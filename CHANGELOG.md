@@ -96,6 +96,41 @@ a published release.
 
 ## [Unreleased]
 
+### Added — Material shell and the November 2026 redesign (2026-11-13)
+
+Design: [`design/redesign-2026-11`](design/redesign-2026-11/README.md), twenty
+boards committed one by one from
+[`4a20220408391edcff4112aea1ea5b56940aff85`](https://github.com/Ding-Ding-Projects/material-virtualbox/commit/4a20220408391edcff4112aea1ea5b56940aff85)
+to [`fac2cfbdfb22805bcfe915ff35f9eaee869645de`](https://github.com/Ding-Ding-Projects/material-virtualbox/commit/fac2cfbdfb22805bcfe915ff35f9eaee869645de).
+Implementation: [`d0082d1bc69834831e0ffd10ae3a75ca225e3851`](https://github.com/Ding-Ding-Projects/material-virtualbox/commit/d0082d1bc69834831e0ffd10ae3a75ca225e3851)
+and [`1db96b89444d6c47921fcffddc7cad7bbeca0d2f`](https://github.com/Ding-Ding-Projects/material-virtualbox/commit/1db96b89444d6c47921fcffddc7cad7bbeca0d2f).
+
+- New front end in `src/VBox/Frontends/MaterialShell`: a desktop web UI built
+  from the boards, talking to the unchanged Main API through
+  `VBoxMaterialBridge`, a new line-delimited JSON client of `VBoxSVC`. The
+  running machine window stays the native `VirtualBoxVM` process.
+- Twelve unit tests cover the regex builder, tab reconciliation and bulk close,
+  every export format and the round-trip importers; they run with no installs
+  (`npm test`) and in the new `Material shell checks` workflow.
+- The Windows release workflow builds the bridge and packages the shell in a
+  best-effort step and attaches `MaterialVirtualMachine-Shell-win-x64.zip` when
+  it succeeds.
+- **Not yet proven:** the bridge has not been compiled outside that workflow,
+  and the shell has only been exercised against its built-in demo data in a
+  browser. The screenshots in `design/redesign-2026-11` are those demo-data
+  captures, not captures of an installed release.
+
+### Changed — Upstream VirtualBox changes ported (2026-11-13)
+
+[`4e10237fe7dbbea3a9cebf27213a870baf097b47`](https://github.com/Ding-Ding-Projects/material-virtualbox/commit/4e10237fe7dbbea3a9cebf27213a870baf097b47)
+
+- The 291 upstream commits from `9fe5508a2` (the fork base, 2026-08-10) to
+  `b6bea7211` (2026-10-20) applied as one three-way patch: OpenSSL 3.5.8,
+  libssh 0.12.2, VMM MMIO self-access protection, shared clipboard transfer
+  rework, import appliance wizard updates and refreshed translations.
+- Three conflicts resolved by hand; `tstClipboardTransfers.cpp` follows
+  upstream and is deleted. The merged tree has not been compiled locally.
+
 ### Fixed — Reconciled the preserved dialog-emoji and dim-sum drafts (2026-08-20)
 
 [`db403d882ac3870cef07c319b7b41e1016b76eda`](https://github.com/Ding-Ding-Projects/material-virtualbox/commit/db403d882ac3870cef07c319b7b41e1016b76eda)
