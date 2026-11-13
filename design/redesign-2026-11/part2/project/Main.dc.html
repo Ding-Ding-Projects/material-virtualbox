@@ -1,0 +1,112 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Command palette</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Roboto+Flex:opsz,wdth,wght@8..144,25..151,300..900&family=Roboto+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#0B0A0F}
+a{color:#D0BCFF}a:hover{color:#EADDFF}
+button{font:inherit;color:inherit;border:0;background:none;cursor:pointer}
+input{font:inherit;color:inherit}
+@keyframes mvOpen{from{opacity:0;transform:translateY(-24px) scale(.94);filter:blur(10px)}to{opacity:1;transform:none;filter:none}}
+@keyframes mvScrim{from{opacity:0;backdrop-filter:blur(0)}to{opacity:1;backdrop-filter:blur(10px)}}
+@keyframes mvRow{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+@keyframes mvFlash{0%,100%{box-shadow:0 0 0 0 rgba(208,188,255,0)}30%{box-shadow:0 0 0 6px rgba(208,188,255,.9)}60%{box-shadow:0 0 0 14px rgba(208,188,255,0)}}
+@keyframes mvBeam{from{transform:scaleX(0);opacity:1}to{transform:scaleX(1);opacity:0}}
+.mv-st{transition:background-color 180ms cubic-bezier(.2,0,0,1),transform 320ms cubic-bezier(.34,1.56,.64,1),color 180ms}
+.mv-st:hover{background-color:rgba(230,224,233,.08)}
+.mv-st:active{transform:scale(.98)}
+.mv-st:focus-visible{outline:3px solid #D0BCFF;outline-offset:2px}
+@media (prefers-reduced-motion: reduce){*,*::before,*::after{animation:none!important;transition:none!important}}
+</style>
+</helmet>
+<div style="position: relative; overflow: hidden; min-height: 900px; background: #0F0D13; color: #E6E0E9; font-family: 'Roboto Flex', 'Segoe UI', system-ui, sans-serif; font-size: 14px">
+  <div aria-hidden="true" style="position: absolute; inset: 0; padding: 70px 40px; display: grid; grid-template-columns: 300px 1fr; gap: 20px; opacity: .55">
+    <div style="display: flex; flex-direction: column; gap: 8px"><sc-for list="{{ ghost }}" as="g" hint-placeholder-count="5"><span style="height: 64px; border-radius: 20px; background: #1D1B20"></span></sc-for></div>
+    <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; align-content: start">
+      <span style="grid-column: span 3; height: 160px; border-radius: 28px; background: #211F26"></span>
+      <span style="height: 120px; border-radius: 20px; background: #1D1B20"></span>
+      <span style="height: 120px; border-radius: 20px; background: #1D1B20; animation: {{ flash }}"></span>
+      <span style="height: 120px; border-radius: 20px; background: #1D1B20"></span>
+    </div>
+  </div>
+  <div style="position: absolute; inset: 0; background: rgba(11,10,15,.6); animation: mvScrim 400ms both"></div>
+
+  <div role="dialog" aria-label="Command palette" style="position: absolute; left: 50%; top: 90px; width: 760px; margin-left: -380px; border-radius: 32px; background: rgba(33,31,38,.92); backdrop-filter: blur(30px) saturate(150%); border: 1px solid rgba(202,196,208,.16); box-shadow: 0 40px 100px rgba(0,0,0,.6); overflow: hidden; animation: mvOpen 520ms cubic-bezier(.05,.7,.1,1) both">
+    <label style="display: flex; align-items: center; gap: 14px; padding: 18px 20px 14px 24px">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#D0BCFF" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"></circle><path d="M20 20l-3.5-3.5"></path></svg>
+      <span style="position: absolute; left: -9999px">Search everything</span>
+      <input value="{{ query }}" placeholder="Search machines, settings, actions, help" style="flex: 1; min-width: 0; border: 0; outline: 0; background: transparent; font-size: 22px; font-weight: 600">
+      <span title="Regular expression builder" style="font-family: 'Roboto Mono', monospace; font-size: 12px; padding: 7px 10px; border-radius: 14px; background: #2B2930; color: #D0BCFF">.*</span>
+      <span style="font-family: 'Roboto Mono', monospace; font-size: 11px; padding: 4px 8px; border-radius: 8px; border: 1px solid #49454F; color: #CAC4D0">Esc</span>
+    </label>
+    <div role="tablist" aria-label="Scopes" style="display: flex; gap: 6px; padding: 0 20px 12px; flex-wrap: wrap">
+      <sc-for list="{{ scopes }}" as="s" hint-placeholder-count="5">
+        <button role="tab" class="mv-st" onClick="{{ s.pick }}" aria-selected="{{ s.on }}" style="height: 34px; padding: 0 14px; border-radius: 10px; font-weight: 700; font-size: 13px; background: {{ s.bg }}; color: {{ s.fg }}">{{ s.label }} <span style="opacity: .7">{{ s.n }}</span></button>
+      </sc-for>
+    </div>
+    <div role="listbox" aria-label="Results" style="display: flex; flex-direction: column; gap: 2px; padding: 0 10px 10px; border-top: 1px solid #2B2930">
+      <sc-for list="{{ results }}" as="r" hint-placeholder-count="7">
+        <div role="option" aria-selected="{{ r.sel }}" style="display: flex; align-items: center; gap: 14px; padding: 10px 14px; margin-top: 4px; border-radius: 18px; background: {{ r.bg }}; animation: mvRow 360ms cubic-bezier(.05,.7,.1,1) both; animation-delay: {{ r.delay }}">
+          <span style="width: 38px; height: 38px; border-radius: 12px; display: grid; place-items: center; background: {{ r.iconBg }}; color: {{ r.iconFg }}">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="{{ r.icon }}"></path></svg>
+          </span>
+          <span style="flex: 1; min-width: 0; display: flex; flex-direction: column"><span style="font-weight: 700">{{ r.title }}</span><span style="font-size: 12px; color: #CAC4D0">{{ r.path }}</span></span>
+          <sc-if value="{{ r.isToggle }}" hint-placeholder-val="{{ false }}">
+            <button class="mv-st" role="switch" aria-checked="{{ r.checked }}" aria-label="{{ r.title }}" onClick="{{ r.flip }}" style="width: 52px; height: 30px; border-radius: 15px; padding: 0 4px; display: flex; align-items: center; background: {{ r.track }}">
+              <span style="width: 22px; height: 22px; border-radius: 11px; background: {{ r.knob }}; transform: translateX({{ r.x }}); transition: transform 360ms cubic-bezier(.34,1.56,.64,1)"></span>
+            </button>
+          </sc-if>
+          <sc-if value="{{ r.isJump }}" hint-placeholder-val="{{ true }}">
+            <button class="mv-st" onClick="{{ r.go }}" style="display: flex; align-items: center; gap: 6px; height: 34px; padding: 0 12px; border-radius: 17px; background: #2B2930; font-size: 12.5px; font-weight: 700; color: #D0BCFF">Teleport
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"></path></svg>
+            </button>
+          </sc-if>
+          <span style="font-family: 'Roboto Mono', monospace; font-size: 11px; color: #938F99; min-width: 80px; text-align: right">{{ r.key }}</span>
+        </div>
+      </sc-for>
+    </div>
+    <div style="display: flex; gap: 16px; padding: 12px 24px; background: rgba(15,13,19,.6); font-size: 12px; color: #CAC4D0">
+      <span>Up and Down to move</span><span>Enter to run</span><span>Alt+Enter to teleport</span><span style="flex: 1"></span><span>{{ total }} results</span>
+    </div>
+    <div aria-hidden="true" style="position: absolute; left: 0; right: 0; bottom: 0; height: 3px; transform-origin: left; background: linear-gradient(90deg, #D0BCFF, #EFB8C8); animation: {{ beam }}"></div>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":900}}'>
+class Component extends DCLogic {
+  constructor(p) { super(p); this.state = { scope: 0, sel: 1, dark: true, emoji: false, jumped: 0 }; }
+  renderVals() {
+    const sc = ['All', 'Machines', 'Settings', 'Actions', 'Help'];
+    const counts = [9, 2, 4, 2, 1];
+    const scopes = sc.map((l, i) => ({ label: l, n: counts[i], on: i === this.state.scope ? 'true' : 'false', bg: i === this.state.scope ? '#4F378B' : 'transparent', fg: i === this.state.scope ? '#EADDFF' : '#CAC4D0', pick: () => this.setState({ scope: i }) }));
+    const sw = (on) => ({ track: on ? '#D0BCFF' : '#36343B', knob: on ? '#381E72' : '#938F99', x: on ? '22px' : '0px', checked: on ? 'true' : 'false' });
+    const defs = [
+      ['Windows 11 Dev Box', 'Machines · Development', 'M3 5h18v11H3zM8 20h8', '#4F378B', '#EADDFF', 'jump', 'Enter', 1],
+      ['Memory for Windows 11 Dev Box', 'Settings · System · Base memory', 'M7 7h10v10H7z', '#633B48', '#FFD8E4', 'jump', 'Alt+Enter', 2],
+      ['Dark theme', 'Preferences · Appearance', 'M21 13A9 9 0 1 1 11 3a7 7 0 0 0 10 10z', '#1E3A5F', '#D1E4FF', 'dark', '', 2],
+      ['Dialog emojis', 'Preferences · Interface', 'M12 3a9 9 0 1 0 0 18 9 9 0 1 0 0-18zM8 14s1.5 2 4 2 4-2 4-2', '#5C3F1E', '#FFDDB8', 'emoji', '', 2],
+      ['Take snapshot', 'Action · current machine', 'M4 8h3l2-3h6l2 3h3v11H4z', '#4A4458', '#E8DEF8', 'jump', 'Ctrl+Shift+S', 3],
+      ['Memory usage on host', 'Activity · Resource use', 'M3 12h4l3-8 4 16 3-8h4', '#2E4A2C', '#C4EEBE', 'jump', '', 1],
+      ['How memory ballooning works', 'Help · Offline docs', 'M4 4h12a4 4 0 0 1 4 4v12H8a4 4 0 0 1-4-4z', '#4A4458', '#E8DEF8', 'jump', 'F1', 4]];
+    const results = defs.filter((d) => this.state.scope === 0 || d[7] === this.state.scope).map((d, i) => {
+      const t = d[5] === 'dark' ? sw(this.state.dark) : (d[5] === 'emoji' ? sw(this.state.emoji) : {});
+      return Object.assign({ title: d[0], path: d[1], icon: d[2], iconBg: d[3], iconFg: d[4], key: d[6], isToggle: d[5] !== 'jump', isJump: d[5] === 'jump',
+        sel: i === this.state.sel ? 'true' : 'false', bg: i === this.state.sel ? '#2B2340' : 'transparent', delay: (i * 45) + 'ms',
+        flip: () => this.setState(d[5] === 'dark' ? { dark: !this.state.dark } : { emoji: !this.state.emoji }),
+        go: () => this.setState({ jumped: this.state.jumped + 1, sel: i }) }, t);
+    });
+    const j = this.state.jumped;
+    return { scopes, results, total: results.length, query: 'memory', ghost: [0, 1, 2, 3, 4],
+      flash: j ? 'mvFlash 1.2s ' + (j % 2 ? '' : '0.01s ') + 'both' : 'none', beam: j ? 'mvBeam 700ms ' + (j % 2 ? '' : '0.01s ') + 'both' : 'none' };
+  }
+}
+</script>
+</body>
+</html>

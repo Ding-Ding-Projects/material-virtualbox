@@ -1,0 +1,32 @@
+{
+ "v": 3,
+ "title": "Material VirtualBox Redesign · Part 2",
+ "launch": {
+  "view": "canvas"
+ },
+ "pages": [],
+ "boards": {
+  "Main.dc.html": {
+   "x": 0,
+   "y": 0,
+   "w": 1440,
+   "h": 900,
+   "expand": "fill",
+   "title": "Command palette",
+   "is_interactive": true
+  }
+ },
+ "order": [
+  "Main.dc.html"
+ ],
+ "notes": {
+  "title": {
+   "x": 0,
+   "y": -320,
+   "kind": "title1",
+   "maxW": 4400,
+   "text": "Material VirtualBox redesign · Part 2"
+  }
+ },
+ "designSystems": []
+}
