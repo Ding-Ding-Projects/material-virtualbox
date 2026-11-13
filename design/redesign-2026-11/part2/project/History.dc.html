@@ -1,0 +1,115 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Local history and changelog</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Roboto+Flex:opsz,wdth,wght@8..144,25..151,300..900&family=Roboto+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#0B0A0F}
+a{color:#D0BCFF}a:hover{color:#EADDFF}
+button{font:inherit;color:inherit;border:0;background:none;cursor:pointer}
+input{font:inherit;color:inherit}
+@keyframes mvNode{from{opacity:0;transform:scale(.4)}to{opacity:1;transform:none}}
+@keyframes mvRow{from{opacity:0;transform:translateX(-18px)}to{opacity:1;transform:none}}
+@keyframes mvLine{from{transform:scaleY(0)}to{transform:scaleY(1)}}
+@keyframes mvNew{0%{opacity:0;transform:translateY(-20px) scale(.9);box-shadow:0 0 0 0 rgba(166,215,160,.7)}60%{opacity:1;transform:none;box-shadow:0 0 0 12px rgba(166,215,160,0)}100%{box-shadow:none}}
+.mv-st{transition:background-color 180ms cubic-bezier(.2,0,0,1),transform 320ms cubic-bezier(.34,1.56,.64,1),color 180ms}
+.mv-st:hover{background-color:rgba(230,224,233,.08)}
+.mv-st:active{transform:scale(.96)}
+.mv-st:focus-visible{outline:3px solid #D0BCFF;outline-offset:2px}
+@media (prefers-reduced-motion: reduce){*,*::before,*::after{animation:none!important;transition:none!important}}
+</style>
+</helmet>
+<div style="min-height: 900px; display: flex; flex-wrap: wrap; gap: 24px; padding: 28px 32px; background: #0B0A0F; color: #E6E0E9; font-family: 'Roboto Flex', 'Segoe UI', system-ui, sans-serif; font-size: 14px">
+  <main style="flex: 999 1 560px; min-width: 0; display: flex; flex-direction: column; gap: 14px">
+    <div style="display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-end; justify-content: space-between">
+      <div>
+        <span style="font-size: 12px; font-weight: 800; letter-spacing: 1.2px; text-transform: uppercase; color: #D0BCFF">Ctrl+H · append-only</span>
+        <h1 style="margin: 4px 0 0; font-size: 56px; line-height: .95; font-weight: 900; letter-spacing: -1.5px; font-variation-settings: 'wdth' 135">History</h1>
+      </div>
+      <div style="display: flex; gap: 6px; flex-wrap: wrap">
+        <sc-for list="{{ filters }}" as="f" hint-placeholder-count="5">
+          <button class="mv-st" onClick="{{ f.pick }}" aria-pressed="{{ f.on }}" style="height: 38px; padding: 0 14px; border-radius: 12px; font-weight: 700; font-size: 13px; background: {{ f.bg }}; color: {{ f.fg }}">{{ f.label }} <span style="opacity: .7">{{ f.n }}</span></button>
+        </sc-for>
+      </div>
+    </div>
+    <div style="display: flex; gap: 10px; flex-wrap: wrap">
+      <label style="flex: 1 1 280px; display: flex; align-items: center; gap: 8px; height: 46px; padding: 0 6px 0 14px; border-radius: 23px; background: #1D1B20; color: #CAC4D0">
+        <span style="position: absolute; left: -9999px">Search history</span>
+        <input placeholder="Search history" style="flex: 1; min-width: 0; border: 0; outline: 0; background: transparent">
+        <span title="Regular expression builder" style="font-family: 'Roboto Mono', monospace; font-size: 12px; padding: 7px 10px; border-radius: 16px; background: #2B2930; color: #D0BCFF">.*</span>
+      </label>
+      <button class="mv-st" style="display: flex; align-items: center; gap: 8px; height: 46px; padding: 0 16px; border-radius: 23px; background: #1D1B20; font-weight: 650">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="3"></rect><path d="M3 10h18M8 3v4M16 3v4"></path></svg>1 Nov to 13 Nov 2026
+      </button>
+    </div>
+    <ol aria-label="Revisions" style="position: relative; margin: 0; padding: 0 0 0 34px; list-style: none; display: flex; flex-direction: column; gap: 10px">
+      <span aria-hidden="true" style="position: absolute; left: 13px; top: 8px; bottom: 8px; width: 3px; border-radius: 2px; background: linear-gradient(180deg, #A6D7A0, #D0BCFF 30%, #49454F); transform-origin: top; animation: mvLine 900ms cubic-bezier(.05,.7,.1,1) both"></span>
+      <sc-for list="{{ revs }}" as="r" hint-placeholder-count="6">
+        <li style="position: relative; animation: {{ r.anim }}; animation-delay: {{ r.delay }}">
+          <span aria-hidden="true" style="position: absolute; left: -28px; top: 18px; width: 16px; height: 16px; border-radius: 8px; background: {{ r.dot }}; border: 3px solid #0B0A0F; animation: mvNode 400ms cubic-bezier(.34,1.56,.64,1) both; animation-delay: {{ r.delay }}"></span>
+          <button class="mv-st" onClick="{{ r.pick }}" aria-pressed="{{ r.on }}" style="width: 100%; display: flex; align-items: center; gap: 14px; padding: 14px 16px; border-radius: 20px; text-align: left; background: {{ r.bg }}; border: 1px solid {{ r.border }}">
+            <span style="flex: 1; display: flex; flex-direction: column; gap: 3px"><span style="font-weight: 750">{{ r.title }}</span><span style="font-size: 12px; color: #CAC4D0">{{ r.when }} · {{ r.scope }}</span></span>
+            <span style="font-family: 'Roboto Mono', monospace; font-size: 12px; color: #938F99">{{ r.sha }}</span>
+            <span style="padding: 4px 10px; border-radius: 8px; font-size: 11px; font-weight: 800; background: {{ r.tagBg }}; color: {{ r.tagFg }}">{{ r.tag }}</span>
+          </button>
+        </li>
+      </sc-for>
+    </ol>
+  </main>
+
+  <aside aria-label="Revision diff" style="flex: 1 1 380px; max-width: 460px; display: flex; flex-direction: column; gap: 12px">
+    <div style="padding: 22px; border-radius: 30px; background: #17151C; display: flex; flex-direction: column; gap: 12px">
+      <span style="font-size: 12px; font-weight: 800; letter-spacing: 1.2px; text-transform: uppercase; color: #CAC4D0">What changed</span>
+      <h2 style="margin: 0; font-size: 24px; font-weight: 850">{{ cur.title }}</h2>
+      <div style="font-family: 'Roboto Mono', monospace; font-size: 13px; border-radius: 16px; overflow: hidden">
+        <sc-for list="{{ cur.diff }}" as="d" hint-placeholder-count="4">
+          <div style="display: flex; gap: 10px; padding: 6px 12px; background: {{ d.bg }}; color: {{ d.fg }}; animation: mvRow 360ms both; animation-delay: {{ d.delay }}"><span style="width: 12px">{{ d.sign }}</span><span>{{ d.text }}</span></div>
+        </sc-for>
+      </div>
+      <div style="display: flex; gap: 8px">
+        <button class="mv-st" onClick="{{ restore }}" style="flex: 1; height: 48px; border-radius: 24px; background: #D0BCFF; color: #381E72; font-weight: 850">Restore as new revision</button>
+        <button class="mv-st" style="height: 48px; padding: 0 18px; border-radius: 24px; border: 1px solid #49454F; font-weight: 700">Export</button>
+      </div>
+    </div>
+    <div style="padding: 18px 20px; border-radius: 26px; background: linear-gradient(140deg, #2B2340, #17151C); display: flex; flex-direction: column; gap: 8px">
+      <span style="font-size: 12px; font-weight: 800; letter-spacing: 1.2px; text-transform: uppercase; color: #D0BCFF">Changelog</span>
+      <span style="font-size: 20px; font-weight: 850">7.2.97 · Har Gow</span>
+      <span style="color: #CAC4D0">New Manager shell, live activity charts, regex builder on every field.</span>
+      <span style="font-family: 'Roboto Mono', monospace; font-size: 12px; color: #D0BCFF">[COMMIT SHA]</span>
+    </div>
+  </aside>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":900}}'>
+class Component extends DCLogic {
+  constructor(p) { super(p); this.state = { cur: 0, filter: 0, restored: 0 }; }
+  renderVals() {
+    const base = [['Memory 12 GB to 16 GB', 'Windows 11 Dev Box', 'Settings', '13 Nov, 22:40', 'a41c09e', [['-', 'Base memory: 12288 MB'], ['+', 'Base memory: 16384 MB']]],
+      ['Snapshot taken: Before driver update', 'Windows 11 Dev Box', 'Snapshots', '2 Nov, 22:40', '77f2b10', [['+', 'Snapshot: Before driver update'], [' ', 'Parent: Toolchain ready']]],
+      ['Port forward added', 'LabNet', 'Network', '1 Nov, 18:12', '0c93d4e', [['+', 'Rule ssh: TCP 2222 to 10.0.2.15:22']]],
+      ['Hero card colour changed', 'Appearance', 'Appearance', '1 Nov, 09:03', '5be7a21', [['-', 'manager.hero.card: #211F26'], ['+', 'manager.hero.card: #4F378B']]],
+      ['Machine created', 'Fedora Workstation', 'Machines', '28 Oct, 14:55', '9d0e331', [['+', 'Name: Fedora Workstation'], ['+', 'OS type: Fedora_64']]]];
+    const restoredRows = Array.from({ length: this.state.restored }, (_, i) => ['Restored: ' + base[this.state.cur][0], base[this.state.cur][1], 'Restore', 'Just now', 'new' + i, base[this.state.cur][5].map((d) => [d[0] === '-' ? '+' : (d[0] === '+' ? '-' : ' '), d[1]])]);
+    const all = restoredRows.concat(base);
+    const fl = ['All', 'Settings', 'Snapshots', 'Network', 'Appearance'];
+    const filters = fl.map((l, i) => ({ label: l, n: i === 0 ? all.length : all.filter((r) => r[2] === l).length, on: i === this.state.filter ? 'true' : 'false', bg: i === this.state.filter ? '#4F378B' : '#1D1B20', fg: i === this.state.filter ? '#EADDFF' : '#CAC4D0', pick: () => this.setState({ filter: i }) }));
+    const shown = all.filter((r) => this.state.filter === 0 || r[2] === fl[this.state.filter]);
+    const revs = shown.map((r, i) => { const isNew = r[2] === 'Restore'; const on = base.indexOf(r) === this.state.cur;
+      return { title: r[0], scope: r[1], when: r[3], sha: r[4].slice(0, 7), tag: isNew ? 'New' : r[2], tagBg: isNew ? '#2E4A2C' : '#2B2930', tagFg: isNew ? '#C4EEBE' : '#CAC4D0',
+        dot: isNew ? '#A6D7A0' : (on ? '#D0BCFF' : '#625B71'), on: on ? 'true' : 'false', bg: on ? '#2B2340' : '#17151C', border: on ? '#4F378B' : 'transparent',
+        anim: isNew ? 'mvNew 900ms cubic-bezier(.34,1.56,.64,1) both' : 'mvRow 420ms cubic-bezier(.05,.7,.1,1) both', delay: (i * 60) + 'ms',
+        pick: () => { const b = base.indexOf(r); if (b >= 0) this.setState({ cur: b }); } }; });
+    const c = base[this.state.cur];
+    const diff = c[5].map((d, i) => ({ sign: d[0], text: d[1], bg: d[0] === '+' ? '#17261A' : (d[0] === '-' ? '#2A1416' : '#1D1B20'), fg: d[0] === '+' ? '#C4EEBE' : (d[0] === '-' ? '#FFDAD6' : '#CAC4D0'), delay: (i * 80) + 'ms' }));
+    return { filters, revs, cur: { title: c[0], diff }, restore: () => this.setState({ restored: this.state.restored + 1, filter: 0 }) };
+  }
+}
+</script>
+</body>
+</html>

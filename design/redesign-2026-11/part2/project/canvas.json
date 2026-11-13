@@ -50,6 +50,15 @@
    "expand": "fill",
    "title": "Two-key super confirmation",
    "is_interactive": true
+  },
+  "History.dc.html": {
+   "x": 3040,
+   "y": 1020,
+   "w": 1440,
+   "h": 900,
+   "expand": "fill",
+   "title": "Local history and changelog",
+   "is_interactive": true
   }
  },
  "order": [
@@ -57,7 +66,8 @@
   "Regex-Builder.dc.html",
   "Tab-Manager.dc.html",
   "Appearance-Editor.dc.html",
-  "Super-Confirmation.dc.html"
+  "Super-Confirmation.dc.html",
+  "History.dc.html"
  ],
  "notes": {
   "title": {
