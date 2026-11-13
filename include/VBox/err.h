@@ -1991,7 +1991,24 @@
 #define VERR_SUPDRV_NOT_BUDDING_VM_PROCESS_2        (-3749)
 
 /** Raw-mode is unavailable courtesy of Hyper-V. */
-#define VERR_SUPDRV_NO_RAW_MODE_HYPER_V_ROOT        (-7000)
+#define VERR_SUPDRV_NO_RAW_MODE_HYPER_V_ROOT                (-7000)
+/** Failed setting TokenVirtualizationAllowed to zero. */
+#define VERR_SUPDRV_TOKEN_VIRTUALIZATION_ALLOWED_ZEROING    (-7001)
+/** Failed setting TokenVirtualizationEnabled to zero. */
+#define VERR_SUPDRV_TOKEN_VIRTUALIZATION_ENABLED_ZEROING    (-7002)
+/** Failed to reference the primary process token. */
+#define VERR_SUPDRV_REF_PRIMARY_PROCESS_TOKEN_FAILED        (-7003)
+/** Failed open the primary process token object. */
+#define VERR_SUPDRV_OPEN_PRIMARY_PROCESS_TOKEN_FAILED       (-7004)
+/** Failed create the token adjustment thread. */
+#define VERR_SUPDRV_TOKEN_ADJ_THREAD_CREATE_FAILED          (-7005)
+/** Failed waiting for the token adjustment thread. */
+#define VERR_SUPDRV_TOKEN_ADJ_THREAD_WAIT_ERROR             (-7006)
+/** Token virtualization is still allowed after attempting to disallowing it. */
+#define VERR_SUPDRV_TOKEN_VIRTUALIZATION_STILL_ALLOWED      (-7007)
+/** Token virtualization is still enabled after attempting to disable and
+ *  disallowing it. */
+#define VERR_SUPDRV_TOKEN_VIRTUALIZATION_STILL_ENABLED      (-7008)
 /** @} */
 
 
@@ -2058,6 +2075,8 @@
 /** Unexpected instruction encountered for which there is no patch strategy
  * implemented (hardening). */
 #define VERR_SUPLIB_UNEXPECTED_INSTRUCTION          (-3778)
+/** The RWX page has been corrupted. */
+#define VERR_SUPLIB_RWXPG_CORRUPTED                 (-3779)
 /** @} */
 
 
@@ -2953,18 +2972,18 @@
 #define VERR_SUP_VP_NOT_OWNED_BY_TRUSTED_INSTALLER  (-5667)
 /** The image is outside the expected range. */
 #define VERR_SUP_VP_IMAGE_TOO_BIG                   (-5668)
-/** Stub process not found so it cannot be revalidated when vboxdrv is opened
- * by the VM process. */
-#define VERR_SUP_VP_STUB_NOT_FOUND                  (-5669)
-/** Error opening the stub process for revalidation when vboxdrv is opened by
- *  the VM process. */
-#define VERR_SUP_VP_STUB_OPEN_ERROR                 (-5670)
-/** Stub process thread not found during revalidation upon vboxdrv opening by
- * the VM process. */
-#define VERR_SUP_VP_STUB_THREAD_NOT_FOUND           (-5671)
-/** Error opening the stub process thread for revalidation when vboxdrv is
- * opened by the VM process. */
-#define VERR_SUP_VP_STUB_THREAD_OPEN_ERROR          (-5672)
+/** Parent process not found so it cannot be revalidated when VBoxDrv or
+ * VBoxDrvStub is opened. */
+#define VERR_SUP_VP_PARENT_NOT_FOUND                (-5669)
+/** Error opening the parent process for revalidation when VBoxDrv or
+ *  VBoxDrvStub is opened. */
+#define VERR_SUP_VP_PARENT_OPEN_ERROR               (-5670)
+/** Parent process thread not found during revalidation upon VBoxDrv or
+ *  VBoxDrvStub opening. */
+#define VERR_SUP_VP_PARENT_THREAD_NOT_FOUND         (-5671)
+/** Error opening the parent process thread for revalidation when VBoxDrv or
+ * VBoxDrvStub is opened. */
+#define VERR_SUP_VP_PARENT_THREAD_OPEN_ERROR          (-5672)
 /** Process Purification Failure: NtAllocateVirtualMemory failed to get us
  * suitable replacement memory for a chunk of executable memory that
  * shouldn't be present in our process.  (You will only see this message if you
@@ -2983,7 +3002,10 @@
 /** The image is required to be signed with the same certificate as the rest
  * of VirtualBox or one of the special trusted (Oracle) certificates. */
 #define VERR_SUP_VP_NOT_SIGNED_WITH_SPECIALLY_TRUSTED_CERT (-5679)
-
+/** Process Verification Failure: Malformed RWX section. */
+#define VERR_SUP_VP_EXE_MALFORMED_RWX_SECTION       (-5680)
+/** The RWX page has been corrupted. */
+#define VERR_SUP_VP_EXE_CORRUPTED_RWX_SECTION       (-5681)
 /** We are in driverless mode. */
 #define VERR_SUP_DRIVERLESS                         (-5699)
 /** We are in driverless mode. */
@@ -3143,6 +3165,10 @@
 #define VERR_APIC_IPE_1                             (-6706)
 /** APIC internal error \#2. */
 #define VERR_APIC_IPE_2                             (-6707)
+/** Update the APIC state in R3 after an unaccelerated write (AVIC/APICv). */
+#define VINF_APIC_R3_UPDATE_STATE                   6708
+/** Pending interrupt deferred for delivery by hardware (AVIC/APICv). */
+#define VERR_APIC_INTR_DEFER                        (-6709)
 /** @} */
 
 /** @name NEM Status Codes

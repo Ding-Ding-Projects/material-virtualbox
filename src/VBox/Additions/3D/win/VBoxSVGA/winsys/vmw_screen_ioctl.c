@@ -64,7 +64,11 @@
 #include "vmw_context.h"
 #include "vmw_fence.h"
 #include "vmwgfx_drm.h"
+#if VBOX_MESA_V_MAJOR >= 25
+#include "vmw_surf_defs.h"
+#else
 #include "svga3d_caps.h"
+#endif
 #include "svga3d_reg.h"
 #include "svga3d_surfacedefs.h"
 
@@ -109,11 +113,7 @@ vmw_ioctl_context_create(struct vmw_winsys_screen *vws)
 
 uint32
 vmw_ioctl_extended_context_create(struct vmw_winsys_screen *vws,
-#if VBOX_MESA_V_MAJOR < 24
-                                  boolean vgpu10)
-#else
                                   bool vgpu10)
-#endif
 {
    struct vmw_winsys_screen_wddm *vws_wddm = (struct vmw_winsys_screen_wddm *)vws;
    return vws_wddm->pEnv->pfnContextCreate(vws_wddm->pEnv->pvEnv, true, vgpu10);
@@ -226,10 +226,17 @@ vmw_ioctl_gb_surface_create(struct vmw_winsys_screen *vws,
     createParms.u64UserAddress = 0; /* out */
     createParms.u32Sid = 0; /* out */
 
+#if VBOX_MESA_V_MAJOR >= 25
+    createParms.cbGB = vmw_surf_get_serialized_size(format,
+                                                    size,
+                                                    numMipLevels,
+                                                    numFaces);
+#else
     createParms.cbGB = svga3dsurface_get_serialized_size(format,
                                                          size,
                                                          numMipLevels,
                                                          numFaces);
+#endif
 
     int ret = vws_wddm->pEnv->pfnGBSurfaceDefine(vws_wddm->pEnv->pvEnv, &createParms);
     if (ret)
@@ -268,11 +275,7 @@ static int
 vmw_ioctl_surface_req(const struct vmw_winsys_screen *vws,
                       const struct winsys_handle *whandle,
                       struct drm_vmw_surface_arg *req,
-#if VBOX_MESA_V_MAJOR < 24
-                      boolean *needs_unref)
-#else
                       bool *needs_unref)
-#endif
 {
    ASMBreakpoint();
    RT_NOREF4(vws, whandle, req, needs_unref);
@@ -451,15 +454,9 @@ vmw_ioctl_region_unmap(struct vmw_region *region)
  */
 int
 vmw_ioctl_syncforcpu(struct vmw_region *region,
-#if VBOX_MESA_V_MAJOR < 24
-                     boolean dont_block,
-                     boolean readonly,
-                     boolean allow_cs)
-#else
                      bool dont_block,
                      bool readonly,
                      bool allow_cs)
-#endif
 {
     ASMBreakpoint();
     RT_NOREF4(region, dont_block, readonly, allow_cs);
@@ -475,13 +472,8 @@ vmw_ioctl_syncforcpu(struct vmw_region *region,
  */
 void
 vmw_ioctl_releasefromcpu(struct vmw_region *region,
-#if VBOX_MESA_V_MAJOR < 24
-                         boolean readonly,
-                         boolean allow_cs)
-#else
                          bool readonly,
                          bool allow_cs)
-#endif
 {
    ASMBreakpoint();
    RT_NOREF3(region, readonly, allow_cs);
@@ -570,6 +562,18 @@ vmw_ioctl_shader_destroy(struct vmw_winsys_screen *vws, uint32 shid)
    return;
 }
 
+#if VBOX_MESA_V_MAJOR >= 25
+typedef struct SVGA3dCapsRecord {
+   SVGA3dFifoCapsRecordHeader header;
+   uint32 data[1];
+} SVGA3dCapsRecord;
+
+typedef SVGA3dFifoCapPair SVGA3dCapPair;
+
+#define SVGA3DCAPS_RECORD_DEVCAPS_MIN SVGA3D_FIFO_CAPS_RECORD_DEVCAPS
+#define SVGA3DCAPS_RECORD_DEVCAPS_MAX SVGA3D_FIFO_CAPS_RECORD_DEVCAPS
+#endif /* VBOX_MESA_V_MAJOR >= 25 */
+
 static int
 vmw_ioctl_parse_caps(struct vmw_winsys_screen *vws,
 		     const uint32_t *cap_buffer)
@@ -649,7 +653,11 @@ static enum SVGASHADERMODEL vboxGetShaderModel(struct vmw_winsys_screen_wddm *vw
    enum SVGASHADERMODEL enmResult = SVGA_SM_LEGACY;
 
    if (   (vws_wddm->HwInfo.au32Regs[SVGA_REG_CAPABILITIES] & SVGA_CAP_GBOBJECTS)
+#if VBOX_MESA_V_MAJOR >= 25
+       && (vws_wddm->HwInfo.au32Regs[SVGA_REG_CAPABILITIES] & SVGA_CAP_DX)
+#else
        && (vws_wddm->HwInfo.au32Regs[SVGA_REG_CAPABILITIES] & SVGA_CAP_CMD_BUFFERS_3 /*=SVGA_CAP_DX*/)
+#endif
        && vws_wddm->HwInfo.au32Caps[SVGA3D_DEVCAP_DXCONTEXT])
    {
       enmResult = SVGA_SM_4;
@@ -696,7 +704,11 @@ vboxGetParam(struct vmw_winsys_screen_wddm *vws_wddm, struct drm_vmw_getparam_ar
             gp_arg->value = vws_wddm->HwInfo.au32Fifo[SVGA_FIFO_CAPABILITIES];
             break;
         case DRM_VMW_PARAM_MAX_FB_SIZE:
+#if VBOX_MESA_V_MAJOR >= 25
+            gp_arg->value = vws_wddm->HwInfo.au32Regs[SVGA_REG_MAX_PRIMARY_MEM];
+#else
             gp_arg->value = vws_wddm->HwInfo.au32Regs[SVGA_REG_MAX_PRIMARY_BOUNDING_BOX_MEM];
+#endif
             break;
         case DRM_VMW_PARAM_FIFO_HW_VERSION:
             if (vws_wddm->HwInfo.au32Fifo[SVGA_FIFO_CAPABILITIES] & SVGA_FIFO_CAP_3D_HWVERSION_REVISED)
@@ -746,11 +758,9 @@ vboxGetParam(struct vmw_winsys_screen_wddm *vws_wddm, struct drm_vmw_getparam_ar
         case DRM_VMW_PARAM_SM5:
             gp_arg->value = (vboxGetShaderModel(vws_wddm) >= SVGA_SM_5);
             break;
-#if VBOX_MESA_V_MAJOR >= 24
         case DRM_VMW_PARAM_GL43:
             gp_arg->value = false; /** @todo */
             break;
-#endif
         default: return -1;
     }
     return 0;
@@ -767,11 +777,7 @@ vboxGet3DCap(struct vmw_winsys_screen_wddm *vws_wddm, void *pvCap, size_t cbCap)
     return 0;
 }
 
-#if VBOX_MESA_V_MAJOR < 24
-boolean
-#else
 bool
-#endif
 vmw_ioctl_init(struct vmw_winsys_screen *vws)
 {
    struct vmw_winsys_screen_wddm *vws_wddm = (struct vmw_winsys_screen_wddm *)vws;
@@ -780,13 +786,8 @@ vmw_ioctl_init(struct vmw_winsys_screen *vws)
    unsigned int size;
    int ret;
    uint32_t *cap_buffer;
-#if VBOX_MESA_V_MAJOR < 24
-   boolean drm_gb_capable;
-   boolean have_drm_2_5;
-#else
    bool drm_gb_capable;
    bool have_drm_2_5;
-#endif
 
    VMW_FUNC;
 
@@ -798,9 +799,7 @@ vmw_ioctl_init(struct vmw_winsys_screen *vws)
    vws->ioctl.have_drm_2_17 = 1;
    vws->ioctl.have_drm_2_18 = 1;
    vws->ioctl.have_drm_2_19 = 1;
-#if VBOX_MESA_V_MAJOR >= 24
    vws->ioctl.have_drm_2_20 = 1;
-#endif
 
    vws->ioctl.drm_execbuf_version = vws->ioctl.have_drm_2_9 ? 2 : 1;
 
@@ -839,9 +838,7 @@ vmw_ioctl_init(struct vmw_winsys_screen *vws)
    vws->base.have_vgpu10 = false;
    vws->base.have_sm4_1 = false;
    vws->base.have_intra_surface_copy = false;
-#if VBOX_MESA_V_MAJOR >= 24
    vws->base.device_id = 0x0405; /* assume SVGA II */
-#endif
 
    if (vws->base.have_gb_objects) {
       memset(&gp_arg, 0, sizeof(gp_arg));
@@ -911,7 +908,6 @@ vmw_ioctl_init(struct vmw_winsys_screen *vws)
          }
       }
 
-#if VBOX_MESA_V_MAJOR >= 24
       if (vws->ioctl.have_drm_2_20 && vws->base.have_sm5) {
          memset(&gp_arg, 0, sizeof(gp_arg));
          gp_arg.param = DRM_VMW_PARAM_GL43;
@@ -920,7 +916,6 @@ vmw_ioctl_init(struct vmw_winsys_screen *vws)
             vws->base.have_gl43 = true;
          }
       }
-#endif
 
       memset(&gp_arg, 0, sizeof(gp_arg));
       gp_arg.param = DRM_VMW_PARAM_3D_CAPS_SIZE;
@@ -956,6 +951,10 @@ vmw_ioctl_init(struct vmw_winsys_screen *vws)
 
       size = SVGA_FIFO_3D_CAPS_SIZE * sizeof(uint32_t);
    }
+
+#if VBOX_MESA_V_MAJOR >= 25
+   vws->userspace_surface = false;
+#endif
 
    debug_printf("VGPU10 interface is %s.\n",
                 vws->base.have_vgpu10 ? "on" : "off");

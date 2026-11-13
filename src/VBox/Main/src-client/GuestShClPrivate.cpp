@@ -1,4 +1,4 @@
-/* $Id: GuestShClPrivate.cpp 114858 2026-08-05 15:08:05Z andreas.loeffler@oracle.com $ */
+/* $Id: GuestShClPrivate.cpp 115131 2026-08-25 17:30:42Z andreas.loeffler@oracle.com $ */
 /** @file
  * Private Shared Clipboard code.
  */
@@ -32,8 +32,10 @@
 # include "ClipboardImpl.h"
 # include "ConsoleImpl.h"
 # include "GuestShClPrivate.h"
+# include "GuestShClConn.h"
 # include "ProgressImpl.h"
 
+# include <iprt/asm.h>
 # include <iprt/cpp/utils.h>
 
 # include <VMMDev.h>
@@ -55,37 +57,195 @@
 
 
 
+/** Init-once state for the singleton publication lock. */
+RTONCE GuestShCl::s_InstanceOnce = RTONCE_INITIALIZER;
+/** Process-lifetime singleton publication lock. */
+RTCRITSECTRW GuestShCl::s_InstanceLock;
 /** Static (Singleton) instance of the Shared Clipboard management object. */
-GuestShCl* GuestShCl::s_pInstance = NULL;
+GuestShCl *GuestShCl::s_pInstance = NULL;
+/** Singleton published to asynchronous external callers. */
+GuestShCl * volatile GuestShCl::s_pExternalInstance = NULL;
 
 
+/** @callback_method_impl{FNRTONCE} */
+DECLCALLBACK(int32_t) GuestShCl::s_initInstanceLock(void *pvUser)
+{
+    RT_NOREF(pvUser);
+    return RTCritSectRwInit(&s_InstanceLock);
+}
+
+
+/**
+ * Creates the singleton without publishing it to asynchronous external calls.
+ *
+ * @returns Newly created singleton on success.
+ * @retval  NULL if @a pConsole is invalid, synchronization initialization or
+ *          locking fails, or a singleton already exists.
+ * @throws  VBox status code if constructing the singleton fails.
+ * @param   pConsole            Pointer to the parent console.
+ */
+GuestShCl *GuestShCl::CreateInstance(Console *pConsole)
+{
+    AssertPtrReturn(pConsole, NULL);
+
+    int vrc = RTOnce(&s_InstanceOnce, s_initInstanceLock, NULL);
+    AssertRCReturn(vrc, NULL);
+
+    GuestShCl *pInstance = new GuestShCl(pConsole);
+    vrc = RTCritSectRwEnterExcl(&s_InstanceLock);
+    if (RT_FAILURE(vrc))
+    {
+        delete pInstance;
+        AssertRC(vrc);
+        return NULL;
+    }
+
+    Assert(s_pInstance == NULL);
+    if (s_pInstance == NULL)
+        s_pInstance = pInstance;
+    else
+    {
+        RTCritSectRwLeaveExcl(&s_InstanceLock);
+        delete pInstance;
+        return NULL;
+    }
+
+    vrc = RTCritSectRwLeaveExcl(&s_InstanceLock);
+    AssertRC(vrc);
+    return pInstance;
+}
+
+
+/** Destroys the singleton after draining asynchronous external calls. */
+void GuestShCl::DestroyInstance(void)
+{
+    int vrc = RTOnce(&s_InstanceOnce, s_initInstanceLock, NULL);
+    AssertRCReturnVoid(vrc);
+
+    ASMAtomicWriteNullPtr(&s_pExternalInstance);
+    vrc = RTCritSectRwEnterExcl(&s_InstanceLock);
+    AssertRCReturnVoid(vrc);
+    GuestShCl *pInstance = s_pInstance;
+    ASMAtomicWriteNullPtr(&s_pExternalInstance);
+    s_pInstance = NULL;
+    vrc = RTCritSectRwLeaveExcl(&s_InstanceLock);
+    AssertRC(vrc);
+
+    delete pInstance;
+}
+
+
+/**
+ * Publishes the singleton to asynchronous external callers.
+ *
+ * @retval  VERR_WRONG_ORDER if no singleton has been created.
+ */
+int GuestShCl::EnableExternalCalls(void)
+{
+    int vrc = RTOnce(&s_InstanceOnce, s_initInstanceLock, NULL);
+    if (RT_FAILURE(vrc))
+        return vrc;
+
+    vrc = RTCritSectRwEnterExcl(&s_InstanceLock);
+    if (RT_FAILURE(vrc))
+        return vrc;
+    if (s_pInstance)
+        ASMAtomicWritePtr(&s_pExternalInstance, s_pInstance);
+    else
+        vrc = VERR_WRONG_ORDER;
+    int const vrcLeave = RTCritSectRwLeaveExcl(&s_InstanceLock);
+    AssertRC(vrcLeave);
+    return vrc;
+}
+
+
+/** Withdraws the singleton and drains asynchronous external calls. */
+void GuestShCl::DisableExternalCalls(void)
+{
+    int vrc = RTOnce(&s_InstanceOnce, s_initInstanceLock, NULL);
+    AssertRCReturnVoid(vrc);
+
+    ASMAtomicWriteNullPtr(&s_pExternalInstance);
+    vrc = RTCritSectRwEnterExcl(&s_InstanceLock);
+    AssertRCReturnVoid(vrc);
+    ASMAtomicWriteNullPtr(&s_pExternalInstance);
+    vrc = RTCritSectRwLeaveExcl(&s_InstanceLock);
+    AssertRC(vrc);
+}
+
+
+/**
+ * Acquires the singleton for an asynchronous external call.
+ *
+ * @returns The acquired singleton on success.
+ * @retval  NULL if external calls are disabled, the singleton is being
+ *          withdrawn, its publication lock is busy, or lock initialization
+ *          fails.
+ */
+GuestShCl *GuestShCl::Acquire(void)
+{
+    int vrc = RTOnce(&s_InstanceOnce, s_initInstanceLock, NULL);
+    AssertRCReturn(vrc, NULL);
+
+    GuestShCl *pInstance = ASMAtomicReadPtrT(&s_pExternalInstance, GuestShCl *);
+    if (pInstance)
+    {
+        vrc = RTCritSectRwTryEnterShared(&s_InstanceLock);
+        if (RT_SUCCESS(vrc))
+        {
+            if (pInstance == ASMAtomicReadPtrT(&s_pExternalInstance, GuestShCl *))
+                return pInstance;
+            vrc = RTCritSectRwLeaveShared(&s_InstanceLock);
+            AssertRC(vrc);
+        }
+        else
+            Assert(vrc == VERR_SEM_BUSY);
+    }
+    return NULL;
+}
+
+
+/** Releases an asynchronous external-call reference. */
+void GuestShCl::Release(void)
+{
+    int const vrc = RTCritSectRwLeaveShared(&s_InstanceLock);
+    AssertRC(vrc);
+}
 
 
 GuestShCl::GuestShCl(Console *pConsole)
     : m_pConsole(pConsole)
-    , m_pfnExtCallback(NULL)
-    , m_pClient(NULL)
-    , m_fGuestReadsBlocked(false)
-    , m_cGuestReads(0)
-    , m_hGuestReadsDone(NIL_RTSEMEVENTMULTI)
+    , m_pConn(NULL)
+    , m_fVrdeEnabled(false)
+    , m_fRemoteDataReadActive(false)
+    , m_fRemoteFormatsPending(false)
+    , m_fPendingRemoteFormats(VBOX_SHCL_FMT_NONE)
     , m_uHostDataSeq(0)
     , m_uGuestDataSeq(0)
 {
     LogFlowFuncEnter();
 
-    RT_ZERO(m_SvcExtVRDP);
-
     int vrc = RTCritSectInit(&m_CritSect);
     if (RT_FAILURE(vrc))
         throw vrc;
 
-    vrc = RTSemEventMultiCreate(&m_hGuestReadsDone);
+    vrc = RTCritSectInit(&m_RemoteFormatsCritSect);
     if (RT_FAILURE(vrc))
     {
         RTCritSectDelete(&m_CritSect);
         throw vrc;
     }
-    RTSemEventMultiSignal(m_hGuestReadsDone);
+
+    try
+    {
+        m_pConn = new GuestShClConn(this);
+    }
+    catch (...)
+    {
+        RTCritSectDelete(&m_RemoteFormatsCritSect);
+        RTCritSectDelete(&m_CritSect);
+        throw;
+    }
 }
 
 GuestShCl::~GuestShCl(void)
@@ -100,28 +260,23 @@ void GuestShCl::uninit(void)
 {
     LogFlowFuncEnter();
 
-    if (m_hGuestReadsDone != NIL_RTSEMEVENTMULTI)
+    if (m_pConn)
     {
-        int vrc = lock();
-        if (RT_SUCCESS(vrc))
-        {
-            m_fGuestReadsBlocked = true;
-            unlock();
-        }
-        i_waitForGuestReads();
-        RTSemEventMultiDestroy(m_hGuestReadsDone);
-        m_hGuestReadsDone = NIL_RTSEMEVENTMULTI;
+        int const vrc = m_pConn->destroyBackend();
+        AssertRC(vrc);
+        delete m_pConn;
+        m_pConn = NULL;
     }
 
+    if (RTCritSectIsInitialized(&m_RemoteFormatsCritSect))
+        RTCritSectDelete(&m_RemoteFormatsCritSect);
     if (RTCritSectIsInitialized(&m_CritSect))
         RTCritSectDelete(&m_CritSect);
 
-    RT_ZERO(m_SvcExtVRDP);
-
-    m_pfnExtCallback = NULL;
-    m_pClient = NULL;
-    m_fGuestReadsBlocked = false;
-    m_cGuestReads = 0;
+    m_fVrdeEnabled = false;
+    m_fRemoteDataReadActive = false;
+    m_fRemoteFormatsPending = false;
+    m_fPendingRemoteFormats = VBOX_SHCL_FMT_NONE;
     m_uHostDataSeq = 0;
     m_uGuestDataSeq = 0;
 }
@@ -299,143 +454,6 @@ bool GuestShCl::i_isGuestDataSeqCurrent(uint64_t uSeq)
 
 
 /**
- * Starts a guest data read that will use the active service client outside m_CritSect.
- *
- * @returns VBox status code.
- * @param   ppClient        Where to return the active client.
- */
-int GuestShCl::i_beginGuestRead(PSHCLCLIENT *ppClient)
-{
-    AssertPtrReturn(ppClient, VERR_INVALID_POINTER);
-    *ppClient = NULL;
-
-    int vrc = lock();
-    if (RT_FAILURE(vrc))
-        return vrc;
-
-    if (   m_pClient
-        && !m_fGuestReadsBlocked)
-    {
-        *ppClient = m_pClient;
-        if (m_cGuestReads++ == 0)
-            RTSemEventMultiReset(m_hGuestReadsDone);
-        vrc = VINF_SUCCESS;
-    }
-    else
-        vrc = VERR_SHCLPB_NO_DATA;
-
-    unlock();
-    return vrc;
-}
-
-
-/** Ends a guest data read started by i_beginGuestRead(). */
-void GuestShCl::i_endGuestRead(void)
-{
-    int const vrc = lock();
-    if (RT_SUCCESS(vrc))
-    {
-        Assert(m_cGuestReads > 0);
-        if (m_cGuestReads > 0 && --m_cGuestReads == 0)
-            RTSemEventMultiSignal(m_hGuestReadsDone);
-        unlock();
-    }
-}
-
-
-/** Waits until all guest data reads using the active client have completed. */
-void GuestShCl::i_waitForGuestReads(void)
-{
-    for (;;)
-    {
-        int vrc = lock();
-        if (RT_FAILURE(vrc))
-            return;
-        bool const fDone = m_cGuestReads == 0;
-        unlock();
-        if (fDone)
-            return;
-        vrc = RTSemEventMultiWait(m_hGuestReadsDone, RT_INDEFINITE_WAIT);
-        AssertRC(vrc);
-        if (RT_FAILURE(vrc))
-            return;
-    }
-}
-
-
-/**
- * Registers a Shared Clipboard service extension.
- *
- * @returns VBox status code.
- * @param   pfnExtension        Service extension to register.
- * @param   pvExtension         User-supplied data pointer. Optional.
- */
-int GuestShCl::RegisterServiceExtension(PFNHGCMSVCEXT pfnExtension, void *pvExtension)
-{
-    AssertPtrReturn(pfnExtension, VERR_INVALID_POINTER);
-    /* pvExtension is optional. */
-
-    lock();
-
-    LogFlowFunc(("m_pfnExtCallback=%p\n", this->m_pfnExtCallback));
-
-    PSHCLSVCEXT pExt = &this->m_SvcExtVRDP; /* Currently we only have one extension only. */
-
-    Assert(pExt->pfnExt == NULL);
-
-    pExt->pfnExt         = pfnExtension;
-    pExt->pvExt          = pvExtension;
-    pExt->pfnExtCallback = this->m_pfnExtCallback; /* Assign callback function. Optional and can be NULL. */
-
-    if (pExt->pfnExtCallback)
-    {
-        /* Make sure to also give the extension the ability to use the callback. */
-        SHCLEXTPARMS parms;
-        RT_ZERO(parms);
-
-        parms.u.SetCallback.pfnCallback = pExt->pfnExtCallback;
-
-        /* ignore rc, callback is optional */ pExt->pfnExt(pExt->pvExt,
-                                                           VBOX_CLIPBOARD_EXT_FN_SET_CALLBACK, &parms, sizeof(parms));
-    }
-
-    unlock();
-
-    return VINF_SUCCESS;
-}
-
-/**
- * Unregisters a Shared Clipboard service extension.
- *
- * @returns VBox status code.
- * @param   pfnExtension        Service extension to unregister.
- */
-int GuestShCl::UnregisterServiceExtension(PFNHGCMSVCEXT pfnExtension)
-{
-    AssertPtrReturn(pfnExtension, VERR_INVALID_POINTER);
-
-    lock();
-
-    PSHCLSVCEXT pExt = &this->m_SvcExtVRDP; /* Currently we only have one extension only. */
-
-    AssertReturnStmt(pExt->pfnExt == pfnExtension, unlock(), VERR_INVALID_PARAMETER);
-    AssertPtr(pExt->pfnExt);
-
-    /* Unregister the callback (setting to NULL). */
-    SHCLEXTPARMS parms;
-    RT_ZERO(parms);
-
-    /* ignore rc, callback is optional */ pExt->pfnExt(pExt->pvExt,
-                                                       VBOX_CLIPBOARD_EXT_FN_SET_CALLBACK, &parms, sizeof(parms));
-
-    RT_BZERO(pExt, sizeof(SHCLSVCEXT));
-
-    unlock();
-
-    return VINF_SUCCESS;
-}
-
-/**
  * Sends a (blocking) message to the host side of the host service.
  *
  * @returns VBox status code.
@@ -457,7 +475,9 @@ int GuestShCl::HostCall(uint32_t u32Function, uint32_t cParms, PVBOXHGCMSVCPARM 
 /**
  * Reads clipboard data from the active guest clipboard client.
  *
- * @returns VBox status code.
+ * @retval  VERR_INVALID_POINTER if @a ppvData or @a pcbData is invalid.
+ * @retval  VERR_SHCLPB_NO_DATA if the guest clipboard is disconnected or no
+ *          data is available.
  * @param   uFormat     Format to request from the guest.
  * @param   ppvData     Where to return the allocated data buffer.
  * @param   pcbData     Where to return the data size.
@@ -469,17 +489,7 @@ int GuestShCl::ReadDataFromGuest(SHCLFORMAT uFormat, void **ppvData, uint32_t *p
     *ppvData = NULL;
     *pcbData = 0;
 
-    PSHCLCLIENT pClient = NULL;
-    int vrc = i_beginGuestRead(&pClient);
-    if (RT_FAILURE(vrc))
-        return vrc;
-
-    /* Do not hold m_CritSect while waiting for the guest reply: the reply callback
-     * validates the active client under the same lock before signalling the event. */
-    vrc = ShClSvcReadDataFromGuest(pClient, uFormat, ppvData, pcbData);
-
-    i_endGuestRead();
-    return vrc;
+    return m_pConn->i_readDataFromGuest(uFormat, ppvData, pcbData);
 }
 
 /**
@@ -498,31 +508,20 @@ int GuestShCl::ReadDataFromHost(SHCLFORMAT uFormat, void *pvData, uint32_t cbDat
     AssertPtrReturn(pcbActual, VERR_INVALID_POINTER);
     *pcbActual = 0;
 
-    SHCLCLIENTCMDCTX cmdCtx;
-    RT_ZERO(cmdCtx);
-
-    PSHCLCLIENT pClient = NULL;
-    int vrc = i_beginGuestRead(&pClient);
-    if (RT_FAILURE(vrc))
-        return vrc;
-
-    if (pClient->pBackend)
-        vrc = ShClBackendReadData(pClient->pBackend, pClient, &cmdCtx, uFormat, pvData, cbData, pcbActual);
-    else
-        vrc = VERR_SHCLPB_NO_DATA;
-
-    i_endGuestRead();
-    return vrc;
+    return m_pConn->readDataFromBackend(uFormat, pvData, cbData, pcbActual);
 }
 
 /**
  * Reports guest clipboard formats to the native host clipboard backend.
  *
- * @returns VBox status code.
+ * @retval  VERR_RESOURCE_BUSY if VRDE currently owns the host clipboard route.
  * @param   fFormats    Formats to report to the host.
  */
 int GuestShCl::ReportFormatsToHost(SHCLFORMATS fFormats)
 {
+    if (!IsNativeBackendActive())
+        return VERR_RESOURCE_BUSY;
+
     int vrc = lock();
     if (RT_FAILURE(vrc))
         return vrc;
@@ -530,29 +529,16 @@ int GuestShCl::ReportFormatsToHost(SHCLFORMATS fFormats)
     ++m_uGuestDataSeq;
     unlock();
 
-    PSHCLCLIENT pClient = NULL;
-    vrc = i_beginGuestRead(&pClient);
-    if (RT_FAILURE(vrc))
-        return vrc == VERR_SHCLPB_NO_DATA ? VINF_SUCCESS : vrc;
-
-    if (pClient->pBackend)
-    {
-#ifdef VBOX_WITH_SHARED_CLIPBOARD_TRANSFERS
-        fFormats = shClSvcHandleFormats(false /* fHostToGuest */, pClient, fFormats);
-#endif
-        vrc = ShClBackendReportFormats(pClient->pBackend, pClient, fFormats);
-    }
-    else
-        vrc = VINF_SUCCESS;
-
-    i_endGuestRead();
-    return vrc;
+    vrc = m_pConn->reportFormatsToBackend(fFormats);
+    return vrc == VERR_SHCLPB_NO_DATA ? VINF_SUCCESS : vrc;
 }
 
 /**
  * Writes guest clipboard data to the native host clipboard backend.
  *
- * @returns VBox status code.
+ * @retval  VERR_INVALID_PARAMETER if @a uFormat is VBOX_SHCL_FMT_NONE.
+ * @retval  VERR_INVALID_POINTER if @a pvData is invalid for a non-empty buffer.
+ * @retval  VERR_RESOURCE_BUSY if VRDE currently owns the host clipboard route.
  * @param   uFormat     Format of the data buffer.
  * @param   pvData      Data buffer. Optional when @a cbData is zero.
  * @param   cbData      Size of the data buffer in bytes.
@@ -563,50 +549,156 @@ int GuestShCl::WriteDataToHost(SHCLFORMAT uFormat, void *pvData, uint32_t cbData
     if (cbData)
         AssertPtrReturn(pvData, VERR_INVALID_POINTER);
 
-    SHCLCLIENTCMDCTX cmdCtx;
-    RT_ZERO(cmdCtx);
+    if (!IsNativeBackendActive())
+        return VERR_RESOURCE_BUSY;
 
-    PSHCLCLIENT pClient = NULL;
-    int vrc = i_beginGuestRead(&pClient);
-    if (RT_FAILURE(vrc))
-        return vrc == VERR_SHCLPB_NO_DATA ? VINF_SUCCESS : vrc;
-
-    if (pClient->pBackend)
-        vrc = ShClBackendWriteData(pClient->pBackend, pClient, &cmdCtx, uFormat, pvData, cbData);
-    else
-        vrc = VINF_SUCCESS;
-
-    i_endGuestRead();
-    return vrc;
+    int const vrc = m_pConn->writeDataToBackend(uFormat, pvData, cbData);
+    return vrc == VERR_SHCLPB_NO_DATA ? VINF_SUCCESS : vrc;
 }
 
 /**
  * Reports host clipboard formats to the active guest clipboard client.
  *
- * @returns VBox status code.
+ * @retval  VERR_RESOURCE_BUSY if VRDE currently owns the host clipboard route.
  * @param   fFormats    Formats to report to the guest.
  */
 int GuestShCl::ReportFormatsToGuest(SHCLFORMATS fFormats)
 {
-    int vrc = lock();
-    if (RT_FAILURE(vrc))
+    if (!IsNativeBackendActive())
+        return VERR_RESOURCE_BUSY;
+
+    int const vrc = m_pConn->reportFormatsToGuest(fFormats);
+    if (vrc == VERR_SHCLPB_NO_DATA || vrc == VINF_NO_CHANGE)
+        return VINF_SUCCESS;
+    if (RT_SUCCESS(vrc))
+        i_incHostDataSeq();
+    return vrc;
+}
+
+/**
+ * Checks whether native clipboard callbacks may use the guest connection.
+ *
+ * @returns true when the native backend is selected, otherwise false.
+ */
+bool GuestShCl::IsNativeBackendActive(void)
+{
+    return !ASMAtomicReadBool(&m_fVrdeEnabled);
+}
+
+/**
+ * Selects or deselects VRDE as the host clipboard provider.
+ *
+ * The transition first withdraws the formats owned by the old provider.  When
+ * returning to the native backend, it then republishes the native formats.
+ *
+ * @retval  VINF_NO_CHANGE if @a fEnable already matches the selected route.
+ * @param   fEnable             Whether VRDE should own the clipboard route.
+ */
+int GuestShCl::VrdeEnable(bool fEnable)
+{
+    int vrc = RTCritSectEnter(&m_RemoteFormatsCritSect);
+    AssertRCReturn(vrc, vrc);
+
+    bool const fWasEnabled = ASMAtomicReadBool(&m_fVrdeEnabled);
+    if (fWasEnabled == fEnable)
+    {
+        RTCritSectLeave(&m_RemoteFormatsCritSect);
+        return VINF_NO_CHANGE;
+    }
+
+    /* Block the native backend before withdrawing its formats. */
+    if (fEnable)
+        ASMAtomicWriteBool(&m_fVrdeEnabled, true);
+
+    m_fRemoteFormatsPending = false;
+    m_fPendingRemoteFormats = VBOX_SHCL_FMT_NONE;
+    vrc = i_reportRemoteFormatsToGuestNow(VBOX_SHCL_FMT_NONE);
+
+    /* Keep VRDE selected until its formats have been withdrawn. */
+    if (!fEnable)
+        ASMAtomicWriteBool(&m_fVrdeEnabled, false);
+
+    int const vrcLeave = RTCritSectLeave(&m_RemoteFormatsCritSect);
+    AssertRC(vrcLeave);
+
+    if (fEnable)
         return vrc;
 
-    i_incHostDataSeqLocked();
+    int vrcSync = m_pConn->syncBackend();
+    if (   vrcSync == VERR_INVALID_STATE
+        || vrcSync == VERR_SHCLPB_NO_DATA
+        || vrcSync == VINF_NO_CHANGE)
+        vrcSync = VINF_SUCCESS;
+    if (RT_FAILURE(vrc))
+        return vrc;
+    return vrcSync;
+}
 
-    PSHCLCLIENT pClient = m_pClient;
-    if (   pClient
-        && pClient->pBackend)
+/**
+ * Reports remote clipboard formats to the active guest clipboard client.
+ *
+ * @retval  VINF_NO_CHANGE if the native backend became selected before the
+ *          remote formats could be reported.
+ * @retval  VERR_INVALID_PARAMETER if @a fFormats is invalid.
+ * @param   fFormats            Formats reported by the remote clipboard peer.
+ */
+int GuestShCl::ReportRemoteFormatsToGuest(SHCLFORMATS fFormats)
+{
+    AssertReturn(ShClFormatsAreValid(fFormats), VERR_INVALID_PARAMETER);
+    /* VRDE deliberately handles ordinary clipboard data only. */
+    fFormats &= ~VBOX_SHCL_FMT_URI_LIST;
+
+    if (IsNativeBackendActive())
+        return VINF_NO_CHANGE;
+
+    int vrc = RTCritSectEnter(&m_RemoteFormatsCritSect);
+    AssertRCReturn(vrc, vrc);
+
+    if (IsNativeBackendActive())
     {
-#ifdef VBOX_WITH_SHARED_CLIPBOARD_TRANSFERS
-        fFormats = shClSvcHandleFormats(true /* fHostToGuest */, pClient, fFormats);
-#endif
-        vrc = ShClBackendReportFormatsToGuest(pClient->pBackend, pClient, fFormats);
+        RTCritSectLeave(&m_RemoteFormatsCritSect);
+        return VINF_NO_CHANGE;
     }
-    else
-        vrc = VINF_SUCCESS;
 
-    unlock();
+    if (m_fRemoteDataReadActive)
+    {
+        m_fRemoteFormatsPending = true;
+        m_fPendingRemoteFormats = fFormats;
+        RTCritSectLeave(&m_RemoteFormatsCritSect);
+        return VINF_SUCCESS;
+    }
+
+    vrc = i_reportRemoteFormatsToGuestNow(fFormats);
+    int const vrcLeave = RTCritSectLeave(&m_RemoteFormatsCritSect);
+    AssertRC(vrcLeave);
+    return vrc;
+}
+
+/**
+ * Reports remote clipboard formats immediately.
+ *
+ * @retval  VERR_INVALID_PARAMETER if @a fFormats is invalid.
+ * @param   fFormats            Remote formats, VBOX_SHCL_FMT_XXX.
+ *
+ * @note    The caller must serialize remote reports and handle deferral while
+ *          a remote-data read is active.
+ */
+int GuestShCl::i_reportRemoteFormatsToGuestNow(SHCLFORMATS fFormats)
+{
+    AssertReturn(ShClFormatsAreValid(fFormats), VERR_INVALID_PARAMETER);
+    Assert(RTCritSectIsOwner(&m_RemoteFormatsCritSect));
+
+    int const vrc = m_pConn->reportFormatsToGuest(fFormats, &fFormats);
+    if (vrc == VERR_SHCLPB_NO_DATA || vrc == VINF_NO_CHANGE)
+        return VINF_SUCCESS;
+    if (RT_SUCCESS(vrc))
+    {
+        i_incHostDataSeq();
+        Clipboard *pClipboard = m_pConsole->i_getClipboard();
+        if (pClipboard)
+            pClipboard->i_reportFormats(VBOX_SHCL_MAIN_CLIENT_NONE, fFormats, ClipboardSource_Remote,
+                                        true /* fForceNotify */);
+    }
     return vrc;
 }
 
@@ -614,14 +706,17 @@ int GuestShCl::ReportFormatsToGuest(SHCLFORMATS fFormats)
  * Reports clipboard formats to the guest via the service backend and mirrors
  * successful reports to the console clipboard event source.
  *
- * @returns VBox status code.
- * @param   pClient     Clipboard client to report to.
+ * @retval  VERR_INVALID_POINTER if @a pConn is invalid.
+ * @retval  VERR_INVALID_HANDLE if @a pConn is not this object's connection.
+ * @retval  VERR_INVALID_PARAMETER if @a enmSource is invalid.
+ * @param   pConn       Connection to report through.
  * @param   fFormats    Formats to report to the guest.
  * @param   enmSource   Source of the format report.
  */
-int GuestShCl::ReportFormatsToGuest(PSHCLCLIENT pClient, SHCLFORMATS fFormats, SHCLSOURCE enmSource)
+int GuestShCl::ReportFormatsToGuest(GuestShClConn *pConn, SHCLFORMATS fFormats, SHCLSOURCE enmSource)
 {
-    AssertPtrReturn(pClient, VERR_INVALID_POINTER);
+    AssertPtrReturn(pConn, VERR_INVALID_POINTER);
+    AssertReturn(pConn == m_pConn, VERR_INVALID_HANDLE);
 
     ClipboardSource_T enmClipboardSource = ClipboardSource_Custom;
     switch (enmSource)
@@ -638,36 +733,20 @@ int GuestShCl::ReportFormatsToGuest(PSHCLCLIENT pClient, SHCLFORMATS fFormats, S
             AssertFailedReturn(VERR_INVALID_PARAMETER);
     }
 
-    /* Reuse the guest-read lifetime guard to keep the weak service client valid
-     * while the platform backend reports the formats. */
-    PSHCLCLIENT pActiveClient = NULL;
-    int vrc = i_beginGuestRead(&pActiveClient);
-    if (RT_FAILURE(vrc))
-        return vrc;
-    if (pClient != pActiveClient)
-    {
-        i_endGuestRead();
-        return VERR_SHCLPB_NO_DATA;
-    }
+    if (   enmSource == SHCLSOURCE_LOCAL
+        && !IsNativeBackendActive())
+        return VINF_SUCCESS;
 
-    if (enmSource == SHCLSOURCE_LOCAL)
-        i_incHostDataSeq();
-    else
-        i_incGuestDataSeq();
-
-#ifdef VBOX_WITH_SHARED_CLIPBOARD_TRANSFERS
-    fFormats = shClSvcHandleFormats(true /* fHostToGuest */, pClient, fFormats);
-#endif
-
-    if (pClient->pBackend)
-        vrc = ShClBackendReportFormatsToGuest(pClient->pBackend, pClient, fFormats);
-    else
-        vrc = VINF_SUCCESS;
-
-    i_endGuestRead();
-
+    int const vrc = pConn->reportFormatsToGuest(fFormats, &fFormats);
+    if (vrc == VINF_NO_CHANGE)
+        return VINF_SUCCESS;
     if (RT_SUCCESS(vrc))
     {
+        if (enmSource == SHCLSOURCE_LOCAL)
+            i_incHostDataSeq();
+        else
+            i_incGuestDataSeq();
+
         AssertPtr(m_pConsole->i_getClipboard());
         if (m_pConsole->i_getClipboard())
             m_pConsole->i_getClipboard()->i_reportFormats(VBOX_SHCL_MAIN_CLIENT_NONE,
@@ -706,9 +785,9 @@ int GuestShCl::ReportError(const char *pcszId, int vrc, const char *pcszMsgFmt, 
     va_end(va);
 
     if (pcszId)
-        LogRel(("Shared Clipboard (%s): %s (%Rrc)\n", pcszId, strMsg.c_str(), vrc));
+        LogRel2(("Shared Clipboard (%.*s): %.*s (%Rrc)\n", 64, pcszId, 256, strMsg.c_str(), vrc));
     else
-        LogRel(("Shared Clipboard: %s (%Rrc)\n", strMsg.c_str(), vrc));
+        LogRel2(("Shared Clipboard: %.*s (%Rrc)\n", 256, strMsg.c_str(), vrc));
 
     m_pConsole->i_onClipboardError(pcszId, strMsg.c_str(), vrc);
 
@@ -736,74 +815,73 @@ DECLCALLBACK(int) GuestShCl::s_HgcmDispatcher(void *pvExtension, uint32_t u32Fun
     GuestShCl *pThis = reinterpret_cast<GuestShCl*>(pvExtension);
     AssertPtrReturn(pThis, VERR_INVALID_POINTER);
 
-    int vrc = pThis->i_validateSvcExtParms(u32Function, pvParms, cbParms);
+    int vrc = pThis->i_svcExtParmsValidate(u32Function, pvParms, cbParms);
     if (RT_FAILURE(vrc))
     {
         LogFlowFuncLeaveRC(vrc);
         return vrc;
     }
 
-    PSHCLEXTPARMS pParms = (PSHCLEXTPARMS)pvParms; /* pParms might be NULL for unknown messages. */
     vrc = VERR_NOT_SUPPORTED;
 
     switch (u32Function)
     {
-        case VBOX_CLIPBOARD_EXT_FN_SET_CALLBACK:
-            vrc = pThis->i_handleSvcExtSetCallback(pParms);
-            break;
-
         case VBOX_CLIPBOARD_EXT_FN_FORMAT_REPORT_TO_HOST:
-            vrc = pThis->i_handleSvcExtReportFormatsToHost(pParms, pvParms, cbParms);
-            break;
-
-        case VBOX_CLIPBOARD_EXT_FN_FORMAT_REPORT_TO_GUEST:
-            vrc = pThis->i_handleSvcExtReportFormatsToGuest(pParms, pvParms, cbParms);
+            vrc = pThis->i_svcExtReportFormatsToHostCallback((PSHCLEXTPARMS)pvParms);
             break;
 
         case VBOX_CLIPBOARD_EXT_FN_DATA_READ:
-            vrc = pThis->i_handleSvcExtDataRead(pParms, pvParms, cbParms);
-            break;
-
-        case VBOX_CLIPBOARD_EXT_FN_DATA_READ_VRDE:
-            vrc = pThis->i_handleSvcExtDataReadVrde(pParms);
+            vrc = pThis->i_svcExtDataReadCallback((PSHCLEXTPARMS)pvParms);
             break;
 
         case VBOX_CLIPBOARD_EXT_FN_DATA_WRITE:
-            vrc = pThis->i_handleSvcExtDataWrite(pParms, pvParms, cbParms);
+            vrc = pThis->i_svcExtDataWriteCallback((PSHCLEXTPARMS)pvParms);
             break;
 
         case VBOX_CLIPBOARD_EXT_FN_BACKEND_INIT:
-            vrc = pThis->i_handleSvcExtBackendInit(pParms, pvParms, cbParms);
+            vrc = pThis->i_svcExtBackendInitCallback((PSHCLEXTPARMS)pvParms, pvParms, cbParms);
             break;
 
         case VBOX_CLIPBOARD_EXT_FN_BACKEND_DESTROY:
-            vrc = pThis->i_handleSvcExtBackendDestroy(pParms, pvParms, cbParms);
+            vrc = pThis->i_svcExtBackendDestroyCallback((PSHCLEXTPARMS)pvParms, pvParms, cbParms);
             break;
 
         case VBOX_CLIPBOARD_EXT_FN_BACKEND_CONNECT:
-            vrc = pThis->i_handleSvcExtBackendConnect(pParms, pvParms, cbParms);
+            vrc = pThis->i_svcExtBackendConnectCallback((PSHCLEXTPARMS)pvParms, pvParms, cbParms);
             break;
 
         case VBOX_CLIPBOARD_EXT_FN_BACKEND_DISCONNECT:
-            vrc = pThis->i_handleSvcExtBackendDisconnect(pParms, pvParms, cbParms);
+            vrc = pThis->i_svcExtBackendDisconnectCallback((PSHCLEXTPARMS)pvParms, pvParms, cbParms);
             break;
 
         case VBOX_CLIPBOARD_EXT_FN_BACKEND_SYNC:
-            vrc = pThis->i_handleSvcExtBackendSync(pParms, pvParms, cbParms);
+            vrc = pThis->i_svcExtBackendSyncCallback((PSHCLEXTPARMS)pvParms, pvParms, cbParms);
             break;
 
         case VBOX_CLIPBOARD_EXT_FN_ERROR:
-            vrc = pThis->i_handleSvcExtError(pParms);
+            vrc = pThis->i_svcExtErrorCallback((PSHCLEXTPARMS)pvParms);
             break;
 
 #ifdef VBOX_WITH_SHARED_CLIPBOARD_TRANSFERS
+        case VBOX_CLIPBOARD_EXT_FN_TRANSFER_CALLBACKS:
+            vrc = pThis->i_svcExtTransferGetCallbacksCallback((PSHCLEXTPARMS)pvParms);
+            break;
+
         case VBOX_CLIPBOARD_EXT_FN_FILE_TRANSFER:
-            vrc = pThis->i_handleSvcExtFileTransfer(pParms, pvParms, cbParms);
+            vrc = pThis->i_svcExtFileTransferCallback((PSHCLEXTPARMS)pvParms);
+            break;
+
+        case VBOX_CLIPBOARD_EXT_FN_FILE_TRANSFER_PROGRESS:
+            vrc = pThis->i_svcExtTransferProgressCallback((PSHCLEXTPARMS)pvParms);
+            break;
+
+        case VBOX_CLIPBOARD_EXT_FN_FILE_TRANSFER_RESET:
+            vrc = pThis->i_svcExtTransferResetCallback((PSHCLEXTPARMS)pvParms);
             break;
 #endif
 
         default:
-            vrc = pThis->i_forwardToSvcExt(u32Function, pvParms, cbParms);
+            vrc = VERR_NOT_SUPPORTED;
             break;
     }
 

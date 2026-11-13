@@ -1,4 +1,4 @@
-/* $Id: bs3-apic-1-32.c32 114765 2026-07-24 08:34:04Z alexander.eichner@oracle.com $ */
+/* $Id: bs3-apic-1-32.c32 115065 2026-08-18 12:57:16Z alexander.eichner@oracle.com $ */
 /** @file
  * BS3Kit - bs3-apic-1, 32-bit C code.
  */
@@ -48,6 +48,7 @@
 #define CPUS_MAX        32
 #define CPU_STACK_SIZE _4K
 
+#define APIC_TIMER_VECTOR  0x6f
 #define APIC_VECTOR        0x70
 #define APIC_X2APIC_VECTOR 0x71
 
@@ -80,6 +81,8 @@ typedef enum APICCPUREQ
     kApicCpuReq_Pong,
     /** A simple pong to a ping but don't clear the request. */
     kApicCpuReq_PongNoClear,
+    /** Starts the APIC timer and waits for it to complete. */
+    kApicCpuReq_ApicTimerStartAndWaitToComplete,
     /** 32-bit hack. */
     kApicCpuReq_32Bit_Hack = 0x7fffffff
 } APICCPUREQ;
@@ -90,6 +93,8 @@ typedef enum APICCPUREQ
  */
 typedef struct APICCPU
 {
+    /** Pointer to this CPU. */
+    struct APICCPU              *pThis;
     /** The stack for this CPU. */
     uint8_t                     abStack[CPU_STACK_SIZE];
     /** The MMIO base for the APIC when in xAPIC mode. */
@@ -105,13 +110,15 @@ typedef struct APICCPU
     /** Flag whether the APIC is in x2Apic mode. */
     bool                        fX2Apic;
     /** Padding. */
-    bool                        afAlignment[11];
+    bool                        afAlignment[7];
 } APICCPU;
 typedef APICCPU *PAPICCPU;
 AssertCompileSizeAlignment(APICCPU, 16);
 
 BS3_DECL_CALLBACK(void) bs3ApicApTrampoline(void);
 BS3_DECL_CALLBACK(void) bs3ApicApTrampoline_EndProc(void);
+BS3_DECL(void) bs3ApicApSetGs(uint16_t u16Gs);
+BS3_DECL(PAPICCPU) bs3ApicApGetCpu(void);
 
 /** The AP lock protecting against concurrent access to some APIs and the startup code (lives in the DATA16 segment). */
 #define g_fApLock BS3_DATA_NM(g_fApLock)
@@ -125,7 +132,8 @@ static volatile uint32_t g_cCpus = 1;
 static volatile uint32_t g_cCpusResponded = 0;
 static volatile uint64_t g_bmCpusValid = 0;
 static volatile uint64_t g_bmCpusResponded = 0;
-
+static volatile bool     g_fTimerDone = false;
+static volatile bool     g_fTimerSetIpi = false;
 
 static void bs3ApicBusyWait(uint64_t u64Usec)
 {
@@ -223,6 +231,7 @@ static void bs3ApicTestFailedF(const char BS3_FAR *pszFormat, ...)
 
 static PAPICCPU bs3ApicGetCpu(void)
 {
+#if 0
     uint64_t uApicBase;
 
     uApicBase = ASMRdMsr(MSR_IA32_APICBASE);
@@ -242,6 +251,43 @@ static PAPICCPU bs3ApicGetCpu(void)
     }
 
     return NULL;
+#else
+    return bs3ApicApGetCpu();
+#endif
+}
+
+
+static void bs3ApicTimerStart(PAPICCPU pApicCpu, uint8_t bVector, uint32_t u32Icr)
+{
+    /* Program the timer. */
+    if (pApicCpu->fX2Apic)
+    {
+        ASMWrMsr(MSR_IA32_X2APIC_TIMER_DCR, 0);
+        ASMWrMsr(MSR_IA32_X2APIC_LVT_TIMER, bVector);
+        ASMIntEnable();
+        ASMWrMsr(MSR_IA32_X2APIC_TIMER_ICR, u32Icr);
+    }
+    else
+    {
+        uint32_t BS3_FAR volatile * const  pau32Apic = pApicCpu->pau32Apic;
+        pau32Apic[XAPIC_OFF_TIMER_DCR / sizeof(uint32_t)] = 0;
+        pau32Apic[XAPIC_OFF_LVT_TIMER / sizeof(uint32_t)] = (uint32_t)bVector;
+
+        ASMIntEnable();
+        pau32Apic[XAPIC_OFF_TIMER_ICR / sizeof(uint32_t)] = u32Icr;
+    }
+}
+
+
+static uint32_t bs3ApicTimerGetCurrent(PAPICCPU pApicCpu)
+{
+    if (pApicCpu->fX2Apic)
+        return (uint32_t)ASMRdMsr(MSR_IA32_X2APIC_TIMER_CCR);
+    else
+    {
+        uint32_t BS3_FAR volatile * const  pau32Apic = pApicCpu->pau32Apic;
+        return pau32Apic[XAPIC_OFF_TIMER_CCR / sizeof(uint32_t)];
+    }
 }
 
 
@@ -267,6 +313,13 @@ BS3_DECL_NEAR_CALLBACK(void) BS3_CMN_NM(bs3ApicIpiHandler)(PBS3TRAPFRAME pTrapFr
             case kApicCpuReq_Pong:
                 bs3ApicTestFinish(pApicCpu->idCpu);
                 break;
+            case kApicCpuReq_ApicTimerStartAndWaitToComplete:
+            {
+                bs3ApicTimerStart(pApicCpu, APIC_TIMER_VECTOR, 0x1);
+                while (bs3ApicTimerGetCurrent(pApicCpu) > 0)
+                    ASMNopPause();
+                break;
+            }
             default:
                 /* Invalid but can't print anything here. */
                 break;
@@ -354,6 +407,10 @@ BS3_DECL(uint32_t) bs3ApicApStartup_pe32(void)
         uint32_t const idApic = pau32Apic[XAPIC_OFF_ID / sizeof(uint32_t)] >> 24;
         PAPICCPU pApicCpu = &g_paCpus[idApic];
 
+        /* Set the GS selector. */
+        bs3ApicApSetGs(BS3_SEL_FREE_PART4 + idApic * 8);
+
+        pApicCpu->pThis         = pApicCpu;
         pApicCpu->idCpu         = idApic;
         pApicCpu->pau32Apic     = pau32Apic;
         pApicCpu->enmWaitMethod = kApicCpuWaitMethod_StiHltCli;
@@ -420,10 +477,19 @@ static bool bs3ApicStartAllAps(uint32_t BS3_FAR volatile * const  pau32Apic)
         PAPICCPU pApicCpu = &g_paCpus[0];
         void BS3_FAR *pv = Bs3MemAllocZ(BS3MEMKIND_REAL, _4K);
         uintptr_t const uPtr = (uintptr_t)pv;
+        uint8_t i;
 
+        pApicCpu->pThis     = pApicCpu;
         pApicCpu->idCpu     = 0;
         pApicCpu->fX2Apic   = false;
         pApicCpu->pau32Apic = pau32Apic;
+
+        /* Setup the GDT entries for the per vCPU data. */
+        for (i = 0; i < CPUS_MAX; i++)
+            Bs3SelSetup32BitData(&Bs3GdteFreePart4[i], (uint32_t)(uintptr_t)&g_paCpus[i], sizeof(g_paCpus[0]), 0 /*bDpl*/);
+
+        /* Set the GS selector for CPU0. */
+        bs3ApicApSetGs(BS3_SEL_FREE_PART4);
 
         if (   !(uPtr & X86_PAGE_OFFSET_MASK)
             && (uPtr >> X86_PAGE_SHIFT) < UINT8_MAX)
@@ -495,11 +561,71 @@ static void bs3ApicTestWaitForResponses(uint32_t cCpusToRespond, uint64_t bmCpus
 
 static void bs3ApicTestSelfIpi(PAPICCPU pApicCpu)
 {
+    /* Set the GS selector for CPU0. */
+    bs3ApicApSetGs(BS3_SEL_FREE_PART4);
     bs3ApicTestSetIntrHandlerReq(pApicCpu, kApicCpuReq_Pong);
 
     ASMIntEnable();
     apicSelfIpi(pApicCpu, APIC_VECTOR);
     bs3ApicTestWaitForResponses(1, RT_BIT_64(pApicCpu->idCpu));
+    ASMIntDisable();
+}
+
+
+BS3_DECL_NEAR_CALLBACK(void) BS3_CMN_NM(bs3ApicTimerHandler)(PBS3TRAPFRAME pTrapFrame)
+{
+    PAPICCPU pApicCpu = bs3ApicGetCpu();
+    if (pApicCpu)
+    {
+        if (g_fTimerSetIpi)
+        {
+            /* Cause an IPI with a higher priority to interrupt this handler. */
+            ASMIntEnable();
+            bs3ApicTestReset();
+            bs3ApicTestSetIntrHandlerReq(pApicCpu, kApicCpuReq_Pong);
+            apicSelfIpi(pApicCpu, APIC_VECTOR);
+            bs3ApicTestWaitForResponses(1, RT_BIT_64(pApicCpu->idCpu));
+        }
+
+        g_fTimerDone = true;
+
+        /* Finish servicing this interrupt. */
+        if (pApicCpu->fX2Apic)
+            ASMWrMsr(MSR_IA32_X2APIC_EOI, 0);
+        else
+            pApicCpu->pau32Apic[XAPIC_OFF_EOI / sizeof(uint32_t)] = 0;
+    }
+    else
+        bs3ApicTestFailedF("APIC not enabled!");
+
+    RT_NOREF(pTrapFrame);
+}
+
+
+static void bs3ApicTestNestedIrqs(PAPICCPU pApicCpu)
+{
+    /* Set the GS selector for CPU0. */
+    bs3ApicApSetGs(BS3_SEL_FREE_PART4);
+    Bs3TrapSetHandler(APIC_TIMER_VECTOR, bs3ApicTimerHandler_c32);
+    g_fTimerDone = false;
+    g_fTimerSetIpi = true;
+
+    bs3ApicTimerStart(pApicCpu, APIC_TIMER_VECTOR, 0xffff);
+
+    while (!g_fTimerDone)
+        ASMNopPause();
+
+    /*
+     * Test that a lower priority interrupt is serviced when it arrives while a
+     * higher priiority interrupt is serviced when it finished.
+     */
+    g_fTimerDone = false;
+    g_fTimerSetIpi = false;
+    bs3ApicTestSetIntrHandlerReq(pApicCpu, kApicCpuReq_ApicTimerStartAndWaitToComplete);
+    apicSelfIpi(pApicCpu, APIC_VECTOR);
+
+    while (!g_fTimerDone)
+        ASMNopPause();
     ASMIntDisable();
 }
 
@@ -569,6 +695,9 @@ static void bs3ApicRunTests(PAPICCPU pApicCpu)
 {
     Bs3TestSubSub("Self IPI");
     bs3ApicTestSelfIpi(pApicCpu);
+
+    Bs3TestSubSub("Nested Interrupts");
+    bs3ApicTestNestedIrqs(pApicCpu);
 
     if (g_cCpus > 1)
     {

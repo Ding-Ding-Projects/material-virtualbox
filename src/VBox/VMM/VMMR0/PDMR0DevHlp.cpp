@@ -1,4 +1,4 @@
-/* $Id: PDMR0DevHlp.cpp 112682 2026-01-25 17:10:52Z alexander.eichner@oracle.com $ */
+/* $Id: PDMR0DevHlp.cpp 115383 2026-10-17 13:20:01Z aleksey.ilyushin@oracle.com $ */
 /** @file
  * PDM - Pluggable Device and Driver Manager, R0 Device Helper parts.
  */
@@ -309,7 +309,7 @@ static DECLCALLBACK(int) pdmR0DevHlp_PhysRead(PPDMDEVINS pDevIns, RTGCPHYS GCPhy
     LogFlow(("pdmR0DevHlp_PhysRead: caller=%p/%d: GCPhys=%RGp pvBuf=%p cbRead=%#x\n",
              pDevIns, pDevIns->iInstance, GCPhys, pvBuf, cbRead));
 
-    VBOXSTRICTRC rcStrict = PGMPhysRead(pDevIns->Internal.s.pGVM, GCPhys, pvBuf, cbRead, PGMACCESSORIGIN_DEVICE);
+    VBOXSTRICTRC rcStrict = PGMPhysRead(pDevIns->Internal.s.pGVM, GCPhys, pvBuf, cbRead, PGMACCESSORIGIN_DEVICE_AND_INS(pDevIns));
     AssertMsg(rcStrict == VINF_SUCCESS, ("%Rrc\n", VBOXSTRICTRC_VAL(rcStrict))); /** @todo track down the users for this bugger. */
 
     Log(("pdmR0DevHlp_PhysRead: caller=%p/%d: returns %Rrc\n", pDevIns, pDevIns->iInstance, VBOXSTRICTRC_VAL(rcStrict) ));
@@ -326,7 +326,7 @@ static DECLCALLBACK(int) pdmR0DevHlp_PhysWrite(PPDMDEVINS pDevIns, RTGCPHYS GCPh
     LogFlow(("pdmR0DevHlp_PhysWrite: caller=%p/%d: GCPhys=%RGp pvBuf=%p cbWrite=%#x\n",
              pDevIns, pDevIns->iInstance, GCPhys, pvBuf, cbWrite));
 
-    VBOXSTRICTRC rcStrict = PGMPhysWrite(pDevIns->Internal.s.pGVM, GCPhys, pvBuf, cbWrite, PGMACCESSORIGIN_DEVICE);
+    VBOXSTRICTRC rcStrict = PGMPhysWrite(pDevIns->Internal.s.pGVM, GCPhys, pvBuf, cbWrite, PGMACCESSORIGIN_DEVICE_AND_INS(pDevIns));
     AssertMsg(rcStrict == VINF_SUCCESS, ("%Rrc\n", VBOXSTRICTRC_VAL(rcStrict))); /** @todo track down the users for this bugger. */
 
     Log(("pdmR0DevHlp_PhysWrite: caller=%p/%d: returns %Rrc\n", pDevIns, pDevIns->iInstance, VBOXSTRICTRC_VAL(rcStrict) ));
@@ -1763,6 +1763,18 @@ static DECLCALLBACK(int) pdmR0IoApicHlp_IommuMsiRemap(PPDMDEVINS pDevIns, uint16
 }
 
 
+/** @interface_method_impl{PDMIOAPICHLP,pfnRteChanged} */
+static DECLCALLBACK(int) pdmR0IoApicHlp_RteChanged(PPDMDEVINS pDevIns, uint8_t u8IoApicPin, uint8_t u8Dest, uint8_t u8DestMode,
+                                                   uint8_t u8DeliveryMode, uint8_t uVector, uint8_t u8TriggerMode)
+{
+    PDMDEV_ASSERT_DEVINS(pDevIns);
+    PGVM pGVM = pDevIns->Internal.s.pGVM;
+    LogFlow(("pdmR0IoApicHlp_NotifyRteChanged: caller=%p/%d: u8IoApicPin=%RU8 u8Dest=%RX8 u8DestMode=%RX8 u8DeliveryMode=%RX8 uVector=%RX8 u8TriggerMode=%RX8 \n",
+             pDevIns, pDevIns->iInstance, u8IoApicPin, u8Dest, u8DestMode, u8DeliveryMode, uVector, u8TriggerMode));
+    return PDMApicIoApicRteChanged(pGVM, u8IoApicPin, u8Dest, u8DestMode, u8DeliveryMode, uVector, u8TriggerMode);
+}
+
+
 /**
  * The Ring-0 I/O APIC Helper Callbacks.
  */
@@ -1774,6 +1786,7 @@ extern DECLEXPORT(const PDMIOAPICHLP) g_pdmR0IoApicHlp =
     pdmR0IoApicHlp_Unlock,
     pdmR0IoApicHlp_LockIsOwner,
     pdmR0IoApicHlp_IommuMsiRemap,
+    pdmR0IoApicHlp_RteChanged,
     PDM_IOAPICHLP_VERSION
 };
 

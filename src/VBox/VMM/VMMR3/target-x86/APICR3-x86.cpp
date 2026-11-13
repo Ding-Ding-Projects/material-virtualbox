@@ -1,4 +1,4 @@
-/* $Id: APICR3-x86.cpp 112727 2026-01-28 17:02:49Z alexander.eichner@oracle.com $ */
+/* $Id: APICR3-x86.cpp 115361 2026-10-08 09:58:15Z aleksey.ilyushin@oracle.com $ */
 /** @file
  * APIC - Advanced Programmable Interrupt Controller.
  */
@@ -98,12 +98,12 @@ DECLCALLBACK(int) apicR3SetHvCompatMode(PVM pVM, bool fHyperVCompatMode)
 
 
 /**
- * Helper for dumping an APIC pending-interrupt bitmap.
+ * Helper for dumping a level-sensitive APIC pending-interrupt bitmap.
  *
  * @param   pApicPib        The pending-interrupt bitmap.
  * @param   pHlp            The debug output helper.
  */
-static void apicR3DbgInfoPib(PCAPICPIB pApicPib, PCDBGFINFOHLP pHlp)
+static void apicR3DbgInfoLevelPib(PCAPICLEVELPIB pApicPib, PCDBGFINFOHLP pHlp)
 {
     /* Copy the pending-interrupt bitmap as an APIC 256-bit sparse register. */
     XAPIC256BITREG ApicReg;
@@ -125,6 +125,67 @@ static void apicR3DbgInfoPib(PCAPICPIB pApicPib, PCDBGFINFOHLP pHlp)
 }
 
 
+
+/**
+ * Helper for dumping a edge-triggered APIC pending-interrupt bitmap.
+ *
+ * @param   pApicPib        The pending-interrupt bitmap.
+ * @param   pHlp            The debug output helper.
+ */
+static void apicR3DbgInfoEdgePib(PCAPICEDGEPIB pApicPib, PCDBGFINFOHLP pHlp)
+{
+    /* Raw dump */
+    ssize_t const  cFragments = RT_ELEMENTS(pApicPib->au64VectorStates);
+    pHlp->pfnPrintf(pHlp, "    ");
+    for (ssize_t idxFragment = cFragments - 1; idxFragment >= 0; idxFragment--)
+    {
+        uint64_t const uFragment = pApicPib->au64VectorStates[idxFragment];
+        if (idxFragment == 3)
+            pHlp->pfnPrintf(pHlp, "\n    ");
+        pHlp->pfnPrintf(pHlp, "%016RX64", uFragment);
+    }
+    pHlp->pfnPrintf(pHlp, "\n");
+
+    /* Dump each vector */
+    uint32_t cPending = 0;
+    unsigned const cVectorsPerFragment = 2;
+    pHlp->pfnPrintf(pHlp, "    Pending:");
+    for (ssize_t idxFragment = cFragments - 1; idxFragment >= 0; idxFragment--)
+    {
+        uint64_t uFragment = pApicPib->au64VectorStates[idxFragment];
+        if (uFragment)
+        {
+            for (ssize_t idxVector = 31; idxVector >= 0; idxVector--)
+            {
+                unsigned const cShift  = idxVector * cVectorsPerFragment;
+                uint8_t const  fState  = (uFragment >> cShift) & APIC_PIB_INTR_MASK;
+                uint8_t const  uVector = idxFragment * 32 + idxVector;
+                switch (fState)
+                {
+                    case APIC_PIB_INTR_PENDING:
+                        pHlp->pfnPrintf(pHlp, " (%#02x Regular)", uVector);
+                        ++cPending;
+                        break;
+                    case APIC_PIB_INTR_PENDING_AUTO_EOI:
+                        pHlp->pfnPrintf(pHlp, " (%#02x AutoEoi)", uVector);
+                        ++cPending;
+                        break;
+                    case APIC_PIB_INTR_RSVD:
+                        pHlp->pfnPrintf(pHlp, " (%#02x Invalid)", uVector);
+                        RT_FALL_THROUGH();
+                    case APIC_PIB_INTR_NOT_PENDING:
+                    default:
+                        break;
+                }
+            }
+        }
+    }
+    if (!cPending)
+        pHlp->pfnPrintf(pHlp, " None");
+    pHlp->pfnPrintf(pHlp, "\n");
+}
+
+
 /**
  * Dumps basic APIC state.
  *
@@ -142,10 +203,10 @@ static DECLCALLBACK(void) apicR3Info(PVM pVM, PCDBGFINFOHLP pHlp, const char *ps
     PCAPICCPU pApicCpu = VMCPU_TO_APICCPU(pVCpu);
     apicR3CommonDbgInfo(pVCpu, pHlp, pApicCpu->uApicBaseMsr);
     pHlp->pfnPrintf(pHlp, "  ESR Internal                  = %#x\n", pApicCpu->uEsrInternal);
-    pHlp->pfnPrintf(pHlp, "  PIB\n");
-    apicR3DbgInfoPib((PCAPICPIB)pApicCpu->pvApicPibR3, pHlp);
-    pHlp->pfnPrintf(pHlp, "  Level PIB\n");
-    apicR3DbgInfoPib(&pApicCpu->ApicPibLevel, pHlp);
+    pHlp->pfnPrintf(pHlp, "  Edge PIB:\n");
+    apicR3DbgInfoEdgePib((PCAPICEDGEPIB)pApicCpu->pvApicPibR3, pHlp);
+    pHlp->pfnPrintf(pHlp, "  Level PIB:\n");
+    apicR3DbgInfoLevelPib(&pApicCpu->ApicPibLevel, pHlp);
 }
 
 
@@ -239,8 +300,8 @@ static void apicR3DumpState(PVMCPU pVCpu, const char *pszPrefix, uint32_t uVersi
             LogRel(("APIC%u: uTimerCCR                = %#RX32\n", pVCpu->idCpu, pXApicPage->timer_ccr.u32CurrentCount));
 
             /* The PIBs. */
-            LogRel(("APIC%u: Edge PIB : %.*Rhxs\n", pVCpu->idCpu, sizeof(APICPIB), pApicCpu->pvApicPibR3));
-            LogRel(("APIC%u: Level PIB: %.*Rhxs\n", pVCpu->idCpu, sizeof(APICPIB), &pApicCpu->ApicPibLevel));
+            LogRel(("APIC%u: Edge PIB : %.*Rhxs\n", pVCpu->idCpu, sizeof(APICEDGEPIB), pApicCpu->pvApicPibR3));
+            LogRel(("APIC%u: Level PIB: %.*Rhxs\n", pVCpu->idCpu, sizeof(APICLEVELPIB), &pApicCpu->ApicPibLevel));
 
             /* The LINT0, LINT1 interrupt line active states. */
             LogRel(("APIC%u: fActiveLint0             = %RTbool\n", pVCpu->idCpu, pApicCpu->fActiveLint0));
@@ -786,7 +847,7 @@ static int apicR3InitState(PVM pVM)
      */
     Assert(pApic->pvApicPibR3 == NIL_RTR3PTR);
     Assert(pApic->pvApicPibR0 == NIL_RTR0PTR);
-    pApic->cbApicPib        = RT_ALIGN_Z(pVM->cCpus * sizeof(APICPIB), HOST_PAGE_SIZE_DYNAMIC);
+    pApic->cbApicPib        = RT_ALIGN_Z(pVM->cCpus * sizeof(APICEDGEPIB), HOST_PAGE_SIZE_DYNAMIC);
     size_t const cHostPages = pApic->cbApicPib >> HOST_PAGE_SHIFT_DYNAMIC;
     if (cHostPages == 1)
     {
@@ -845,7 +906,7 @@ static int apicR3InitState(PVM pVM)
                 AssertLogRelReturn(pApicCpu->HCPhysApicPage != NIL_RTHCPHYS || fDriverless, VERR_INTERNAL_ERROR);
 
                 /* Associate the per-VCPU PIB pointers to the per-VM PIB mapping. */
-                uint32_t const offApicPib  = idCpu * sizeof(APICPIB);
+                uint32_t const offApicPib  = idCpu * sizeof(APICEDGEPIB);
                 pApicCpu->pvApicPibR0      = !fDriverless ? (RTR0PTR)((RTR0UINTPTR)pApic->pvApicPibR0 + offApicPib) : NIL_RTR0PTR;
                 pApicCpu->pvApicPibR3      = (RTR3PTR)((RTR3UINTPTR)pApic->pvApicPibR3 + offApicPib);
 
@@ -912,9 +973,10 @@ DECLCALLBACK(int) apicR3InitComplete(PPDMDEVINS pDevIns)
     pApic->fSupportsTscDeadline = RT_BOOL(CpuLeaf.uEcx & X86_CPUID_FEATURE_ECX_TSCDEADL);
     pApic->fPostedIntrsEnabled  = HMR3IsPostedIntrsEnabled(pVM->pUVM);
     pApic->fVirtApicRegsEnabled = HMR3AreVirtApicRegsEnabled(pVM->pUVM);
+    pApic->fAvicEnabled         = HMR3IsAvicEnabled(pVM->pUVM);
 
-    LogRel(("APIC: fPostedIntrsEnabled=%RTbool fVirtApicRegsEnabled=%RTbool fSupportsTscDeadline=%RTbool\n",
-            pApic->fPostedIntrsEnabled, pApic->fVirtApicRegsEnabled, pApic->fSupportsTscDeadline));
+    LogRel(("APIC: fPostedIntrsEnabled=%RTbool fVirtApicRegsEnabled=%RTbool fSupportsTscDeadline=%RTbool fAvicEnabled=%RTbool\n",
+            pApic->fPostedIntrsEnabled, pApic->fVirtApicRegsEnabled, pApic->fSupportsTscDeadline, pApic->fAvicEnabled));
 
     return VINF_SUCCESS;
 }
@@ -1059,6 +1121,12 @@ DECLCALLBACK(int) apicR3Construct(PPDMDEVINS pDevIns, int iInstance, PCFGMNODE p
     /*
      * Statistics.
      */
+
+#ifdef VBOX_WITH_STATISTICS
+    PDMDevHlpSTAMRegisterF(pDevIns, &pApic->StatRteChanged, STAMTYPE_COUNTER, STAMVISIBILITY_ALWAYS, STAMUNIT_OCCURENCES,
+                           "Number of I/O-APIC RTE change", "RteChanges");
+#endif
+
 #define APIC_REG_COUNTER(a_pvReg, a_pszNameFmt, a_pszDesc) \
         PDMDevHlpSTAMRegisterF(pDevIns, a_pvReg, STAMTYPE_COUNTER, STAMVISIBILITY_ALWAYS, \
                                STAMUNIT_OCCURENCES, a_pszDesc, a_pszNameFmt, idCpu)
@@ -1093,7 +1161,10 @@ DECLCALLBACK(int) apicR3Construct(PPDMDEVINS pDevIns, int iInstance, PCFGMNODE p
 
         APIC_REG_COUNTER(&pApicCpu->StatTprWrite,      "%u/TprWrite",       "Number of TPR writes.");
         APIC_REG_COUNTER(&pApicCpu->StatTprRead,       "%u/TprRead",        "Number of TPR reads.");
-        APIC_REG_COUNTER(&pApicCpu->StatEoiWrite,      "%u/EoiWrite",       "Number of EOI writes.");
+        APIC_REG_COUNTER(&pApicCpu->StatEoiWrite,      "%u/Eoi/Write",      "Number of EOI writes.");
+        APIC_REG_COUNTER(&pApicCpu->StatEoiWriteFast,  "%u/Eoi/WriteFast",  "Number of EOI writes using the fast path.");
+        APIC_REG_COUNTER(&pApicCpu->StatEoiEdge,       "%u/Eoi/Edge",       "Number of EOIs for edge-triggered interrupts processed.");
+        APIC_REG_COUNTER(&pApicCpu->StatEoiLevel,      "%u/Eoi/Level",      "Number of EOIs for level-sensitive interrupts processed.");
         APIC_REG_COUNTER(&pApicCpu->StatMaskedByTpr,   "%u/MaskedByTpr",    "Number of times TPR masks an interrupt in apicGetInterrupt.");
         APIC_REG_COUNTER(&pApicCpu->StatMaskedByPpr,   "%u/MaskedByPpr",    "Number of times PPR masks an interrupt in apicGetInterrupt.");
         APIC_REG_COUNTER(&pApicCpu->StatTimerIcrWrite, "%u/TimerIcrWrite",  "Number of times the timer ICR is written.");
@@ -1105,6 +1176,7 @@ DECLCALLBACK(int) apicR3Construct(PPDMDEVINS pDevIns, int iInstance, PCFGMNODE p
         APIC_REG_COUNTER(&pApicCpu->StatDfrWrite,      "%u/DfrWrite",       "Number of times the DFR is written.");
         APIC_REG_COUNTER(&pApicCpu->StatLdrWrite,      "%u/LdrWrite",       "Number of times the LDR is written.");
         APIC_REG_COUNTER(&pApicCpu->StatLvtTimerWrite, "%u/LvtTimerWrite",  "Number of times the LVT timer is written.");
+        APIC_REG_COUNTER(&pApicCpu->StatEoiExitBitmapQuery, "%u/EoiExitBitmapQuery",  "Number of times the EOI exit bitmap is queried.");
 
         APIC_PROF_COUNTER(&pApicCpu->StatUpdatePendingIntrs,
                                                        "/PROF/CPU%u/APIC/UpdatePendingInterrupts", "Profiling of apicUpdatePendingInterrupts");

@@ -1,4 +1,4 @@
-/* $Id: APICInternal.h 112683 2026-01-25 17:23:05Z alexander.eichner@oracle.com $ */
+/* $Id: APICInternal.h 115361 2026-10-08 09:58:15Z aleksey.ilyushin@oracle.com $ */
 /** @file
  * APIC - Advanced Programmable Interrupt Controller, Internal header.
  */
@@ -41,6 +41,36 @@
  * @internal
  * @{
  */
+
+/** The number of IO-APIC pins generating interrupts. */
+#define IOAPIC_NUM_PINS 24
+
+/**
+ * I/O APIC interrupt config conveyed from the I/O APIC to the
+ * APIC on changes.
+ */
+typedef union IOAPICINTRCFG
+{
+    /** The raw 64bit view. */
+    uint64_t                u64;
+    /** The structured view. */
+    struct
+    {
+        /** The interrupt vector. */
+        uint8_t             u8Vector;
+        /** The destination (mask or ID). */
+        uint8_t             u8Dest;
+        /** The destination mode. */
+        uint8_t             u8DestMode;
+        /** Delivery mode. */
+        uint8_t             u8DeliveryMode;
+        /** Trigger mode. */
+        uint8_t             u8TriggerMode;
+        /** Padding. */
+        uint8_t             abPadding0[3];
+    } u;
+} IOAPICINTRCFG;
+AssertCompileSize(IOAPICINTRCFG, sizeof(uint64_t));
 
 #ifdef VBOX_INCLUDED_vmm_pdmapic_h
 /** The VirtualBox APIC backend table. */
@@ -125,21 +155,59 @@ typedef enum APICMSRACCESS
  */
 #define APIC_CACHE_LINE_SIZE              128
 
-/**
- * APIC Pending-Interrupt Bitmap (PIB).
+/** @name APIC_PIB_INTR_XXX
+ * The interrupt state of each vector is represented by 2 bits.
+ * This is used only for edge-triggered interrupts.
+ * @{
  */
-typedef struct APICPIB
+/** The interrupt is not pending. */
+#define APIC_PIB_INTR_NOT_PENDING         0x0
+/** The interrupt is pending. */
+#define APIC_PIB_INTR_PENDING             0x1
+/** The interrupt is pending and requires Hyper-V AutoEoi handling. */
+#define APIC_PIB_INTR_PENDING_AUTO_EOI    0x2
+/** Reserved/invalid - not currently used. */
+#define APIC_PIB_INTR_RSVD                0x3
+/** The mask of the per-vector edge-triggered PIB interrupt state. */
+#define APIC_PIB_INTR_MASK                0x3
+/** @} */
+
+
+/**
+ * APIC Pending-Interrupt Bitmap (PIB) for edge-triggered interrupts.
+ */
+typedef struct APICEDGEPIB
+{
+    /** Interrupt state for each vector, see APIC_PIB_INTR_XXX. */
+    uint64_t volatile au64VectorStates[8];
+    uint32_t volatile fOutstandingNotification;
+    uint8_t           au8Reserved[APIC_CACHE_LINE_SIZE - sizeof(uint32_t) - (sizeof(uint64_t) * 8)];
+} APICEDGEPIB;
+AssertCompileMemberOffset(APICEDGEPIB, fOutstandingNotification, 512 / 8);
+AssertCompileSize(APICEDGEPIB, APIC_CACHE_LINE_SIZE);
+/** Pointer to a pending-interrupt bitmap. */
+typedef APICEDGEPIB *PAPICEDGEPIB;
+/** Pointer to a const pending-interrupt bitmap. */
+typedef const APICEDGEPIB *PCAPICEDGEPIB;
+
+/**
+ * APIC Pending-Interrupt Bitmap (PIB) for level-sensitive interrupts.
+ */
+typedef struct APICLEVELPIB
 {
     uint64_t volatile au64VectorBitmap[4];
     uint32_t volatile fOutstandingNotification;
     uint8_t           au8Reserved[APIC_CACHE_LINE_SIZE - sizeof(uint32_t) - (sizeof(uint64_t) * 4)];
-} APICPIB;
-AssertCompileMemberOffset(APICPIB, fOutstandingNotification, 256 / 8);
-AssertCompileSize(APICPIB, APIC_CACHE_LINE_SIZE);
+} APICLEVELPIB;
+AssertCompileMemberOffset(APICLEVELPIB, fOutstandingNotification, 256 / 8);
+AssertCompileSize(APICLEVELPIB, APIC_CACHE_LINE_SIZE);
 /** Pointer to a pending-interrupt bitmap. */
-typedef APICPIB *PAPICPIB;
+typedef APICLEVELPIB *PAPICLEVELPIB;
 /** Pointer to a const pending-interrupt bitmap. */
-typedef const APICPIB *PCAPICPIB;
+typedef const APICLEVELPIB *PCAPICLEVELPIB;
+/* Size must be identical since we alloc all per-VCPU PIBs contiguously per-VM
+   and point at the right offsets for each VCPU. */
+AssertCompile(sizeof(APICLEVELPIB) == sizeof(APICEDGEPIB));
 
 /**
  * APIC PDM instance data (per-VM).
@@ -173,7 +241,7 @@ typedef struct APIC
     /** The ring-3 device instance. */
     PPDMDEVINSR3                pDevInsR3;
 
-    /** @name The APIC pending-interrupt bitmap (PIB).
+    /** @name The contiguous pending-interrupt bitmaps (PIB) of all VCPUs.
      * @{ */
     /** The host-context physical address of the PIB. */
     RTHCPHYS                    HCPhysApicPib;
@@ -195,6 +263,8 @@ typedef struct APIC
     bool                        fVirtApicRegsEnabled;
     /** Whether posted-interrupt processing is enabled. */
     bool                        fPostedIntrsEnabled;
+    /** Whether the SVM AVIC feature is enabled. */
+    bool                        fAvicEnabled;
     /** Whether TSC-deadline timer mode is supported for the guest. */
     bool                        fSupportsTscDeadline;
     /** Whether this VM has an IO-APIC. */
@@ -211,8 +281,23 @@ typedef struct APIC
      * kernel load area and macOS kernel selector value (8), as we must not ever
      * apply this to the EFI code. */
     bool                        fMacOSWorkaround;
+    /** Alignment padding. */
+    bool                        afPadding[3];
     /** The max supported APIC mode from CFGM.  */
     PDMAPICMODE                 enmMaxMode;
+    /** The current IO-APIC configuration for each pin.
+     * Whenever it changes we need to inform the vCPUs on VMX to
+     * update their EOI exit bitmap. */
+    volatile IOAPICINTRCFG      aIoApicCfg[IOAPIC_NUM_PINS];
+    /** @} */
+
+
+    /** @name APIC statistics.
+     * @{ */
+#ifdef VBOX_WITH_STATISTICS
+    /** Number of RTE change notifications. */
+    STAMCOUNTER                 StatRteChanged;
+#endif
     /** @} */
 } APIC;
 /** Pointer to APIC VM instance data. */
@@ -260,7 +345,7 @@ typedef struct APICCPU
     /** The APIC PIB virtual address - R3 ptr. */
     R3PTRTYPE(void *)           pvApicPibR3;
     /** The APIC PIB for level-sensitive interrupts. */
-    APICPIB                     ApicPibLevel;
+    APICLEVELPIB                ApicPibLevel;
     /** @} */
 
     /** @name Other miscellaneous data.
@@ -273,6 +358,8 @@ typedef struct APICCPU
     uint8_t                     auAlignment2[6];
     /** The source tags corresponding to each interrupt vector (debugging). */
     uint32_t                    auSrcTags[256];
+    /** Hyper-V Auto EOI vectors. */
+    uint32_t                    auAutoEoiVectors[8];
     /** @} */
 
     /** @name The APIC timer.
@@ -336,6 +423,12 @@ typedef struct APICCPU
     STAMCOUNTER                 StatTprRead;
     /** Number of times the EOI is written. */
     STAMCOUNTER                 StatEoiWrite;
+    /** Number of times the EOI is written in the fast path. */
+    STAMCOUNTER                 StatEoiWriteFast;
+    /** Number of times EOI for edge-triggered interrupts is processed. */
+    STAMCOUNTER                 StatEoiEdge;
+    /** Number of times EOI for level-sensitive interrupts is processed. */
+    STAMCOUNTER                 StatEoiLevel;
     /** Number of times TPR masks an interrupt in apicGetInterrupt(). */
     STAMCOUNTER                 StatMaskedByTpr;
     /** Number of times PPR masks an interrupt in apicGetInterrupt(). */
@@ -358,6 +451,8 @@ typedef struct APICCPU
     STAMCOUNTER                 StatIdMsrRead;
     /** Number of times the LVT timer is written. */
     STAMCOUNTER                 StatLvtTimerWrite;
+    /** Number of EOI bitmap queries. */
+    STAMCOUNTER                 StatEoiExitBitmapQuery;
 #endif
     /** Number of apicPostInterrupt() calls. */
     STAMCOUNTER                 StatPostIntrCnt;
@@ -370,6 +465,7 @@ typedef APICCPU *PAPICCPU;
 /** Pointer to a const APIC VMCPU instance data. */
 typedef APICCPU const *PCAPICCPU;
 AssertCompileMemberAlignment(APICCPU, uApicBaseMsr, 8);
+AssertCompileMemberSize(APICCPU, auAutoEoiVectors, 32 /* =256 bits, one per vector */);
 
 void                          apicHintTimerFreq(PPDMDEVINS pDevIns, PAPICCPU pApicCpu, uint32_t uInitialCount, uint8_t uTimerShift);
 

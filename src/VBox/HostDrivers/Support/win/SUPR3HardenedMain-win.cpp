@@ -1,4 +1,4 @@
-/* $Id: SUPR3HardenedMain-win.cpp 113914 2026-04-16 20:53:06Z knut.osmundsen@oracle.com $ */
+/* $Id: SUPR3HardenedMain-win.cpp 115205 2026-09-08 11:35:50Z knut.osmundsen@oracle.com $ */
 /** @file
  * VirtualBox Support Library - Hardened main(), windows bits.
  */
@@ -60,6 +60,7 @@
 #include <iprt/initterm.h>
 #include <iprt/param.h>
 #include <iprt/path.h>
+#include <iprt/sha.h>
 #include <iprt/stackcheck.h>
 #include <iprt/thread.h>
 #include <iprt/utf16.h>
@@ -305,8 +306,9 @@ typedef struct SUPR3HARDNTPATCH
 static SUPR3WINPROCPARAMS   g_ProcParams = { NULL, NULL, 0, (SUPR3WINCHILDREQ)0, 0 };
 /** Set if supR3HardenedEarlyProcessInit was invoked. */
 bool                        g_fSupEarlyProcessInit = false;
-/** Set if the stub device has been opened (stub process only). */
-bool                        g_fSupStubOpened = false;
+/** The handle if the stub device has been opened (stub process only),
+ *  otherwise NULL. */
+static HANDLE               g_hSubStubDevice = NULL;
 
 /** @name Global variables initialized by suplibHardenedWindowsMain.
  * @{ */
@@ -332,6 +334,9 @@ bool                        g_fSupLibHardenedDllSearchUserDirs = false;
 
 /** @name Hook related variables.
  * @{ */
+/** SHA-512 of the rxw page. */
+static uint8_t              g_abSupHardReadWriteExecPageSha512[RTSHA512_HASH_SIZE];
+
 /** Pointer to the bit of assembly code that will perform the original
  *  NtCreateSection operation. */
 static NTSTATUS     (NTAPI *g_pfnNtCreateSectionReal)(PHANDLE, ACCESS_MASK, POBJECT_ATTRIBUTES,
@@ -351,7 +356,7 @@ static SUPR3HARDNTPATCH     g_LdrLoadDllPatch;
 #ifndef VBOX_WITHOUT_HARDENDED_XCPT_LOGGING
 /** Pointer to the bit of assembly code that will perform the original
  *  KiUserExceptionDispatcher operation. */
-static VOID        (NTAPI *g_pfnKiUserExceptionDispatcherReal)(void);
+static VOID         (NTAPI *g_pfnKiUserExceptionDispatcherReal)(void);
 /** Pointer to the KiUserExceptionDispatcher function in NtDll (for patching purposes). */
 static uint8_t             *g_pbKiUserExceptionDispatcher;
 /** The patched KiUserExceptionDispatcher bytes (for restoring). */
@@ -360,7 +365,7 @@ static SUPR3HARDNTPATCH     g_KiUserExceptionDispatcherPatch;
 
 /** Pointer to the bit of assembly code that will perform the original
  *  KiUserApcDispatcher operation. */
-static VOID        (NTAPI *g_pfnKiUserApcDispatcherReal)(void);
+static VOID         (NTAPI *g_pfnKiUserApcDispatcherReal)(void);
 /** Pointer to the KiUserApcDispatcher function in NtDll (for patching purposes). */
 static uint8_t             *g_pbKiUserApcDispatcher;
 /** The patched KiUserApcDispatcher bytes (for restoring). */
@@ -1340,9 +1345,19 @@ static NTSTATUS supR3HardenedScreenImageCalcStatus(int rc) RT_NOTHROW_DEF
 
        NtCreateSection probably returns something different, possibly a warning,
        we currently don't distinguish between the too, so we stick with the
-       LdrLoadDll one as it's definitely an error.*/
+       LdrLoadDll one as it's definitely an error.
+
+       Update 2026-08-20: We should not return anything that can be translated
+       to ERROR_BAD_EXE_FORMAT here, because .NET may take an unsafe fallback
+       path (FlatImageLayout) which maps the file as data and interprets the
+       content without strict certificate checking.
+
+       Should this backfire for some other images (resource, whatever), we will
+       need to detect these images in IPRT and return a slightly different error
+       code for them (IMAGE_DIRECTORY_ENTRY_COM_DESCRIPTOR -> CLI header ->
+       Metadata root (0x424a5342/BSJB magic)). */
     if (rc == VERR_LDR_ARCH_MISMATCH)
-        return STATUS_INVALID_IMAGE_FORMAT;
+        return STATUS_FILE_NOT_SUPPORTED; /* not STATUS_INVALID_IMAGE_FORMAT!  */
 
     return STATUS_TRUST_FAILURE;
 }
@@ -1397,6 +1412,7 @@ supR3HardenedScreenImage(HANDLE hFile, bool fImage, bool fIgnoreArch, PULONG pfA
                            pszCaller, fImage, *pfProtect, *pfAccess);
         return rcNt;
     }
+    //SUP_DPRINTF(("supR3HardenedScreenImage/%s: hFile=%p -> '%ls'\n", pszCaller, hFile, uBuf.UniStr.Buffer));
 
     if (!RTNtPathFindPossible8dot3Name(uBuf.UniStr.Buffer))
         cbNameBuf += sizeof(WCHAR);
@@ -1769,13 +1785,24 @@ supR3HardenedMonitor_NtCreateSection(PHANDLE phSection, ACCESS_MASK fAccess, POB
                                      PLARGE_INTEGER pcbSection, ULONG fProtect, ULONG fAttribs, HANDLE hFile)
 {
     bool fNeedUncChecking = false;
+    bool const fExecProt = (fProtect & (PAGE_EXECUTE | PAGE_EXECUTE_READ | PAGE_EXECUTE_WRITECOPY | PAGE_EXECUTE_READWRITE)) != 0;
     if (   hFile != NULL
         && hFile != INVALID_HANDLE_VALUE)
     {
         bool const fImage    = RT_BOOL(fAttribs & (SEC_IMAGE | SEC_PROTECTED_IMAGE));
         bool const fExecMap  = RT_BOOL(fAccess & SECTION_MAP_EXECUTE);
-        bool const fExecProt = RT_BOOL(fProtect & (PAGE_EXECUTE | PAGE_EXECUTE_READ | PAGE_EXECUTE_WRITECOPY
-                                                   | PAGE_EXECUTE_READWRITE));
+#if 0
+        union
+        {
+            UNICODE_STRING UniStr;
+            uint8_t abBuffer[sizeof(UNICODE_STRING) + 1024 * sizeof(WCHAR)];
+        } uBuf;
+        RT_ZERO(uBuf);
+        ULONG cbNameBuf;
+        NTSTATUS rcNt2 = NtQueryObject(hFile, ObjectNameInformation, &uBuf, sizeof(uBuf) - sizeof(WCHAR) - 16, &cbNameBuf);
+        SUP_DPRINTF(("supR3HardenedMonitor_NtCreateSection: fAccess=%#x fProtect=%#x fAttribs=%#x hFile=%#x - fImage=%d fExecMap=%d fExecProt=%d - '%ls' (name query rcNt=%#x)\n",
+                     fAccess, fProtect, fAttribs, hFile, fImage, fExecMap, fExecProt, NT_SUCCESS(rcNt2) ? uBuf.UniStr.Buffer  : L"", rcNt2));
+#endif
         if (fImage || fExecMap || fExecProt)
         {
             fNeedUncChecking = true;
@@ -1794,13 +1821,13 @@ supR3HardenedMonitor_NtCreateSection(PHANDLE phSection, ACCESS_MASK fAccess, POB
             Assert(fCallRealApi);
             if (!fCallRealApi)
                 return STATUS_TRUST_FAILURE;
-
         }
     }
 
     /*
      * Call checked out OK, call the original.
      */
+    /* supR3HardenedWinCheckRwxPage(); - not needed, this points at assembly code. */
     NTSTATUS rcNtReal = g_pfnNtCreateSectionReal(phSection, fAccess, pObjAttribs, pcbSection, fProtect, fAttribs, hFile);
 
     /*
@@ -1819,7 +1846,7 @@ supR3HardenedMonitor_NtCreateSection(PHANDLE phSection, ACCESS_MASK fAccess, POB
         SIZE_T   cbView   = 0;
         PVOID    pvTmpMap = NULL;
         NTSTATUS rcNt = NtMapViewOfSection(*phSection, NtCurrentProcess(), &pvTmpMap, 0, 0, NULL /*poffSection*/, &cbView,
-                                           ViewUnmap, MEM_TOP_DOWN, PAGE_EXECUTE);
+                                           ViewUnmap, MEM_TOP_DOWN, fExecProt ? PAGE_EXECUTE : PAGE_READONLY);
         if (NT_SUCCESS(rcNt))
         {
             /* Query the name. */
@@ -1851,12 +1878,12 @@ supR3HardenedMonitor_NtCreateSection(PHANDLE phSection, ACCESS_MASK fAccess, POB
                                        uBuf.UniStr.Length / sizeof(RTUTF16), uBuf.UniStr.Buffer);
             }
             else
-                SUP_DPRINTF(("supR3HardenedMonitor_NtCreateSection: NtQueryVirtualMemory failed on %p (hFile=%p) with %#x -> STATUS_TRUST_FAILURE\n",
-                             *phSection, hFile, rcNt));
+                SUP_DPRINTF(("supR3HardenedMonitor_NtCreateSection: NtQueryVirtualMemory failed on %p (hFile=%p fAccess=%#x fProtect=%#x fAttribs=%#x) with %#x -> STATUS_TRUST_FAILURE\n",
+                             *phSection, hFile, fAccess, fProtect, fAttribs, rcNt));
         }
         else
-            SUP_DPRINTF(("supR3HardenedMonitor_NtCreateSection: NtMapViewOfSection failed on %p (hFile=%p) with %#x -> STATUS_TRUST_FAILURE\n",
-                         *phSection, hFile, rcNt));
+            SUP_DPRINTF(("supR3HardenedMonitor_NtCreateSection: NtMapViewOfSection failed on %p (hFile=%p fAccess=%#x fProtect=%#x fAttribs=%#x) with %#x -> STATUS_TRUST_FAILURE\n",
+                         *phSection, hFile, fAccess, fProtect, fAttribs, rcNt));
         if (!fOkay)
         {
             NtClose(*phSection);
@@ -2492,6 +2519,7 @@ supR3HardenedMonitor_LdrLoadDll(PWSTR pwszSearchPath, PULONG pfFlags, PUNICODE_S
     }
 
     RtlRestoreLastWin32Error(dwSavedLastError);
+    supR3HardenedWinCheckRwxPage();
     rcNt = g_pfnLdrLoadDllReal(pwszSearchPath, pfFlags, pName, phMod);
 
     /*
@@ -2630,6 +2658,7 @@ supR3HardenedDllNotificationCallback(ULONG ulReason, PCLDR_DLL_NOTIFICATION_DATA
      * since they may be replaced by indecent protection software solutions.
      */
     supR3HardenedWinReInstallHooks(false /*fFirstCall */);
+    supR3HardenedWinCheckRwxPage();
 }
 
 
@@ -2719,6 +2748,7 @@ DECLASM(uintptr_t) supR3HardenedMonitor_KiUserApcDispatcher_C(void *pvApcArgs)
                          pfnRoutine, g_enmSupR3HardenedMainState));
         }
     }
+    supR3HardenedWinCheckRwxPage();
     return (uintptr_t)g_pfnKiUserApcDispatcherReal;
 }
 
@@ -2811,7 +2841,10 @@ DECLASM(uintptr_t) supR3HardenedMonitor_KiUserExceptionDispatcher_C(PEXCEPTION_R
      * Ignore the guard page violation.
      */
     if (pXcptRec->ExceptionCode == STATUS_GUARD_PAGE_VIOLATION)
+    {
+        supR3HardenedWinCheckRwxPage();
         return (uintptr_t)g_pfnKiUserExceptionDispatcherReal;
+    }
 
     /*
      * Log the exception and context.
@@ -2842,6 +2875,7 @@ DECLASM(uintptr_t) supR3HardenedMonitor_KiUserExceptionDispatcher_C(PEXCEPTION_R
                     pXcptRec->ExceptionAddress, pXcptRec->ExceptionFlags);
     supR3HardNtDprintCtx(pCtx, szLeadIn);
 
+    supR3HardenedWinCheckRwxPage();
     return (uintptr_t)g_pfnKiUserExceptionDispatcherReal;
 }
 #endif /* !VBOX_WITHOUT_HARDENDED_XCPT_LOGGING */
@@ -3094,7 +3128,10 @@ static void supR3HardenedWinReInstallHooks(bool fFirstCall) RT_NOTHROW_DEF
  *          a jump back at the end of it. But because we wish to avoid
  *          allocating executable memory, we need to have preprepared assembly
  *          "copies".  This makes the non-system call patching a little tedious
- *            and inflexible.
+ *          and inflexible.
+ *
+ * @note    The RWX page content follows strict rules found in the validation
+ *          function supHardNtRwxPageVerify() and supHardNtRwxPageVerifyEntry()!
  */
 static void supR3HardenedWinInstallHooks(void)
 {
@@ -3142,7 +3179,118 @@ static void supR3HardenedWinInstallHooks(void)
     /*
      * Exec page setup & management.
      */
+    static uint8_t const s_abPadding[64] =
+    {
+        0xcc, 0xcc, 0xcc, 0xcc, 0xcc, 0xcc, 0xcc, 0xcc,  0xcc, 0xcc, 0xcc, 0xcc, 0xcc, 0xcc, 0xcc, 0xcc,
+        0xcc, 0xcc, 0xcc, 0xcc, 0xcc, 0xcc, 0xcc, 0xcc,  0xcc, 0xcc, 0xcc, 0xcc, 0xcc, 0xcc, 0xcc, 0xcc,
+        0xcc, 0xcc, 0xcc, 0xcc, 0xcc, 0xcc, 0xcc, 0xcc,  0xcc, 0xcc, 0xcc, 0xcc, 0xcc, 0xcc, 0xcc, 0xcc,
+        0xcc, 0xcc, 0xcc, 0xcc, 0xcc, 0xcc, 0xcc, 0xcc,  0xcc, 0xcc, 0xcc, 0xcc, 0xcc, 0xcc, 0xcc, 0xcc,
+    };
+    AssertCompile(SUPHARDNT_RWXPG_ENTRY_SIZE <= sizeof(s_abPadding));
+    RTSHA256CONTEXT ExecPageShCtx;
+    RTSha256Init(&ExecPageShCtx);
+    uint32_t cExecPageEntries = 0;
     uint32_t offExecPage = 0;
+    uint32_t offExecPagePtrSlot = UINT32_MAX; RT_NOREF(offExecPagePtrSlot); /* Only AMD64. */
+#define EXEC_PAGE_ENTRY_BEGIN() do { \
+            SUPR3HARDENED_ASSERT(!(offExecPage & (SUPHARDNT_RWXPG_ENTRY_SIZE - 1))); \
+            SUPR3HARDENED_ASSERT(offExecPage == cExecPageEntries * SUPHARDNT_RWXPG_ENTRY_SIZE); \
+            cExecPageEntries += 1; \
+            offExecPagePtrSlot = UINT32_MAX; \
+        } while (0)
+#ifdef RT_ARCH_AMD64
+    static uint8_t const s_abEndbr64[4] = { 0xf3, 0x0f, 0x1e, 0xfa };
+# define EXEC_PAGE_BEGIN_PROC(a_pfnVar) do { \
+            *(PFNRT *)&(a_pfnVar) = (PFNRT)(uintptr_t)&g_abSupHardReadWriteExecPage[offExecPage]; \
+            g_abSupHardReadWriteExecPage[offExecPage++] = 0xf3; /* ENDBR64 */ \
+            g_abSupHardReadWriteExecPage[offExecPage++] = 0x0f; \
+            g_abSupHardReadWriteExecPage[offExecPage++] = 0x1e; \
+            g_abSupHardReadWriteExecPage[offExecPage++] = 0xfa; \
+            RTSha256Update(&ExecPageShCtx, s_abEndbr64, sizeof(s_abEndbr64)); \
+        } while (0)
+#elif defined(RT_ARCH_X86)
+    static uint8_t const s_abEndbr32[4] = { 0xf3, 0x0f, 0x1e, 0xfb };
+# define EXEC_PAGE_BEGIN_PROC(a_pfnVar) do { \
+            *(PFNRT *)&(a_pfnVar) = (PFNRT)(uintptr_t)&g_abSupHardReadWriteExecPage[offExecPage]; \
+            g_abSupHardReadWriteExecPage[offExecPage++] = 0xf3; /* ENDBR32 */ \
+            g_abSupHardReadWriteExecPage[offExecPage++] = 0x0f; \
+            g_abSupHardReadWriteExecPage[offExecPage++] = 0x1e; \
+            g_abSupHardReadWriteExecPage[offExecPage++] = 0xfb; \
+            RTSha256Update(&ExecPageShCtx, s_abEndbr32, sizeof(s_abEndbr32)); \
+        } while (0)
+#else
+# define EXEC_PAGE_BEGIN_PROC(a_pfnVar) do { \
+            *(PFNRT *)&(a_pfnVar) = (PFNRT)(uintptr_t)&g_abSupHardReadWriteExecPage[offExecPage]; \
+        } while (0)
+#endif
+#define EXEC_PAGE_MEMCPY(a_pvSrc, a_cbSrc) do { \
+            memcpy(&g_abSupHardReadWriteExecPage[offExecPage], (a_pvSrc), (a_cbSrc)); \
+            RTSha256Update(&ExecPageShCtx, (a_pvSrc), (a_cbSrc)); \
+            offExecPage += (a_cbSrc); \
+        } while (0)
+#define EXEC_PAGE_ALIGN(a_cbAlignment) do { \
+            AssertCompile(a_cbAlignment <= sizeof(s_abPadding)); \
+            uint32_t const offExecPageCur = offExecPage; \
+            offExecPage = RT_ALIGN_32(offExecPage, a_cbAlignment); \
+            uint32_t const cbPadding = offExecPage - offExecPageCur; \
+            if (cbPadding) \
+            { \
+                memset(&g_abSupHardReadWriteExecPage[offExecPageCur], 0xcc, cbPadding); \
+                RTSha256Update(&ExecPageShCtx, s_abPadding, cbPadding); \
+            } \
+        } while (0)
+#define EXEC_PAGE_ENTRY_END() do { \
+            offExecPagePtrSlot = UINT32_MAX; \
+            EXEC_PAGE_ALIGN(SUPHARDNT_RWXPG_ENTRY_SIZE); \
+        } while (0)
+
+#ifdef RT_ARCH_AMD64
+# define EXEC_PAGE_PTR_SLOT(a_uPtrAddr) do { \
+            uintptr_t const uAddrCopy = (a_uPtrAddr); \
+            EXEC_PAGE_ALIGN(sizeof(uAddrCopy)); \
+            SUPR3HARDENED_ASSERT(offExecPagePtrSlot == UINT32_MAX); \
+            offExecPagePtrSlot = offExecPage; \
+            *(uintptr_t *)&g_abSupHardReadWriteExecPage[offExecPage] = uAddrCopy; \
+            RTSha256Update(&ExecPageShCtx, &uAddrCopy, sizeof(uAddrCopy)); \
+            offExecPage += sizeof(uAddrCopy); \
+        } while (0)
+# define EXEC_PAGE_EMIT_JMP_VIA_PTR_SLOT() do { \
+            g_abSupHardReadWriteExecPage[offExecPage++] = 0x3e; /* CS override /  NOTRACK */ \
+            g_abSupHardReadWriteExecPage[offExecPage++] = 0xff; /* jmp qword [$+8 wrt RIP] */ \
+            g_abSupHardReadWriteExecPage[offExecPage++] = 0x25; \
+            *(uint32_t *)&g_abSupHardReadWriteExecPage[offExecPage] = offExecPagePtrSlot - (offExecPage + 4); \
+            offExecPage += 4; \
+            g_abSupHardReadWriteExecPage[offExecPage++] = 0xcc; \
+            RTSha256Update(&ExecPageShCtx, &g_abSupHardReadWriteExecPage[offExecPage - 8], 8); \
+        } while (0)
+#elif defined(RT_ARCH_X86)
+# define EXEC_PAGE_EMIT_REL_JMP_TO(a_pvTarget) do { \
+            g_abSupHardReadWriteExecPage[offExecPage++] = 0xe9; /* jmp rel32 */ \
+            *(uint32_t *)&g_abSupHardReadWriteExecPage[offExecPage] = (uintptr_t)(a_pvTarget) \
+                                                                    - (uintptr_t)&g_abSupHardReadWriteExecPage[offExecPage + 4]; \
+            offExecPage += 4; \
+            g_abSupHardReadWriteExecPage[offExecPage++] = 0xcc; \
+            RTSha256Update(&ExecPageShCtx, &g_abSupHardReadWriteExecPage[offExecPage - 6], 6); \
+        } while (0)
+#elif defined(RT_ARCH_ARM64)
+# define EXEC_PAGE_LOAD_ADDR_IN_X17(a_pvAddr) do { \
+            uintptr_t const uThisAddr = (uintptr_t)(a_pvAddr); \
+            *(uint32_t *)&g_abSupHardReadWriteExecPage[offExecPage     ] = Armv8A64MkInstrMovZ(ARMV8_A64_REG_X17, uThisAddr & 0xffff); \
+            *(uint32_t *)&g_abSupHardReadWriteExecPage[offExecPage +  4] = Armv8A64MkInstrMovK(ARMV8_A64_REG_X17, (uThisAddr >> 16) & 0xffff, 1); \
+            *(uint32_t *)&g_abSupHardReadWriteExecPage[offExecPage +  8] = Armv8A64MkInstrMovK(ARMV8_A64_REG_X17, (uThisAddr >> 32) & 0xffff, 2); \
+            *(uint32_t *)&g_abSupHardReadWriteExecPage[offExecPage + 12] = Armv8A64MkInstrMovK(ARMV8_A64_REG_X17, (uThisAddr >> 48) & 0xffff, 3); \
+            RTSha256Update(&ExecPageShCtx, &g_abSupHardReadWriteExecPage[offExecPage], 16); \
+            offExecPage += 16; \
+        } while (0)
+# define EXEC_PAGE_BR_X17() do { \
+            *(uint32_t *)&g_abSupHardReadWriteExecPage[offExecPage]     = Armv8A64MkInstrBr(ARMV8_A64_REG_X17); \
+            *(uint32_t *)&g_abSupHardReadWriteExecPage[offExecPage + 4] = Armv8A64MkInstrBrk(0x6a1); \
+            RTSha256Update(&ExecPageShCtx, &g_abSupHardReadWriteExecPage[offExecPage], 8); \
+            offExecPage += 8; \
+        } while (0)
+
+#endif
+
     memset(g_abSupHardReadWriteExecPage, 0xcc, PAGE_SIZE);
 
     /*
@@ -3270,25 +3418,18 @@ static void supR3HardenedWinInstallHooks(void)
     {
         cbInstr = 1;
         int rc = DISInstr(pbLdrLoadDll + offJmpBack, DISCPUMODE_64BIT, &Dis, &cbInstr);
-        if (   RT_FAILURE(rc)
-            || (Dis.pCurInstr->fOpType & (DISOPTYPE_CONTROLFLOW))
-            || (Dis.x86.ModRM.Bits.Mod == 0 && Dis.x86.ModRM.Bits.Rm == 5 /* wrt RIP */) )
+        if (RT_FAILURE(rc) || !supHardNtRwxPageIsPrologInstrPatchable(&Dis))
             supR3HardenedWinHookFailed("LdrLoadDll", pbLdrLoadDll);
         offJmpBack += cbInstr;
     }
 
-    /* Assemble the code for resuming the call.*/
-    *(PFNRT *)&g_pfnLdrLoadDllReal = (PFNRT)(uintptr_t)&g_abSupHardReadWriteExecPage[offExecPage];
-
-    memcpy(&g_abSupHardReadWriteExecPage[offExecPage], pbLdrLoadDll, offJmpBack);
-    offExecPage += offJmpBack;
-
-    g_abSupHardReadWriteExecPage[offExecPage++] = 0xff; /* jmp qword [$+8 wrt RIP] */
-    g_abSupHardReadWriteExecPage[offExecPage++] = 0x25;
-    *(uint32_t *)&g_abSupHardReadWriteExecPage[offExecPage] = RT_ALIGN_32(offExecPage + 4, 8) - (offExecPage + 4);
-    offExecPage = RT_ALIGN_32(offExecPage + 4, 8);
-    *(uint64_t *)&g_abSupHardReadWriteExecPage[offExecPage] = (uintptr_t)&pbLdrLoadDll[offJmpBack];
-    offExecPage = RT_ALIGN_32(offExecPage + 8, 16);
+    /* Assemble the code for resuming the call. */
+    EXEC_PAGE_ENTRY_BEGIN();
+    EXEC_PAGE_PTR_SLOT((uintptr_t)&pbLdrLoadDll[offJmpBack]);
+    EXEC_PAGE_BEGIN_PROC(g_pfnLdrLoadDllReal);
+    EXEC_PAGE_MEMCPY(pbLdrLoadDll, offJmpBack);
+    EXEC_PAGE_EMIT_JMP_VIA_PTR_SLOT();
+    EXEC_PAGE_ENTRY_END();
 
     /* Assemble the LdrLoadDll patch. */
     Assert(offJmpBack >= 12);
@@ -3308,22 +3449,17 @@ static void supR3HardenedWinInstallHooks(void)
     {
         cbInstr = 1;
         int rc = DISInstr(pbLdrLoadDll + offJmpBack, DISCPUMODE_32BIT, &Dis, &cbInstr);
-        if (   RT_FAILURE(rc)
-            || (Dis.pCurInstr->fOpType & (DISOPTYPE_CONTROLFLOW)) )
+        if (RT_FAILURE(rc) || !supHardNtRwxPageIsPrologInstrPatchable(&Dis))
             supR3HardenedWinHookFailed("LdrLoadDll", pbLdrLoadDll);
         offJmpBack += cbInstr;
     }
 
     /* Assemble the code for resuming the call.*/
-    *(PFNRT *)&g_pfnLdrLoadDllReal = (PFNRT)(uintptr_t)&g_abSupHardReadWriteExecPage[offExecPage];
-
-    memcpy(&g_abSupHardReadWriteExecPage[offExecPage], pbLdrLoadDll, offJmpBack);
-    offExecPage += offJmpBack;
-
-    g_abSupHardReadWriteExecPage[offExecPage++] = 0xe9; /* jmp rel32 */
-    *(uint32_t *)&g_abSupHardReadWriteExecPage[offExecPage] = (uintptr_t)&pbLdrLoadDll[offJmpBack]
-                                                            - (uintptr_t)&g_abSupHardReadWriteExecPage[offExecPage + 4];
-    offExecPage = RT_ALIGN_32(offExecPage + 4, 16);
+    EXEC_PAGE_ENTRY_BEGIN();
+    EXEC_PAGE_BEGIN_PROC(g_pfnLdrLoadDllReal);
+    EXEC_PAGE_MEMCPY(pbLdrLoadDll, offJmpBack);
+    EXEC_PAGE_EMIT_REL_JMP_TO(&pbLdrLoadDll[offJmpBack]);
+    EXEC_PAGE_ENTRY_END();
 
     /* Assemble the LdrLoadDll patch. */
     Assert(offJmpBack >= 5);
@@ -3340,41 +3476,21 @@ static void supR3HardenedWinInstallHooks(void)
      *       So, far we've only seen the typical long STP sequence.
      */
     /** @todo disassemble to make sure x17 isn't used and there is no branching!  */
-    offJmpBack = 20;
+    offJmpBack = 16;
 
     /* Assemble the code for resuming the call.*/
-    *(PFNRT *)&g_pfnLdrLoadDllReal = (PFNRT)(uintptr_t)&g_abSupHardReadWriteExecPage[offExecPage];
-
-    memcpy(&g_abSupHardReadWriteExecPage[offExecPage], pbLdrLoadDll, offJmpBack);
-    offExecPage += offJmpBack;
-
-    uAddr = (uintptr_t)&pbLdrLoadDll[offJmpBack];
-    *(uint32_t *)&g_abSupHardReadWriteExecPage[offExecPage] = Armv8A64MkInstrMovZ(ARMV8_A64_REG_X17, uAddr & 0xffff);
-    offExecPage += 4;
-    *(uint32_t *)&g_abSupHardReadWriteExecPage[offExecPage] = Armv8A64MkInstrMovK(ARMV8_A64_REG_X17, (uAddr >> 16) & 0xffff, 1);
-    offExecPage += 4;
-    *(uint32_t *)&g_abSupHardReadWriteExecPage[offExecPage] = Armv8A64MkInstrMovK(ARMV8_A64_REG_X17, (uAddr >> 32) & 0xffff, 2);
-    offExecPage += 4;
-    *(uint32_t *)&g_abSupHardReadWriteExecPage[offExecPage] = Armv8A64MkInstrMovK(ARMV8_A64_REG_X17, (uAddr >> 48) & 0xffff, 3);
-    offExecPage += 4;
-    *(uint32_t *)&g_abSupHardReadWriteExecPage[offExecPage] = Armv8A64MkInstrBr(ARMV8_A64_REG_X17);
-    offExecPage = RT_ALIGN_32(offExecPage + 4, 16);
+    EXEC_PAGE_ENTRY_BEGIN();
+    EXEC_PAGE_BEGIN_PROC(g_pfnLdrLoadDllReal);
+    EXEC_PAGE_MEMCPY(pbLdrLoadDll, offJmpBack);
+    EXEC_PAGE_LOAD_ADDR_IN_X17(&pbLdrLoadDll[offJmpBack]);
+    EXEC_PAGE_BR_X17();
+    EXEC_PAGE_ENTRY_END();
 
     /* Assemble the LdrLoadDll patch. */
-# if 0
-    uAddr = (uintptr_t)supR3HardenedMonitor_LdrLoadDll;
-    g_LdrLoadDllPatch.au32[0] = Armv8A64MkInstrMovZ(ARMV8_A64_REG_X17, uAddr & 0xffff);
-    g_LdrLoadDllPatch.au32[1] = Armv8A64MkInstrMovK(ARMV8_A64_REG_X17, (uAddr >> 16) & 0xffff, 1);
-    g_LdrLoadDllPatch.au32[2] = Armv8A64MkInstrMovK(ARMV8_A64_REG_X17, (uAddr >> 16) & 0xffff, 2);
-    g_LdrLoadDllPatch.au32[3] = Armv8A64MkInstrMovK(ARMV8_A64_REG_X17, (uAddr >> 16) & 0xffff, 3);
-    g_LdrLoadDllPatch.au32[4] = Armv8A64MkInstrBr(ARMV8_A64_REG_X17);
-    g_LdrLoadDllPatch.cb = 20;
-# else
     g_LdrLoadDllPatch.au32[0] = Armv8A64MkInstrLdrLitteral(kArmv8A64InstrLdrLitteral_Dword, ARMV8_A64_REG_X17, 8);
     g_LdrLoadDllPatch.au32[1] = Armv8A64MkInstrBr(ARMV8_A64_REG_X17);
     g_LdrLoadDllPatch.au64[1] = (uintptr_t)supR3HardenedMonitor_LdrLoadDll;
     g_LdrLoadDllPatch.cb = 16;
-# endif
 
 #else
 # error "port me"
@@ -3406,25 +3522,18 @@ static void supR3HardenedWinInstallHooks(void)
     {
         cbInstr = 1;
         int rc = DISInstr(pbKiUserApcDispatcher + offJmpBack, DISCPUMODE_64BIT, &Dis, &cbInstr);
-        if (   RT_FAILURE(rc)
-            || (Dis.pCurInstr->fOpType & (DISOPTYPE_CONTROLFLOW))
-            || (Dis.x86.ModRM.Bits.Mod == 0 && Dis.x86.ModRM.Bits.Rm == 5 /* wrt RIP */) )
+        if (RT_FAILURE(rc) || !supHardNtRwxPageIsPrologInstrPatchable(&Dis))
             supR3HardenedWinHookFailed("KiUserApcDispatcher", pbKiUserApcDispatcher);
         offJmpBack += cbInstr;
     }
 
     /* Assemble the code for resuming the call.*/
-    *(PFNRT *)&g_pfnKiUserApcDispatcherReal = (PFNRT)(uintptr_t)&g_abSupHardReadWriteExecPage[offExecPage];
-
-    memcpy(&g_abSupHardReadWriteExecPage[offExecPage], pbKiUserApcDispatcher, offJmpBack);
-    offExecPage += offJmpBack;
-
-    g_abSupHardReadWriteExecPage[offExecPage++] = 0xff; /* jmp qword [$+8 wrt RIP] */
-    g_abSupHardReadWriteExecPage[offExecPage++] = 0x25;
-    *(uint32_t *)&g_abSupHardReadWriteExecPage[offExecPage] = RT_ALIGN_32(offExecPage + 4, 8) - (offExecPage + 4);
-    offExecPage = RT_ALIGN_32(offExecPage + 4, 8);
-    *(uint64_t *)&g_abSupHardReadWriteExecPage[offExecPage] = (uintptr_t)&pbKiUserApcDispatcher[offJmpBack];
-    offExecPage = RT_ALIGN_32(offExecPage + 8, 16);
+    EXEC_PAGE_ENTRY_BEGIN();
+    EXEC_PAGE_PTR_SLOT((uintptr_t)&pbKiUserApcDispatcher[offJmpBack]);
+    EXEC_PAGE_BEGIN_PROC(g_pfnKiUserApcDispatcherReal);
+    EXEC_PAGE_MEMCPY(pbKiUserApcDispatcher, offJmpBack);
+    EXEC_PAGE_EMIT_JMP_VIA_PTR_SLOT();
+    EXEC_PAGE_ENTRY_END();
 
     /* Assemble the KiUserApcDispatcher patch. */
     Assert(offJmpBack >= 12);
@@ -3445,22 +3554,17 @@ static void supR3HardenedWinInstallHooks(void)
     {
         cbInstr = 1;
         int rc = DISInstr(pbKiUserApcDispatcher + offJmpBack, DISCPUMODE_32BIT, &Dis, &cbInstr);
-        if (   RT_FAILURE(rc)
-            || (Dis.pCurInstr->fOpType & (DISOPTYPE_CONTROLFLOW)) )
+        if (RT_FAILURE(rc) || !supHardNtRwxPageIsPrologInstrPatchable(&Dis))
             supR3HardenedWinHookFailed("KiUserApcDispatcher", pbKiUserApcDispatcher);
         offJmpBack += cbInstr;
     }
 
     /* Assemble the code for resuming the call.*/
-    *(PFNRT *)&g_pfnKiUserApcDispatcherReal = (PFNRT)(uintptr_t)&g_abSupHardReadWriteExecPage[offExecPage];
-
-    memcpy(&g_abSupHardReadWriteExecPage[offExecPage], pbKiUserApcDispatcher, offJmpBack);
-    offExecPage += offJmpBack;
-
-    g_abSupHardReadWriteExecPage[offExecPage++] = 0xe9; /* jmp rel32 */
-    *(uint32_t *)&g_abSupHardReadWriteExecPage[offExecPage] = (uintptr_t)&pbKiUserApcDispatcher[offJmpBack]
-                                                            - (uintptr_t)&g_abSupHardReadWriteExecPage[offExecPage + 4];
-    offExecPage = RT_ALIGN_32(offExecPage + 4, 16);
+    EXEC_PAGE_ENTRY_BEGIN();
+    EXEC_PAGE_BEGIN_PROC(g_pfnKiUserApcDispatcherReal);
+    EXEC_PAGE_MEMCPY(pbKiUserApcDispatcher, offJmpBack);
+    EXEC_PAGE_EMIT_REL_JMP_TO(&pbKiUserApcDispatcher[offJmpBack]);
+    EXEC_PAGE_ENTRY_END();
 
     /* Assemble the KiUserApcDispatcher patch. */
     Assert(offJmpBack >= 5);
@@ -3501,40 +3605,17 @@ static void supR3HardenedWinInstallHooks(void)
         supR3HardenedWinHookFailed("KiUserApcDispatcher", pbKiUserApcDispatcher);
 
     /* Assemble the code for resuming the call.*/
-    *(PFNRT *)&g_pfnKiUserApcDispatcherReal = (PFNRT)(uintptr_t)&g_abSupHardReadWriteExecPage[offExecPage];
-
-    memcpy(&g_abSupHardReadWriteExecPage[offExecPage], pbKiUserApcDispatcher, offJmpBack);
-    offExecPage += offJmpBack;
-
-    uAddr = (uintptr_t)&pbKiUserApcDispatcher[offJmpBack];
-    *(uint32_t *)&g_abSupHardReadWriteExecPage[offExecPage] = Armv8A64MkInstrMovZ(ARMV8_A64_REG_X17, uAddr & 0xffff);
-    offExecPage += 4;
-    *(uint32_t *)&g_abSupHardReadWriteExecPage[offExecPage] = Armv8A64MkInstrMovK(ARMV8_A64_REG_X17, (uAddr >> 16) & 0xffff, 1);
-    offExecPage += 4;
-    *(uint32_t *)&g_abSupHardReadWriteExecPage[offExecPage] = Armv8A64MkInstrMovK(ARMV8_A64_REG_X17, (uAddr >> 32) & 0xffff, 2);
-    offExecPage += 4;
-    *(uint32_t *)&g_abSupHardReadWriteExecPage[offExecPage] = Armv8A64MkInstrMovK(ARMV8_A64_REG_X17, (uAddr >> 48) & 0xffff, 3);
-    offExecPage += 4;
-    *(uint32_t *)&g_abSupHardReadWriteExecPage[offExecPage] = Armv8A64MkInstrBr(ARMV8_A64_REG_X17);
-    offExecPage = RT_ALIGN_32(offExecPage + 4, 16);
+    EXEC_PAGE_ENTRY_BEGIN();
+    EXEC_PAGE_BEGIN_PROC(g_pfnKiUserApcDispatcherReal);
+    EXEC_PAGE_MEMCPY(pbKiUserApcDispatcher, offJmpBack);
+    EXEC_PAGE_LOAD_ADDR_IN_X17(&pbKiUserApcDispatcher[offJmpBack]);
+    EXEC_PAGE_BR_X17();
+    EXEC_PAGE_ENTRY_END();
 
     /* Assemble the KiUserApcDispatcher patch. */
-# if 0
-    uAddr = (uintptr_t)supR3HardenedMonitor_LdrLoadDll;
-    if (uAddr >= RT_BIT_64(48))
-        supR3HardenedFatalMsg("supR3HardenedWinInstallHooks", kSupInitOp_Misc, VERR_GENERAL_FAILURE,
-                              "Address of supR3HardenedMonitor_LdrLoadDll (%p) is too high for patching!", uAddr);
-    g_KiUserApcDispatcherPatch.au32[0] = Armv8A64MkInstrMovZ(ARMV8_A64_REG_X17, uAddr & 0xffff);
-    g_KiUserApcDispatcherPatch.au32[1] = Armv8A64MkInstrMovK(ARMV8_A64_REG_X17, (uAddr >> 16) & 0xffff, 1);
-    g_KiUserApcDispatcherPatch.au32[2] = Armv8A64MkInstrMovK(ARMV8_A64_REG_X17, (uAddr >> 16) & 0xffff, 2);
-    //g_KiUserApcDispatcherPatch.au32[3] = Armv8A64MkInstrMovK(ARMV8_A64_REG_X17, (uAddr >> 16) & 0xffff, 3);
-    g_KiUserApcDispatcherPatch.au32[3] = Armv8A64MkInstrBr(ARMV8_A64_REG_X17);
-    g_KiUserApcDispatcherPatch.cb = 16;
-# else
     g_KiUserApcDispatcherPatch.au32[0] = Armv8A64MkInstrLdrLitteral(kArmv8A64InstrLdrLitteral_Dword, ARMV8_A64_REG_X17, 8);
     g_KiUserApcDispatcherPatch.au32[1] = Armv8A64MkInstrBr(ARMV8_A64_REG_X17);
-    g_KiUserApcDispatcherPatch.au64[1] = (uintptr_t)supR3HardenedMonitor_LdrLoadDll;
-# endif
+    g_KiUserApcDispatcherPatch.au64[1] = (uintptr_t)supR3HardenedMonitor_KiUserApcDispatcher;
 
 #else
 # error "port me"
@@ -3598,8 +3679,7 @@ static void supR3HardenedWinInstallHooks(void)
     {
         cbInstr = 1;
         int rc = DISInstr(pbKiUserExceptionDispatcher + offJmpBack, DISCPUMODE_32BIT, &Dis, &cbInstr);
-        if (   RT_FAILURE(rc)
-            || (Dis.pCurInstr->fOpType & (DISOPTYPE_CONTROLFLOW)) )
+        if (RT_FAILURE(rc) || !supHardNtRwxPageIsPrologInstrPatchable(&Dis))
         {
             SUP_DPRINTF(("supR3HardenedWinInstallHooks: failed to patch KiUserExceptionDispatcher (off %#x in %.20Rhxs)\n",
                          offJmpBack, pbKiUserExceptionDispatcher));
@@ -3610,15 +3690,11 @@ static void supR3HardenedWinInstallHooks(void)
     if (offJmpBack >= 5)
     {
         /* Assemble the code for resuming the call.*/
-        *(PFNRT *)&g_pfnKiUserExceptionDispatcherReal = (PFNRT)(uintptr_t)&g_abSupHardReadWriteExecPage[offExecPage];
-
-        memcpy(&g_abSupHardReadWriteExecPage[offExecPage], pbKiUserExceptionDispatcher, offJmpBack);
-        offExecPage += offJmpBack;
-
-        g_abSupHardReadWriteExecPage[offExecPage++] = 0xe9; /* jmp rel32 */
-        *(uint32_t *)&g_abSupHardReadWriteExecPage[offExecPage] = (uintptr_t)&pbKiUserExceptionDispatcher[offJmpBack]
-                                                                - (uintptr_t)&g_abSupHardReadWriteExecPage[offExecPage + 4];
-        offExecPage = RT_ALIGN_32(offExecPage + 4, 16);
+        EXEC_PAGE_ENTRY_BEGIN();
+        EXEC_PAGE_BEGIN_PROC(g_pfnKiUserExceptionDispatcherReal);
+        EXEC_PAGE_MEMCPY(pbKiUserExceptionDispatcher, offJmpBack);
+        EXEC_PAGE_EMIT_REL_JMP_TO(&pbKiUserExceptionDispatcher[offJmpBack]);
+        EXEC_PAGE_ENTRY_END();
 
         /* Assemble the KiUserExceptionDispatcher patch. */
         Assert(offJmpBack >= 5);
@@ -3684,8 +3760,22 @@ static void supR3HardenedWinInstallHooks(void)
 #endif /* !VBOX_WITHOUT_HARDENDED_XCPT_LOGGING */
 
     /*
-     * Seal the rwx page.
+     * Complete the hashing of the rwx page and seal it.
      */
+    SUPR3HARDENED_ASSERT(cExecPageEntries >= SUPHARDNT_RWXPG_MIN_ENTRIES && cExecPageEntries <= SUPHARDNT_RWXPG_MAX_ENTRIES);
+
+    SUPR3HARDENED_ASSERT(offExecPage + RTSHA256_HASH_SIZE < PAGE_SIZE);
+    uint32_t cbLeft = PAGE_SIZE - RTSHA256_HASH_SIZE - offExecPage;
+    memset(&g_abSupHardReadWriteExecPage[offExecPage], 0xcc, cbLeft);
+    while (cbLeft > 0)
+    {
+        uint32_t const cbThis = RT_MIN(cbLeft, sizeof(s_abPadding));
+        RTSha256Update(&ExecPageShCtx, s_abPadding, cbThis);
+        cbLeft -= cbThis;
+    }
+    RTSha256Final(&ExecPageShCtx, &g_abSupHardReadWriteExecPage[PAGE_SIZE - RTSHA256_HASH_SIZE]);
+    RTSha512(g_abSupHardReadWriteExecPage, PAGE_SIZE, g_abSupHardReadWriteExecPageSha512);
+
     SUPR3HARDENED_ASSERT_NT_SUCCESS(supR3HardenedWinProtectMemory(g_abSupHardReadWriteExecPage, PAGE_SIZE, PAGE_EXECUTE_READ));
 
     /*
@@ -3695,7 +3785,109 @@ static void supR3HardenedWinInstallHooks(void)
 }
 
 
+/** Used by supR3HardenedWinCheckRwxPage & supHardenedWinVerifyRwxPageJumpTarget. */
+typedef struct SUPHARDNTVERIFYRWXPAGESTATE
+{
+    uintptr_t uNtDllBase;
+    uint32_t  cbNtDll;
+} SUPHARDNTVERIFYRWXPAGESTATE;
 
+/** @callback_method_impl{FNSUPHARDNTRWXPAGEVERIFYJUMPTARGET}  */
+static DECLCALLBACK(bool) supHardenedWinVerifyRwxPageJumpTarget(uintptr_t uTarget, uint32_t iEntry, void *pvUser)
+{
+    /* Check that the target is inside NTDLL: */
+    SUPHARDNTVERIFYRWXPAGESTATE * const pThis = (SUPHARDNTVERIFYRWXPAGESTATE *)pvUser;
+    if (uTarget - pThis->uNtDllBase >= (uintptr_t)pThis->cbNtDll)
+        return false;
+
+    /* Check the target against the patch points: */
+#ifdef RT_ARCH_AMD64
+    uint32_t const cbMin = 12;
+    uint32_t const cbMax = 12 + 14;
+#elif defined(RT_ARCH_X86)
+    uint32_t const cbMin = 5;
+    uint32_t const cbMax = 5 + 14;
+#elif defined(RT_ARCH_ARM64)
+    uint32_t const cbMax = 16;
+    uint32_t const cbMin = 16;
+#else
+# error "port me"
+#endif
+    uintptr_t const auPtrPatchedFunctions[] =
+    {
+        (uintptr_t)g_pbLdrLoadDll,
+        (uintptr_t)g_pbKiUserApcDispatcher,
+#ifndef VBOX_WITHOUT_HARDENDED_XCPT_LOGGING
+        (uintptr_t)g_pbKiUserExceptionDispatcher,
+#endif
+    };
+    for (uint32_t i = 0; i < RT_ELEMENTS(auPtrPatchedFunctions); i++)
+    {
+        uintptr_t const offToTarget = uTarget - auPtrPatchedFunctions[i];
+        if (offToTarget <= cbMax)
+            return offToTarget >= cbMin;
+    }
+
+    RT_NOREF(iEntry);
+    return false;
+}
+
+
+/**
+ * @callback_method_impl{FNSUPHARDNTRWXPAGESETERROR,
+ *      Helper for supR3HardenedWinCheckRwxPage.}
+ */
+static DECLCALLBACK(bool) supR3HardenedWinCheckRwxPageSetError(void *pvUser, const char *pszMsg, ...)
+{
+    RT_NOREF(pvUser);
+    va_list va;
+    va_start(va, pszMsg);
+    supR3HardenedFatalMsgV("supHardNtRwxPageVerify", kSupInitOp_Misc, VERR_SUPLIB_RWXPG_CORRUPTED, pszMsg, va);
+    /* not reached */
+}
+
+
+/**
+ * Checks that the rwx page makes sense, terminating process if not.
+ */
+DECLHIDDEN(void) supR3HardenedWinCheckRwxPage(void)
+{
+    /*
+     * Verify the SHA-512 checksum of the whole page.
+     */
+    if (RTSha512Check(g_abSupHardReadWriteExecPage, PAGE_SIZE, g_abSupHardReadWriteExecPageSha512))
+    {
+        /*
+         * Validate the page content (including the embedded SHA-256 checksum).
+         * This code is shared with ring-0.
+         */
+        SUPHARDNTVERIFYRWXPAGESTATE State = { 0, 0 };
+        State.uNtDllBase = supR3HardenedWinGetDllRange("ntdll.dll", &State.cbNtDll);
+        if (supHardNtRwxPageVerify(g_abSupHardReadWriteExecPage, supHardenedWinVerifyRwxPageJumpTarget,
+                                   supR3HardenedWinCheckRwxPageSetError, &State))
+        {
+            /*
+             * Call ring-0, if possible, to check with the hash lodged there when the process was verified.
+             */
+            HANDLE const hDevice = g_hSubStubDevice != NULL ? g_hSubStubDevice : (HANDLE)g_SupPreInitData.Data.hDevice;
+            if (hDevice == NULL || hDevice == INVALID_HANDLE_VALUE)
+                return;
+
+            IO_STATUS_BLOCK Ios = RTNT_IO_STATUS_BLOCK_INITIALIZER;
+            NTSTATUS rcNt = NtDeviceIoControlFile(hDevice, NULL /*hEvent*/, NULL /*pfnApc*/, NULL /*pvApcCtx*/, &Ios,
+                                                  SUP_IOCTL_WIN_VERIFY_RWX_PG,
+                                                  NULL /*pvInput */, 0 /* cbInput */,
+                                                  NULL /*pvOutput*/, 0 /* cbOutput */);
+            if (NT_SUCCESS(rcNt))
+                rcNt = Ios.Status;
+            if (NT_SUCCESS(rcNt))
+                return;
+            supR3HardenedFatalMsg("supR3HardenedWinCheckRwxPage", kSupInitOp_Misc, VERR_SUPLIB_RWXPG_CORRUPTED,
+                                  "RWX page corrupt (ring-0: %#x)!", rcNt);
+        }
+    }
+    supR3HardenedFatalMsg("supR3HardenedWinCheckRwxPage", kSupInitOp_Misc, VERR_SUPLIB_RWXPG_CORRUPTED, "RWX page corrupt!");
+}
 
 
 
@@ -4506,6 +4698,7 @@ static void supR3HardNtChildCloseFullAccessHandles(PSUPR3HARDNTCHILD pThis)
     if (!NT_SUCCESS(rcNt))
         supR3HardenedWinKillChild(pThis, "supR3HardenedWinReSpawn", rcNt,
                                   "NtDuplicateObject failed on child process handle: %#x\n", rcNt);
+
     /*
      * Close the process handle and replace it with the harmless one.
      */
@@ -4623,7 +4816,7 @@ static void supR3HardNtChildPurify(PSUPR3HARDNTCHILD pThis)
                                              g_fSupAdversaries & (  SUPHARDNT_ADVERSARY_TRENDMICRO_SAKFILE_OLD
                                                                   | SUPHARDNT_ADVERSARY_DIGITAL_GUARDIAN_OLD)
                                              ? SUPHARDNTVP_F_EXEC_ALLOC_REPLACE_WITH_RW : 0,
-                                             &cFixes, RTErrInfoInitStatic(&g_ErrInfoStatic));
+                                             NULL /*pRwxPgInfo*/, &cFixes, RTErrInfoInitStatic(&g_ErrInfoStatic));
         if (RT_FAILURE(rc))
             supR3HardenedWinKillChild(pThis, "supR3HardNtChildPurify", rc,
                                       "supHardenedWinVerifyProcess failed with %Rrc: %s", rc, g_ErrInfoStatic.szMsg);
@@ -5138,6 +5331,120 @@ static void supR3HardNtChildGatherData(PSUPR3HARDNTCHILD pThis)
     supR3HardNtChildFindNtdll(pThis);
 }
 
+#define VBOX_WITH_SUPNTHARD_JOB_OBJECT
+#ifdef VBOX_WITH_SUPNTHARD_JOB_OBJECT
+
+# ifdef VBOX_WITH_SUPNTHARD_CTRL_HANDLER
+/** The job object handle. */
+static HANDLE g_hJob = NULL;
+/** The first stub child process. */
+static HANDLE g_idChildProcess = NULL;
+
+DECL_NOTHROW(static BOOL) WINAPI supR3HardenedWinConsoleCtrlHandler(DWORD dwCtrlType)
+{
+    SUP_DPRINTF(("supR3HardenedWinConsoleCtrlHandler: dwCtrlType=%#x\n", dwCtrlType));
+    RT_NOREF(dwCtrlType);
+#  if 1
+    /*
+     * Signal all children except the immediate stub process.
+     */
+    union
+    {
+        JOBOBJECT_BASIC_PROCESS_ID_LIST JobList;
+        uint8_t abBuf[4096];
+    } u;
+    u.JobList.NumberOfAssignedProcesses = u.JobList.NumberOfProcessIdsInList = 0;
+    DWORD cbActual = 0;
+    if (QueryInformationJobObject(g_hJob, JobObjectBasicProcessIdList, u, sizeof(u), &cbActual))
+    {
+        PTEB const pTeb = RTNtCurrentTeb();
+        for (i = 0; i < u.JobList.NumberOfProcessIdsInList; i++)
+            if (   u.JobList.ProcessIdList[i] != pTeb->ClientId.UniqueProcess
+                && u.JobList.ProcessIdList[i] != g_idChildProcess)
+            {
+                /** @todo this doesn't work, as we don't allow threads to be created in the
+                 * stub and VM processes.  Would need some other mechanism to signal this... */
+                GenerateConsoleCtrlEvent(dwCtrlType, (DWORD)(uintptr_t)u.JobList.ProcessIdList[i])
+            }
+    }
+#  endif
+#  if 0
+    LARGE_INTEGER Time;
+    Time.QuadPart = -52560000; /* 5256ms in 100ns units, relative time. */
+    NtDelayExecution(TRUE, &Time);
+#  endif
+    return FALSE;
+}
+
+
+/**
+ * Adds a console handler for the intial process, if it is a console process.
+ */
+static void supR3HardenedWinInitCtrlHandler(void)
+{
+    PPEB pPeb = NtCurrentPeb();
+    if (   !pPeb->ProcessParameters
+        || pPeb->ProcessParameters->ConsoleHandle == NULL
+        || pPeb->ProcessParameters->ConsoleHandle == RTNT_INVALID_HANDLE_VALUE)
+    {
+        SUP_DPRINTF(("supR3HardenedWinInitCtrlHandler: not console app\n"));
+        return;
+    }
+    if (!SetConsoleCtrlHandler(supR3HardenedWinConsoleCtrlHandler, TRUE))
+        SUP_DPRINTF(("supR3HardenedWinInitCtrlHandler: SetConsoleCtrlHandler failed: %u\n", RtlGetLastWin32Error()));
+}
+
+# endif /* VBOX_WITH_SUPNTHARD_CTRL_HANDLER */
+
+
+/**
+ * Creates a kill-on-exit job object and associates with the initial process.
+ */
+static void supR3HardenedWinInitJobObject(void)
+{
+    PTEB const pTeb = RTNtCurrentTeb();
+    SYSTEMTIME Now = {0};
+    GetSystemTime(&Now);
+    char szJobName[128];
+    RTStrPrintf(szJobName, sizeof(szJobName), "VirtualBox-obj-%04u-%02u-%02uT%02u-%02u-%02uZ%zx:%zx",
+                Now.wYear, Now.wMonth, Now.wDay, Now.wHour, Now.wMinute, Now.wSecond,
+                pTeb->ClientId.UniqueProcess, pTeb->ClientId.UniqueThread);
+
+    HANDLE hJob = CreateJobObjectA(NULL, szJobName);
+    if (hJob)
+    {
+        /* We try set JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE and JOB_OBJECT_LIMIT_BREAKAWAY_OK.
+           The first is the whole purpose, really, of the job object.  The latter is just
+           playing it safe. */
+        JOBOBJECT_EXTENDED_LIMIT_INFORMATION Info = {};
+        DWORD cbActual = 0;
+        if (QueryInformationJobObject(hJob, JobObjectExtendedLimitInformation, &Info, sizeof(Info), &cbActual))
+        {
+            Info.BasicLimitInformation.LimitFlags |= JOB_OBJECT_LIMIT_BREAKAWAY_OK | JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE;
+            if (SetInformationJobObject(hJob, JobObjectExtendedLimitInformation, &Info, sizeof(Info)))
+            {
+                if (AssignProcessToJobObject(hJob, NtCurrentProcess()))
+                {
+# ifdef VBOX_WITH_SUPNTHARD_CTRL_HANDLER
+                    g_hJob = hJob;
+                    supR3HardenedWinInitCtrlHandler();
+# endif
+                    return;
+                }
+                SUP_DPRINTF(("supR3HardenedWinInitJobObject: AssignProcessToJobObject failed: %u\n", RtlGetLastWin32Error()));
+            }
+            else
+                SUP_DPRINTF(("supR3HardenedWinInitJobObject: SetInformationJobObject failed: %u\n", RtlGetLastWin32Error()));
+        }
+        else
+            SUP_DPRINTF(("supR3HardenedWinInitJobObject: QueryInformationJobObject failed: %u\n", RtlGetLastWin32Error()));
+        NtClose(hJob);
+    }
+    else
+        SUP_DPRINTF(("supR3HardenedWinInitJobObject: CreateJobObjectA failed: %u\n", RtlGetLastWin32Error()));
+}
+
+#endif /* VBOX_WITH_SUPNTHARD_JOB_OBJECT */
 
 /**
  * Does the actually respawning.
@@ -5153,6 +5460,14 @@ static DECL_NO_RETURN(void) supR3HardenedWinDoReSpawn(int iWhich)
     PRTL_USER_PROCESS_PARAMETERS    pParentProcParams = pPeb->ProcessParameters;
 
     SUPR3HARDENED_ASSERT(g_cSuplibHardenedWindowsMainCalls == 1);
+
+#ifdef VBOX_WITH_SUPNTHARD_JOB_OBJECT
+    /*
+     * Associate a kill-on-exit job object with the initial process.
+     */
+    if (iWhich == 1)
+        supR3HardenedWinInitJobObject();
+#endif
 
     /*
      * Init the child process data structure, creating the child communication
@@ -5212,6 +5527,9 @@ static DECL_NO_RETURN(void) supR3HardenedWinDoReSpawn(int iWhich)
      */
     PRTUTF16 pwszCmdLine = supR3HardNtChildConstructCmdLine(NULL, iWhich);
 
+    SUP_DPRINTF(("supR3HardenedWinDoReSpawn(%d): Spawning ...\n", iWhich));
+    if (iWhich >= 2)
+        supR3HardenedWinCheckRwxPage();
     supR3HardenedWinEnableThreadCreation();
     PROCESS_INFORMATION ProcessInfoW32 = { NULL, NULL, 0, 0 };
     if (!CreateProcessW(g_wszSupLibHardenedExePath,
@@ -5232,8 +5550,13 @@ static DECL_NO_RETURN(void) supR3HardenedWinDoReSpawn(int iWhich)
 
     SUP_DPRINTF(("supR3HardenedWinDoReSpawn(%d): New child %x.%x [kernel32].\n",
                  iWhich, ProcessInfoW32.dwProcessId, ProcessInfoW32.dwThreadId));
+    if (iWhich >= 2)
+        supR3HardenedWinCheckRwxPage();
     This.hProcess = ProcessInfoW32.hProcess;
     This.hThread  = ProcessInfoW32.hThread;
+# if defined(VBOX_WITH_SUPNTHARD_JOB_OBJECT) && defined(VBOX_WITH_SUPNTHARD_CTRL_HANDLER)
+    g_idChildProcess = (HANDLE)(uintptr_t)ProcessInfoW32.dwProcessId;
+# endif
 
 #else
 
@@ -5606,10 +5929,10 @@ static bool supR3HardenedWinDriverExists(const char *pszDriver)
 /**
  * Open the stub device before the 2nd respawn.
  */
-static void supR3HardenedWinOpenStubDevice(void)
+DECLHIDDEN(void) supR3HardenedWinOpenStubDevice(int iWhich)
 {
     RT_STACK_CHECK_RET_ADDR();
-    if (g_fSupStubOpened)
+    if (g_hSubStubDevice != NULL)
         return;
 
     /*
@@ -5617,12 +5940,12 @@ static void supR3HardenedWinOpenStubDevice(void)
      */
     static const WCHAR  s_wszName[] = SUPDRV_NT_DEVICE_NAME_STUB;
     uint64_t const      uMsTsStart = supR3HardenedWinGetMilliTS();
+    HANDLE              hFile;
     NTSTATUS            rcNt;
     uint32_t            iTry;
 
     for (iTry = 0;; iTry++)
     {
-        HANDLE              hFile = RTNT_INVALID_HANDLE_VALUE;
         IO_STATUS_BLOCK     Ios   = RTNT_IO_STATUS_BLOCK_INITIALIZER;
 
         UNICODE_STRING      NtName;
@@ -5633,6 +5956,10 @@ static void supR3HardenedWinOpenStubDevice(void)
         OBJECT_ATTRIBUTES   ObjAttr;
         InitializeObjectAttributes(&ObjAttr, &NtName, OBJ_CASE_INSENSITIVE, NULL /*hRootDir*/, NULL /*pSecDesc*/);
 
+        hFile = RTNT_INVALID_HANDLE_VALUE;
+
+        if (iWhich >= 2)
+            supR3HardenedWinCheckRwxPage();
         rcNt = NtCreateFile(&hFile,
                             GENERIC_READ | GENERIC_WRITE, /* No SYNCHRONIZE. */
                             &ObjAttr,
@@ -5671,7 +5998,7 @@ static void supR3HardenedWinOpenStubDevice(void)
     }
 
     if (NT_SUCCESS(rcNt))
-        g_fSupStubOpened = true;
+        g_hSubStubDevice = hFile;
     else
     {
         /*
@@ -5795,7 +6122,7 @@ DECLHIDDEN(int) supR3HardenedWinReSpawn(int iWhich)
      * have kernel32.dll and others to pull in for better diagnostics.)
      */
     if (iWhich == 2)
-        supR3HardenedWinOpenStubDevice();
+        supR3HardenedWinOpenStubDevice(iWhich);
 
     /*
      * Make sure we're alone in the stub process before creating the VM process
@@ -5949,7 +6276,7 @@ DECLHIDDEN(void) supR3HardenedWinInit(uint32_t fFlags, bool fAvastKludge)
 
                 cFixes = 0;
                 rc = supHardenedWinVerifyProcess(NtCurrentProcess(), NtCurrentThread(), SUPHARDNTVPKIND_SELF_PURIFICATION,
-                                                 0 /*fFlags*/, &cFixes, NULL /*pErrInfo*/);
+                                                 NULL /*pRwxPgInfo*/, 0 /*fFlags*/, &cFixes, NULL /*pErrInfo*/);
                 if (RT_FAILURE(rc) || cFixes == 0)
                     break;
 
@@ -5977,6 +6304,12 @@ DECLHIDDEN(void) supR3HardenedWinInit(uint32_t fFlags, bool fAvastKludge)
     else if (fFlags & SUPSECMAIN_FLAGS_FIRST_PROCESS)
     {
         /*
+         * Wipe and seal the RXW page.
+         */
+        memset(g_abSupHardReadWriteExecPage, 0xcc, PAGE_SIZE);
+        SUPR3HARDENED_ASSERT_NT_SUCCESS(supR3HardenedWinProtectMemory(g_abSupHardReadWriteExecPage, PAGE_SIZE, PAGE_EXECUTE_READ));
+
+        /*
          * Try shake anyone (e.g. easyhook) patching process creation code in
          * kernelbase, kernel32 or ntdll so they won't so easily cause the child
          * to crash when we respawn and purify it.
@@ -5984,7 +6317,7 @@ DECLHIDDEN(void) supR3HardenedWinInit(uint32_t fFlags, bool fAvastKludge)
         SUP_DPRINTF(("supR3HardenedWinInit: Performing a limited self purification...\n"));
         uint32_t cFixes = 0;
         rc = supHardenedWinVerifyProcess(NtCurrentProcess(), NtCurrentThread(), SUPHARDNTVPKIND_SELF_PURIFICATION_LIMITED,
-                                         0 /*fFlags*/, &cFixes, NULL /*pErrInfo*/);
+                                         NULL /*pRwxPgInfo*/, 0 /*fFlags*/, &cFixes, NULL /*pErrInfo*/);
         SUP_DPRINTF(("supR3HardenedWinInit: SUPHARDNTVPKIND_SELF_PURIFICATION_LIMITED -> %Rrc, cFixes=%d\n", rc, cFixes));
         RT_NOREF(rc); /* ignored on purpose */
     }
@@ -7303,6 +7636,7 @@ extern "C" void __stdcall suplibHardenedWindowsMain(void)
     {
         supR3HardenedWinRegisterDllNotificationCallback();
         supR3HardenedWinReInstallHooks(false /*fFirstCall */);
+        supR3HardenedWinCheckRwxPage();
 
         /*
          * Flush user APCs before the g_enmSupR3HardenedMainState changes
@@ -7514,10 +7848,11 @@ DECLASM(uintptr_t) supR3HardenedEarlyProcessInit(void)
     /*
      * Open the driver.
      */
+    supR3HardenedWinCheckRwxPage();
     if (cArgs >= 1 && suplibHardenedStrCmp(papszArgs[0], SUPR3_RESPAWN_1_ARG0) == 0)
     {
         SUP_DPRINTF(("supR3HardenedVmProcessInit: Opening vboxsup stub...\n"));
-        supR3HardenedWinOpenStubDevice();
+        supR3HardenedWinOpenStubDevice(1 /*iWhich*/);
         g_enmSupR3HardenedMainState = SUPR3HARDENEDMAINSTATE_WIN_EARLY_STUB_DEVICE_OPENED;
     }
     else if (cArgs >= 1 && suplibHardenedStrCmp(papszArgs[0], SUPR3_RESPAWN_2_ARG0) == 0)
@@ -7534,6 +7869,7 @@ DECLASM(uintptr_t) supR3HardenedEarlyProcessInit(void)
      * someone undid them while we where busy opening the device.
      */
     supR3HardenedWinReInstallHooks(false /*fFirstCall */);
+    supR3HardenedWinCheckRwxPage();
 
     /*
      * Restore the LdrInitializeThunk code so we can initialize the process

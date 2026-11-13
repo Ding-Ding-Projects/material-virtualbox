@@ -1,4 +1,4 @@
-/* $Id: DevVGA-SVGA-cmd.cpp 114811 2026-07-28 14:08:48Z vitali.pelenjow@oracle.com $ */
+/* $Id: DevVGA-SVGA-cmd.cpp 115136 2026-08-27 20:40:38Z vitali.pelenjow@oracle.com $ */
 /** @file
  * VMware SVGA device - implementation of VMSVGA commands.
  */
@@ -1875,6 +1875,7 @@ void vmsvgaR3InstallColorCursor(PVGASTATE pThis, PVGASTATECC pThisCC, SVGAGBColo
 static void vmsvga3dCmdDefineSurface(PVGASTATECC pThisCC, SVGA3dCmdDefineSurface_v2 const *pCmd,
                                      uint32_t cMipLevelSizes, SVGA3dSize *paMipLevelSizes)
 {
+    ASSERT_GUEST_RETURN_VOID(vmsvga3dIsLegacyBackend(pThisCC));
     ASSERT_GUEST_RETURN_VOID(pCmd->sid < SVGA3D_MAX_SURFACE_IDS);
     ASSERT_GUEST_RETURN_VOID(cMipLevelSizes >= 1);
     RT_UNTRUSTED_VALIDATED_FENCE();
@@ -1936,7 +1937,8 @@ static void vmsvga3dCmdDefineSurface(PVGASTATECC pThisCC, SVGA3dCmdDefineSurface
     SVGA3dMSQualityLevel const qualityLevel = pCmd->multisampleCount > 1 ? SVGA3D_MS_QUALITY_FULL : SVGA3D_MS_QUALITY_NONE;
     vmsvga3dSurfaceDefine(pThisCC, pCmd->sid, pCmd->surfaceFlags, pCmd->format,
                           pCmd->multisampleCount, multisamplePattern, qualityLevel, pCmd->autogenFilter,
-                          pCmd->face[0].numMipLevels, &paMipLevelSizes[0], /* arraySize = */ 0, /* bufferByteStride = */ 0, /* fAllocMipLevels = */ true);
+                          pCmd->face[0].numMipLevels, &paMipLevelSizes[0], /* arraySize = */ 0, /* bufferByteStride = */ 0,
+                          VMSVGA3D_SURFACE_DEFINE_F_ALLOC_MIP_LEVELS);
 }
 
 
@@ -2024,7 +2026,8 @@ static void vmsvga3dCmdDefineGBSurface(PVGASTATECC pThisCC, SVGA3dCmdDefineGBSur
         SVGA3dMSQualityLevel const qualityLevel = pCmd->multisampleCount > 1 ? SVGA3D_MS_QUALITY_FULL : SVGA3D_MS_QUALITY_NONE;
         vmsvga3dSurfaceDefine(pThisCC, pCmd->sid, pCmd->surfaceFlags, pCmd->format,
                               pCmd->multisampleCount, multisamplePattern, qualityLevel, pCmd->autogenFilter,
-                              pCmd->numMipLevels, &pCmd->size, /* arraySize = */ 0, /* bufferByteStride = */ 0, /* fAllocMipLevels = */ false);
+                              pCmd->numMipLevels, &pCmd->size, /* arraySize = */ 0, /* bufferByteStride = */ 0,
+                              VMSVGA3D_SURFACE_DEFINE_F_GB);
     }
 }
 
@@ -2624,7 +2627,7 @@ static void vmsvga3dCmdDestroyGBScreenTarget(PVGASTATE pThis, PVGASTATECC pThisC
 
 
 /* SVGA_3D_CMD_BIND_GB_SCREENTARGET 1126 */
-static void vmsvga3dCmdBindGBScreenTarget(PVGASTATECC pThisCC, SVGA3dCmdBindGBScreenTarget const *pCmd)
+static void vmsvga3dCmdBindGBScreenTarget(PVGASTATE pThis, PVGASTATECC pThisCC, SVGA3dCmdBindGBScreenTarget const *pCmd)
 {
     //DEBUG_BREAKPOINT_TEST();
     PVMSVGAR3STATE const pSvgaR3State = pThisCC->svga.pSvgaR3State;
@@ -2673,7 +2676,7 @@ static void vmsvga3dCmdBindGBScreenTarget(PVGASTATECC pThisCC, SVGA3dCmdBindGBSc
                     rect.y = 0;
                     rect.w = entry.width;
                     rect.h = entry.height;
-                    vmsvga3dScreenUpdateFromScreenTarget(pThisCC, pScreen, rect, entry.image);
+                    vmsvga3dScreenUpdateFromScreenTarget(pThis, pThisCC, pScreen, rect, entry.image);
                 }
             }
         }
@@ -2682,7 +2685,7 @@ static void vmsvga3dCmdBindGBScreenTarget(PVGASTATECC pThisCC, SVGA3dCmdBindGBSc
 
 
 /* SVGA_3D_CMD_UPDATE_GB_SCREENTARGET 1127 */
-static void vmsvga3dCmdUpdateGBScreenTarget(PVGASTATECC pThisCC, SVGA3dCmdUpdateGBScreenTarget const *pCmd)
+static void vmsvga3dCmdUpdateGBScreenTarget(PVGASTATE pThis, PVGASTATECC pThisCC, SVGA3dCmdUpdateGBScreenTarget const *pCmd)
 {
     //DEBUG_BREAKPOINT_TEST();
     PVMSVGAR3STATE const pSvgaR3State = pThisCC->svga.pSvgaR3State;
@@ -2713,7 +2716,7 @@ static void vmsvga3dCmdUpdateGBScreenTarget(PVGASTATECC pThisCC, SVGA3dCmdUpdate
                     RT_UNTRUSTED_VALIDATED_FENCE();
 
                     VMSVGASCREENOBJECT *pScreen = &pSvgaR3State->aScreens[pCmd->stid];
-                    vmsvga3dScreenUpdateFromScreenTarget(pThisCC, pScreen, pCmd->rect, entryScreenTarget.image);
+                    vmsvga3dScreenUpdateFromScreenTarget(pThis, pThisCC, pScreen, pCmd->rect, entryScreenTarget.image);
                 }
             }
         }
@@ -2754,7 +2757,8 @@ static void vmsvga3dCmdDefineGBSurface_v2(PVGASTATECC pThisCC, SVGA3dCmdDefineGB
         SVGA3dMSQualityLevel const qualityLevel = pCmd->multisampleCount > 1 ? SVGA3D_MS_QUALITY_FULL : SVGA3D_MS_QUALITY_NONE;
         vmsvga3dSurfaceDefine(pThisCC, pCmd->sid, pCmd->surfaceFlags, pCmd->format,
                               pCmd->multisampleCount, multisamplePattern, qualityLevel, pCmd->autogenFilter,
-                              pCmd->numMipLevels, &pCmd->size, pCmd->arraySize, /* bufferByteStride = */ 0, /* fAllocMipLevels = */ false);
+                              pCmd->numMipLevels, &pCmd->size, pCmd->arraySize, /* bufferByteStride = */ 0,
+                              VMSVGA3D_SURFACE_DEFINE_F_GB);
     }
 }
 
@@ -4489,7 +4493,8 @@ static int vmsvga3dCmdDefineGBSurface_v3(PVGASTATECC pThisCC, SVGA3dCmdDefineGBS
         /* Create the host surface. */
         vmsvga3dSurfaceDefine(pThisCC, pCmd->sid, pCmd->surfaceFlags, pCmd->format,
                               pCmd->multisampleCount, pCmd->multisamplePattern, pCmd->qualityLevel, pCmd->autogenFilter,
-                              pCmd->numMipLevels, &pCmd->size, pCmd->arraySize, /* bufferByteStride = */ 0, /* fAllocMipLevels = */ false);
+                              pCmd->numMipLevels, &pCmd->size, pCmd->arraySize, /* bufferByteStride = */ 0,
+                              VMSVGA3D_SURFACE_DEFINE_F_GB);
     }
     return rc;
 #else
@@ -4896,7 +4901,8 @@ static int vmsvga3dCmdDefineGBSurface_v4(PVGASTATECC pThisCC, SVGA3dCmdDefineGBS
         /* Create the host surface. */
         vmsvga3dSurfaceDefine(pThisCC, pCmd->sid, pCmd->surfaceFlags, pCmd->format,
                               pCmd->multisampleCount, pCmd->multisamplePattern, pCmd->qualityLevel, pCmd->autogenFilter,
-                              pCmd->numMipLevels, &pCmd->size, pCmd->arraySize, pCmd->bufferByteStride, /* fAllocMipLevels = */ false);
+                              pCmd->numMipLevels, &pCmd->size, pCmd->arraySize, pCmd->bufferByteStride,
+                              VMSVGA3D_SURFACE_DEFINE_F_GB);
     }
     return rc;
 #else
@@ -6348,7 +6354,7 @@ int vmsvgaR3Process3dCmd(PVGASTATE pThis, PVGASTATECC pThisCC, uint32_t idDXCont
     {
         SVGA3dCmdBindGBScreenTarget *pCmd = (SVGA3dCmdBindGBScreenTarget *)pvCmd;
         VMSVGAFIFO_CHECK_3D_CMD_MIN_SIZE_BREAK(sizeof(*pCmd));
-        vmsvga3dCmdBindGBScreenTarget(pThisCC, pCmd);
+        vmsvga3dCmdBindGBScreenTarget(pThis, pThisCC, pCmd);
         break;
     }
 
@@ -6356,7 +6362,7 @@ int vmsvgaR3Process3dCmd(PVGASTATE pThis, PVGASTATECC pThisCC, uint32_t idDXCont
     {
         SVGA3dCmdUpdateGBScreenTarget *pCmd = (SVGA3dCmdUpdateGBScreenTarget *)pvCmd;
         VMSVGAFIFO_CHECK_3D_CMD_MIN_SIZE_BREAK(sizeof(*pCmd));
-        vmsvga3dCmdUpdateGBScreenTarget(pThisCC, pCmd);
+        vmsvga3dCmdUpdateGBScreenTarget(pThis, pThisCC, pCmd);
         break;
     }
 

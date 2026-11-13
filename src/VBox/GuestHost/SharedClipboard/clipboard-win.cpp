@@ -1,4 +1,4 @@
-/* $Id: clipboard-win.cpp 114754 2026-07-22 21:18:51Z knut.osmundsen@oracle.com $ */
+/* $Id: clipboard-win.cpp 115131 2026-08-25 17:30:42Z andreas.loeffler@oracle.com $ */
 /** @file
  * Shared Clipboard: Windows-specific functions for clipboard handling.
  */
@@ -100,7 +100,8 @@ int ShClWinOpen(HWND hWnd)
     {
         const DWORD dwLastErr = GetLastError();
         rc = RTErrConvertFromWin32(dwLastErr);
-        LogRel(("Shared Clipboard: Failed to open clipboard, rc=%Rrc (0x%x)\n", rc, dwLastErr));
+        LogRel2(("Shared Clipboard: Opening the Windows clipboard for window %p failed with %Rrc (Win32 error %#x)\n",
+                 hWnd, rc, dwLastErr));
     }
 
     return rc;
@@ -152,7 +153,7 @@ int ShClWinClear(void)
         return VINF_SUCCESS;
 
     int const rc = RTErrConvertFromWin32(dwLastErr);
-    LogRel2(("Shared Clipboard: Clearing Windows clipboard failed with %Rrc (0x%x)\n", rc, dwLastErr));
+    LogRelMax(16, ("Shared Clipboard: Clearing Windows clipboard failed with %Rrc (0x%x)\n", rc, dwLastErr));
 
     return rc;
 }
@@ -199,10 +200,57 @@ void ShClWinCtxDestroy(PSHCLWINCTX pWinCtx)
 
     if (RTCritSectIsInitialized(&pWinCtx->CritSect))
     {
-        int rc2 = RTCritSectDelete(&pWinCtx->CritSect);
-        AssertRC(rc2);
+#ifdef VBOX_WITH_SHARED_CLIPBOARD_TRANSFERS
+        int rc2 = RTCritSectEnter(&pWinCtx->CritSect);
+        AssertFatalMsgRC(rc2, ("Taking the Windows clipboard context lock during teardown failed with %Rrc\n", rc2));
+
+        /* Keep the owned reference alive while detaching it, then invalidate the
+         * object before the backend context stored in its callbacks is freed. */
+        ShClWinDataObject *pDataObjInFlight = pWinCtx->pDataObjInFlight;
+        pWinCtx->pDataObjInFlight = NULL;
+
+        rc2 = RTCritSectLeave(&pWinCtx->CritSect);
+        AssertFatalMsgRC(rc2, ("Releasing the Windows clipboard context lock during teardown failed with %Rrc\n", rc2));
+
+        if (pDataObjInFlight)
+        {
+            pDataObjInFlight->Uninit();
+            pDataObjInFlight->Release();
+        }
+#endif
+        int const rcDelete = RTCritSectDelete(&pWinCtx->CritSect);
+        AssertRC(rcDelete);
     }
 }
+
+#ifdef VBOX_WITH_SHARED_CLIPBOARD_TRANSFERS
+/**
+ * Disables new callbacks on the current in-flight data object and waits for an
+ * active callback running on another thread to return.
+ *
+ * @param   pWinCtx             Windows context whose data-object callbacks to disable.
+ */
+void ShClWinCtxDisableDataObjectCallbacks(PSHCLWINCTX pWinCtx)
+{
+    AssertPtrReturnVoid(pWinCtx);
+
+    int rc = RTCritSectEnter(&pWinCtx->CritSect);
+    AssertFatalMsgRC(rc, ("Taking the Windows clipboard context lock while disabling callbacks failed with %Rrc\n", rc));
+
+    ShClWinDataObject *pDataObj = pWinCtx->pDataObjInFlight;
+    if (pDataObj)
+        pDataObj->AddRef();
+
+    rc = RTCritSectLeave(&pWinCtx->CritSect);
+    AssertFatalMsgRC(rc, ("Releasing the Windows clipboard context lock while disabling callbacks failed with %Rrc\n", rc));
+
+    if (pDataObj)
+    {
+        pDataObj->DisableCallbacks();
+        pDataObj->Release();
+    }
+}
+#endif
 
 /**
  * Checks and initializes function pointer which are required for using
@@ -436,13 +484,15 @@ SHCLFORMAT ShClWinClipboardFormatToVBox(UINT uFormat)
                     else if (   (RTUtf16Cmp(szFormatName, RT_LSTR("FileGroupDescriptor"))  == 0)
                              || (RTUtf16Cmp(szFormatName, RT_LSTR("FileGroupDescriptorW")) == 0)
                              || (RTUtf16Cmp(szFormatName, RT_LSTR("FileContents"))         == 0))
+                        LogRelMax(16, ("Shared Clipboard: Windows virtual-file clipboard format '%.*ls' is not yet supported for file transfers from the local Windows clipboard\n",
+                                       128, szFormatName));
 # else
                     else if (   (RTStrCmp(szFormatName, CFSTR_FILEDESCRIPTORA) == 0)
                              || (RTStrCmp(szFormatName, "FileGroupDescriptorW") == 0)
                              || (RTStrCmp(szFormatName, CFSTR_FILECONTENTS)    == 0))
+                        LogRelMax(16, ("Shared Clipboard: Windows virtual-file clipboard format '%.*s' is not yet supported for file transfers from the local Windows clipboard\n",
+                                       128, szFormatName));
 # endif
-                        LogRel2(("Shared Clipboard: Windows virtual-file clipboard format '%s' is not supported as a host file-transfer source yet\n",
-                                 szFormatName));
 #endif
                 }
             }
@@ -568,7 +618,8 @@ int ShClWinConvertCFHTMLToMIME(const char *pszSource, const uint32_t cch, char *
                     }
                     else
                     {
-                        LogRel(("Shared Clipboard: Unknown CF_HTML format, expected EndFragment, rc=%Rrc\n", rc));
+                        LogRel2(("Shared Clipboard: Copying CF_HTML fragment at offsets %#x-%#x from a %#x-byte source failed with %Rrc\n",
+                                 offStart, offEnd, cch, rc));
                         RTMemFree(pszResult);
                     }
                 }
@@ -578,24 +629,25 @@ int ShClWinConvertCFHTMLToMIME(const char *pszSource, const uint32_t cch, char *
             }
             else
             {
-                LogRel(("Shared Clipboard: Error: CF_HTML out of bounds - offStart=%#x, offEnd=%#x, cch=%#x\n", offStart, offEnd, cch));
+                LogRel2(("Shared Clipboard: CF_HTML fragment is out of bounds: offStart=%#x, offEnd=%#x, cch=%#x\n", offStart, offEnd, cch));
                 rc = VERR_INVALID_PARAMETER;
             }
         }
         else
         {
-            LogRel(("Shared Clipboard: Error: Unknown CF_HTML format, expected EndFragment, rc=%Rrc\n", rc));
+            LogRel2(("Shared Clipboard: CF_HTML header has no valid EndFragment value, rc=%Rrc\n", rc));
             rc = VERR_INVALID_PARAMETER;
         }
     }
     else
     {
-        LogRel(("Shared Clipboard: Error: Unknown CF_HTML format, expected StartFragment, rc=%Rrc\n", rc));
+        LogRel2(("Shared Clipboard: CF_HTML header has no valid StartFragment value, rc=%Rrc\n", rc));
         rc = VERR_INVALID_PARAMETER;
     }
 
     if (RT_FAILURE(rc))
-        LogRel(("Shared Clipboard: HTML to MIME conversion failed with %Rrc\n", rc));
+        LogRel2(("Shared Clipboard: Converting %#x bytes of Windows CF_HTML data to VBox MIME HTML failed with %Rrc\n",
+                 cch, rc));
 
     return rc;
 }
@@ -643,7 +695,7 @@ int ShClWinConvertMIMEToCFHTML(const char *pszSource, size_t cb, char **ppszOutp
     { /* likely */ }
     else
     {
-        LogRel2(("Shared Clipboard: Error: Invalid source fragment.for HTML MIME data, rc=%Rrc\n", rc));
+        LogRel2(("Shared Clipboard: Invalid source fragment for HTML MIME data, rc=%Rrc\n", rc));
         return rc;
     }
     size_t const cchFragment = strlen(pszSource); /* Unfortunately the validator doesn't return the length. */
@@ -960,8 +1012,9 @@ static int shClWinAnnounceFormats(PSHCLWINCTX pWinCtx, SHCLFORMATS fFormats)
     }
     else if (RT_SUCCESS(rc) && fFormatsLeft != 0)
     {
-        LogRel(("Shared Clipboard: Unable to announce unsupported/invalid formats: %#x (%#x)\n", fFormatsLeft, fFormats));
         rc = VERR_NOT_SUPPORTED;
+        LogRelMax(16, ("Shared Clipboard: Announcing requested VBox formats %#x to the Windows clipboard failed because formats %#x are unsupported or invalid, rc=%Rrc\n",
+                       fFormats, fFormatsLeft, rc));
     }
 
     LogFlowFuncLeaveRC(rc);
@@ -1040,6 +1093,7 @@ int ShClWinDataWrite(UINT cfFormat, void *pvData, uint32_t cbData)
             if (hClip)
             {
                 /* The hMem ownership has gone to the system. Nothing to do. */
+                hMem = NULL;
             }
             else
                 rc = RTErrConvertFromWin32(GetLastError());
@@ -1047,7 +1101,8 @@ int ShClWinDataWrite(UINT cfFormat, void *pvData, uint32_t cbData)
         else
             rc = VERR_ACCESS_DENIED;
 
-        GlobalFree(hMem);
+        if (hMem)
+            GlobalFree(hMem);
     }
     else
         rc = RTErrConvertFromWin32(GetLastError());
@@ -1082,25 +1137,22 @@ int ShClWinTransferCreateAndSetDataObject(PSHCLWINCTX pWinCtx,
 
     /* Make sure to enter the critical section before setting the clipboard data, as otherwise WM_CLIPBOARDUPDATE
      * might get called *before* we had the opportunity to set pWinCtx->hWndClipboardOwnerUs below. */
+    ShClWinDataObject *pObjToRelease = NULL;
+    ShClWinDataObject *pObjReplaced  = NULL;
+
     int rc = RTCritSectEnter(&pWinCtx->CritSect);
     if (RT_SUCCESS(rc))
     {
         LogFlowFunc(("pWinCtx->pDataObjInFlight=%p\n", pWinCtx->pDataObjInFlight));
 
-        /* Create a new data object here, assign it as the the current data object in-flight and
-         * announce it to Windows below.
-         *
-         * The data object will be deleted automatically once its refcount reaches 0.
-         */
+        /* Keep an explicit reference while creating and publishing the object. */
         ShClWinDataObject *pObj = new ShClWinDataObject();
         if (pObj)
         {
+            pObj->AddRef();
             rc = pObj->Init(pCtx, pCallbacks);
-            if (RT_SUCCESS(rc))
-            {
-                if (RT_SUCCESS(rc))
-                    pWinCtx->pDataObjInFlight = pObj;
-            }
+            if (RT_FAILURE(rc))
+                pObjToRelease = pObj;
         }
         else
             rc = VERR_NO_MEMORY;
@@ -1117,10 +1169,10 @@ int ShClWinTransferCreateAndSetDataObject(PSHCLWINCTX pWinCtx,
 
             for (unsigned uTries = 0; uTries < 3; uTries++)
             {
-                hr = OleSetClipboard(pWinCtx->pDataObjInFlight);
+                hr = OleSetClipboard(pObj);
                 if (SUCCEEDED(hr))
                 {
-                    Assert(OleIsCurrentClipboard(pWinCtx->pDataObjInFlight) == S_OK); /* Sanity. */
+                    Assert(OleIsCurrentClipboard(pObj) == S_OK); /* Sanity. */
 
                     /*
                      * Calling OleSetClipboard() changed the clipboard owner, which in turn will let us receive
@@ -1128,6 +1180,11 @@ int ShClWinTransferCreateAndSetDataObject(PSHCLWINCTX pWinCtx,
                      * save a new window handle and deal with it in WM_CLIPBOARDUPDATE.
                      */
                     pWinCtx->hWndClipboardOwnerUs = GetClipboardOwner();
+
+                    /* Transfer the local reference to the context only after OLE
+                     * accepted the new object, preserving the old one on failure. */
+                    pObjReplaced                 = pWinCtx->pDataObjInFlight;
+                    pWinCtx->pDataObjInFlight    = pObj;
 
                     LogFlowFunc(("hWndClipboardOwnerUs=%p\n", pWinCtx->hWndClipboardOwnerUs));
                     break;
@@ -1140,12 +1197,25 @@ int ShClWinTransferCreateAndSetDataObject(PSHCLWINCTX pWinCtx,
             if (FAILED(hr))
             {
                 rc = VERR_ACCESS_DENIED; /** @todo Fudge; fix this. */
-                LogRel(("Shared Clipboard: Failed with %Rhrc when setting data object to clipboard\n", hr));
+                pObjToRelease = pObj;
+                LogRelMax(16, ("Shared Clipboard: Publishing a Windows IDataObject with OleSetClipboard failed after 3 attempts with %Rhrc (%Rrc)\n", hr, rc));
             }
         }
 
         int rc2 = RTCritSectLeave(&pWinCtx->CritSect);
         AssertRC(rc2);
+    }
+
+    if (pObjReplaced)
+    {
+        pObjReplaced->Uninit();
+        pObjReplaced->Release();
+    }
+
+    if (pObjToRelease)
+    {
+        pObjToRelease->Uninit();
+        pObjToRelease->Release();
     }
 
     LogFlowFuncLeaveRC(rc);
@@ -1166,11 +1236,55 @@ int ShClWinTransferCreate(PSHCLWINCTX pWinCtx, PSHCLTRANSFER pTransfer)
     AssertMsgReturn(   pTransfer->pvUser == NULL
                     && pTransfer->cbUser == 0, ("Already initialized Windows-specific data\n"), VERR_WRONG_ORDER);
 
-    pTransfer->pvUser = new ShClWinTransferCtx();  /** @todo Can this throw? */
-    AssertPtrReturn(pTransfer->pvUser, VERR_INVALID_POINTER);
-    pTransfer->cbUser = sizeof(ShClWinTransferCtx);
+    ShClWinTransferCtx *pWinTransferCtx = new ShClWinTransferCtx();  /** @todo Can this throw? */
+    AssertPtrReturn(pWinTransferCtx, VERR_NO_MEMORY);
+
+    int rc = RTCritSectInit(&pWinTransferCtx->CritSect);
+    if (RT_FAILURE(rc))
+    {
+        delete pWinTransferCtx;
+        return rc;
+    }
+
+    pTransfer->pvUser = pWinTransferCtx;
+    pTransfer->cbUser = sizeof(*pWinTransferCtx);
 
     return VINF_SUCCESS;
+}
+
+/**
+ * Unregisters the data object associated with a Windows transfer.
+ *
+ * This disables its backend callbacks and drops its long-lived transfer
+ * reference while leaving the per-transfer context intact for temporary users.
+ *
+ * @param   pTransfer           Shared Clipboard transfer to unregister.
+ */
+void ShClWinTransferUnregister(PSHCLTRANSFER pTransfer)
+{
+    AssertPtrReturnVoid(pTransfer);
+
+    if (pTransfer->pvUser)
+    {
+        Assert(pTransfer->cbUser == sizeof(ShClWinTransferCtx));
+        ShClWinTransferCtx *pWinURITransferCtx = (ShClWinTransferCtx *)pTransfer->pvUser;
+        AssertPtr(pWinURITransferCtx);
+
+        int rc = RTCritSectEnter(&pWinURITransferCtx->CritSect);
+        AssertFatalMsgRC(rc, ("Taking the Windows transfer-context lock during teardown failed with %Rrc\n", rc));
+
+        ShClWinDataObject *pDataObj = pWinURITransferCtx->pDataObj;
+        pWinURITransferCtx->pDataObj = NULL;
+
+        rc = RTCritSectLeave(&pWinURITransferCtx->CritSect);
+        AssertFatalMsgRC(rc, ("Releasing the Windows transfer-context lock during teardown failed with %Rrc\n", rc));
+
+        if (pDataObj)
+        {
+            pDataObj->Uninit();
+            pDataObj->Release();
+        }
+    }
 }
 
 /**
@@ -1195,13 +1309,13 @@ void ShClWinTransferDestroy(PSHCLWINCTX pWinCtx, PSHCLTRANSFER pTransfer)
         ShClWinTransferCtx *pWinURITransferCtx = (ShClWinTransferCtx *)pTransfer->pvUser;
         AssertPtr(pWinURITransferCtx);
 
-        /* If the transfer has a data object assigned, uninitialize it here.
-         * Note: We don't free the object here, as other processes like the Windows Explorer still might refer to it. */
-        if (pWinURITransferCtx->pDataObj)
-        {
-            pWinURITransferCtx->pDataObj->Uninit();
-            pWinURITransferCtx->pDataObj = NULL;
-        }
+        /* Fallback for direct, non-context destruction. Registered consuming
+         * teardown normally disables and detaches this object in the
+         * unregistration callback. */
+        ShClWinTransferUnregister(pTransfer);
+
+        int const rc = RTCritSectDelete(&pWinURITransferCtx->CritSect);
+        AssertRC(rc);
 
         delete pWinURITransferCtx;
         pWinURITransferCtx = NULL;
@@ -1283,6 +1397,8 @@ int ShClWinTransferStart(PSHCLWINCTX pWinCtx, PSHCLTRANSFER pTransfer)
 {
     RT_NOREF(pTransfer);
 
+    ShClWinDataObject *pObjHandedOff = NULL;
+
     int rc = RTCritSectEnter(&pWinCtx->CritSect);
     if (RT_SUCCESS(rc))
     {
@@ -1291,7 +1407,10 @@ int ShClWinTransferStart(PSHCLWINCTX pWinCtx, PSHCLTRANSFER pTransfer)
         {
             rc = shClWinTransferStartInternal(pWinCtx, pObj);
             if (RT_SUCCESS(rc))
+            {
                 pWinCtx->pDataObjInFlight = NULL; /* Hand off to Windows on success. */
+                pObjHandedOff = pObj;
+            }
         }
         else /* No current in-flight data object. */
             rc = VERR_WRONG_ORDER;
@@ -1299,6 +1418,9 @@ int ShClWinTransferStart(PSHCLWINCTX pWinCtx, PSHCLTRANSFER pTransfer)
         int rc2 = RTCritSectLeave(&pWinCtx->CritSect);
         AssertRC(rc2);
     }
+
+    if (pObjHandedOff)
+        pObjHandedOff->Release();
 
     return rc;
 }
@@ -1347,7 +1469,7 @@ int ShClWinTransferGetRootsFromClipboard(PSHCLWINCTX pWinCtx, PSHCLTRANSFER pTra
                 rc = RTErrConvertFromWin32(dwLastErr);
                 if (RT_SUCCESS(rc))
                     rc = VERR_INVALID_HANDLE;
-                LogRel(("Shared Clipboard: Unable to lock clipboard data, last error: %ld\n", dwLastErr));
+                LogRel2(("Shared Clipboard: Locking local Windows CF_HDROP transfer roots failed with Win32 error %ld\n", dwLastErr));
             }
         }
         else
@@ -1356,12 +1478,19 @@ int ShClWinTransferGetRootsFromClipboard(PSHCLWINCTX pWinCtx, PSHCLTRANSFER pTra
             rc = RTErrConvertFromWin32(dwLastErr);
             if (RT_SUCCESS(rc))
                 rc = VERR_NOT_FOUND;
-            LogRel(("Shared Clipboard: Unable to retrieve clipboard data from clipboard (CF_HDROP), last error: %ld\n",
-                    dwLastErr));
+            LogRel2(("Shared Clipboard: Retrieving local Windows CF_HDROP transfer roots failed with Win32 error %ld\n", dwLastErr));
         }
 
         ShClWinClose();
     }
+
+    if (rc == VERR_NOT_FOUND)
+        LogRel2(("Shared Clipboard: Local Windows CF_HDROP roots for transfer session=%RU16 id=%RU16 generation=%RU64 are no longer available\n",
+                 ShClTransferGetSessionId(pTransfer), ShClTransferGetID(pTransfer), ShClTransferGetGeneration(pTransfer)));
+    else if (RT_FAILURE(rc))
+        LogRelMax(16, ("Shared Clipboard: Reading local Windows CF_HDROP roots for transfer session=%RU16 id=%RU16 generation=%RU64 failed with %Rrc\n",
+                       ShClTransferGetSessionId(pTransfer), ShClTransferGetID(pTransfer),
+                       ShClTransferGetGeneration(pTransfer), rc));
 
     LogFlowFuncLeaveRC(rc);
     return rc;

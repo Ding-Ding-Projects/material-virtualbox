@@ -1,4 +1,4 @@
-/* $Id: VBoxSharedClipboardSvc.cpp 114609 2026-07-03 15:22:37Z andreas.loeffler@oracle.com $ */
+/* $Id: VBoxSharedClipboardSvc.cpp 115102 2026-08-21 11:14:19Z andreas.loeffler@oracle.com $ */
 /** @file
  * Shared Clipboard Service - Host service entry points.
  */
@@ -33,9 +33,10 @@
  * and VBoxService depending on the OS, with code shared between host and guest
  * under src/VBox/GuestHost/SharedClipboard/.
  *
- * The service is split into a platform-independent core and platform-specific
- * backends. The backends also make use of the aforementioned shared guest/host
- * clipboard code, to avoid code duplication.
+ * The service implements the HGCM protocol and transport state. Host integration
+ * and the platform-specific backends live in Main (VBoxC) and are reached through
+ * the registered service extension. The backends also use the aforementioned
+ * shared guest/host clipboard code to avoid code duplication.
  *
  * @section sec_hostclip_guest_proto  The guest communication protocol
  *
@@ -68,8 +69,7 @@
  * used after the host has requested data from the guest.
  *
  *
- * @section sec_hostclip_backend_proto  The communication protocol with the
- *                                      platform-specific backend
+ * @section sec_hostclip_protocol_versions  Protocol versioning and context IDs
  *
  * The initial protocol implementation (called protocol v0) was very simple,
  * and could only handle simple data (like copied text and so on). It also
@@ -274,62 +274,61 @@ SHCLSERVICE g_ShClSvc;
 
 
 /**
+ * Acquires the service-global critical section.
+ *
+ * Lock acquisition is an internal service-lifetime invariant.  Failures are
+ * reported by a debug assertion rather than propagated to callers.
+ */
+void shClSvcLock(void)
+{
+    int const rc = RTCritSectEnter(&g_ShClSvc.CritSect);
+    AssertRC(rc);
+}
+
+
+/**
+ * Releases the service-global critical section.
+ *
+ * Lock release is an internal service-lifetime invariant.  Failures are
+ * reported by a debug assertion rather than propagated to callers.
+ */
+void shClSvcUnlock(void)
+{
+    int const rc = RTCritSectLeave(&g_ShClSvc.CritSect);
+    AssertRC(rc);
+}
+
+
+/**
  * Returns the current Shared Clipboard service mode.
  *
  * @returns Current Shared Clipboard service mode.
  */
 uint32_t ShClSvcGetMode(void)
 {
-    return g_uMode;
+    return ASMAtomicReadU32(&g_ShClSvc.uMode);
 }
 
 
-
 /**
- * Takes the global Shared Clipboard service lock.
+ * Initializes the service-global Shared Clipboard state.
  *
- * @returns \c true if locking was successful, or \c false if not.
+ * @returns VBox status code.
  */
-bool ShClSvcLock(void)
+static int shClSvcInit(void)
 {
-    return RT_SUCCESS(RTCritSectEnter(&g_CritSect));
-}
-
-/**
- * Unlocks the formerly locked global Shared Clipboard service lock.
- */
-void ShClSvcUnlock(void)
-{
-    int rc2 = RTCritSectLeave(&g_CritSect);
-    AssertRC(rc2);
-}
-
-
-
-static int shClSvcInit(VBOXHGCMSVCFNTABLE *pTable)
-{
-    int rc = RTCritSectInit(&g_CritSect);
+    int rc = RTCritSectInit(&g_ShClSvc.CritSect);
 
     if (RT_SUCCESS(rc))
     {
-        shClSvcHostModeSet(VBOX_SHCL_MODE_OFF);
-#ifdef VBOX_WITH_SHARED_CLIPBOARD_TRANSFERS
-        g_idNextSession = 1;
-#endif
-
-        /* Normally we would call ShClBackendInit() here but the service extension
-         * has not been loaded at this early stage of the Shared Clipboard service
-         * bringup so thus we save the HGCM service function table now so that we can
-         * pass it along to ShClBackendInit() later at shClSvcConnect() time. */
-        g_pTable = pTable;
-
-        /* Clean up on failure, because 'shClSvcUnload' will not be called
-         * if 'shClSvcInit' returns an error.
-         */
-        if (RT_FAILURE(rc))
+        rc = shClSvcExtInit();
+        if (RT_SUCCESS(rc))
         {
-            RTCritSectDelete(&g_CritSect);
+            shClSvcHostModeSet(VBOX_SHCL_MODE_OFF);
+            g_ShClSvc.idNextSession = 1;
         }
+        else
+            RTCritSectDelete(&g_ShClSvc.CritSect);
     }
 
     return rc;
@@ -339,31 +338,35 @@ static DECLCALLBACK(int) shClSvcUnload(void *)
 {
     LogFlowFuncEnter();
 
-    shClSvcBackendDestroy();
+    int const rc = shClSvcExtUnregisterAndDestroy();
+    AssertFatalMsgRC(rc, ("Shared Clipboard extension teardown failed with %Rrc\n", rc));
+    if (RT_FAILURE(rc))
+        return rc;
 
-    RTCritSectDelete(&g_CritSect);
+    int const rc2 = shClSvcExtTerm();
+    AssertFatalMsgRC(rc2, ("Shared Clipboard extension state teardown failed with %Rrc\n", rc2));
+    if (RT_FAILURE(rc2))
+        return rc2;
+    RTCritSectDelete(&g_ShClSvc.CritSect);
 
-    return VINF_SUCCESS;
+    return rc;
 }
 
 static DECLCALLBACK(int) shClSvcDisconnect(void *, uint32_t u32ClientID, void *pvClient)
 {
     LogFunc(("u32ClientID=%RU32\n", u32ClientID));
+    RT_NOREF(u32ClientID);
 
     PSHCLCLIENT pClient = (PSHCLCLIENT)pvClient;
     AssertPtr(pClient);
 
-    /* In order to communicate with guest service, HGCM VRDP clipboard extension
-     * needs to know its connection client ID. Currently, in shClSvcConnect() we always
-     * cache ID of the first ever connected client. When client disconnects,
-     * we need to forget its ID and let shClSvcConnect() pick up the next ID when a new
-     * connection will be requested by guest service (see #10115). */
-    if (g_ExtState.uClientID == u32ClientID)
-    {
-        g_ExtState.uClientID = 0;
-    }
+    shClSvcLock();
+    Assert(g_ShClSvc.pActiveClient == pClient);
+    if (g_ShClSvc.pActiveClient == pClient)
+        g_ShClSvc.pActiveClient = NULL;
+    shClSvcUnlock();
 
-    shClSvcBackendDisconnect(pClient);
+    shClSvcExtBackendDisconnect(pClient);
 
     shClSvcClientDestroy(pClient);
 
@@ -376,47 +379,60 @@ static DECLCALLBACK(int) shClSvcConnect(void *, uint32_t u32ClientID, void *pvCl
 
     PSHCLCLIENT pClient = (PSHCLCLIENT)pvClient;
     AssertPtr(pvClient);
-    pClient->pBackend = &g_ShClBackend;
-
     int rc = ShClSvcClientInit(pClient, u32ClientID);
     if (RT_SUCCESS(rc))
     {
-        /* Assign weak pointer to client map. */
-        /** @todo r=bird: The g_mapClients is only there for looking up
-         *        g_ExtState.uClientID (unserialized btw), so why not use store the
-         *        pClient value directly in g_ExtState instead of the ID?  It cannot
-         *        crash any worse that racing map insertion/removal. */
-        g_mapClients[u32ClientID] = pClient; /** @todo Handle OOM / collisions? */
+        shClSvcLock();
 
-        rc = shClSvcBackendInit(g_pTable);
+        if (g_ShClSvc.pActiveClient)
+        {
+            shClSvcUnlock();
+            shClSvcClientDestroy(pClient);
+            return VERR_RESOURCE_BUSY;
+        }
+
+        /* Refresh the backend policy cache and publish the client while holding
+         * the service lock, so that policy changes cannot miss this client. */
+        ASMAtomicWriteU32(&pClient->State.uMode, ShClSvcGetMode());
+#ifdef VBOX_WITH_SHARED_CLIPBOARD_TRANSFERS
+        ASMAtomicWriteU32(&pClient->State.Transfers.uTransferMode, shClSvcTransferModeGet());
+#endif
+        g_ShClSvc.pActiveClient = pClient;
+
+        shClSvcUnlock();
+
+        bool fBackendConnected = false;
+        rc = shClSvcExtBackendInit();
         if (RT_SUCCESS(rc))
         {
-            rc = shClSvcBackendConnect(pClient);
+            rc = shClSvcExtBackendConnect(pClient);
             if (RT_SUCCESS(rc))
             {
-                rc = shClSvcBackendSync(pClient);
+                fBackendConnected = true;
+                rc = shClSvcExtBackendSync(pClient);
                 if (RT_SUCCESS(rc))
                 {
-                    /* For now we ASSUME that the first client that connects is in charge for
-                       communicating with the service extension. */
-                    /** @todo This isn't optimal, but only the guest really knows which client is in
-                     *        focus on the console. See @bugref{10115} for details. */
-                    if (g_ExtState.uClientID == 0)
-                        g_ExtState.uClientID = u32ClientID;
-
                     /* The sync could return VINF_NO_CHANGE if nothing has changed on the host, but
                        older Guest Additions didn't use RT_SUCCESS to but == VINF_SUCCESS to check for
                        success.  So just return VINF_SUCCESS here to not break older Guest Additions. */
-                    LogFunc(("Successfully connected client %#x%s\n",
-                             u32ClientID, g_ExtState.uClientID == u32ClientID ? " - Use by ExtState too" : ""));
+                    LogFunc(("Successfully connected client %#x\n", u32ClientID));
                     return VINF_SUCCESS;
                 }
-                LogFunc(("ShClBackendSync failed: %Rrc\n", rc));
-                shClSvcBackendDisconnect(pClient);
+                LogFunc(("Service extension BACKEND_SYNC failed: %Rrc\n", rc));
             }
-            LogFunc(("ShClBackendConnect failed: %Rrc\n", rc));
+            else
+                LogFunc(("Service extension BACKEND_CONNECT failed: %Rrc\n", rc));
         }
-        LogFunc(("ShClBackendInit failed: %Rrc\n", rc));
+        else
+            LogFunc(("Service extension BACKEND_INIT failed: %Rrc\n", rc));
+
+        shClSvcLock();
+        Assert(g_ShClSvc.pActiveClient == pClient);
+        g_ShClSvc.pActiveClient = NULL;
+        shClSvcUnlock();
+
+        if (fBackendConnected)
+            shClSvcExtBackendDisconnect(pClient);
 
         shClSvcClientDestroy(pClient);
     }
@@ -529,12 +545,13 @@ static DECLCALLBACK(int) shClSvcSaveState(void *, uint32_t u32ClientID, void *pv
 
     PSHCLCLIENT pClient = (PSHCLCLIENT)pvClient;
     AssertPtr(pClient);
-    pClient->State.uMode = ShClSvcGetMode();
+    ASMAtomicWriteU32(&pClient->State.uMode, ShClSvcGetMode());
 
     /* Write Shared Clipboard saved state version. */
-    pVMM->pfnSSMR3PutU32(pSSM, VBOX_SHCL_SAVED_STATE_VER_CURRENT);
+    int rc = pVMM->pfnSSMR3PutU32(pSSM, VBOX_SHCL_SAVED_STATE_VER_CURRENT);
+    AssertRCReturn(rc, rc);
 
-    int rc = pVMM->pfnSSMR3PutStructEx(pSSM, &pClient->State, sizeof(pClient->State), 0 /*fFlags*/, &s_aShClSSMClientState[0], NULL);
+    rc = pVMM->pfnSSMR3PutStructEx(pSSM, &pClient->State, sizeof(pClient->State), 0 /*fFlags*/, &s_aShClSSMClientState[0], NULL);
     AssertRCReturn(rc, rc);
 
     rc = pVMM->pfnSSMR3PutStructEx(pSSM, &pClient->State.POD, sizeof(pClient->State.POD), 0 /*fFlags*/, &s_aShClSSMClientPODState[0], NULL);
@@ -543,29 +560,50 @@ static DECLCALLBACK(int) shClSvcSaveState(void *, uint32_t u32ClientID, void *pv
     rc = pVMM->pfnSSMR3PutStructEx(pSSM, &pClient->State.Transfers, sizeof(pClient->State.Transfers), 0 /*fFlags*/, &s_aShClSSMClientTransferState[0], NULL);
     AssertRCReturn(rc, rc);
 
-    /* Serialize the client's internal message queue. */
-    rc = pVMM->pfnSSMR3PutU64(pSSM, pClient->cMsgAllocated);
-    AssertRCReturn(rc, rc);
+    /* Serialize a stable view of the queued messages.  cMsgAllocated also
+     * includes messages temporarily owned by producers and consumers. */
+    ShClSvcClientLock(pClient);
 
+    uint64_t cMsgs = 0;
     PSHCLCLIENTMSG pMsg;
     RTListForEach(&pClient->MsgQueue, pMsg, SHCLCLIENTMSG, ListEntry)
-    {
-        pVMM->pfnSSMR3PutStructEx(pSSM, pMsg, sizeof(SHCLCLIENTMSG), 0 /*fFlags*/, &s_aShClSSMClientMsgHdr[0], NULL);
-        pVMM->pfnSSMR3PutStructEx(pSSM, pMsg, sizeof(SHCLCLIENTMSG), 0 /*fFlags*/, &s_aShClSSMClientMsgCtx[0], NULL);
+        cMsgs++;
 
-        for (uint32_t iParm = 0; iParm < pMsg->cParms; iParm++)
-            HGCMSvcSSMR3Put(&pMsg->aParms[iParm], pSSM, pVMM);
+    rc = pVMM->pfnSSMR3PutU64(pSSM, cMsgs);
+
+    RTListForEach(&pClient->MsgQueue, pMsg, SHCLCLIENTMSG, ListEntry)
+    {
+        if (RT_FAILURE(rc))
+            break;
+
+        rc = pVMM->pfnSSMR3PutStructEx(pSSM, pMsg, sizeof(SHCLCLIENTMSG), 0 /*fFlags*/,
+                                       &s_aShClSSMClientMsgHdr[0], NULL);
+        if (RT_SUCCESS(rc))
+            rc = pVMM->pfnSSMR3PutStructEx(pSSM, pMsg, sizeof(SHCLCLIENTMSG), 0 /*fFlags*/,
+                                           &s_aShClSSMClientMsgCtx[0], NULL);
+
+        for (uint32_t iParm = 0; iParm < pMsg->cParms && RT_SUCCESS(rc); iParm++)
+            rc = HGCMSvcSSMR3Put(&pMsg->aParms[iParm], pSSM, pVMM);
     }
 
-    rc = pVMM->pfnSSMR3PutU64(pSSM, pClient->Legacy.cCID);
-    AssertRCReturn(rc, rc);
-
+    uint64_t cCID = 0;
     PSHCLCLIENTLEGACYCID pCID;
     RTListForEach(&pClient->Legacy.lstCID, pCID, SHCLCLIENTLEGACYCID, Node)
+        cCID++;
+
+    if (RT_SUCCESS(rc))
+        rc = pVMM->pfnSSMR3PutU64(pSSM, cCID);
+
+    RTListForEach(&pClient->Legacy.lstCID, pCID, SHCLCLIENTLEGACYCID, Node)
     {
-        rc = pVMM->pfnSSMR3PutStructEx(pSSM, pCID, sizeof(SHCLCLIENTLEGACYCID), 0 /*fFlags*/, &s_aShClSSMClientLegacyCID[0], NULL);
-        AssertRCReturn(rc, rc);
+        if (RT_FAILURE(rc))
+            break;
+        rc = pVMM->pfnSSMR3PutStructEx(pSSM, pCID, sizeof(SHCLCLIENTLEGACYCID), 0 /*fFlags*/,
+                                       &s_aShClSSMClientLegacyCID[0], NULL);
     }
+
+    ShClSvcClientUnlock(pClient);
+    AssertRCReturn(rc, rc);
 #else  /* UNIT_TEST */
     RT_NOREF(u32ClientID, pvClient, pSSM, pVMM);
 #endif /* UNIT_TEST */
@@ -579,8 +617,9 @@ static int shClSvcLoadStateV0(uint32_t u32ClientID, void *pvClient, PSSMHANDLE p
 
     uint32_t uMarker;
     int rc = pVMM->pfnSSMR3GetU32(pSSM, &uMarker);   /* Begin marker. */
-    AssertRC(rc);
-    Assert(uMarker == UINT32_C(0x19200102)  /* SSMR3STRUCT_BEGIN */);
+    AssertRCReturn(rc, rc);
+    AssertLogRelMsgReturn(uMarker == UINT32_C(0x19200102)  /* SSMR3STRUCT_BEGIN */,
+                          ("Invalid begin marker: %#RX32\n", uMarker), VERR_SSM_DATA_UNIT_FORMAT_CHANGED);
 
     rc = pVMM->pfnSSMR3Skip(pSSM, sizeof(uint32_t)); /* Client ID */
     AssertRCReturn(rc, rc);
@@ -601,7 +640,8 @@ static int shClSvcLoadStateV0(uint32_t u32ClientID, void *pvClient, PSSMHANDLE p
 
     rc = pVMM->pfnSSMR3GetU32(pSSM, &uMarker);       /* End marker. */
     AssertRCReturn(rc, rc);
-    Assert(uMarker == UINT32_C(0x19920406) /* SSMR3STRUCT_END */);
+    AssertLogRelMsgReturn(uMarker == UINT32_C(0x19920406) /* SSMR3STRUCT_END */,
+                          ("Invalid end marker: %#RX32\n", uMarker), VERR_SSM_DATA_UNIT_FORMAT_CHANGED);
 
     return VINF_SUCCESS;
 }
@@ -634,14 +674,16 @@ static DECLCALLBACK(int) shClSvcLoadState(void *, uint32_t u32ClientID, void *pv
     {
         if (lenOrVer >= VBOX_SHCL_SAVED_STATE_VER_6_1RC1)
         {
-            pVMM->pfnSSMR3GetStructEx(pSSM, &pClient->State, sizeof(pClient->State), 0 /* fFlags */,
-                                      &s_aShClSSMClientState[0], NULL);
-            pVMM->pfnSSMR3GetStructEx(pSSM, &pClient->State.POD, sizeof(pClient->State.POD), 0 /* fFlags */,
-                                      &s_aShClSSMClientPODState[0], NULL);
+            rc = pVMM->pfnSSMR3GetStructEx(pSSM, &pClient->State, sizeof(pClient->State), 0 /* fFlags */,
+                                           &s_aShClSSMClientState[0], NULL);
+            AssertRCReturn(rc, rc);
+            rc = pVMM->pfnSSMR3GetStructEx(pSSM, &pClient->State.POD, sizeof(pClient->State.POD), 0 /* fFlags */,
+                                           &s_aShClSSMClientPODState[0], NULL);
         }
         else
-            pVMM->pfnSSMR3GetStructEx(pSSM, &pClient->State, sizeof(pClient->State), 0 /* fFlags */,
-                                      &s_aShClSSMClientState61B1[0], NULL);
+            rc = pVMM->pfnSSMR3GetStructEx(pSSM, &pClient->State, sizeof(pClient->State), 0 /* fFlags */,
+                                           &s_aShClSSMClientState61B1[0], NULL);
+        AssertRCReturn(rc, rc);
         rc = pVMM->pfnSSMR3GetStructEx(pSSM, &pClient->State.Transfers, sizeof(pClient->State.Transfers), 0 /* fFlags */,
                                        &s_aShClSSMClientTransferState[0], NULL);
         AssertRCReturn(rc, rc);
@@ -660,8 +702,9 @@ static DECLCALLBACK(int) shClSvcLoadState(void *, uint32_t u32ClientID, void *pv
                 uint8_t abPadding[RT_UOFFSETOF(SHCLCLIENTMSG, aParms) + sizeof(VBOXHGCMSVCPARM) * 2];
             } u;
 
-            pVMM->pfnSSMR3GetStructEx(pSSM, &u.Msg, RT_UOFFSETOF(SHCLCLIENTMSG, aParms), 0 /*fFlags*/,
-                                      &s_aShClSSMClientMsgHdr[0], NULL);
+            rc = pVMM->pfnSSMR3GetStructEx(pSSM, &u.Msg, RT_UOFFSETOF(SHCLCLIENTMSG, aParms), 0 /*fFlags*/,
+                                           &s_aShClSSMClientMsgHdr[0], NULL);
+            AssertRCReturn(rc, rc);
             rc = pVMM->pfnSSMR3GetStructEx(pSSM, &u.Msg, RT_UOFFSETOF(SHCLCLIENTMSG, aParms), 0 /*fFlags*/,
                                            &s_aShClSSMClientMsgCtx[0], NULL);
             AssertRCReturn(rc, rc);
@@ -697,9 +740,18 @@ static DECLCALLBACK(int) shClSvcLoadState(void *, uint32_t u32ClientID, void *pv
                 PSHCLCLIENTLEGACYCID pCID = (PSHCLCLIENTLEGACYCID)RTMemAlloc(sizeof(SHCLCLIENTLEGACYCID));
                 AssertPtrReturn(pCID, VERR_NO_MEMORY);
 
-                pVMM->pfnSSMR3GetStructEx(pSSM, pCID, sizeof(SHCLCLIENTLEGACYCID), 0 /* fFlags */,
-                                          &s_aShClSSMClientLegacyCID[0], NULL);
+                rc = pVMM->pfnSSMR3GetStructEx(pSSM, pCID, sizeof(SHCLCLIENTLEGACYCID), 0 /* fFlags */,
+                                               &s_aShClSSMClientLegacyCID[0], NULL);
+                if (RT_FAILURE(rc))
+                {
+                    RTMemFree(pCID);
+                    return rc;
+                }
+
+                ShClSvcClientLock(pClient);
                 RTListAppend(&pClient->Legacy.lstCID, &pCID->Node);
+                pClient->Legacy.cCID++;
+                ShClSvcClientUnlock(pClient);
             }
         }
     }
@@ -710,7 +762,7 @@ static DECLCALLBACK(int) shClSvcLoadState(void *, uint32_t u32ClientID, void *pv
     }
 
     /* Actual host data are to be reported to guest (SYNC). */
-    (void) shClSvcBackendSync(pClient);
+    (void) shClSvcExtBackendSync(pClient);
 
 #else  /* UNIT_TEST */
     RT_NOREF(u32ClientID, pvClient, pSSM, pVMM, uVersion);
@@ -741,18 +793,16 @@ extern "C" DECLCALLBACK(DECLEXPORT(int)) VBoxHGCMSvcLoad(VBOXHGCMSVCFNTABLE *pTa
         }
         else
         {
-            g_pHelpers = pTable->pHelpers;
+            g_ShClSvc.pHelpers = pTable->pHelpers;
 
             pTable->cbClient = sizeof(SHCLCLIENT);
 
             /* Map legacy clients to root. */
             pTable->idxLegacyClientCategory = HGCM_CLIENT_CATEGORY_ROOT;
 
-            /* Limit the number of clients to 128 in each category (should be enough),
-               but set kernel clients to 1. */
+            /* Main and the native clipboard backends support one active client. */
             for (uintptr_t i = 0; i < RT_ELEMENTS(pTable->acMaxClients); i++)
-                pTable->acMaxClients[i] = 128;
-            pTable->acMaxClients[HGCM_CLIENT_CATEGORY_KERNEL] = 1;
+                pTable->acMaxClients[i] = 1;
 
             /* Only 16 pending calls per client (1 should be enough). */
             for (uintptr_t i = 0; i < RT_ELEMENTS(pTable->acMaxClients); i++)
@@ -770,7 +820,7 @@ extern "C" DECLCALLBACK(DECLEXPORT(int)) VBoxHGCMSvcLoad(VBOXHGCMSVCFNTABLE *pTa
             pTable->pvService            = NULL;
 
             /* Service specific initialization. */
-            rc = shClSvcInit(pTable);
+            rc = shClSvcInit();
         }
     }
 

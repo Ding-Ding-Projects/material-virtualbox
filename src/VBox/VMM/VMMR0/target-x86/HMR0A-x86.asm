@@ -1,4 +1,4 @@
-; $Id: HMR0A-x86.asm 114828 2026-07-31 09:19:37Z alexander.eichner@oracle.com $
+; $Id: HMR0A-x86.asm 115030 2026-08-13 02:46:39Z knut.osmundsen@oracle.com $
 ;; @file
 ; HM - Ring-0 VMX, SVM world-switch and helper routines.
 ;
@@ -308,6 +308,7 @@ BEGINPROC hmR0VmxExportHostSegmentRegsAsmHlp
         mov     [pRestoreHost + VMXRESTOREHOST.uHostSelDS], ax
 
         ret
+        int3
 
 ALIGNCODE(16)
 .use_rdmsr_for_fs_and_gs_base:
@@ -435,6 +436,7 @@ BEGINPROC VMXRestoreHostState
         mov     rsi, r11
 %endif
         ret
+        int3
 
 ALIGNCODE(8)
 .gdt_readonly_or_need_writable:
@@ -450,6 +452,7 @@ ALIGNCODE(8)
         ltr     dx
         mov     cr0, r9
         jmp     .restore_fs
+        int3
 
 ALIGNCODE(8)
 .gdt_readonly_need_writable:
@@ -459,6 +462,7 @@ ALIGNCODE(8)
         ltr     dx
         lgdt    [rsi + VMXRESTOREHOST.HostGdtr]                 ; load the original GDT
         jmp     .restore_fs
+        int3
 
 ALIGNCODE(8)
 .restore_fs_using_wrmsr:
@@ -498,13 +502,87 @@ ENDPROC   hmR0MdsClear
 
 
 ;;
+; Helper for checking whether shadow stacks are enabled.
+;
+BEGINPROC hmR0IsShadowStackEnabled
+        SEH64_END_PROLOGUE
+
+        ;
+        ; The rdsspq instruction is a NOP unless CET is supported & enabled.
+        ; So, we do 'rdsspq rax' on a zero rax register and check if the result is non-zero.
+        ;
+        xor     eax, eax
+%ifdef __NASM__
+        rdsspq  rax
+%else
+        db 0xf3, 0x48, 0x0f, 0x1e, 0xc8         ; rdsspq rdx - a NOP unless CET is supported & enabled.
+%endif
+        test    rax, rax
+        setnz   al
+        movzx   eax, al
+        ret
+ENDPROC hmR0IsShadowStackEnabled
+
+
+;
+; Stuffing the return stack buffers (RSB), aka. return target buffers (RTB).
+;
+; The assumption here is that the RSB operates as a stack and has 32 or
+; fewer entries.  So, to stuff all of them, we do 32 calls without any returns.
+;
+
+;; Do one (changes RSP).
+%macro STUFF_ONE_RET_BUFFER 0
+        call    %%call_target
+        int3
+%%call_target:
+%endmacro
+
+;; Do eight and adjust RSP afterwards.
+%macro STUFF_EIGHT_RET_BUFFERS 0
+        STUFF_ONE_RET_BUFFER
+        STUFF_ONE_RET_BUFFER
+        STUFF_ONE_RET_BUFFER
+        STUFF_ONE_RET_BUFFER
+        STUFF_ONE_RET_BUFFER
+        STUFF_ONE_RET_BUFFER
+        STUFF_ONE_RET_BUFFER
+        STUFF_ONE_RET_BUFFER
+        add     xSP, xCB * 8
+%endmacro
+
+;; Do all 32.
+%macro STUFF_ALL_RET_BUFFERS 0
+        STUFF_EIGHT_RET_BUFFERS
+        STUFF_EIGHT_RET_BUFFERS
+        STUFF_EIGHT_RET_BUFFERS
+        STUFF_EIGHT_RET_BUFFERS
+%endmacro
+
+
+;;
+; Stuffs the return target prediction buffers.
+;
+; @clobbers Nothing (only tramples the stack).
+; @note     This is not safe to call with shadow stack enabled!
+;
+ALIGNCODE(64)
+BEGINPROC hmR0StuffReturnTargetPredictionBuffers
+        SEH64_END_PROLOGUE
+        STUFF_ALL_RET_BUFFERS
+        ret
+ENDPROC   hmR0StuffReturnTargetPredictionBuffers
+
+
+
+;;
 ; Common restore logic for success and error paths.  We duplicate this because we
 ; don't want to waste writing the VINF_SUCCESS return value to the stack in the
 ; regular code path.
 ;
 ; @param    1   Zero if regular return, non-zero if error return.  Controls label emission.
 ; @param    2   fLoadSaveGuestXcr0 value
-; @param    3   The (HM_WSF_IBPB_ENTRY | HM_WSF_L1D_ENTRY | HM_WSF_MDS_ENTRY) + HM_WSF_IBPB_EXIT value.
+; @param    3   The (HM_WSF_IBPB_ENTRY | HM_WSF_L1D_ENTRY | HM_WSF_MDS_ENTRY) + HM_WSF_IBPB_EXIT + HM_WSF_IBPB_PBRSB value.
 ;               The entry values are either all set or not at all, as we're too lazy to flesh out all the variants.
 ; @param    4   The SSE saving/restoring: 0 to do nothing, 1 to do it manually, 2 to use xsave/xrstor.
 ;
@@ -581,6 +659,10 @@ ENDPROC   hmR0MdsClear
         mov     eax, MSR_IA32_PRED_CMD_F_IBPB
         xor     edx, edx
         wrmsr
+   %if (%3) & HM_WSF_IBPB_PBRSB
+        STUFF_ONE_RET_BUFFER
+        add     rsp, xCB
+   %endif
   %endif
  %endif
 
@@ -624,7 +706,7 @@ ENDPROC   hmR0MdsClear
 ;
 ; @param    1   The suffix of the variation.
 ; @param    2   fLoadSaveGuestXcr0 value
-; @param    3   The HM_WSF_IBPB_ENTRY + HM_WSF_IBPB_EXIT value.
+; @param    3   The HM_WSF_IBPB_ENTRY + HM_WSF_IBPB_EXIT + HM_WSF_IBPB_PBRSB value.
 ; @param    4   The SSE saving/restoring: 0 to do nothing, 1 to do it manually, 2 to use xsave/xrstor.
 ;               Drivers shouldn't use AVX registers without saving+loading:
 ;                   https://msdn.microsoft.com/en-us/library/windows/hardware/ff545910%28v=vs.85%29.aspx?f=255&MSPPError=-2147217396
@@ -664,6 +746,7 @@ BEGINPROC RT_CONCAT(hmR0VmxStartVm,%1)
    %endif
         je      RT_CONCAT3(hmR0VmxStartVm,%1,_SseManual)
         jmp     RT_CONCAT3(hmR0VmxStartVm,%1,_SseXSave)
+        int3
 .save_xmm_no_need:
   %endif
  %endif
@@ -732,7 +815,7 @@ BEGINPROC RT_CONCAT(hmR0VmxStartVm,%1)
         jne     NAME(RT_CONCAT(hmR0VmxStartVmHostRIP,%1).precond_failure_return)
 
         mov     eax, [rsi + GVMCPU.hmr0 + HMR0PERVCPU.fWorldSwitcher]
-        and     eax, HM_WSF_IBPB_ENTRY | HM_WSF_L1D_ENTRY | HM_WSF_MDS_ENTRY | HM_WSF_IBPB_EXIT ; | HM_WSF_SPEC_CTRL
+        and     eax, HM_WSF_IBPB_ENTRY | HM_WSF_L1D_ENTRY | HM_WSF_MDS_ENTRY | HM_WSF_IBPB_EXIT | HM_WSF_IBPB_PBRSB ; | HM_WSF_SPEC_CTRL
         cmp     eax, (%3)
         mov     eax, VERR_VMX_STARTVM_PRECOND_1
         jne     NAME(RT_CONCAT(hmR0VmxStartVmHostRIP,%1).precond_failure_return)
@@ -862,6 +945,10 @@ BEGINPROC RT_CONCAT(hmR0VmxStartVm,%1)
  %if (%3) & HM_WSF_IBPB_ENTRY             ; Indirect branch barrier.
         mov     ecx, MSR_IA32_PRED_CMD
         wrmsr
+  %if (%3) & HM_WSF_IBPB_PBRSB
+        STUFF_ONE_RET_BUFFER
+        add     rsp, xCB
+  %endif
  %endif
  %if (%3) & HM_WSF_L1D_ENTRY              ; Level 1 data cache flush.
         mov     ecx, MSR_IA32_FLUSH_CMD
@@ -897,12 +984,14 @@ BEGINPROC RT_CONCAT(hmR0VmxStartVm,%1)
         jc      NAME(RT_CONCAT(hmR0VmxStartVmHostRIP,%1).vmxstart64_invalid_vmcs_ptr)
         jz      NAME(RT_CONCAT(hmR0VmxStartVmHostRIP,%1).vmxstart64_start_failed)
         jmp     NAME(RT_CONCAT(hmR0VmxStartVmHostRIP,%1)) ; here if vmresume detected a failure
+        int3
 
 .vmlaunch64_launch:
         vmlaunch
         jc      NAME(RT_CONCAT(hmR0VmxStartVmHostRIP,%1).vmxstart64_invalid_vmcs_ptr)
         jz      NAME(RT_CONCAT(hmR0VmxStartVmHostRIP,%1).vmxstart64_start_failed)
         jmp     NAME(RT_CONCAT(hmR0VmxStartVmHostRIP,%1)) ; here if vmlaunch detected a failure
+        int3
 
 
 ; Put these two outside the normal code path as they should rarely change.
@@ -918,6 +1007,7 @@ ALIGNCODE(8)
         jna     NAME(RT_CONCAT(hmR0VmxStartVmHostRIP,%1).vmwrite_failed)
  %endif
         jmp     .wrote_host_rip
+        int3
 
 ALIGNCODE(8)
 .write_host_rsp:
@@ -931,6 +1021,7 @@ ALIGNCODE(8)
         jna     NAME(RT_CONCAT(hmR0VmxStartVmHostRIP,%1).vmwrite_failed)
  %endif
         jmp     .wrote_host_rsp
+        int3
 
 ALIGNCODE(64)
 GLOBALNAME_EX RT_CONCAT(hmR0VmxStartVmHostRIP,%1), notype, hidden, (NAME(hmR0VmxStartVmHostRIP %+ %1) - NAME(hmR0VmxStartVm %+ %1 %+ _EndProc))
@@ -994,6 +1085,7 @@ GLOBALNAME_EX RT_CONCAT(hmR0VmxStartVmHostRIP,%1), notype, hidden, (NAME(hmR0Vmx
         popf
         leave
         ret
+        int3
 
         ;
         ; Error returns.
@@ -1004,16 +1096,19 @@ GLOBALNAME_EX RT_CONCAT(hmR0VmxStartVmHostRIP,%1), notype, hidden, (NAME(hmR0Vmx
         jz      .return_after_vmwrite_error
         mov     dword [rsp + cbFrame + frm_rcError], VERR_VMX_INVALID_VMCS_PTR
         jmp     .return_after_vmwrite_error
+        int3
  %endif
 .vmxstart64_invalid_vmcs_ptr:
         mov     dword [rsp + cbFrame + frm_rcError], VERR_VMX_INVALID_VMCS_PTR_TO_START_VM
         jmp     .vmstart64_error_return
+        int3
 .vmxstart64_start_failed:
         mov     dword [rsp + cbFrame + frm_rcError], VERR_VMX_UNABLE_TO_START_VM
 .vmstart64_error_return:
         RESTORE_STATE_VMX 1, %2, %3, %4
         mov     eax, [rbp + frm_rcError]
         jmp     .vmstart64_end
+        int3
 
  %ifdef VBOX_STRICT
         ; Precondition checks failed.
@@ -1023,6 +1118,7 @@ GLOBALNAME_EX RT_CONCAT(hmR0VmxStartVmHostRIP,%1), notype, hidden, (NAME(hmR0Vmx
    %error Bad frame size value: cbFrame, expected cbBaseFrame
   %endif
         jmp     .return_with_restored_preserved_registers
+        int3
  %endif
 
  %undef frm_fRFlags
@@ -1042,38 +1138,71 @@ ENDPROC RT_CONCAT(hmR0VmxStartVm,%1)
 %endmacro ; hmR0VmxStartVmTemplate
 
 %macro hmR0VmxStartVmSseTemplate 1-2
-hmR0VmxStartVmTemplate _SansXcr0_SansIbpbEntry_SansL1dEntry_SansMdsEntry_SansIbpbExit %+ %2, 0, 0                 | 0                | 0                | 0               , %1
-hmR0VmxStartVmTemplate _WithXcr0_SansIbpbEntry_SansL1dEntry_SansMdsEntry_SansIbpbExit %+ %2, 1, 0                 | 0                | 0                | 0               , %1
-hmR0VmxStartVmTemplate _SansXcr0_WithIbpbEntry_SansL1dEntry_SansMdsEntry_SansIbpbExit %+ %2, 0, HM_WSF_IBPB_ENTRY | 0                | 0                | 0               , %1
-hmR0VmxStartVmTemplate _WithXcr0_WithIbpbEntry_SansL1dEntry_SansMdsEntry_SansIbpbExit %+ %2, 1, HM_WSF_IBPB_ENTRY | 0                | 0                | 0               , %1
-hmR0VmxStartVmTemplate _SansXcr0_SansIbpbEntry_WithL1dEntry_SansMdsEntry_SansIbpbExit %+ %2, 0, 0                 | HM_WSF_L1D_ENTRY | 0                | 0               , %1
-hmR0VmxStartVmTemplate _WithXcr0_SansIbpbEntry_WithL1dEntry_SansMdsEntry_SansIbpbExit %+ %2, 1, 0                 | HM_WSF_L1D_ENTRY | 0                | 0               , %1
-hmR0VmxStartVmTemplate _SansXcr0_WithIbpbEntry_WithL1dEntry_SansMdsEntry_SansIbpbExit %+ %2, 0, HM_WSF_IBPB_ENTRY | HM_WSF_L1D_ENTRY | 0                | 0               , %1
-hmR0VmxStartVmTemplate _WithXcr0_WithIbpbEntry_WithL1dEntry_SansMdsEntry_SansIbpbExit %+ %2, 1, HM_WSF_IBPB_ENTRY | HM_WSF_L1D_ENTRY | 0                | 0               , %1
-hmR0VmxStartVmTemplate _SansXcr0_SansIbpbEntry_SansL1dEntry_WithMdsEntry_SansIbpbExit %+ %2, 0, 0                 | 0                | HM_WSF_MDS_ENTRY | 0               , %1
-hmR0VmxStartVmTemplate _WithXcr0_SansIbpbEntry_SansL1dEntry_WithMdsEntry_SansIbpbExit %+ %2, 1, 0                 | 0                | HM_WSF_MDS_ENTRY | 0               , %1
-hmR0VmxStartVmTemplate _SansXcr0_WithIbpbEntry_SansL1dEntry_WithMdsEntry_SansIbpbExit %+ %2, 0, HM_WSF_IBPB_ENTRY | 0                | HM_WSF_MDS_ENTRY | 0               , %1
-hmR0VmxStartVmTemplate _WithXcr0_WithIbpbEntry_SansL1dEntry_WithMdsEntry_SansIbpbExit %+ %2, 1, HM_WSF_IBPB_ENTRY | 0                | HM_WSF_MDS_ENTRY | 0               , %1
-hmR0VmxStartVmTemplate _SansXcr0_SansIbpbEntry_WithL1dEntry_WithMdsEntry_SansIbpbExit %+ %2, 0, 0                 | HM_WSF_L1D_ENTRY | HM_WSF_MDS_ENTRY | 0               , %1
-hmR0VmxStartVmTemplate _WithXcr0_SansIbpbEntry_WithL1dEntry_WithMdsEntry_SansIbpbExit %+ %2, 1, 0                 | HM_WSF_L1D_ENTRY | HM_WSF_MDS_ENTRY | 0               , %1
-hmR0VmxStartVmTemplate _SansXcr0_WithIbpbEntry_WithL1dEntry_WithMdsEntry_SansIbpbExit %+ %2, 0, HM_WSF_IBPB_ENTRY | HM_WSF_L1D_ENTRY | HM_WSF_MDS_ENTRY | 0               , %1
-hmR0VmxStartVmTemplate _WithXcr0_WithIbpbEntry_WithL1dEntry_WithMdsEntry_SansIbpbExit %+ %2, 1, HM_WSF_IBPB_ENTRY | HM_WSF_L1D_ENTRY | HM_WSF_MDS_ENTRY | 0               , %1
-hmR0VmxStartVmTemplate _SansXcr0_SansIbpbEntry_SansL1dEntry_SansMdsEntry_WithIbpbExit %+ %2, 0, 0                 | 0                | 0                | HM_WSF_IBPB_EXIT, %1
-hmR0VmxStartVmTemplate _WithXcr0_SansIbpbEntry_SansL1dEntry_SansMdsEntry_WithIbpbExit %+ %2, 1, 0                 | 0                | 0                | HM_WSF_IBPB_EXIT, %1
-hmR0VmxStartVmTemplate _SansXcr0_WithIbpbEntry_SansL1dEntry_SansMdsEntry_WithIbpbExit %+ %2, 0, HM_WSF_IBPB_ENTRY | 0                | 0                | HM_WSF_IBPB_EXIT, %1
-hmR0VmxStartVmTemplate _WithXcr0_WithIbpbEntry_SansL1dEntry_SansMdsEntry_WithIbpbExit %+ %2, 1, HM_WSF_IBPB_ENTRY | 0                | 0                | HM_WSF_IBPB_EXIT, %1
-hmR0VmxStartVmTemplate _SansXcr0_SansIbpbEntry_WithL1dEntry_SansMdsEntry_WithIbpbExit %+ %2, 0, 0                 | HM_WSF_L1D_ENTRY | 0                | HM_WSF_IBPB_EXIT, %1
-hmR0VmxStartVmTemplate _WithXcr0_SansIbpbEntry_WithL1dEntry_SansMdsEntry_WithIbpbExit %+ %2, 1, 0                 | HM_WSF_L1D_ENTRY | 0                | HM_WSF_IBPB_EXIT, %1
-hmR0VmxStartVmTemplate _SansXcr0_WithIbpbEntry_WithL1dEntry_SansMdsEntry_WithIbpbExit %+ %2, 0, HM_WSF_IBPB_ENTRY | HM_WSF_L1D_ENTRY | 0                | HM_WSF_IBPB_EXIT, %1
-hmR0VmxStartVmTemplate _WithXcr0_WithIbpbEntry_WithL1dEntry_SansMdsEntry_WithIbpbExit %+ %2, 1, HM_WSF_IBPB_ENTRY | HM_WSF_L1D_ENTRY | 0                | HM_WSF_IBPB_EXIT, %1
-hmR0VmxStartVmTemplate _SansXcr0_SansIbpbEntry_SansL1dEntry_WithMdsEntry_WithIbpbExit %+ %2, 0, 0                 | 0                | HM_WSF_MDS_ENTRY | HM_WSF_IBPB_EXIT, %1
-hmR0VmxStartVmTemplate _WithXcr0_SansIbpbEntry_SansL1dEntry_WithMdsEntry_WithIbpbExit %+ %2, 1, 0                 | 0                | HM_WSF_MDS_ENTRY | HM_WSF_IBPB_EXIT, %1
-hmR0VmxStartVmTemplate _SansXcr0_WithIbpbEntry_SansL1dEntry_WithMdsEntry_WithIbpbExit %+ %2, 0, HM_WSF_IBPB_ENTRY | 0                | HM_WSF_MDS_ENTRY | HM_WSF_IBPB_EXIT, %1
-hmR0VmxStartVmTemplate _WithXcr0_WithIbpbEntry_SansL1dEntry_WithMdsEntry_WithIbpbExit %+ %2, 1, HM_WSF_IBPB_ENTRY | 0                | HM_WSF_MDS_ENTRY | HM_WSF_IBPB_EXIT, %1
-hmR0VmxStartVmTemplate _SansXcr0_SansIbpbEntry_WithL1dEntry_WithMdsEntry_WithIbpbExit %+ %2, 0, 0                 | HM_WSF_L1D_ENTRY | HM_WSF_MDS_ENTRY | HM_WSF_IBPB_EXIT, %1
-hmR0VmxStartVmTemplate _WithXcr0_SansIbpbEntry_WithL1dEntry_WithMdsEntry_WithIbpbExit %+ %2, 1, 0                 | HM_WSF_L1D_ENTRY | HM_WSF_MDS_ENTRY | HM_WSF_IBPB_EXIT, %1
-hmR0VmxStartVmTemplate _SansXcr0_WithIbpbEntry_WithL1dEntry_WithMdsEntry_WithIbpbExit %+ %2, 0, HM_WSF_IBPB_ENTRY | HM_WSF_L1D_ENTRY | HM_WSF_MDS_ENTRY | HM_WSF_IBPB_EXIT, %1
-hmR0VmxStartVmTemplate _WithXcr0_WithIbpbEntry_WithL1dEntry_WithMdsEntry_WithIbpbExit %+ %2, 1, HM_WSF_IBPB_ENTRY | HM_WSF_L1D_ENTRY | HM_WSF_MDS_ENTRY | HM_WSF_IBPB_EXIT, %1
+hmR0VmxStartVmTemplate _SansXcr0_SansIbpbEntry_SansL1dEntry_SansMdsEntry_SansIbpbExit_SansPbrsb %+ %2, 0, 0                 | 0                | 0                | 0                | 0                , %1
+hmR0VmxStartVmTemplate _WithXcr0_SansIbpbEntry_SansL1dEntry_SansMdsEntry_SansIbpbExit_SansPbrsb %+ %2, 1, 0                 | 0                | 0                | 0                | 0                , %1
+hmR0VmxStartVmTemplate _SansXcr0_WithIbpbEntry_SansL1dEntry_SansMdsEntry_SansIbpbExit_SansPbrsb %+ %2, 0, HM_WSF_IBPB_ENTRY | 0                | 0                | 0                | 0                , %1
+hmR0VmxStartVmTemplate _WithXcr0_WithIbpbEntry_SansL1dEntry_SansMdsEntry_SansIbpbExit_SansPbrsb %+ %2, 1, HM_WSF_IBPB_ENTRY | 0                | 0                | 0                | 0                , %1
+hmR0VmxStartVmTemplate _SansXcr0_SansIbpbEntry_WithL1dEntry_SansMdsEntry_SansIbpbExit_SansPbrsb %+ %2, 0, 0                 | HM_WSF_L1D_ENTRY | 0                | 0                | 0                , %1
+hmR0VmxStartVmTemplate _WithXcr0_SansIbpbEntry_WithL1dEntry_SansMdsEntry_SansIbpbExit_SansPbrsb %+ %2, 1, 0                 | HM_WSF_L1D_ENTRY | 0                | 0                | 0                , %1
+hmR0VmxStartVmTemplate _SansXcr0_WithIbpbEntry_WithL1dEntry_SansMdsEntry_SansIbpbExit_SansPbrsb %+ %2, 0, HM_WSF_IBPB_ENTRY | HM_WSF_L1D_ENTRY | 0                | 0                | 0                , %1
+hmR0VmxStartVmTemplate _WithXcr0_WithIbpbEntry_WithL1dEntry_SansMdsEntry_SansIbpbExit_SansPbrsb %+ %2, 1, HM_WSF_IBPB_ENTRY | HM_WSF_L1D_ENTRY | 0                | 0                | 0                , %1
+hmR0VmxStartVmTemplate _SansXcr0_SansIbpbEntry_SansL1dEntry_WithMdsEntry_SansIbpbExit_SansPbrsb %+ %2, 0, 0                 | 0                | HM_WSF_MDS_ENTRY | 0                | 0                , %1
+hmR0VmxStartVmTemplate _WithXcr0_SansIbpbEntry_SansL1dEntry_WithMdsEntry_SansIbpbExit_SansPbrsb %+ %2, 1, 0                 | 0                | HM_WSF_MDS_ENTRY | 0                | 0                , %1
+hmR0VmxStartVmTemplate _SansXcr0_WithIbpbEntry_SansL1dEntry_WithMdsEntry_SansIbpbExit_SansPbrsb %+ %2, 0, HM_WSF_IBPB_ENTRY | 0                | HM_WSF_MDS_ENTRY | 0                | 0                , %1
+hmR0VmxStartVmTemplate _WithXcr0_WithIbpbEntry_SansL1dEntry_WithMdsEntry_SansIbpbExit_SansPbrsb %+ %2, 1, HM_WSF_IBPB_ENTRY | 0                | HM_WSF_MDS_ENTRY | 0                | 0                , %1
+hmR0VmxStartVmTemplate _SansXcr0_SansIbpbEntry_WithL1dEntry_WithMdsEntry_SansIbpbExit_SansPbrsb %+ %2, 0, 0                 | HM_WSF_L1D_ENTRY | HM_WSF_MDS_ENTRY | 0                | 0                , %1
+hmR0VmxStartVmTemplate _WithXcr0_SansIbpbEntry_WithL1dEntry_WithMdsEntry_SansIbpbExit_SansPbrsb %+ %2, 1, 0                 | HM_WSF_L1D_ENTRY | HM_WSF_MDS_ENTRY | 0                | 0                , %1
+hmR0VmxStartVmTemplate _SansXcr0_WithIbpbEntry_WithL1dEntry_WithMdsEntry_SansIbpbExit_SansPbrsb %+ %2, 0, HM_WSF_IBPB_ENTRY | HM_WSF_L1D_ENTRY | HM_WSF_MDS_ENTRY | 0                | 0                , %1
+hmR0VmxStartVmTemplate _WithXcr0_WithIbpbEntry_WithL1dEntry_WithMdsEntry_SansIbpbExit_SansPbrsb %+ %2, 1, HM_WSF_IBPB_ENTRY | HM_WSF_L1D_ENTRY | HM_WSF_MDS_ENTRY | 0                | 0                , %1
+hmR0VmxStartVmTemplate _SansXcr0_SansIbpbEntry_SansL1dEntry_SansMdsEntry_WithIbpbExit_SansPbrsb %+ %2, 0, 0                 | 0                | 0                | HM_WSF_IBPB_EXIT | 0                , %1
+hmR0VmxStartVmTemplate _WithXcr0_SansIbpbEntry_SansL1dEntry_SansMdsEntry_WithIbpbExit_SansPbrsb %+ %2, 1, 0                 | 0                | 0                | HM_WSF_IBPB_EXIT | 0                , %1
+hmR0VmxStartVmTemplate _SansXcr0_WithIbpbEntry_SansL1dEntry_SansMdsEntry_WithIbpbExit_SansPbrsb %+ %2, 0, HM_WSF_IBPB_ENTRY | 0                | 0                | HM_WSF_IBPB_EXIT | 0                , %1
+hmR0VmxStartVmTemplate _WithXcr0_WithIbpbEntry_SansL1dEntry_SansMdsEntry_WithIbpbExit_SansPbrsb %+ %2, 1, HM_WSF_IBPB_ENTRY | 0                | 0                | HM_WSF_IBPB_EXIT | 0                , %1
+hmR0VmxStartVmTemplate _SansXcr0_SansIbpbEntry_WithL1dEntry_SansMdsEntry_WithIbpbExit_SansPbrsb %+ %2, 0, 0                 | HM_WSF_L1D_ENTRY | 0                | HM_WSF_IBPB_EXIT | 0                , %1
+hmR0VmxStartVmTemplate _WithXcr0_SansIbpbEntry_WithL1dEntry_SansMdsEntry_WithIbpbExit_SansPbrsb %+ %2, 1, 0                 | HM_WSF_L1D_ENTRY | 0                | HM_WSF_IBPB_EXIT | 0                , %1
+hmR0VmxStartVmTemplate _SansXcr0_WithIbpbEntry_WithL1dEntry_SansMdsEntry_WithIbpbExit_SansPbrsb %+ %2, 0, HM_WSF_IBPB_ENTRY | HM_WSF_L1D_ENTRY | 0                | HM_WSF_IBPB_EXIT | 0                , %1
+hmR0VmxStartVmTemplate _WithXcr0_WithIbpbEntry_WithL1dEntry_SansMdsEntry_WithIbpbExit_SansPbrsb %+ %2, 1, HM_WSF_IBPB_ENTRY | HM_WSF_L1D_ENTRY | 0                | HM_WSF_IBPB_EXIT | 0                , %1
+hmR0VmxStartVmTemplate _SansXcr0_SansIbpbEntry_SansL1dEntry_WithMdsEntry_WithIbpbExit_SansPbrsb %+ %2, 0, 0                 | 0                | HM_WSF_MDS_ENTRY | HM_WSF_IBPB_EXIT | 0                , %1
+hmR0VmxStartVmTemplate _WithXcr0_SansIbpbEntry_SansL1dEntry_WithMdsEntry_WithIbpbExit_SansPbrsb %+ %2, 1, 0                 | 0                | HM_WSF_MDS_ENTRY | HM_WSF_IBPB_EXIT | 0                , %1
+hmR0VmxStartVmTemplate _SansXcr0_WithIbpbEntry_SansL1dEntry_WithMdsEntry_WithIbpbExit_SansPbrsb %+ %2, 0, HM_WSF_IBPB_ENTRY | 0                | HM_WSF_MDS_ENTRY | HM_WSF_IBPB_EXIT | 0                , %1
+hmR0VmxStartVmTemplate _WithXcr0_WithIbpbEntry_SansL1dEntry_WithMdsEntry_WithIbpbExit_SansPbrsb %+ %2, 1, HM_WSF_IBPB_ENTRY | 0                | HM_WSF_MDS_ENTRY | HM_WSF_IBPB_EXIT | 0                , %1
+hmR0VmxStartVmTemplate _SansXcr0_SansIbpbEntry_WithL1dEntry_WithMdsEntry_WithIbpbExit_SansPbrsb %+ %2, 0, 0                 | HM_WSF_L1D_ENTRY | HM_WSF_MDS_ENTRY | HM_WSF_IBPB_EXIT | 0                , %1
+hmR0VmxStartVmTemplate _WithXcr0_SansIbpbEntry_WithL1dEntry_WithMdsEntry_WithIbpbExit_SansPbrsb %+ %2, 1, 0                 | HM_WSF_L1D_ENTRY | HM_WSF_MDS_ENTRY | HM_WSF_IBPB_EXIT | 0                , %1
+hmR0VmxStartVmTemplate _SansXcr0_WithIbpbEntry_WithL1dEntry_WithMdsEntry_WithIbpbExit_SansPbrsb %+ %2, 0, HM_WSF_IBPB_ENTRY | HM_WSF_L1D_ENTRY | HM_WSF_MDS_ENTRY | HM_WSF_IBPB_EXIT | 0                , %1
+hmR0VmxStartVmTemplate _WithXcr0_WithIbpbEntry_WithL1dEntry_WithMdsEntry_WithIbpbExit_SansPbrsb %+ %2, 1, HM_WSF_IBPB_ENTRY | HM_WSF_L1D_ENTRY | HM_WSF_MDS_ENTRY | HM_WSF_IBPB_EXIT | 0                , %1
+
+hmR0VmxStartVmTemplate _SansXcr0_SansIbpbEntry_SansL1dEntry_SansMdsEntry_SansIbpbExit_WithPbrsb %+ %2, 0, 0                 | 0                | 0                | 0                | HM_WSF_IBPB_PBRSB, %1
+hmR0VmxStartVmTemplate _WithXcr0_SansIbpbEntry_SansL1dEntry_SansMdsEntry_SansIbpbExit_WithPbrsb %+ %2, 1, 0                 | 0                | 0                | 0                | HM_WSF_IBPB_PBRSB, %1
+hmR0VmxStartVmTemplate _SansXcr0_WithIbpbEntry_SansL1dEntry_SansMdsEntry_SansIbpbExit_WithPbrsb %+ %2, 0, HM_WSF_IBPB_ENTRY | 0                | 0                | 0                | HM_WSF_IBPB_PBRSB, %1
+hmR0VmxStartVmTemplate _WithXcr0_WithIbpbEntry_SansL1dEntry_SansMdsEntry_SansIbpbExit_WithPbrsb %+ %2, 1, HM_WSF_IBPB_ENTRY | 0                | 0                | 0                | HM_WSF_IBPB_PBRSB, %1
+hmR0VmxStartVmTemplate _SansXcr0_SansIbpbEntry_WithL1dEntry_SansMdsEntry_SansIbpbExit_WithPbrsb %+ %2, 0, 0                 | HM_WSF_L1D_ENTRY | 0                | 0                | HM_WSF_IBPB_PBRSB, %1
+hmR0VmxStartVmTemplate _WithXcr0_SansIbpbEntry_WithL1dEntry_SansMdsEntry_SansIbpbExit_WithPbrsb %+ %2, 1, 0                 | HM_WSF_L1D_ENTRY | 0                | 0                | HM_WSF_IBPB_PBRSB, %1
+hmR0VmxStartVmTemplate _SansXcr0_WithIbpbEntry_WithL1dEntry_SansMdsEntry_SansIbpbExit_WithPbrsb %+ %2, 0, HM_WSF_IBPB_ENTRY | HM_WSF_L1D_ENTRY | 0                | 0                | HM_WSF_IBPB_PBRSB, %1
+hmR0VmxStartVmTemplate _WithXcr0_WithIbpbEntry_WithL1dEntry_SansMdsEntry_SansIbpbExit_WithPbrsb %+ %2, 1, HM_WSF_IBPB_ENTRY | HM_WSF_L1D_ENTRY | 0                | 0                | HM_WSF_IBPB_PBRSB, %1
+hmR0VmxStartVmTemplate _SansXcr0_SansIbpbEntry_SansL1dEntry_WithMdsEntry_SansIbpbExit_WithPbrsb %+ %2, 0, 0                 | 0                | HM_WSF_MDS_ENTRY | 0                | HM_WSF_IBPB_PBRSB, %1
+hmR0VmxStartVmTemplate _WithXcr0_SansIbpbEntry_SansL1dEntry_WithMdsEntry_SansIbpbExit_WithPbrsb %+ %2, 1, 0                 | 0                | HM_WSF_MDS_ENTRY | 0                | HM_WSF_IBPB_PBRSB, %1
+hmR0VmxStartVmTemplate _SansXcr0_WithIbpbEntry_SansL1dEntry_WithMdsEntry_SansIbpbExit_WithPbrsb %+ %2, 0, HM_WSF_IBPB_ENTRY | 0                | HM_WSF_MDS_ENTRY | 0                | HM_WSF_IBPB_PBRSB, %1
+hmR0VmxStartVmTemplate _WithXcr0_WithIbpbEntry_SansL1dEntry_WithMdsEntry_SansIbpbExit_WithPbrsb %+ %2, 1, HM_WSF_IBPB_ENTRY | 0                | HM_WSF_MDS_ENTRY | 0                | HM_WSF_IBPB_PBRSB, %1
+hmR0VmxStartVmTemplate _SansXcr0_SansIbpbEntry_WithL1dEntry_WithMdsEntry_SansIbpbExit_WithPbrsb %+ %2, 0, 0                 | HM_WSF_L1D_ENTRY | HM_WSF_MDS_ENTRY | 0                | HM_WSF_IBPB_PBRSB, %1
+hmR0VmxStartVmTemplate _WithXcr0_SansIbpbEntry_WithL1dEntry_WithMdsEntry_SansIbpbExit_WithPbrsb %+ %2, 1, 0                 | HM_WSF_L1D_ENTRY | HM_WSF_MDS_ENTRY | 0                | HM_WSF_IBPB_PBRSB, %1
+hmR0VmxStartVmTemplate _SansXcr0_WithIbpbEntry_WithL1dEntry_WithMdsEntry_SansIbpbExit_WithPbrsb %+ %2, 0, HM_WSF_IBPB_ENTRY | HM_WSF_L1D_ENTRY | HM_WSF_MDS_ENTRY | 0                | HM_WSF_IBPB_PBRSB, %1
+hmR0VmxStartVmTemplate _WithXcr0_WithIbpbEntry_WithL1dEntry_WithMdsEntry_SansIbpbExit_WithPbrsb %+ %2, 1, HM_WSF_IBPB_ENTRY | HM_WSF_L1D_ENTRY | HM_WSF_MDS_ENTRY | 0                | HM_WSF_IBPB_PBRSB, %1
+hmR0VmxStartVmTemplate _SansXcr0_SansIbpbEntry_SansL1dEntry_SansMdsEntry_WithIbpbExit_WithPbrsb %+ %2, 0, 0                 | 0                | 0                | HM_WSF_IBPB_EXIT | HM_WSF_IBPB_PBRSB, %1
+hmR0VmxStartVmTemplate _WithXcr0_SansIbpbEntry_SansL1dEntry_SansMdsEntry_WithIbpbExit_WithPbrsb %+ %2, 1, 0                 | 0                | 0                | HM_WSF_IBPB_EXIT | HM_WSF_IBPB_PBRSB, %1
+hmR0VmxStartVmTemplate _SansXcr0_WithIbpbEntry_SansL1dEntry_SansMdsEntry_WithIbpbExit_WithPbrsb %+ %2, 0, HM_WSF_IBPB_ENTRY | 0                | 0                | HM_WSF_IBPB_EXIT | HM_WSF_IBPB_PBRSB, %1
+hmR0VmxStartVmTemplate _WithXcr0_WithIbpbEntry_SansL1dEntry_SansMdsEntry_WithIbpbExit_WithPbrsb %+ %2, 1, HM_WSF_IBPB_ENTRY | 0                | 0                | HM_WSF_IBPB_EXIT | HM_WSF_IBPB_PBRSB, %1
+hmR0VmxStartVmTemplate _SansXcr0_SansIbpbEntry_WithL1dEntry_SansMdsEntry_WithIbpbExit_WithPbrsb %+ %2, 0, 0                 | HM_WSF_L1D_ENTRY | 0                | HM_WSF_IBPB_EXIT | HM_WSF_IBPB_PBRSB, %1
+hmR0VmxStartVmTemplate _WithXcr0_SansIbpbEntry_WithL1dEntry_SansMdsEntry_WithIbpbExit_WithPbrsb %+ %2, 1, 0                 | HM_WSF_L1D_ENTRY | 0                | HM_WSF_IBPB_EXIT | HM_WSF_IBPB_PBRSB, %1
+hmR0VmxStartVmTemplate _SansXcr0_WithIbpbEntry_WithL1dEntry_SansMdsEntry_WithIbpbExit_WithPbrsb %+ %2, 0, HM_WSF_IBPB_ENTRY | HM_WSF_L1D_ENTRY | 0                | HM_WSF_IBPB_EXIT | HM_WSF_IBPB_PBRSB, %1
+hmR0VmxStartVmTemplate _WithXcr0_WithIbpbEntry_WithL1dEntry_SansMdsEntry_WithIbpbExit_WithPbrsb %+ %2, 1, HM_WSF_IBPB_ENTRY | HM_WSF_L1D_ENTRY | 0                | HM_WSF_IBPB_EXIT | HM_WSF_IBPB_PBRSB, %1
+hmR0VmxStartVmTemplate _SansXcr0_SansIbpbEntry_SansL1dEntry_WithMdsEntry_WithIbpbExit_WithPbrsb %+ %2, 0, 0                 | 0                | HM_WSF_MDS_ENTRY | HM_WSF_IBPB_EXIT | HM_WSF_IBPB_PBRSB, %1
+hmR0VmxStartVmTemplate _WithXcr0_SansIbpbEntry_SansL1dEntry_WithMdsEntry_WithIbpbExit_WithPbrsb %+ %2, 1, 0                 | 0                | HM_WSF_MDS_ENTRY | HM_WSF_IBPB_EXIT | HM_WSF_IBPB_PBRSB, %1
+hmR0VmxStartVmTemplate _SansXcr0_WithIbpbEntry_SansL1dEntry_WithMdsEntry_WithIbpbExit_WithPbrsb %+ %2, 0, HM_WSF_IBPB_ENTRY | 0                | HM_WSF_MDS_ENTRY | HM_WSF_IBPB_EXIT | HM_WSF_IBPB_PBRSB, %1
+hmR0VmxStartVmTemplate _WithXcr0_WithIbpbEntry_SansL1dEntry_WithMdsEntry_WithIbpbExit_WithPbrsb %+ %2, 1, HM_WSF_IBPB_ENTRY | 0                | HM_WSF_MDS_ENTRY | HM_WSF_IBPB_EXIT | HM_WSF_IBPB_PBRSB, %1
+hmR0VmxStartVmTemplate _SansXcr0_SansIbpbEntry_WithL1dEntry_WithMdsEntry_WithIbpbExit_WithPbrsb %+ %2, 0, 0                 | HM_WSF_L1D_ENTRY | HM_WSF_MDS_ENTRY | HM_WSF_IBPB_EXIT | HM_WSF_IBPB_PBRSB, %1
+hmR0VmxStartVmTemplate _WithXcr0_SansIbpbEntry_WithL1dEntry_WithMdsEntry_WithIbpbExit_WithPbrsb %+ %2, 1, 0                 | HM_WSF_L1D_ENTRY | HM_WSF_MDS_ENTRY | HM_WSF_IBPB_EXIT | HM_WSF_IBPB_PBRSB, %1
+hmR0VmxStartVmTemplate _SansXcr0_WithIbpbEntry_WithL1dEntry_WithMdsEntry_WithIbpbExit_WithPbrsb %+ %2, 0, HM_WSF_IBPB_ENTRY | HM_WSF_L1D_ENTRY | HM_WSF_MDS_ENTRY | HM_WSF_IBPB_EXIT | HM_WSF_IBPB_PBRSB, %1
+hmR0VmxStartVmTemplate _WithXcr0_WithIbpbEntry_WithL1dEntry_WithMdsEntry_WithIbpbExit_WithPbrsb %+ %2, 1, HM_WSF_IBPB_ENTRY | HM_WSF_L1D_ENTRY | HM_WSF_MDS_ENTRY | HM_WSF_IBPB_EXIT | HM_WSF_IBPB_PBRSB, %1
 %endmacro
 
 hmR0VmxStartVmSseTemplate 0
@@ -1088,7 +1217,7 @@ hmR0VmxStartVmSseTemplate 2,_SseXSave
 ;
 ; @param    1   The suffix of the variation.
 ; @param    2   fLoadSaveGuestXcr0 value
-; @param    3   The HM_WSF_IBPB_ENTRY + HM_WSF_IBPB_EXIT + HM_WSF_SPEC_CTRL value.
+; @param    3   The HM_WSF_IBPB_ENTRY + HM_WSF_IBPB_EXIT + HM_WSF_SPEC_CTRL + HM_WSF_IBPB_MAN_RET value.
 ; @param    4   The SSE saving/restoring: 0 to do nothing, 1 to do it manually, 2 to use xsave/xrstor.
 ;               Drivers shouldn't use AVX registers without saving+loading:
 ;                   https://msdn.microsoft.com/en-us/library/windows/hardware/ff545910%28v=vs.85%29.aspx?f=255&MSPPError=-2147217396
@@ -1129,6 +1258,7 @@ BEGINPROC RT_CONCAT(hmR0SvmVmRun,%1)
    %endif
         je      RT_CONCAT3(hmR0SvmVmRun,%1,_SseManual)
         jmp     RT_CONCAT3(hmR0SvmVmRun,%1,_SseXSave)
+        int3
 .save_xmm_no_need:
   %endif
  %endif
@@ -1198,7 +1328,7 @@ BEGINPROC RT_CONCAT(hmR0SvmVmRun,%1)
         jne     .failure_return
 
         mov     eax, [rsi + GVMCPU.hmr0 + HMR0PERVCPU.fWorldSwitcher]
-        and     eax, HM_WSF_IBPB_ENTRY | HM_WSF_IBPB_EXIT | HM_WSF_SPEC_CTRL
+        and     eax, HM_WSF_IBPB_ENTRY | HM_WSF_IBPB_EXIT | HM_WSF_SPEC_CTRL | HM_WSF_IBPB_MAN_RET
         cmp     eax, (%3)
         mov     eax, VERR_SVM_VMRUN_PRECOND_1
         jne     .failure_return
@@ -1308,6 +1438,9 @@ BEGINPROC RT_CONCAT(hmR0SvmVmRun,%1)
 
  %if (%3) & HM_WSF_IBPB_ENTRY
         ; Fight spectre (trashes rax, rdx and rcx).
+  %if (%3) & HM_WSF_IBPB_MAN_RET
+        call    NAME(hmR0StuffReturnTargetPredictionBuffers)
+  %endif
         mov     ecx, MSR_IA32_PRED_CMD
         mov     eax, MSR_IA32_PRED_CMD_F_IBPB
         xor     edx, edx
@@ -1408,6 +1541,13 @@ BEGINPROC RT_CONCAT(hmR0SvmVmRun,%1)
         mov     eax, MSR_IA32_PRED_CMD_F_IBPB
         xor     edx, edx
         wrmsr
+  %if (%3) & HM_WSF_IBPB_MAN_RET
+   %if 0
+        call    NAME(hmR0StuffReturnTargetPredictionBuffers)
+   %else
+        STUFF_EIGHT_RET_BUFFERS
+   %endif
+  %endif
  %endif
 
  %if %2 != 0
@@ -1486,6 +1626,7 @@ BEGINPROC RT_CONCAT(hmR0SvmVmRun,%1)
         popf
         leave
         ret
+        int3
 
  %ifdef VBOX_STRICT
         ; Precondition checks failed.
@@ -1512,55 +1653,108 @@ ENDPROC RT_CONCAT(hmR0SvmVmRun,%1)
 ;
 ; Instantiate the hmR0SvmVmRun various variations.
 ;
-hmR0SvmVmRunTemplate _SansXcr0_SansIbpbEntry_SansIbpbExit_SansSpecCtrl,           0, 0,                                                       0
-hmR0SvmVmRunTemplate _WithXcr0_SansIbpbEntry_SansIbpbExit_SansSpecCtrl,           1, 0,                                                       0
-hmR0SvmVmRunTemplate _SansXcr0_WithIbpbEntry_SansIbpbExit_SansSpecCtrl,           0, HM_WSF_IBPB_ENTRY,                                       0
-hmR0SvmVmRunTemplate _WithXcr0_WithIbpbEntry_SansIbpbExit_SansSpecCtrl,           1, HM_WSF_IBPB_ENTRY,                                       0
-hmR0SvmVmRunTemplate _SansXcr0_SansIbpbEntry_WithIbpbExit_SansSpecCtrl,           0, HM_WSF_IBPB_EXIT,                                        0
-hmR0SvmVmRunTemplate _WithXcr0_SansIbpbEntry_WithIbpbExit_SansSpecCtrl,           1, HM_WSF_IBPB_EXIT,                                        0
-hmR0SvmVmRunTemplate _SansXcr0_WithIbpbEntry_WithIbpbExit_SansSpecCtrl,           0, HM_WSF_IBPB_ENTRY | HM_WSF_IBPB_EXIT,                    0
-hmR0SvmVmRunTemplate _WithXcr0_WithIbpbEntry_WithIbpbExit_SansSpecCtrl,           1, HM_WSF_IBPB_ENTRY | HM_WSF_IBPB_EXIT,                    0
-hmR0SvmVmRunTemplate _SansXcr0_SansIbpbEntry_SansIbpbExit_WithSpecCtrl,           0, HM_WSF_SPEC_CTRL,                                        0
-hmR0SvmVmRunTemplate _WithXcr0_SansIbpbEntry_SansIbpbExit_WithSpecCtrl,           1, HM_WSF_SPEC_CTRL,                                        0
-hmR0SvmVmRunTemplate _SansXcr0_WithIbpbEntry_SansIbpbExit_WithSpecCtrl,           0, HM_WSF_SPEC_CTRL | HM_WSF_IBPB_ENTRY,                    0
-hmR0SvmVmRunTemplate _WithXcr0_WithIbpbEntry_SansIbpbExit_WithSpecCtrl,           1, HM_WSF_SPEC_CTRL | HM_WSF_IBPB_ENTRY,                    0
-hmR0SvmVmRunTemplate _SansXcr0_SansIbpbEntry_WithIbpbExit_WithSpecCtrl,           0, HM_WSF_SPEC_CTRL | HM_WSF_IBPB_EXIT,                     0
-hmR0SvmVmRunTemplate _WithXcr0_SansIbpbEntry_WithIbpbExit_WithSpecCtrl,           1, HM_WSF_SPEC_CTRL | HM_WSF_IBPB_EXIT,                     0
-hmR0SvmVmRunTemplate _SansXcr0_WithIbpbEntry_WithIbpbExit_WithSpecCtrl,           0, HM_WSF_SPEC_CTRL | HM_WSF_IBPB_ENTRY | HM_WSF_IBPB_EXIT, 0
-hmR0SvmVmRunTemplate _WithXcr0_WithIbpbEntry_WithIbpbExit_WithSpecCtrl,           1, HM_WSF_SPEC_CTRL | HM_WSF_IBPB_ENTRY | HM_WSF_IBPB_EXIT, 0
+hmR0SvmVmRunTemplate _SansXcr0_SansIbpbEntry_SansIbpbExit_SansSpecCtrl_SansManRet,           0, 0,                                                                             0
+hmR0SvmVmRunTemplate _WithXcr0_SansIbpbEntry_SansIbpbExit_SansSpecCtrl_SansManRet,           1, 0,                                                                             0
+hmR0SvmVmRunTemplate _SansXcr0_WithIbpbEntry_SansIbpbExit_SansSpecCtrl_SansManRet,           0, HM_WSF_IBPB_ENTRY,                                                             0
+hmR0SvmVmRunTemplate _WithXcr0_WithIbpbEntry_SansIbpbExit_SansSpecCtrl_SansManRet,           1, HM_WSF_IBPB_ENTRY,                                                             0
+hmR0SvmVmRunTemplate _SansXcr0_SansIbpbEntry_WithIbpbExit_SansSpecCtrl_SansManRet,           0, HM_WSF_IBPB_EXIT,                                                              0
+hmR0SvmVmRunTemplate _WithXcr0_SansIbpbEntry_WithIbpbExit_SansSpecCtrl_SansManRet,           1, HM_WSF_IBPB_EXIT,                                                              0
+hmR0SvmVmRunTemplate _SansXcr0_WithIbpbEntry_WithIbpbExit_SansSpecCtrl_SansManRet,           0, HM_WSF_IBPB_ENTRY | HM_WSF_IBPB_EXIT,                                          0
+hmR0SvmVmRunTemplate _WithXcr0_WithIbpbEntry_WithIbpbExit_SansSpecCtrl_SansManRet,           1, HM_WSF_IBPB_ENTRY | HM_WSF_IBPB_EXIT,                                          0
+hmR0SvmVmRunTemplate _SansXcr0_SansIbpbEntry_SansIbpbExit_WithSpecCtrl_SansManRet,           0, HM_WSF_SPEC_CTRL,                                                              0
+hmR0SvmVmRunTemplate _WithXcr0_SansIbpbEntry_SansIbpbExit_WithSpecCtrl_SansManRet,           1, HM_WSF_SPEC_CTRL,                                                              0
+hmR0SvmVmRunTemplate _SansXcr0_WithIbpbEntry_SansIbpbExit_WithSpecCtrl_SansManRet,           0, HM_WSF_SPEC_CTRL | HM_WSF_IBPB_ENTRY,                                          0
+hmR0SvmVmRunTemplate _WithXcr0_WithIbpbEntry_SansIbpbExit_WithSpecCtrl_SansManRet,           1, HM_WSF_SPEC_CTRL | HM_WSF_IBPB_ENTRY,                                          0
+hmR0SvmVmRunTemplate _SansXcr0_SansIbpbEntry_WithIbpbExit_WithSpecCtrl_SansManRet,           0, HM_WSF_SPEC_CTRL | HM_WSF_IBPB_EXIT,                                           0
+hmR0SvmVmRunTemplate _WithXcr0_SansIbpbEntry_WithIbpbExit_WithSpecCtrl_SansManRet,           1, HM_WSF_SPEC_CTRL | HM_WSF_IBPB_EXIT,                                           0
+hmR0SvmVmRunTemplate _SansXcr0_WithIbpbEntry_WithIbpbExit_WithSpecCtrl_SansManRet,           0, HM_WSF_SPEC_CTRL | HM_WSF_IBPB_ENTRY | HM_WSF_IBPB_EXIT,                       0
+hmR0SvmVmRunTemplate _WithXcr0_WithIbpbEntry_WithIbpbExit_WithSpecCtrl_SansManRet,           1, HM_WSF_SPEC_CTRL | HM_WSF_IBPB_ENTRY | HM_WSF_IBPB_EXIT,                       0
+
+hmR0SvmVmRunTemplate _SansXcr0_SansIbpbEntry_SansIbpbExit_SansSpecCtrl_WithManRet,           0, HM_WSF_IBPB_MAN_RET,                                                           0
+hmR0SvmVmRunTemplate _WithXcr0_SansIbpbEntry_SansIbpbExit_SansSpecCtrl_WithManRet,           1, HM_WSF_IBPB_MAN_RET,                                                           0
+hmR0SvmVmRunTemplate _SansXcr0_WithIbpbEntry_SansIbpbExit_SansSpecCtrl_WithManRet,           0, HM_WSF_IBPB_MAN_RET | HM_WSF_IBPB_ENTRY,                                       0
+hmR0SvmVmRunTemplate _WithXcr0_WithIbpbEntry_SansIbpbExit_SansSpecCtrl_WithManRet,           1, HM_WSF_IBPB_MAN_RET | HM_WSF_IBPB_ENTRY,                                       0
+hmR0SvmVmRunTemplate _SansXcr0_SansIbpbEntry_WithIbpbExit_SansSpecCtrl_WithManRet,           0, HM_WSF_IBPB_MAN_RET | HM_WSF_IBPB_EXIT,                                        0
+hmR0SvmVmRunTemplate _WithXcr0_SansIbpbEntry_WithIbpbExit_SansSpecCtrl_WithManRet,           1, HM_WSF_IBPB_MAN_RET | HM_WSF_IBPB_EXIT,                                        0
+hmR0SvmVmRunTemplate _SansXcr0_WithIbpbEntry_WithIbpbExit_SansSpecCtrl_WithManRet,           0, HM_WSF_IBPB_MAN_RET | HM_WSF_IBPB_ENTRY | HM_WSF_IBPB_EXIT,                    0
+hmR0SvmVmRunTemplate _WithXcr0_WithIbpbEntry_WithIbpbExit_SansSpecCtrl_WithManRet,           1, HM_WSF_IBPB_MAN_RET | HM_WSF_IBPB_ENTRY | HM_WSF_IBPB_EXIT,                    0
+hmR0SvmVmRunTemplate _SansXcr0_SansIbpbEntry_SansIbpbExit_WithSpecCtrl_WithManRet,           0, HM_WSF_IBPB_MAN_RET | HM_WSF_SPEC_CTRL,                                        0
+hmR0SvmVmRunTemplate _WithXcr0_SansIbpbEntry_SansIbpbExit_WithSpecCtrl_WithManRet,           1, HM_WSF_IBPB_MAN_RET | HM_WSF_SPEC_CTRL,                                        0
+hmR0SvmVmRunTemplate _SansXcr0_WithIbpbEntry_SansIbpbExit_WithSpecCtrl_WithManRet,           0, HM_WSF_IBPB_MAN_RET | HM_WSF_SPEC_CTRL | HM_WSF_IBPB_ENTRY,                    0
+hmR0SvmVmRunTemplate _WithXcr0_WithIbpbEntry_SansIbpbExit_WithSpecCtrl_WithManRet,           1, HM_WSF_IBPB_MAN_RET | HM_WSF_SPEC_CTRL | HM_WSF_IBPB_ENTRY,                    0
+hmR0SvmVmRunTemplate _SansXcr0_SansIbpbEntry_WithIbpbExit_WithSpecCtrl_WithManRet,           0, HM_WSF_IBPB_MAN_RET | HM_WSF_SPEC_CTRL | HM_WSF_IBPB_EXIT,                     0
+hmR0SvmVmRunTemplate _WithXcr0_SansIbpbEntry_WithIbpbExit_WithSpecCtrl_WithManRet,           1, HM_WSF_IBPB_MAN_RET | HM_WSF_SPEC_CTRL | HM_WSF_IBPB_EXIT,                     0
+hmR0SvmVmRunTemplate _SansXcr0_WithIbpbEntry_WithIbpbExit_WithSpecCtrl_WithManRet,           0, HM_WSF_IBPB_MAN_RET | HM_WSF_SPEC_CTRL | HM_WSF_IBPB_ENTRY | HM_WSF_IBPB_EXIT, 0
+hmR0SvmVmRunTemplate _WithXcr0_WithIbpbEntry_WithIbpbExit_WithSpecCtrl_WithManRet,           1, HM_WSF_IBPB_MAN_RET | HM_WSF_SPEC_CTRL | HM_WSF_IBPB_ENTRY | HM_WSF_IBPB_EXIT, 0
 
 %ifdef VBOX_WITH_KERNEL_USING_XMM
-hmR0SvmVmRunTemplate _SansXcr0_SansIbpbEntry_SansIbpbExit_SansSpecCtrl_SseManual, 0, 0,                                                       1
-hmR0SvmVmRunTemplate _WithXcr0_SansIbpbEntry_SansIbpbExit_SansSpecCtrl_SseManual, 1, 0,                                                       1
-hmR0SvmVmRunTemplate _SansXcr0_WithIbpbEntry_SansIbpbExit_SansSpecCtrl_SseManual, 0, HM_WSF_IBPB_ENTRY,                                       1
-hmR0SvmVmRunTemplate _WithXcr0_WithIbpbEntry_SansIbpbExit_SansSpecCtrl_SseManual, 1, HM_WSF_IBPB_ENTRY,                                       1
-hmR0SvmVmRunTemplate _SansXcr0_SansIbpbEntry_WithIbpbExit_SansSpecCtrl_SseManual, 0, HM_WSF_IBPB_EXIT,                                        1
-hmR0SvmVmRunTemplate _WithXcr0_SansIbpbEntry_WithIbpbExit_SansSpecCtrl_SseManual, 1, HM_WSF_IBPB_EXIT,                                        1
-hmR0SvmVmRunTemplate _SansXcr0_WithIbpbEntry_WithIbpbExit_SansSpecCtrl_SseManual, 0, HM_WSF_IBPB_ENTRY | HM_WSF_IBPB_EXIT,                    1
-hmR0SvmVmRunTemplate _WithXcr0_WithIbpbEntry_WithIbpbExit_SansSpecCtrl_SseManual, 1, HM_WSF_IBPB_ENTRY | HM_WSF_IBPB_EXIT,                    1
-hmR0SvmVmRunTemplate _SansXcr0_SansIbpbEntry_SansIbpbExit_WithSpecCtrl_SseManual, 0, HM_WSF_SPEC_CTRL,                                        1
-hmR0SvmVmRunTemplate _WithXcr0_SansIbpbEntry_SansIbpbExit_WithSpecCtrl_SseManual, 1, HM_WSF_SPEC_CTRL,                                        1
-hmR0SvmVmRunTemplate _SansXcr0_WithIbpbEntry_SansIbpbExit_WithSpecCtrl_SseManual, 0, HM_WSF_SPEC_CTRL | HM_WSF_IBPB_ENTRY,                    1
-hmR0SvmVmRunTemplate _WithXcr0_WithIbpbEntry_SansIbpbExit_WithSpecCtrl_SseManual, 1, HM_WSF_SPEC_CTRL | HM_WSF_IBPB_ENTRY,                    1
-hmR0SvmVmRunTemplate _SansXcr0_SansIbpbEntry_WithIbpbExit_WithSpecCtrl_SseManual, 0, HM_WSF_SPEC_CTRL | HM_WSF_IBPB_EXIT,                     1
-hmR0SvmVmRunTemplate _WithXcr0_SansIbpbEntry_WithIbpbExit_WithSpecCtrl_SseManual, 1, HM_WSF_SPEC_CTRL | HM_WSF_IBPB_EXIT,                     1
-hmR0SvmVmRunTemplate _SansXcr0_WithIbpbEntry_WithIbpbExit_WithSpecCtrl_SseManual, 0, HM_WSF_SPEC_CTRL | HM_WSF_IBPB_ENTRY | HM_WSF_IBPB_EXIT, 1
-hmR0SvmVmRunTemplate _WithXcr0_WithIbpbEntry_WithIbpbExit_WithSpecCtrl_SseManual, 1, HM_WSF_SPEC_CTRL | HM_WSF_IBPB_ENTRY | HM_WSF_IBPB_EXIT, 1
+hmR0SvmVmRunTemplate _SansXcr0_SansIbpbEntry_SansIbpbExit_SansSpecCtrl_SansManRet_SseManual, 0, 0,                                                                             1
+hmR0SvmVmRunTemplate _WithXcr0_SansIbpbEntry_SansIbpbExit_SansSpecCtrl_SansManRet_SseManual, 1, 0,                                                                             1
+hmR0SvmVmRunTemplate _SansXcr0_WithIbpbEntry_SansIbpbExit_SansSpecCtrl_SansManRet_SseManual, 0, HM_WSF_IBPB_ENTRY,                                                             1
+hmR0SvmVmRunTemplate _WithXcr0_WithIbpbEntry_SansIbpbExit_SansSpecCtrl_SansManRet_SseManual, 1, HM_WSF_IBPB_ENTRY,                                                             1
+hmR0SvmVmRunTemplate _SansXcr0_SansIbpbEntry_WithIbpbExit_SansSpecCtrl_SansManRet_SseManual, 0, HM_WSF_IBPB_EXIT,                                                              1
+hmR0SvmVmRunTemplate _WithXcr0_SansIbpbEntry_WithIbpbExit_SansSpecCtrl_SansManRet_SseManual, 1, HM_WSF_IBPB_EXIT,                                                              1
+hmR0SvmVmRunTemplate _SansXcr0_WithIbpbEntry_WithIbpbExit_SansSpecCtrl_SansManRet_SseManual, 0, HM_WSF_IBPB_ENTRY | HM_WSF_IBPB_EXIT,                                          1
+hmR0SvmVmRunTemplate _WithXcr0_WithIbpbEntry_WithIbpbExit_SansSpecCtrl_SansManRet_SseManual, 1, HM_WSF_IBPB_ENTRY | HM_WSF_IBPB_EXIT,                                          1
+hmR0SvmVmRunTemplate _SansXcr0_SansIbpbEntry_SansIbpbExit_WithSpecCtrl_SansManRet_SseManual, 0, HM_WSF_SPEC_CTRL,                                                              1
+hmR0SvmVmRunTemplate _WithXcr0_SansIbpbEntry_SansIbpbExit_WithSpecCtrl_SansManRet_SseManual, 1, HM_WSF_SPEC_CTRL,                                                              1
+hmR0SvmVmRunTemplate _SansXcr0_WithIbpbEntry_SansIbpbExit_WithSpecCtrl_SansManRet_SseManual, 0, HM_WSF_SPEC_CTRL | HM_WSF_IBPB_ENTRY,                                          1
+hmR0SvmVmRunTemplate _WithXcr0_WithIbpbEntry_SansIbpbExit_WithSpecCtrl_SansManRet_SseManual, 1, HM_WSF_SPEC_CTRL | HM_WSF_IBPB_ENTRY,                                          1
+hmR0SvmVmRunTemplate _SansXcr0_SansIbpbEntry_WithIbpbExit_WithSpecCtrl_SansManRet_SseManual, 0, HM_WSF_SPEC_CTRL | HM_WSF_IBPB_EXIT,                                           1
+hmR0SvmVmRunTemplate _WithXcr0_SansIbpbEntry_WithIbpbExit_WithSpecCtrl_SansManRet_SseManual, 1, HM_WSF_SPEC_CTRL | HM_WSF_IBPB_EXIT,                                           1
+hmR0SvmVmRunTemplate _SansXcr0_WithIbpbEntry_WithIbpbExit_WithSpecCtrl_SansManRet_SseManual, 0, HM_WSF_SPEC_CTRL | HM_WSF_IBPB_ENTRY | HM_WSF_IBPB_EXIT,                       1
+hmR0SvmVmRunTemplate _WithXcr0_WithIbpbEntry_WithIbpbExit_WithSpecCtrl_SansManRet_SseManual, 1, HM_WSF_SPEC_CTRL | HM_WSF_IBPB_ENTRY | HM_WSF_IBPB_EXIT,                       1
 
-hmR0SvmVmRunTemplate _SansXcr0_SansIbpbEntry_SansIbpbExit_SansSpecCtrl_SseXSave,  0, 0,                                                       2
-hmR0SvmVmRunTemplate _WithXcr0_SansIbpbEntry_SansIbpbExit_SansSpecCtrl_SseXSave,  1, 0,                                                       2
-hmR0SvmVmRunTemplate _SansXcr0_WithIbpbEntry_SansIbpbExit_SansSpecCtrl_SseXSave,  0, HM_WSF_IBPB_ENTRY,                                       2
-hmR0SvmVmRunTemplate _WithXcr0_WithIbpbEntry_SansIbpbExit_SansSpecCtrl_SseXSave,  1, HM_WSF_IBPB_ENTRY,                                       2
-hmR0SvmVmRunTemplate _SansXcr0_SansIbpbEntry_WithIbpbExit_SansSpecCtrl_SseXSave,  0, HM_WSF_IBPB_EXIT,                                        2
-hmR0SvmVmRunTemplate _WithXcr0_SansIbpbEntry_WithIbpbExit_SansSpecCtrl_SseXSave,  1, HM_WSF_IBPB_EXIT,                                        2
-hmR0SvmVmRunTemplate _SansXcr0_WithIbpbEntry_WithIbpbExit_SansSpecCtrl_SseXSave,  0, HM_WSF_IBPB_ENTRY | HM_WSF_IBPB_EXIT,                    2
-hmR0SvmVmRunTemplate _WithXcr0_WithIbpbEntry_WithIbpbExit_SansSpecCtrl_SseXSave,  1, HM_WSF_IBPB_ENTRY | HM_WSF_IBPB_EXIT,                    2
-hmR0SvmVmRunTemplate _SansXcr0_SansIbpbEntry_SansIbpbExit_WithSpecCtrl_SseXSave,  0, HM_WSF_SPEC_CTRL,                                        2
-hmR0SvmVmRunTemplate _WithXcr0_SansIbpbEntry_SansIbpbExit_WithSpecCtrl_SseXSave,  1, HM_WSF_SPEC_CTRL,                                        2
-hmR0SvmVmRunTemplate _SansXcr0_WithIbpbEntry_SansIbpbExit_WithSpecCtrl_SseXSave,  0, HM_WSF_SPEC_CTRL | HM_WSF_IBPB_ENTRY,                    2
-hmR0SvmVmRunTemplate _WithXcr0_WithIbpbEntry_SansIbpbExit_WithSpecCtrl_SseXSave,  1, HM_WSF_SPEC_CTRL | HM_WSF_IBPB_ENTRY,                    2
-hmR0SvmVmRunTemplate _SansXcr0_SansIbpbEntry_WithIbpbExit_WithSpecCtrl_SseXSave,  0, HM_WSF_SPEC_CTRL | HM_WSF_IBPB_EXIT,                     2
-hmR0SvmVmRunTemplate _WithXcr0_SansIbpbEntry_WithIbpbExit_WithSpecCtrl_SseXSave,  1, HM_WSF_SPEC_CTRL | HM_WSF_IBPB_EXIT,                     2
-hmR0SvmVmRunTemplate _SansXcr0_WithIbpbEntry_WithIbpbExit_WithSpecCtrl_SseXSave,  0, HM_WSF_SPEC_CTRL | HM_WSF_IBPB_ENTRY | HM_WSF_IBPB_EXIT, 2
-hmR0SvmVmRunTemplate _WithXcr0_WithIbpbEntry_WithIbpbExit_WithSpecCtrl_SseXSave,  1, HM_WSF_SPEC_CTRL | HM_WSF_IBPB_ENTRY | HM_WSF_IBPB_EXIT, 2
+hmR0SvmVmRunTemplate _SansXcr0_SansIbpbEntry_SansIbpbExit_SansSpecCtrl_WithManRet_SseManual, 0, HM_WSF_IBPB_MAN_RET,                                                           1
+hmR0SvmVmRunTemplate _WithXcr0_SansIbpbEntry_SansIbpbExit_SansSpecCtrl_WithManRet_SseManual, 1, HM_WSF_IBPB_MAN_RET,                                                           1
+hmR0SvmVmRunTemplate _SansXcr0_WithIbpbEntry_SansIbpbExit_SansSpecCtrl_WithManRet_SseManual, 0, HM_WSF_IBPB_MAN_RET | HM_WSF_IBPB_ENTRY,                                       1
+hmR0SvmVmRunTemplate _WithXcr0_WithIbpbEntry_SansIbpbExit_SansSpecCtrl_WithManRet_SseManual, 1, HM_WSF_IBPB_MAN_RET | HM_WSF_IBPB_ENTRY,                                       1
+hmR0SvmVmRunTemplate _SansXcr0_SansIbpbEntry_WithIbpbExit_SansSpecCtrl_WithManRet_SseManual, 0, HM_WSF_IBPB_MAN_RET | HM_WSF_IBPB_EXIT,                                        1
+hmR0SvmVmRunTemplate _WithXcr0_SansIbpbEntry_WithIbpbExit_SansSpecCtrl_WithManRet_SseManual, 1, HM_WSF_IBPB_MAN_RET | HM_WSF_IBPB_EXIT,                                        1
+hmR0SvmVmRunTemplate _SansXcr0_WithIbpbEntry_WithIbpbExit_SansSpecCtrl_WithManRet_SseManual, 0, HM_WSF_IBPB_MAN_RET | HM_WSF_IBPB_ENTRY | HM_WSF_IBPB_EXIT,                    1
+hmR0SvmVmRunTemplate _WithXcr0_WithIbpbEntry_WithIbpbExit_SansSpecCtrl_WithManRet_SseManual, 1, HM_WSF_IBPB_MAN_RET | HM_WSF_IBPB_ENTRY | HM_WSF_IBPB_EXIT,                    1
+hmR0SvmVmRunTemplate _SansXcr0_SansIbpbEntry_SansIbpbExit_WithSpecCtrl_WithManRet_SseManual, 0, HM_WSF_IBPB_MAN_RET | HM_WSF_SPEC_CTRL,                                        1
+hmR0SvmVmRunTemplate _WithXcr0_SansIbpbEntry_SansIbpbExit_WithSpecCtrl_WithManRet_SseManual, 1, HM_WSF_IBPB_MAN_RET | HM_WSF_SPEC_CTRL,                                        1
+hmR0SvmVmRunTemplate _SansXcr0_WithIbpbEntry_SansIbpbExit_WithSpecCtrl_WithManRet_SseManual, 0, HM_WSF_IBPB_MAN_RET | HM_WSF_SPEC_CTRL | HM_WSF_IBPB_ENTRY,                    1
+hmR0SvmVmRunTemplate _WithXcr0_WithIbpbEntry_SansIbpbExit_WithSpecCtrl_WithManRet_SseManual, 1, HM_WSF_IBPB_MAN_RET | HM_WSF_SPEC_CTRL | HM_WSF_IBPB_ENTRY,                    1
+hmR0SvmVmRunTemplate _SansXcr0_SansIbpbEntry_WithIbpbExit_WithSpecCtrl_WithManRet_SseManual, 0, HM_WSF_IBPB_MAN_RET | HM_WSF_SPEC_CTRL | HM_WSF_IBPB_EXIT,                     1
+hmR0SvmVmRunTemplate _WithXcr0_SansIbpbEntry_WithIbpbExit_WithSpecCtrl_WithManRet_SseManual, 1, HM_WSF_IBPB_MAN_RET | HM_WSF_SPEC_CTRL | HM_WSF_IBPB_EXIT,                     1
+hmR0SvmVmRunTemplate _SansXcr0_WithIbpbEntry_WithIbpbExit_WithSpecCtrl_WithManRet_SseManual, 0, HM_WSF_IBPB_MAN_RET | HM_WSF_SPEC_CTRL | HM_WSF_IBPB_ENTRY | HM_WSF_IBPB_EXIT, 1
+hmR0SvmVmRunTemplate _WithXcr0_WithIbpbEntry_WithIbpbExit_WithSpecCtrl_WithManRet_SseManual, 1, HM_WSF_IBPB_MAN_RET | HM_WSF_SPEC_CTRL | HM_WSF_IBPB_ENTRY | HM_WSF_IBPB_EXIT, 1
+
+hmR0SvmVmRunTemplate _SansXcr0_SansIbpbEntry_SansIbpbExit_SansSpecCtrl_SansManRet_SseXSave,  0, 0,                                                                             2
+hmR0SvmVmRunTemplate _WithXcr0_SansIbpbEntry_SansIbpbExit_SansSpecCtrl_SansManRet_SseXSave,  1, 0,                                                                             2
+hmR0SvmVmRunTemplate _SansXcr0_WithIbpbEntry_SansIbpbExit_SansSpecCtrl_SansManRet_SseXSave,  0, HM_WSF_IBPB_ENTRY,                                                             2
+hmR0SvmVmRunTemplate _WithXcr0_WithIbpbEntry_SansIbpbExit_SansSpecCtrl_SansManRet_SseXSave,  1, HM_WSF_IBPB_ENTRY,                                                             2
+hmR0SvmVmRunTemplate _SansXcr0_SansIbpbEntry_WithIbpbExit_SansSpecCtrl_SansManRet_SseXSave,  0, HM_WSF_IBPB_EXIT,                                                              2
+hmR0SvmVmRunTemplate _WithXcr0_SansIbpbEntry_WithIbpbExit_SansSpecCtrl_SansManRet_SseXSave,  1, HM_WSF_IBPB_EXIT,                                                              2
+hmR0SvmVmRunTemplate _SansXcr0_WithIbpbEntry_WithIbpbExit_SansSpecCtrl_SansManRet_SseXSave,  0, HM_WSF_IBPB_ENTRY | HM_WSF_IBPB_EXIT,                                          2
+hmR0SvmVmRunTemplate _WithXcr0_WithIbpbEntry_WithIbpbExit_SansSpecCtrl_SansManRet_SseXSave,  1, HM_WSF_IBPB_ENTRY | HM_WSF_IBPB_EXIT,                                          2
+hmR0SvmVmRunTemplate _SansXcr0_SansIbpbEntry_SansIbpbExit_WithSpecCtrl_SansManRet_SseXSave,  0, HM_WSF_SPEC_CTRL,                                                              2
+hmR0SvmVmRunTemplate _WithXcr0_SansIbpbEntry_SansIbpbExit_WithSpecCtrl_SansManRet_SseXSave,  1, HM_WSF_SPEC_CTRL,                                                              2
+hmR0SvmVmRunTemplate _SansXcr0_WithIbpbEntry_SansIbpbExit_WithSpecCtrl_SansManRet_SseXSave,  0, HM_WSF_SPEC_CTRL | HM_WSF_IBPB_ENTRY,                                          2
+hmR0SvmVmRunTemplate _WithXcr0_WithIbpbEntry_SansIbpbExit_WithSpecCtrl_SansManRet_SseXSave,  1, HM_WSF_SPEC_CTRL | HM_WSF_IBPB_ENTRY,                                          2
+hmR0SvmVmRunTemplate _SansXcr0_SansIbpbEntry_WithIbpbExit_WithSpecCtrl_SansManRet_SseXSave,  0, HM_WSF_SPEC_CTRL | HM_WSF_IBPB_EXIT,                                           2
+hmR0SvmVmRunTemplate _WithXcr0_SansIbpbEntry_WithIbpbExit_WithSpecCtrl_SansManRet_SseXSave,  1, HM_WSF_SPEC_CTRL | HM_WSF_IBPB_EXIT,                                           2
+hmR0SvmVmRunTemplate _SansXcr0_WithIbpbEntry_WithIbpbExit_WithSpecCtrl_SansManRet_SseXSave,  0, HM_WSF_SPEC_CTRL | HM_WSF_IBPB_ENTRY | HM_WSF_IBPB_EXIT,                       2
+hmR0SvmVmRunTemplate _WithXcr0_WithIbpbEntry_WithIbpbExit_WithSpecCtrl_SansManRet_SseXSave,  1, HM_WSF_SPEC_CTRL | HM_WSF_IBPB_ENTRY | HM_WSF_IBPB_EXIT,                       2
+
+hmR0SvmVmRunTemplate _SansXcr0_SansIbpbEntry_SansIbpbExit_SansSpecCtrl_WithManRet_SseXSave,  0, HM_WSF_IBPB_MAN_RET,                                                           2
+hmR0SvmVmRunTemplate _WithXcr0_SansIbpbEntry_SansIbpbExit_SansSpecCtrl_WithManRet_SseXSave,  1, HM_WSF_IBPB_MAN_RET,                                                           2
+hmR0SvmVmRunTemplate _SansXcr0_WithIbpbEntry_SansIbpbExit_SansSpecCtrl_WithManRet_SseXSave,  0, HM_WSF_IBPB_MAN_RET | HM_WSF_IBPB_ENTRY,                                       2
+hmR0SvmVmRunTemplate _WithXcr0_WithIbpbEntry_SansIbpbExit_SansSpecCtrl_WithManRet_SseXSave,  1, HM_WSF_IBPB_MAN_RET | HM_WSF_IBPB_ENTRY,                                       2
+hmR0SvmVmRunTemplate _SansXcr0_SansIbpbEntry_WithIbpbExit_SansSpecCtrl_WithManRet_SseXSave,  0, HM_WSF_IBPB_MAN_RET | HM_WSF_IBPB_EXIT,                                        2
+hmR0SvmVmRunTemplate _WithXcr0_SansIbpbEntry_WithIbpbExit_SansSpecCtrl_WithManRet_SseXSave,  1, HM_WSF_IBPB_MAN_RET | HM_WSF_IBPB_EXIT,                                        2
+hmR0SvmVmRunTemplate _SansXcr0_WithIbpbEntry_WithIbpbExit_SansSpecCtrl_WithManRet_SseXSave,  0, HM_WSF_IBPB_MAN_RET | HM_WSF_IBPB_ENTRY | HM_WSF_IBPB_EXIT,                    2
+hmR0SvmVmRunTemplate _WithXcr0_WithIbpbEntry_WithIbpbExit_SansSpecCtrl_WithManRet_SseXSave,  1, HM_WSF_IBPB_MAN_RET | HM_WSF_IBPB_ENTRY | HM_WSF_IBPB_EXIT,                    2
+hmR0SvmVmRunTemplate _SansXcr0_SansIbpbEntry_SansIbpbExit_WithSpecCtrl_WithManRet_SseXSave,  0, HM_WSF_IBPB_MAN_RET | HM_WSF_SPEC_CTRL,                                        2
+hmR0SvmVmRunTemplate _WithXcr0_SansIbpbEntry_SansIbpbExit_WithSpecCtrl_WithManRet_SseXSave,  1, HM_WSF_IBPB_MAN_RET | HM_WSF_SPEC_CTRL,                                        2
+hmR0SvmVmRunTemplate _SansXcr0_WithIbpbEntry_SansIbpbExit_WithSpecCtrl_WithManRet_SseXSave,  0, HM_WSF_IBPB_MAN_RET | HM_WSF_SPEC_CTRL | HM_WSF_IBPB_ENTRY,                    2
+hmR0SvmVmRunTemplate _WithXcr0_WithIbpbEntry_SansIbpbExit_WithSpecCtrl_WithManRet_SseXSave,  1, HM_WSF_IBPB_MAN_RET | HM_WSF_SPEC_CTRL | HM_WSF_IBPB_ENTRY,                    2
+hmR0SvmVmRunTemplate _SansXcr0_SansIbpbEntry_WithIbpbExit_WithSpecCtrl_WithManRet_SseXSave,  0, HM_WSF_IBPB_MAN_RET | HM_WSF_SPEC_CTRL | HM_WSF_IBPB_EXIT,                     2
+hmR0SvmVmRunTemplate _WithXcr0_SansIbpbEntry_WithIbpbExit_WithSpecCtrl_WithManRet_SseXSave,  1, HM_WSF_IBPB_MAN_RET | HM_WSF_SPEC_CTRL | HM_WSF_IBPB_EXIT,                     2
+hmR0SvmVmRunTemplate _SansXcr0_WithIbpbEntry_WithIbpbExit_WithSpecCtrl_WithManRet_SseXSave,  0, HM_WSF_IBPB_MAN_RET | HM_WSF_SPEC_CTRL | HM_WSF_IBPB_ENTRY | HM_WSF_IBPB_EXIT, 2
+hmR0SvmVmRunTemplate _WithXcr0_WithIbpbEntry_WithIbpbExit_WithSpecCtrl_WithManRet_SseXSave,  1, HM_WSF_IBPB_MAN_RET | HM_WSF_SPEC_CTRL | HM_WSF_IBPB_ENTRY | HM_WSF_IBPB_EXIT, 2
 %endif
+
+MARK_OBJECT_RETPOLINE_SAFE

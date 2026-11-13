@@ -94,8 +94,9 @@
  *  Operates on the VBOX_SHCL_TRANSFERS_XXX defines.
  * @since   6.1  */
 #define VBOX_SHCL_HOST_FN_SET_TRANSFER_MODE  2
-/** Deprecated for > 7.2: Run headless on the host, i.e. do not touch the host clipboard.
- *  Kept for compatibility with older Guest Additions and legacy service clients. */
+/** Legacy request to suppress host clipboard access.
+ * @deprecated No longer implemented; retained for protocol and source
+ *             compatibility. Function number 3 must not be reused. */
 #define VBOX_SHCL_HOST_FN_SET_HEADLESS       3
 
 /** Reports cancellation of the current operation to the guest.
@@ -260,6 +261,7 @@
  * @retval  VERR_INVALID_CLIENT_ID
  * @retval  VERR_WRONG_PARAMETER_COUNT
  * @retval  VERR_WRONG_PARAMETER_TYPE
+ * @retval  VERR_INVALID_FLAGS if the format mask contains unknown bits.
  * @retval  VERR_NOT_SUPPORTED if all the formats are unsupported, host
  *          clipboard will be empty.
  * @retval  VERR_ACCESS_DENIED if the clipboard mode is not bi-directional or
@@ -691,6 +693,104 @@
 /** @} */
 
 
+/**
+ * Translates a Shared Clipboard host function number to a string.
+ *
+ * @returns Function ID string name.
+ * @param   uFn                 The function to translate.
+ */
+DECLINLINE(const char *) ShClSvcHostFunctionToStr(uint32_t uFn)
+{
+    switch (uFn)
+    {
+        RT_CASE_RET_STR(VBOX_SHCL_HOST_FN_SET_MODE);
+        RT_CASE_RET_STR(VBOX_SHCL_HOST_FN_SET_TRANSFER_MODE);
+        RT_CASE_RET_STR(VBOX_SHCL_HOST_FN_SET_HEADLESS);
+        RT_CASE_RET_STR(VBOX_SHCL_HOST_FN_CANCEL);
+        RT_CASE_RET_STR(VBOX_SHCL_HOST_FN_ERROR);
+    }
+    return "Unknown";
+}
+
+/**
+ * Translates a Shared Clipboard host message enum to a string.
+ *
+ * @returns Message ID string name.
+ * @param   uMsg                The message to translate.
+ */
+DECLINLINE(const char *) ShClSvcHostMsgToStr(uint32_t uMsg)
+{
+    switch (uMsg)
+    {
+        RT_CASE_RET_STR(VBOX_SHCL_HOST_MSG_QUIT);
+        RT_CASE_RET_STR(VBOX_SHCL_HOST_MSG_READ_DATA);
+        RT_CASE_RET_STR(VBOX_SHCL_HOST_MSG_FORMATS_REPORT);
+        RT_CASE_RET_STR(VBOX_SHCL_HOST_MSG_CANCELED);
+        RT_CASE_RET_STR(VBOX_SHCL_HOST_MSG_READ_DATA_CID);
+        RT_CASE_RET_STR(VBOX_SHCL_HOST_MSG_TRANSFER_STATUS);
+        RT_CASE_RET_STR(VBOX_SHCL_HOST_MSG_TRANSFER_ROOT_LIST_HDR_READ);
+        RT_CASE_RET_STR(VBOX_SHCL_HOST_MSG_TRANSFER_ROOT_LIST_HDR_WRITE);
+        RT_CASE_RET_STR(VBOX_SHCL_HOST_MSG_TRANSFER_ROOT_LIST_ENTRY_READ);
+        RT_CASE_RET_STR(VBOX_SHCL_HOST_MSG_TRANSFER_ROOT_LIST_ENTRY_WRITE);
+        RT_CASE_RET_STR(VBOX_SHCL_HOST_MSG_TRANSFER_LIST_OPEN);
+        RT_CASE_RET_STR(VBOX_SHCL_HOST_MSG_TRANSFER_LIST_CLOSE);
+        RT_CASE_RET_STR(VBOX_SHCL_HOST_MSG_TRANSFER_LIST_HDR_READ);
+        RT_CASE_RET_STR(VBOX_SHCL_HOST_MSG_TRANSFER_LIST_HDR_WRITE);
+        RT_CASE_RET_STR(VBOX_SHCL_HOST_MSG_TRANSFER_LIST_ENTRY_READ);
+        RT_CASE_RET_STR(VBOX_SHCL_HOST_MSG_TRANSFER_LIST_ENTRY_WRITE);
+        RT_CASE_RET_STR(VBOX_SHCL_HOST_MSG_TRANSFER_OBJ_OPEN);
+        RT_CASE_RET_STR(VBOX_SHCL_HOST_MSG_TRANSFER_OBJ_CLOSE);
+        RT_CASE_RET_STR(VBOX_SHCL_HOST_MSG_TRANSFER_OBJ_READ);
+        RT_CASE_RET_STR(VBOX_SHCL_HOST_MSG_TRANSFER_OBJ_WRITE);
+        RT_CASE_RET_STR(VBOX_SHCL_HOST_MSG_TRANSFER_CANCEL);
+        RT_CASE_RET_STR(VBOX_SHCL_HOST_MSG_TRANSFER_ERROR);
+    }
+    return "Unknown";
+}
+
+/**
+ * Translates a Shared Clipboard guest message enum to a string.
+ *
+ * @returns Message ID string name.
+ * @param   uMsg                The message to translate.
+ */
+DECLINLINE(const char *) ShClSvcGuestMsgToStr(uint32_t uMsg)
+{
+    switch (uMsg)
+    {
+        RT_CASE_RET_STR(VBOX_SHCL_GUEST_FN_MSG_OLD_GET_WAIT);
+        RT_CASE_RET_STR(VBOX_SHCL_GUEST_FN_REPORT_FORMATS);
+        RT_CASE_RET_STR(VBOX_SHCL_GUEST_FN_DATA_READ);
+        RT_CASE_RET_STR(VBOX_SHCL_GUEST_FN_DATA_WRITE);
+        RT_CASE_RET_STR(VBOX_SHCL_GUEST_FN_CONNECT);
+        RT_CASE_RET_STR(VBOX_SHCL_GUEST_FN_REPORT_FEATURES);
+        RT_CASE_RET_STR(VBOX_SHCL_GUEST_FN_QUERY_FEATURES);
+        RT_CASE_RET_STR(VBOX_SHCL_GUEST_FN_MSG_PEEK_NOWAIT);
+        RT_CASE_RET_STR(VBOX_SHCL_GUEST_FN_MSG_PEEK_WAIT);
+        RT_CASE_RET_STR(VBOX_SHCL_GUEST_FN_MSG_GET);
+        RT_CASE_RET_STR(VBOX_SHCL_GUEST_FN_MSG_CANCEL);
+        RT_CASE_RET_STR(VBOX_SHCL_GUEST_FN_REPLY);
+        RT_CASE_RET_STR(VBOX_SHCL_GUEST_FN_ROOT_LIST_HDR_READ);
+        RT_CASE_RET_STR(VBOX_SHCL_GUEST_FN_ROOT_LIST_HDR_WRITE);
+        RT_CASE_RET_STR(VBOX_SHCL_GUEST_FN_ROOT_LIST_ENTRY_READ);
+        RT_CASE_RET_STR(VBOX_SHCL_GUEST_FN_ROOT_LIST_ENTRY_WRITE);
+        RT_CASE_RET_STR(VBOX_SHCL_GUEST_FN_LIST_OPEN);
+        RT_CASE_RET_STR(VBOX_SHCL_GUEST_FN_LIST_CLOSE);
+        RT_CASE_RET_STR(VBOX_SHCL_GUEST_FN_LIST_HDR_READ);
+        RT_CASE_RET_STR(VBOX_SHCL_GUEST_FN_LIST_HDR_WRITE);
+        RT_CASE_RET_STR(VBOX_SHCL_GUEST_FN_LIST_ENTRY_READ);
+        RT_CASE_RET_STR(VBOX_SHCL_GUEST_FN_LIST_ENTRY_WRITE);
+        RT_CASE_RET_STR(VBOX_SHCL_GUEST_FN_OBJ_OPEN);
+        RT_CASE_RET_STR(VBOX_SHCL_GUEST_FN_OBJ_CLOSE);
+        RT_CASE_RET_STR(VBOX_SHCL_GUEST_FN_OBJ_READ);
+        RT_CASE_RET_STR(VBOX_SHCL_GUEST_FN_OBJ_WRITE);
+        RT_CASE_RET_STR(VBOX_SHCL_GUEST_FN_ERROR);
+        RT_CASE_RET_STR(VBOX_SHCL_GUEST_FN_NEGOTIATE_CHUNK_SIZE);
+    }
+    return "Unknown";
+}
+
+
 /*
  * HGCM parameter structures.
  */
@@ -784,7 +884,7 @@ typedef struct _VBoxShClTransferStatusMsg
 
     /** uint64_t, out: Context ID. */
     HGCMFunctionParameter uContext;
-    /** uint32_t, out: Direction of transfer; of type SHCLTRANSFERDIR_. */
+    /** uint32_t, out: Absolute guest/host transfer direction; of type SHCLTRANSFERDIR_. */
     HGCMFunctionParameter enmDir;
     /** uint32_t, out: Status to report; of type SHCLTRANSFERSTATUS_. */
     HGCMFunctionParameter enmStatus;
@@ -1249,4 +1349,3 @@ typedef struct _VBoxShClParmNegotiateChunkSize
 #pragma pack()
 
 #endif /* !VBOX_INCLUDED_HostServices_VBoxClipboardSvc_h */
-

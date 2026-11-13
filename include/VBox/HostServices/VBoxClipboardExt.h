@@ -41,16 +41,129 @@
 
 #include <VBox/types.h>
 #include <VBox/GuestHost/SharedClipboard.h>
-#include <VBox/HostServices/VBoxSharedClipboardSvc.h>
 #ifdef VBOX_WITH_SHARED_CLIPBOARD_TRANSFERS
 # include <VBox/GuestHost/SharedClipboard-transfers.h>
 #endif
 
-/** Sets (or unsets) a clipboard extension callback. */
+/** Opaque declaration of an HGCM Shared Clipboard client. */
+typedef struct SHCLCLIENT SHCLCLIENT, *PSHCLCLIENT;
+/** Opaque declaration of a Shared Clipboard transfer. */
+typedef struct SHCLTRANSFER *PSHCLTRANSFER;
+/** Opaque identity of a client owned exclusively by the HGCM service. */
+typedef struct SHCLCLIENTOPAQUE *SHCLCLIENTHANDLE;
+
+struct SHCLTRANSPORT;
+typedef struct SHCLTRANSPORT SHCLTRANSPORT;
+typedef SHCLTRANSPORT *PSHCLTRANSPORT;
+typedef SHCLTRANSPORT const *PCSHCLTRANSPORT;
+
+/** Operations implemented by the HGCM service for an opaque client. */
+typedef struct SHCLSVCOPS
+{
+    /** Size of this operation table. */
+    uint32_t                    cbStruct;
+    /** Applies service transfer policy and compatibility rules to a format mask. */
+    DECLCALLBACKMEMBER(int, pfnFilterFormats, (SHCLCLIENTHANDLE hClient, bool fHostToGuest,
+                                               SHCLFORMATS fFormats, SHCLFORMATS *pfFiltered));
+    /** Queues a format announcement for the guest, or returns VINF_NO_CHANGE if policy suppresses it. */
+    DECLCALLBACKMEMBER(int, pfnReportFormatsToGuest, (SHCLCLIENTHANDLE hClient, SHCLFORMATS fFormats,
+                                                      SHCLFORMATS *pfReported));
+    /** Queues guest data reads without waiting. */
+    DECLCALLBACKMEMBER(int, pfnReadDataFromGuestAsync, (SHCLCLIENTHANDLE hClient, SHCLFORMATS fFormats,
+                                                        PSHCLEVENT *ppEvent));
+    /** Reads and waits for one guest clipboard format. */
+    DECLCALLBACKMEMBER(int, pfnReadDataFromGuest, (SHCLCLIENTHANDLE hClient, SHCLFORMAT uFormat,
+                                                   void **ppvData, uint32_t *pcbData));
+#ifdef VBOX_WITH_SHARED_CLIPBOARD_TRANSFERS
+    /** Retains a transfer selected by ID. */
+    DECLCALLBACKMEMBER(PSHCLTRANSFER, pfnTransferGetByIdRetained, (SHCLCLIENTHANDLE hClient,
+                                                                  SHCLTRANSFERID idTransfer));
+    /** Retains a transfer selected by its full generation key. */
+    DECLCALLBACKMEMBER(PSHCLTRANSFER, pfnTransferGetByKeyRetained, (SHCLCLIENTHANDLE hClient,
+                                                                   PCSHCLTRANSFERKEY pKey));
+    /** Creates and retains a service-owned transfer. */
+    DECLCALLBACKMEMBER(int, pfnTransferCreate, (SHCLCLIENTHANDLE hClient, SHCLTRANSFERDIR enmDir,
+                                                SHCLSOURCE enmSource, PSHCLTRANSFERCALLBACKS pCallbacks,
+                                                SHCLTRANSFERID idTransfer, PSHCLTRANSFER *ppTransfer));
+    /** Initializes a service-owned transfer. */
+    DECLCALLBACKMEMBER(int, pfnTransferInit, (SHCLCLIENTHANDLE hClient, PSHCLTRANSFER pTransfer));
+    /**
+     * Reports a host-side transfer terminal status without destroying it.
+     *
+     * @retval  VERR_INVALID_POINTER    if @a hClient or @a pTransfer is NULL.
+     * @retval  VERR_INVALID_PARAMETER  if @a enmStatus or @a rcStatus is invalid.
+     * @retval  VERR_WRONG_ORDER        if @a pTransfer has not entered @a enmStatus.
+     * @retval  VERR_INVALID_CONTEXT    if @a pTransfer is not registered with @a hClient.
+     * @returns                         Status from queuing the terminal status for the guest.
+     * @param   hClient                 Opaque service client owning the transfer.
+     * @param   pTransfer               Transfer whose terminal state is being reported.
+     * @param   enmStatus               Terminal transfer status.
+     * @param   rcStatus                Status-specific result code.
+     * @param   pszPath                 Optional failing transfer-relative path.
+     */
+    DECLCALLBACKMEMBER(int, pfnTransferReportStatus, (SHCLCLIENTHANDLE hClient, PSHCLTRANSFER pTransfer,
+                                                      SHCLTRANSFERSTATUS enmStatus, int rcStatus, const char *pszPath));
+    /** Destroys a transfer selected by ID. */
+    DECLCALLBACKMEMBER(void, pfnTransferDestroyById, (SHCLCLIENTHANDLE hClient, SHCLTRANSFERID idTransfer));
+    /** Destroys all transfers for a disconnecting client. */
+    DECLCALLBACKMEMBER(void, pfnTransferDestroyAll, (SHCLCLIENTHANDLE hClient));
+    /** Initializes a guest-facing provider without exposing the service client. */
+    DECLCALLBACKMEMBER(int, pfnTransferProviderInitGuest, (SHCLCLIENTHANDLE hClient, PSHCLTXPROVIDER pProvider));
+#endif
+} SHCLSVCOPS;
+/** Pointer to a const service operation table. */
+typedef SHCLSVCOPS const *PCSHCLSVCOPS;
+
+/**
+ * Non-owning transport value passed to Main instead of the service client.
+ *
+ * The service owns both referenced values from the successful backend-connect
+ * callback through the matching backend-disconnect callback.  Operations are
+ * synchronous and must not retain either value beyond the call.
+ */
+struct SHCLTRANSPORT
+{
+    /** Opaque service-owned client identity. */
+    SHCLCLIENTHANDLE            hClient;
+    /** Immutable service operation table. */
+    PCSHCLSVCOPS                pOps;
+};
+
+/**
+ * Checks whether a transport references a service client and operation table.
+ *
+ * @returns true if @a pTransport is structurally valid, false otherwise.
+ * @param   pTransport          Transport to validate.  May be NULL.
+ */
+DECLINLINE(bool) ShClTransportIsValid(PCSHCLTRANSPORT pTransport)
+{
+    return    pTransport != NULL
+           && pTransport->hClient != NULL
+           && pTransport->pOps != NULL
+           && pTransport->pOps->cbStruct == sizeof(*pTransport->pOps);
+}
+
+/**
+ * Checks whether two transport values identify the same service endpoint.
+ *
+ * @returns true if both transports are valid and identify the same client and
+ *          operation table, false otherwise.
+ * @param   pLeft               First transport to compare.
+ * @param   pRight              Second transport to compare.
+ */
+DECLINLINE(bool) ShClTransportIsEqual(PCSHCLTRANSPORT pLeft, PCSHCLTRANSPORT pRight)
+{
+    return    ShClTransportIsValid(pLeft)
+           && ShClTransportIsValid(pRight)
+           && pLeft->hClient == pRight->hClient
+           && pLeft->pOps == pRight->pOps;
+}
+
+/** Reserved.  Formerly installed a reverse callback into the HGCM service. */
 #define VBOX_CLIPBOARD_EXT_FN_SET_CALLBACK               (0)
 /** The guest reports clipboard formats to the extension. */
 #define VBOX_CLIPBOARD_EXT_FN_FORMAT_REPORT_TO_HOST      (1)
-/** The clipboard service wants to report formats to the guest. */
+/** Reserved.  Formerly bounced remote format reports back through the service. */
 #define VBOX_CLIPBOARD_EXT_FN_FORMAT_REPORT_TO_GUEST     (2)
 /** The clipboard service requests clipboard data from the extension. */
 #define VBOX_CLIPBOARD_EXT_FN_DATA_READ                  (3)
@@ -68,68 +181,151 @@
 #define VBOX_CLIPBOARD_EXT_FN_BACKEND_DISCONNECT         (9)
 /** The clipboard service syncs with the backend. */
 #define VBOX_CLIPBOARD_EXT_FN_BACKEND_SYNC               (10)
-/** The clipboard service requests clipboard data from the extension. */
+/** Reserved.  Formerly bounced VRDE guest-data reads back through the service. */
 #define VBOX_CLIPBOARD_EXT_FN_DATA_READ_VRDE             (11)
-/** The clipboard service initiates the transfer of a file from the guest. */
+/** The clipboard service reports an immutable file-transfer status snapshot. */
 #define VBOX_CLIPBOARD_EXT_FN_FILE_TRANSFER              (12)
+/** The clipboard service reports exact aggregate file-transfer progress. */
+#define VBOX_CLIPBOARD_EXT_FN_FILE_TRANSFER_PROGRESS     (13)
+/** The clipboard service requests the native transfer callback table. */
+#define VBOX_CLIPBOARD_EXT_FN_TRANSFER_CALLBACKS         (14)
+/** The clipboard service resets all file-transfer state for one transport. */
+#define VBOX_CLIPBOARD_EXT_FN_FILE_TRANSFER_RESET        (15)
 
 typedef DECLCALLBACKTYPE(int, FNSHCLEXTCALLBACK,(uint32_t u32Function, uint32_t u32Format, void *pvData, uint32_t cbData));
 typedef FNSHCLEXTCALLBACK *PFNSHCLEXTCALLBACK;
 
-/**
- * Structure for holding Shared Clipboard service extension parameters.
- */
-typedef struct _SHCLEXTPARMS
+/** Structure for holding Shared Clipboard service extension parameters. */
+typedef struct SHCLEXTPARMS
 {
+    /** Operation-specific payload selected by the VBOX_CLIPBOARD_EXT_FN_XXX function number. */
     union
     {
         /** Reports clipboard formats. */
         struct
         {
+            /** Bit mask of reported Shared Clipboard formats. */
             SHCLFORMATS             uFormats;
+            /** Service client associated with the report; valid only during the callback. */
             PSHCLCLIENT             pClient;
+            /** Reserved source tag; currently must be SHCLSOURCE_INVALID. */
             SHCLSOURCE              enmSource;
         } ReportFormats;
         /** Reads / writes clipboard data. */
         struct
         {
+            /** Shared Clipboard format of the data. */
             SHCLFORMAT              uFormat;
+            /** Caller-owned data buffer, valid only during the callback. */
             void                   *pvData;
+            /** Size of @a pvData in bytes. */
             uint32_t                cbData;
+            /** Actual data size in bytes, returned by a read operation. */
             uint32_t                cbActual;
+            /** Service client associated with the operation; valid only during the callback. */
             PSHCLCLIENT             pClient;
-            PSHCLBACKEND            pBackend;
-            VBOXHGCMSVCFNTABLE     *pTable;
-            PSHCLCLIENTCMDCTX       pCmdCtx;
+            /** Reserved transport client handle; use ShClSvcExtGetTransport(). */
+            void                   *pvReserved0;
+            /** Reserved transport operation table; use ShClSvcExtGetTransport(). */
+            void                   *pvReserved1;
+            /** Legacy headless-mode flag; currently unused. */
             bool                    fHeadless;
         } ReadWriteData;
         /** Sets a read / write callback. */
         struct
         {
-            PFNSHCLEXTCALLBACK
-                                    pfnCallback;
+            /** Legacy reverse callback; retained for the reserved function number. */
+            PFNSHCLEXTCALLBACK      pfnCallback;
         } SetCallback;
         /** Reports a clipboard error. */
         struct
         {
-            /** Clipboard ID. Optional and can be NULL. */
+            /** Optional UTF-8 error identifier. */
             char                   *pszId;
-            /** User friendly error message. */
+            /** UTF-8 error message. */
             char                   *pszMsg;
-            /** IPRT-style error code. */
+            /** Failing VBox status code. */
             int                     rc;
         } Error;
-        /** Sends / receives clipboard files */
+#ifdef VBOX_WITH_SHARED_CLIPBOARD_TRANSFERS
+        /** Reports an immutable file-transfer status snapshot to Main. */
         struct
         {
-            PSHCLCLIENT             pClient;
-            PSHCLTRANSFER           pTransfer;
-            SHCLSOURCE              enmShClSource;
-            PSHCLREPLY              pReply;
+            /** Service transport associated with the transfer. */
+            SHCLTRANSPORT            Transport;
+            /** Host-side transfer identity. */
+            SHCLTRANSFERKEY          Key;
+            /** Transfer direction. */
+            SHCLTRANSFERDIR          enmDir;
+            /** Endpoint which owns the transferred data. */
+            SHCLSOURCE               enmTransferSource;
+            /** Endpoint which reported @a enmStatus. */
+            SHCLSOURCE               enmReplySource;
+            /** Transfer lifecycle status. */
+            SHCLTRANSFERSTATUS       enmStatus;
+            /** Status-specific VBox result code. */
+            int                      rcStatus;
+            /** Optional callback-scoped failing transfer-relative path. */
+            const char              *pszPath;
         } FileTransferData;
+        /** Reports exact aggregate file-transfer progress to Main. */
+        struct
+        {
+            /** Service transport associated with the transfer. */
+            SHCLTRANSPORT            Transport;
+            /** Host-side transfer identity. */
+            SHCLTRANSFERKEY          Key;
+            /** Aggregate payload bytes processed. */
+            uint64_t                 cbProcessed;
+            /** Total aggregate payload bytes. */
+            uint64_t                 cbTotal;
+        } FileTransferProgress;
+        /** Resets all file-transfer state associated with a service transport. */
+        struct
+        {
+            /** Service transport whose file-transfer state must be reset. */
+            SHCLTRANSPORT            Transport;
+        } FileTransferReset;
+        /** Queries Main for callbacks to attach to a new transfer. */
+        struct
+        {
+            /** Service client requesting the callback table; valid only during the callback. */
+            PSHCLCLIENT             pClient;
+            /** Caller-owned output callback table. */
+            PSHCLTRANSFERCALLBACKS  pCallbacks;
+        } TransferCallbacks;
+#endif
     } u;
 } SHCLEXTPARMS;
 /** Pointer to Shared Clipboard service extension parameters. */
 typedef SHCLEXTPARMS *PSHCLEXTPARMS;
+/** Pointer to const Shared Clipboard service extension parameters. */
+typedef SHCLEXTPARMS const *PCSHCLEXTPARMS;
+
+/**
+ * Stores an opaque service transport in the reserved extension parameter slots.
+ *
+ * @param   pParms              Extension parameter block to update.
+ * @param   pTransport          Transport value to store.
+ */
+DECLINLINE(void) ShClSvcExtSetTransport(PSHCLEXTPARMS pParms, PCSHCLTRANSPORT pTransport)
+{
+    pParms->u.ReadWriteData.pvReserved0 = (void *)pTransport->hClient;
+    pParms->u.ReadWriteData.pvReserved1 = (void *)pTransport->pOps;
+}
+
+/**
+ * Gets the opaque service transport stored in the reserved parameter slots.
+ *
+ * @returns Stored transport value.  Use ShClTransportIsValid() before use.
+ * @param   pParms              Extension parameter block containing the transport.
+ */
+DECLINLINE(SHCLTRANSPORT) ShClSvcExtGetTransport(PCSHCLEXTPARMS pParms)
+{
+    SHCLTRANSPORT Transport;
+    Transport.hClient = (SHCLCLIENTHANDLE)pParms->u.ReadWriteData.pvReserved0;
+    Transport.pOps    = (PCSHCLSVCOPS)pParms->u.ReadWriteData.pvReserved1;
+    return Transport;
+}
 
 #endif /* !VBOX_INCLUDED_HostServices_VBoxClipboardExt_h */

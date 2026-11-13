@@ -1,4 +1,4 @@
-/* $Id: ClipboardTransferImpl.cpp 114858 2026-08-05 15:08:05Z andreas.loeffler@oracle.com $ */
+/* $Id: ClipboardTransferImpl.cpp 115134 2026-08-27 15:09:45Z andreas.loeffler@oracle.com $ */
 /** @file
  * VirtualBox Main - Clipboard transfer object.
  */
@@ -101,9 +101,9 @@ static ClipboardTransferDirection_T clipboardTransferDirectionFromShCl(SHCLTRANS
 {
     switch (enmDir)
     {
-        case SHCLTRANSFERDIR_TO_REMOTE:   return ClipboardTransferDirection_ToGuest;
-        case SHCLTRANSFERDIR_FROM_REMOTE: return ClipboardTransferDirection_ToHost;
-        default:                          return ClipboardTransferDirection_Any;
+        case SHCLTRANSFERDIR_HOST_TO_GUEST: return ClipboardTransferDirection_ToGuest;
+        case SHCLTRANSFERDIR_GUEST_TO_HOST: return ClipboardTransferDirection_ToHost;
+        default:                            return ClipboardTransferDirection_Any;
     }
 }
 
@@ -229,7 +229,7 @@ static HRESULT clipboardTransferCreateLocalProviderBackend(const std::vector<com
     }
 
     PSHCLTRANSFER pTransfer = NULL;
-    int vrc = ShClTransferCreateEx(SHCLTRANSFERDIR_TO_REMOTE, SHCLSOURCE_LOCAL,
+    int vrc = ShClTransferCreateEx(SHCLTRANSFERDIR_HOST_TO_GUEST, SHCLSOURCE_LOCAL,
                                    SHCL_TRANSFER_DEFAULT_MAX_CHUNK_SIZE,
                                    SHCL_TRANSFER_DEFAULT_MAX_LIST_HANDLES,
                                    SHCL_TRANSFER_DEFAULT_MAX_OBJ_HANDLES,
@@ -454,11 +454,6 @@ void ClipboardTransfer::FinalRelease()
  * @param   aAction         Clipboard transfer action.
  * @param   aItem           Clipboard item being transferred.
  * @param   aProgress       Progress object for the transfer.
- * @param   aTransfer       Optional Shared Clipboard transfer backing the data
- *                          plane.  If @a fOwnTransfer is false, this method
- *                          borrows the transfer for the lifetime of this object.
- * @param   fOwnTransfer    Whether to take ownership of @a aTransfer and
- *                          destroy it during uninitialization.
  */
 HRESULT ClipboardTransfer::init(ULONG aId,
                                 ClipboardTransferDirection_T aDirection,
@@ -582,9 +577,9 @@ PSHCLTRANSFER ClipboardTransfer::i_getTransfer() const
 /**
  * Updates the public transfer state fields.
  *
- * @param   aState          New public transfer state.
- * @param   aMessage        Optional transfer status message.
- * @param   aError          Transfer error code.
+ * @param   aState              New public transfer state.
+ * @param   aMessage            Optional transfer status message.
+ * @param   aError              Transfer error code.
  */
 void ClipboardTransfer::i_setState(ClipboardTransferState_T aState,
                                    const com::Utf8Str &aMessage,
@@ -592,7 +587,8 @@ void ClipboardTransfer::i_setState(ClipboardTransferState_T aState,
 {
     AutoWriteLock alock(this COMMA_LOCKVAL_SRC_POS);
     mData.mState = aState;
-    mData.mMessage = aMessage;
+    mData.mMessage.setNull();
+    mData.mMessage.assignNoThrow(aMessage);
     mData.mError = aError;
 }
 

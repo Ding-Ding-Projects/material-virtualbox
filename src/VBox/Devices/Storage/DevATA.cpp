@@ -1,4 +1,4 @@
-/* $Id: DevATA.cpp 112403 2026-01-11 19:29:08Z knut.osmundsen@oracle.com $ */
+/* $Id: DevATA.cpp 115192 2026-09-08 09:56:32Z michal.necasek@oracle.com $ */
 /** @file
  * VBox storage devices: ATA/ATAPI controller device (disk and cdrom).
  */

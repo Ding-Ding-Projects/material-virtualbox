@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-# $Id: tdUnitTest1.py 113466 2026-03-19 12:10:45Z brent.paulson@oracle.com $
+# $Id: tdUnitTest1.py 115296 2026-09-22 06:31:42Z knut.osmundsen@oracle.com $
 
 """
 VirtualBox Validation Kit - Unit Tests.
@@ -37,13 +37,14 @@ terms and conditions of either the GPL or the CDDL or both.
 
 SPDX-License-Identifier: GPL-3.0-only OR CDDL-1.0
 """
-__version__ = "$Revision: 113466 $"
+__version__ = "$Revision: 115296 $"
 
 
 # Standard Python imports.
 import os
 import sys
 import re
+from ctypes import util as ct_util;
 
 
 # Only the main script needs to modify the path.
@@ -160,7 +161,6 @@ class tdUnitTest1(vbox.TestDriver):
         'testcase/tstClipboardX11Smoke': '',            # (Old naming, deprecated) Needs X, not available on all test boxes.
         'testcase/tstClipboardGH-X11Smoke': '',         # (New name) Ditto.
         'testcase/tstClipboardHttpServerX11': '',       # Ditto.
-        'testcase/tstClipboardMockHGCM': '',            # Ditto.
         'tstClipboardQt': '',                           # Is interactive and needs Qt, needed for Qt clipboard bugfixing.
         'testcase/tstClipboardQt': '',                  # In case it moves here.
         'tstDragAndDropQt': '',                         # Is interactive and needs Qt, needed for Qt drag'n drop bugfixing.
@@ -265,7 +265,12 @@ class tdUnitTest1(vbox.TestDriver):
         'testcase/tstVMMR0CallHost-1': '',              # Triggers a stack overflow error on linux.amd64
         'testcase/tstRTProcCreateEx' : '',              # Triggers on some linux hosts where a PAM module probably
                                                         # introduces a memory leak.
-    }
+    };
+
+    ## List of testcases that requires X11 and Xt.
+    kdTestCasesNeedingX11AndXt = {
+        'testcase/tstClipboardMockHGCM': '',            # 7.2 and earlier.
+    };
 
     # Suffix exclude list.
     kasSuffixBlackList = [
@@ -302,7 +307,6 @@ class tdUnitTest1(vbox.TestDriver):
     kdTestCasesWhiteList = {
         'testcase/tstFile': '',
         'testcase/tstFileLock': '',
-        'testcase/tstClipboardMockHGCM': '',            # Requires X on Linux OSes. Execute on remote targets only (guests).
         'testcase/tstRTFsQueries': '',
         'testcase/tstRTLocalIpc': '',
         'testcase/tstRTPathQueryInfo': '',
@@ -1231,11 +1235,16 @@ class tdUnitTest1(vbox.TestDriver):
             oDevNull = None;
 
         # Determin the host OS specific exclusion lists.
-        dTestCasesBuggyForHostOs = self.kdTestCasesBuggyPerOs.get(utils.getHostOs(), []);
+        sHostOs = utils.getHostOs();
+        dTestCasesBuggyForHostOs = self.kdTestCasesBuggyPerOs.get(sHostOs, []);
         dTestCasesBuggyForHostOs.update(self.kdTestCasesBuggyPerOs.get(utils.getHostOsDotArch(), []));
 
-        ## @todo Add filtering for more specific OSes (like OL server, doesn't have X installed) by adding a separate
-        #        black list + using utils.getHostOsVersion().
+        # Exclude because of missing library.
+        ## @todo make this more flexible...
+        dTestCaseMissingDep = {};
+        if not self.isRemoteMode() and sHostOs not in ('freebsd', 'os2', 'win',):
+            if not ct_util.find_library('X11') or not ct_util.find_library('Xt'):
+                dTestCaseMissingDep.update(self.kdTestCasesNeedingX11AndXt);
 
         #
         # Process the file list and run everything looking like a testcase.
@@ -1270,15 +1279,15 @@ class tdUnitTest1(vbox.TestDriver):
                           % (sTestCasePattern, sBaseName, sName, sSuffix, sFilename,));
 
             # Process white list first, if set.
-            if  self.fOnlyWhiteList \
-            and not self._isExcluded(sName, self.kdTestCasesWhiteList):
+            if (    self.fOnlyWhiteList
+                and not self._isExcluded(sName, self.kdTestCasesWhiteList)):
                 # (No testStart/Done or accounting here!)
                 reporter.log('%s: SKIPPED (not in white list)' % (sName,));
                 continue;
 
             # Basic exclusion.
-            if  not re.match(sTestCasePattern, sBaseName) \
-            or  sSuffix in self.kasSuffixBlackList:
+            if (   not re.match(sTestCasePattern, sBaseName)
+                or sSuffix in self.kasSuffixBlackList):
                 reporter.log2('"%s" is not a test case.' % (sName,));
                 continue;
 
@@ -1298,18 +1307,26 @@ class tdUnitTest1(vbox.TestDriver):
                     continue;
 
                 # Some testcases don't work with ASAN.
-                if self.getBuildType() == 'asan' \
-                and self._isExcluded(sName, self.kdTestCasesBlackListAsan):
+                if (    self.getBuildType() == 'asan'
+                    and self._isExcluded(sName, self.kdTestCasesBlackListAsan)):
                     # (No testStart/Done or accounting here!)
                     reporter.log('%s: SKIPPED (blacklisted ASAN)' % (sName,));
                     continue;
 
                 if self._isExcluded(sName, dTestCasesBuggyForHostOs):
                     reporter.testStart(sName);
-                    reporter.log('%s: Skipping, buggy on %s.' % (sName, utils.getHostOs(),));
+                    reporter.log('%s: Skipping, buggy on %s.' % (sName, sHostOs,));
                     reporter.testDone(fSkipped = True);
                     self.cSkipped += 1;
                     continue;
+
+                if self._isExcluded(sName, dTestCaseMissingDep):
+                    reporter.testStart(sName);
+                    reporter.log('%s: Skipping, missing dependency.' % (sName,));
+                    reporter.testDone(fSkipped = True);
+                    self.cSkipped += 1;
+                    continue;
+
             else:
                 # Passed the white list check already above.
                 pass;

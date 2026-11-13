@@ -1,4 +1,4 @@
-/* $Id: VBoxSharedClipboardSvc-internal.h 114609 2026-07-03 15:22:37Z andreas.loeffler@oracle.com $ */
+/* $Id: VBoxSharedClipboardSvc-internal.h 115134 2026-08-27 15:09:45Z andreas.loeffler@oracle.com $ */
 /** @file
  * Shared Clipboard Service - Internal service instance state.
  */
@@ -31,9 +31,28 @@
 # pragma once
 #endif
 
+#include <iprt/critsect.h>
+#include <iprt/path.h>
 #include <iprt/string.h>
 
 #include <VBox/HostServices/VBoxSharedClipboardSvc.h>
+#include <VBox/HostServices/VBoxClipboardExt.h>
+
+
+/**
+ * State of the service extension which bridges the HGCM service to Main.
+ */
+typedef struct SHCLEXTSTATE
+{
+    /** Registered service extension entry point, or NULL. */
+    PFNHGCMSVCEXT  pfnExtension;
+    /** Opaque extension-provided data. */
+    void          *pvExtension;
+#ifdef VBOX_WITH_SHARED_CLIPBOARD_TRANSFERS
+    /** Serializes direct transfer callbacks and fences extension teardown. */
+    RTCRITSECT     CritSectTransferCallbacks;
+#endif
+} SHCLEXTSTATE;
 
 
 /**
@@ -41,49 +60,39 @@
  */
 typedef struct SHCLSERVICE
 {
-    /** The backend instance data.  Only one backend at a time is supported currently. */
-    SHCLBACKEND             Backend;
     /** HGCM service helper table. */
     PVBOXHGCMSVCHELPERS     pHelpers;
-    /** HGCM service function table. */
-    VBOXHGCMSVCFNTABLE     *pTable;
     /** Service-global critical section. */
     RTCRITSECT              CritSect;
     /** Current Shared Clipboard mode. */
     uint32_t                uMode;
+    /** Next non-zero service session ID to assign to a client. */
+    SHCLSESSIONID           idNextSession;
 #ifdef VBOX_WITH_SHARED_CLIPBOARD_TRANSFERS
     /** Current Shared Clipboard file transfer mode. */
     uint32_t                fTransferMode;
-    /** Next non-zero service session ID to assign to a client. */
-    SHCLSESSIONID           idNextSession;
 #endif
-    /** Whether the service runs in headless mode. */
-    bool                    fHeadless;
     /** Service extension state. */
     SHCLEXTSTATE            ExtState;
-    /** Connected HGCM clients keyed by client ID. */
-    ClipboardClientMap      mapClients;
-    /** Deferred clients ready to process new commands. */
-    ClipboardClientQueue    listClientsDeferred;
+    /** The one active HGCM client.  This is a weak pointer owned by HGCM. */
+    PSHCLCLIENT             pActiveClient;
     /** Host feature mask (VBOX_SHCL_HF_0_XXX). */
     uint64_t                fHostFeatures0;
 
     SHCLSERVICE()
         : pHelpers(NULL)
-        , pTable(NULL)
         , uMode(VBOX_SHCL_MODE_OFF)
+        , idNextSession(1)
 #ifdef VBOX_WITH_SHARED_CLIPBOARD_TRANSFERS
         , fTransferMode(VBOX_SHCL_TRANSFER_MODE_F_NONE)
-        , idNextSession(1)
 #endif
-        , fHeadless(false)
+        , pActiveClient(NULL)
         , fHostFeatures0(VBOX_SHCL_HF_0_CONTEXT_ID
 #ifdef VBOX_WITH_SHARED_CLIPBOARD_TRANSFERS
                          | VBOX_SHCL_HF_0_TRANSFERS
 #endif
                          )
     {
-        RT_ZERO(Backend);
         RT_ZERO(CritSect);
         RT_ZERO(ExtState);
     }
@@ -94,22 +103,18 @@ typedef SHCLSERVICE *PSHCLSERVICE;
 /** The single Shared Clipboard HGCM host service instance. */
 extern SHCLSERVICE g_ShClSvc;
 
-/* Transitional aliases.  These keep the initial instance-state patch small and
-   will be removed as client/control/state code is split into local units. */
-#define g_ShClBackend          (g_ShClSvc.Backend)
-#define g_pHelpers             (g_ShClSvc.pHelpers)
-#define g_pTable               (g_ShClSvc.pTable)
-#define g_CritSect             (g_ShClSvc.CritSect)
-#define g_uMode                (g_ShClSvc.uMode)
+/** @name Service-global locking.
+ * @{ */
+void shClSvcLock(void);
+void shClSvcUnlock(void);
+/** @} */
+
 #ifdef VBOX_WITH_SHARED_CLIPBOARD_TRANSFERS
-# define g_fTransferMode       (g_ShClSvc.fTransferMode)
-# define g_idNextSession       (g_ShClSvc.idNextSession)
+/** @name Service-global transfer policy.
+ * @{ */
+uint32_t shClSvcTransferModeGet(void);
+/** @} */
 #endif
-#define g_fHeadless            (g_ShClSvc.fHeadless)
-#define g_ExtState             (g_ShClSvc.ExtState)
-#define g_mapClients           (g_ShClSvc.mapClients)
-#define g_listClientsDeferred  (g_ShClSvc.listClientsDeferred)
-#define g_fHostFeatures0       (g_ShClSvc.fHostFeatures0)
 
 /** @name Host-controlled service handling.
  * @{ */
@@ -143,17 +148,73 @@ int shClSvcClientMsgDataWrite(PSHCLCLIENT pClient, uint32_t cParms, VBOXHGCMSVCP
 int shClSvcClientMsgError(PSHCLCLIENT pClient, uint32_t cParms, VBOXHGCMSVCPARM paParms[], int *pRc);
 /** @} */
 
-/** @name Backend and extension bridge handling.
+/** @name Opaque service-to-Main transport.
  * @{ */
-int  shClSvcBackendInit(VBOXHGCMSVCFNTABLE *pTable);
-int  shClSvcBackendConnect(PSHCLCLIENT pClient);
-int  shClSvcBackendSync(PSHCLCLIENT pClient);
-void shClSvcBackendDisconnect(PSHCLCLIENT pClient);
-void shClSvcBackendDestroy(void);
-int  shClSvcBackendReportFormatsToGuest(PSHCLCLIENT pClient, SHCLFORMATS fFormats, SHCLSOURCE enmSource);
-int  shClSvcBackendReportFormatsToHost(PSHCLCLIENT pClient, SHCLFORMATS fFormats);
-int  shClSvcBackendReadData(PSHCLCLIENT pClient, SHCLFORMAT uFormat, void *pvData, uint32_t cbData, uint32_t *pcbActual);
-int  shClSvcBackendWriteData(PSHCLCLIENT pClient, PSHCLCLIENTCMDCTX pCmdCtx, SHCLFORMAT uFormat, void *pvData, uint32_t cbData);
+void shClSvcCreateTransport(PSHCLCLIENT pClient, PSHCLTRANSPORT pTransport);
+/** @} */
+
+/** @name Service extension bridge handling.
+ * @{ */
+bool shClSvcExtIsRegistered(void);
+int  shClSvcExtInit(void);
+int  shClSvcExtTerm(void);
+int  shClSvcExtBackendInit(void);
+int  shClSvcExtBackendConnect(PSHCLCLIENT pClient);
+int  shClSvcExtBackendSync(PSHCLCLIENT pClient);
+void shClSvcExtBackendDisconnect(PSHCLCLIENT pClient);
+void shClSvcExtBackendDestroy(void);
+/** Destroys the backend while the extension remains callable, then clears the
+ *  matching registration. */
+int  shClSvcExtUnregisterAndDestroy(void);
+int  shClSvcExtReportFormatsToHost(PSHCLCLIENT pClient, SHCLFORMATS fFormats);
+int  shClSvcExtReadData(PSHCLCLIENT pClient, SHCLFORMAT uFormat, void *pvData, uint32_t cbData, uint32_t *pcbActual);
+int  shClSvcExtWriteData(PSHCLCLIENT pClient, SHCLFORMAT uFormat, void *pvData, uint32_t cbData);
+int  shClSvcExtReportError(char *pszId, char *pszMsg, int rcError);
+#ifdef VBOX_WITH_SHARED_CLIPBOARD_TRANSFERS
+/** Immutable service-to-Main transfer-status snapshot. */
+typedef struct SHCLSVCEXTTRANSFERSTATUS
+{
+    /** Host-side transfer identity. */
+    SHCLTRANSFERKEY     Key;
+    /** Transfer direction. */
+    SHCLTRANSFERDIR     enmDir;
+    /** Endpoint which owns the transfer data. */
+    SHCLSOURCE          enmTransferSource;
+    /** Endpoint which reported this status. */
+    SHCLSOURCE          enmReplySource;
+    /** Status to report. */
+    SHCLTRANSFERSTATUS  enmStatus;
+    /** Status-specific VBox result code. */
+    int                 rcStatus;
+    /** Optional failing transfer-relative path, or an empty string if unknown. */
+    char                szPath[SHCL_TRANSFER_PATH_MAX];
+} SHCLSVCEXTTRANSFERSTATUS;
+/** Pointer to a service-to-Main transfer-status snapshot. */
+typedef SHCLSVCEXTTRANSFERSTATUS *PSHCLSVCEXTTRANSFERSTATUS;
+/** Pointer to a const service-to-Main transfer-status snapshot. */
+typedef SHCLSVCEXTTRANSFERSTATUS const *PCSHCLSVCEXTTRANSFERSTATUS;
+
+/** Immutable service-to-Main transfer-progress snapshot. */
+typedef struct SHCLSVCEXTTRANSFERPROGRESS
+{
+    /** Host-side transfer identity. */
+    SHCLTRANSFERKEY     Key;
+    /** Exact aggregate payload bytes processed. */
+    uint64_t            cbProcessed;
+    /** Exact aggregate payload bytes to process. */
+    uint64_t            cbTotal;
+} SHCLSVCEXTTRANSFERPROGRESS;
+/** Pointer to a service-to-Main transfer-progress snapshot. */
+typedef SHCLSVCEXTTRANSFERPROGRESS *PSHCLSVCEXTTRANSFERPROGRESS;
+/** Pointer to a const service-to-Main transfer-progress snapshot. */
+typedef SHCLSVCEXTTRANSFERPROGRESS const *PCSHCLSVCEXTTRANSFERPROGRESS;
+
+int  shClSvcExtQueryTransferCallbacks(PSHCLCLIENT pClient, PSHCLTRANSFERCALLBACKS pCallbacks);
+int  shClSvcExtNotifyTransferStatus(PSHCLCLIENT pClient, PCSHCLSVCEXTTRANSFERSTATUS pStatus);
+int  shClSvcExtNotifyTransferDetachedStatus(PSHCLCLIENT pClient, PCSHCLSVCEXTTRANSFERSTATUS pStatus);
+int  shClSvcExtNotifyTransferProgress(PSHCLCLIENT pClient, PCSHCLSVCEXTTRANSFERPROGRESS pProgress);
+int  shClSvcExtNotifyTransferReset(PSHCLCLIENT pClient);
+#endif
 DECLCALLBACK(int) shClSvcRegisterExtension(void *pvService, PFNHGCMSVCEXT pfnExtension, void *pvExtension);
 /** @} */
 

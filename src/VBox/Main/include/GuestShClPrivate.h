@@ -1,4 +1,4 @@
-/* $Id: GuestShClPrivate.h 114584 2026-07-01 13:24:25Z andreas.loeffler@oracle.com $ */
+/* $Id: GuestShClPrivate.h 115133 2026-08-27 09:03:22Z andreas.loeffler@oracle.com $ */
 /** @file
  * Private Shared Clipboard code for the Main API.
  */
@@ -32,31 +32,15 @@
 #endif
 
 #include <VBox/HostServices/VBoxClipboardExt.h>
-#include <VBox/HostServices/VBoxSharedClipboardSvc.h>
-
-#include <iprt/semaphore.h>
+#include <VBox/hgcmsvc.h>
+#include <iprt/critsect.h>
+#include <iprt/once.h>
 
 /**
  * Forward prototype declarations.
  */
 class Console;
-
-/**
- * Struct for keeping a Shared Clipboard service extension.
- */
-struct SHCLSVCEXT
-{
-    /** Service extension callback function.
-     *  Setting this to NULL deactivates the extension. */
-    PFNHGCMSVCEXT      pfnExt;
-    /** User-supplied service extension data. Might be NULL if not being used. */
-    void            *  pvExt;
-    /** Pointer to an optional extension callback.
-     *  Might be NULL if not being used. */
-    PFNSHCLEXTCALLBACK pfnExtCallback;
-};
-/** Pointer to a Shared Clipboard service extension. */
-typedef SHCLSVCEXT *PSHCLSVCEXT;
+class GuestShClConn;
 
 /**
  * Private singleton class for managing the Shared Clipboard implementation within Main.
@@ -73,44 +57,50 @@ public:
      * @returns Newly created Singleton object, or NULL on failure.
      * @param   pConsole        Pointer to parent console.
      */
-    static GuestShCl *CreateInstance(Console *pConsole)
-    {
-        AssertPtrReturn(pConsole, NULL);
-        Assert(NULL == GuestShCl::s_pInstance);
-        GuestShCl::s_pInstance = new GuestShCl(pConsole);
-        return GuestShCl::s_pInstance;
-    }
+    static GuestShCl *CreateInstance(Console *pConsole);
 
     /**
      * Destroys the Singleton GuestShCl object.
      */
-    static void DestroyInstance(void)
-    {
-        if (GuestShCl::s_pInstance)
-        {
-            delete GuestShCl::s_pInstance;
-            GuestShCl::s_pInstance = NULL;
-        }
-    }
+    static void DestroyInstance(void);
+
+    /**
+     * Publishes the singleton to asynchronous external callers.
+     *
+     * @returns VBox status code.
+     */
+    static int EnableExternalCalls(void);
+
+    /**
+     * Withdraws the singleton from asynchronous external callers and waits for
+     * all calls which previously acquired it to return.
+     */
+    static void DisableExternalCalls(void);
+
+    /**
+     * Acquires the singleton for an asynchronous external call.
+     *
+     * The returned reference must be released with Release() on the
+     * same thread.
+     *
+     * @returns Acquired singleton, or NULL if external calls are disabled.
+     */
+    static GuestShCl *Acquire(void);
+
+    /**
+     * Releases a singleton reference returned by Acquire().
+     *
+     * @thread  The thread which called Acquire().
+     */
+    static void Release(void);
 
     /**
      * Returns the Singleton GuestShCl object.
      *
      * @returns Pointer to Singleton GuestShCl object.
+     * @retval  NULL if the singleton has not been created yet or if not available anymore.
      */
     static inline GuestShCl *GetInst(void)
-    {
-        AssertPtr(GuestShCl::s_pInstance);
-        return GuestShCl::s_pInstance;
-    }
-
-    /**
-     * Returns the Singleton GuestShCl object if it exists.
-     *
-     * @returns Pointer to Singleton GuestShCl object, or NULL if not created or
-     *          already destroyed.
-     */
-    static inline GuestShCl *TryGetInst(void)
     {
         return GuestShCl::s_pInstance;
     }
@@ -134,9 +124,7 @@ protected:
     bool i_isHostDataSeqCurrentLocked(uint64_t uSeq);
     uint64_t i_getGuestDataSeq(void);
     bool i_isGuestDataSeqCurrent(uint64_t uSeq);
-    int i_beginGuestRead(PSHCLCLIENT *ppClient);
-    void i_endGuestRead(void);
-    void i_waitForGuestReads(void);
+    int i_reportRemoteFormatsToGuestNow(SHCLFORMATS fFormats);
     /** @}  */
 
 public:
@@ -149,10 +137,11 @@ public:
     int ReportFormatsToHost(SHCLFORMATS fFormats);
     int WriteDataToHost(SHCLFORMAT uFormat, void *pvData, uint32_t cbData);
     int ReportFormatsToGuest(SHCLFORMATS fFormats);
-    int ReportFormatsToGuest(PSHCLCLIENT pClient, SHCLFORMATS fFormats, SHCLSOURCE enmSource);
+    bool IsNativeBackendActive(void);
+    int VrdeEnable(bool fEnable);
+    int ReportRemoteFormatsToGuest(SHCLFORMATS fFormats);
+    int ReportFormatsToGuest(GuestShClConn *pConn, SHCLFORMATS fFormats, SHCLSOURCE enmSource);
     int ReportError(const char *pcszId, int vrc, const char *pcszMsgFmt, ...);
-    int RegisterServiceExtension(PFNHGCMSVCEXT pfnExtension, void *pvExtension);
-    int UnregisterServiceExtension(PFNHGCMSVCEXT pfnExtension);
     /** @}  */
 
 public:
@@ -164,30 +153,26 @@ public:
 
 protected:
 
-    /** @name Service extension callback helpers.
-     * @{ */
-    int i_forwardToSvcExt(uint32_t u32Function, void *pvParms, uint32_t cbParms);
-    int i_validateSvcExtParms(uint32_t u32Function, void *pvParms, uint32_t cbParms);
-    /** @}  */
+    int i_svcExtParmsValidate(uint32_t u32Function, void *pvParms, uint32_t cbParms);
 
 protected:
 
     /** @name Service extension callback handlers.
      * @{ */
-    int i_handleSvcExtSetCallback(PSHCLEXTPARMS pParms);
-    int i_handleSvcExtReportFormatsToHost(PSHCLEXTPARMS pParms, void *pvParms, uint32_t cbParms);
-    int i_handleSvcExtReportFormatsToGuest(PSHCLEXTPARMS pParms, void *pvParms, uint32_t cbParms);
-    int i_handleSvcExtDataRead(PSHCLEXTPARMS pParms, void *pvParms, uint32_t cbParms);
-    int i_handleSvcExtDataReadVrde(PSHCLEXTPARMS pParms);
-    int i_handleSvcExtDataWrite(PSHCLEXTPARMS pParms, void *pvParms, uint32_t cbParms);
-    int i_handleSvcExtBackendInit(PSHCLEXTPARMS pParms, void *pvParms, uint32_t cbParms);
-    int i_handleSvcExtBackendDestroy(PSHCLEXTPARMS pParms, void *pvParms, uint32_t cbParms);
-    int i_handleSvcExtBackendConnect(PSHCLEXTPARMS pParms, void *pvParms, uint32_t cbParms);
-    int i_handleSvcExtBackendDisconnect(PSHCLEXTPARMS pParms, void *pvParms, uint32_t cbParms);
-    int i_handleSvcExtBackendSync(PSHCLEXTPARMS pParms, void *pvParms, uint32_t cbParms);
-    int i_handleSvcExtError(PSHCLEXTPARMS pParms);
+    int i_svcExtReportFormatsToHostCallback(PSHCLEXTPARMS pParms);
+    int i_svcExtDataReadCallback(PSHCLEXTPARMS pParms);
+    int i_svcExtDataWriteCallback(PSHCLEXTPARMS pParms);
+    int i_svcExtBackendInitCallback(PSHCLEXTPARMS pParms, void *pvParms, uint32_t cbParms);
+    int i_svcExtBackendDestroyCallback(PSHCLEXTPARMS pParms, void *pvParms, uint32_t cbParms);
+    int i_svcExtBackendConnectCallback(PSHCLEXTPARMS pParms, void *pvParms, uint32_t cbParms);
+    int i_svcExtBackendDisconnectCallback(PSHCLEXTPARMS pParms, void *pvParms, uint32_t cbParms);
+    int i_svcExtBackendSyncCallback(PSHCLEXTPARMS pParms, void *pvParms, uint32_t cbParms);
+    int i_svcExtErrorCallback(PSHCLEXTPARMS pParms);
 #ifdef VBOX_WITH_SHARED_CLIPBOARD_TRANSFERS
-    int i_handleSvcExtFileTransfer(PSHCLEXTPARMS pParms, void *pvParms, uint32_t cbParms);
+    int i_svcExtTransferGetCallbacksCallback(PSHCLEXTPARMS pParms);
+    int i_svcExtFileTransferCallback(PSHCLEXTPARMS pParms);
+    int i_svcExtTransferProgressCallback(PSHCLEXTPARMS pParms);
+    int i_svcExtTransferResetCallback(PSHCLEXTPARMS pParms);
 #endif
     /** @}  */
 
@@ -198,24 +183,18 @@ protected:
     Console                    *m_pConsole;
     /** Critical section to serialize access. */
     RTCRITSECT                  m_CritSect;
-    /** Pointer an additional service extension handle to serve (daisy chaining).
-     *
-     *  This currently only is being used by the Console VRDP server helper class (historical reasons).
-     *  We might want to transform this into a map later if we (ever) need more than one service extension,
-     *  or drop this concept althogether when we move the service stuff out of the VM process (later). */
-    SHCLSVCEXT                  m_SvcExtVRDP;
-    /** Pointer to an optional extension callback.
-     *  Might be NULL if not being used. */
-    PFNSHCLEXTCALLBACK          m_pfnExtCallback;
-    /** Active guest clipboard client, if any.
-     *  Weak pointer owned by the HGCM service and protected by m_CritSect. */
-    PSHCLCLIENT                 m_pClient;
-    /** Whether new guest data reads using m_pClient are blocked. */
-    bool                        m_fGuestReadsBlocked;
-    /** Number of active guest data reads using m_pClient outside m_CritSect. */
-    uint32_t                    m_cGuestReads;
-    /** Signalled when no guest data reads are active. */
-    RTSEMEVENTMULTI             m_hGuestReadsDone;
+    /** Serializes remote format publication and the handoff after a remote data read. */
+    RTCRITSECT                  m_RemoteFormatsCritSect;
+    /** Main-owned connection encapsulating the service endpoint and native backend context. */
+    GuestShClConn              *m_pConn;
+    /** Whether VRDE currently owns the host clipboard route. */
+    volatile bool              m_fVrdeEnabled;
+    /** Whether Main is synchronously reading from the remote clipboard provider. */
+    bool                        m_fRemoteDataReadActive;
+    /** Whether a remote format announcement arrived during that read. */
+    bool                        m_fRemoteFormatsPending;
+    /** Latest remote formats deferred until the active read completes. */
+    SHCLFORMATS                 m_fPendingRemoteFormats;
     /** Host data sequence counter, protected by m_CritSect. */
     uint64_t                    m_uHostDataSeq;
     /** Guest data sequence counter, protected by m_CritSect. */
@@ -224,12 +203,20 @@ protected:
 
 private:
 
+    /** @callback_method_impl{FNRTONCE} */
+    static DECLCALLBACK(int32_t) s_initInstanceLock(void *pvUser);
+
+    /** Init-once state for the process-lifetime singleton publication lock. */
+    static RTONCE                s_InstanceOnce;
+    /** Serializes singleton publication and protects external references. */
+    static RTCRITSECTRW          s_InstanceLock;
     /** Static pointer to singleton instance. */
     static GuestShCl           *s_pInstance;
+    /** Singleton published to asynchronous external callers. */
+    static GuestShCl * volatile s_pExternalInstance;
 };
 
 /** Access to the GuestShCl's singleton instance. */
 #define GuestShClInst() GuestShCl::GetInst()
 
 #endif /* !MAIN_INCLUDED_GuestShClPrivate_h */
-

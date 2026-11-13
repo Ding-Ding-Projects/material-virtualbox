@@ -1,4 +1,4 @@
-; $Id: setjmp.asm 113142 2026-02-24 12:23:15Z knut.osmundsen@oracle.com $
+; $Id: setjmp.asm 115024 2026-08-13 02:02:28Z knut.osmundsen@oracle.com $
 ;; @file
 ; IPRT - No-CRT setjmp & longjmp - AMD64 & X86.
 ;
@@ -288,6 +288,7 @@ RT_NOCRT_BEGINPROC setjmp
 .strict_zero_args:
   %endif
         ret
+        int3
 
 .have_xcpt_reg_rec:
         ; Get the parameter count.
@@ -307,6 +308,7 @@ RT_NOCRT_BEGINPROC setjmp
         dec     eax
         jnz     .copy_unwind_data
         ret
+        int3
 
 .set_try_level_from_xcpt_reg_rec_reload_ptr_first:
         mov     edx, [ecx + RTJMPBUF.pXcptRegRec]
@@ -314,6 +316,7 @@ RT_NOCRT_BEGINPROC setjmp
         mov     edx, [edx + 12]             ; Something following the EXCEPTION_REGISTRATION_RECORD...
         mov     [ecx + RTJMPBUF.uTryLevel], edx
         ret
+        int3
 
         ; Copy unwind data.
 .copy_unwind_data:
@@ -475,7 +478,11 @@ RT_NOCRT_BEGINPROC longjmp
         cmp     qword [rcx + RTJMPBUF.uFrame], byte 0
         jnz     .nt_restore
 
-        db 0xfe, 0x48, 0x0f, 0x1e, 0xca         ; rdsspq rdx - a NOP unless CET is supported & enabled.
+  %ifdef __NASM__
+        rdsspq  rdx
+  %else
+        db 0xf3, 0x48, 0x0f, 0x1e, 0xca         ; rdsspq rdx - a NOP unless CET is supported & enabled.
+  %endif
         test    rdx, rdx
         jz      .regular_restore
   %ifdef RT_STRICT
@@ -519,6 +526,7 @@ RT_NOCRT_BEGINPROC longjmp
         int3
   %endif
         jmp     .nt_init_xcpt_rec
+        int3
  %else  ; RT_ARCH_X86
         push    0                               ; zero ('return value')
         lea     eax, [ADDR_EXPR_XCPT_REC]
@@ -651,3 +659,4 @@ ENDPROC   longjmp
  %endif ; !RT_WITHOUT_NOCRT_WRAPPERS
 %endif ; RT_OS_WINDOWS
 
+MARK_OBJECT_RETPOLINE_SAFE ;; @todo retpoline: there are indirect calls here!

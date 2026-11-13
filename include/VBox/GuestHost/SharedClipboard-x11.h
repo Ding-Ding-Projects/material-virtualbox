@@ -113,8 +113,8 @@ typedef unsigned SHCLX11FMTIDX;
  *
  * The backend which embeds this structure supplies the synchronization.  The
  * offer generation rejects work completed for an old clipboard offer, while
- * the transfer ID and generation identify the exact transfer associated with
- * the preparation or currently advertised URI-list data.
+ * the transfer keys identify the exact transfer associated with the
+ * preparation or currently advertised URI-list data.
  */
 typedef struct SHCLX11TRANSFERSTATE
 {
@@ -124,14 +124,10 @@ typedef struct SHCLX11TRANSFERSTATE
     uint64_t          uOfferGeneration;
     /** Offer generation for which a transfer is currently being prepared. */
     uint64_t          uPreparingOfferGeneration;
-    /** ID of the transfer bound to the current preparation request. */
-    SHCLTRANSFERID    idTransfer;
-    /** Generation of the transfer bound to the current request. */
-    SHCLTRANSFERGEN   uTransferGeneration;
-    /** ID of the transfer backing the currently advertised URI-list data. */
-    SHCLTRANSFERID    idPublishedTransfer;
-    /** Generation of the transfer backing the advertised URI-list data. */
-    SHCLTRANSFERGEN   uPublishedTransferGeneration;
+    /** Exact identity of the transfer bound to the current preparation request. */
+    SHCLTRANSFERKEY   TransferKey;
+    /** Exact identity of the transfer backing the currently advertised URI-list data. */
+    SHCLTRANSFERKEY   PublishedTransferKey;
     /** Whether a transfer preparation request is outstanding. */
     bool              fPreparing;
 } SHCLX11TRANSFERSTATE;
@@ -148,14 +144,6 @@ typedef struct SHCLX11CTX
     PSHCLCONTEXT     pFrontend;
     /** Our callback table to use. */
     SHCLCALLBACKS    Callbacks;
-    /**
-     * Are we running in headless mode?
-     *
-     * This is a special situation for running on UNIX-y environments, where an
-     * X server could not be available when running on a server without any
-     * desktop environment available, for example.
-     */
-    bool             fHeadless;
     /** The X Toolkit application context structure. */
     XtAppContext     pAppContext;
     /** We have a separate thread to wait for window and clipboard events. */
@@ -188,9 +176,9 @@ typedef struct SHCLX11CTX
     SHCLCACHE        Cache;
     /** When we wish the clipboard to exit, we have to wake up the event
      * loop.  We do this by writing into a pipe.  This end of the pipe is
-     * the end that another thread can write to. */
+     * the end that another thread can write to.  -1 if not created. */
     int              wakeupPipeWrite;
-    /** The reader end of the pipe. */
+    /** The reader end of the pipe.  -1 if not created. */
     int              wakeupPipeRead;
     /** A pointer to the XFixesSelectSelectionInput function. */
     void (*fixesSelectInput)(Display *, Window, Atom, unsigned long);
@@ -306,11 +294,12 @@ typedef SHCLX11RESPONSE *PSHCLX11RESPONSE;
 /** @name Shared Clipboard APIs for X11.
  * @{
  */
-int ShClX11Init(PSHCLX11CTX pCtx, PSHCLCALLBACKS pCallbacks, PSHCLCONTEXT pParent, bool fHeadless);
+int ShClX11Init(PSHCLX11CTX pCtx, PSHCLCALLBACKS pCallbacks, PSHCLCONTEXT pParent);
 int ShClX11Term(PSHCLX11CTX pCtx);
 int ShClX11ThreadStart(PSHCLX11CTX pCtx, bool grab);
 int ShClX11ThreadStartEx(PSHCLX11CTX pCtx, const char *pszName, bool fGrab);
 int ShClX11ThreadStop(PSHCLX11CTX pCtx);
+int ShClX11ReportCurrentFormatsToVBoxAsync(PSHCLX11CTX pCtx);
 int ShClX11ReportFormatsToX11Async(PSHCLX11CTX pCtx, SHCLFORMATS fFormats);
 /** Reports formats after atomically seeding one X11 clipboard cache entry. */
 int ShClX11ReportFormatsToX11AsyncEx(PSHCLX11CTX pCtx, SHCLFORMATS fFormats, SHCLFORMAT uFmtCache,
@@ -320,7 +309,6 @@ int ShClX11ReadDataFromX11Ex(PSHCLX11CTX pCtx, PSHCLEVENTSOURCE pEventSource, RT
 int ShClX11ReadDataFromX11(PSHCLX11CTX pCtx, PSHCLEVENTSOURCE pEventSource, RTMSINTERVAL msTimeout, SHCLFORMAT uFmt, void *pvBuf, uint32_t cbBuf, uint32_t *pcbBuf);
 int ShClX11WriteDataToX11Async(PSHCLX11CTX pCtx, SHCLFORMAT uFmt, const void *pvBuf, uint32_t cbBuf, PSHCLEVENT pEvent);
 int ShClX11WriteDataToX11(PSHCLX11CTX pCtx, PSHCLEVENTSOURCE pEventSource, RTMSINTERVAL msTimeout, SHCLFORMAT uFmt, const void *pvBuf, uint32_t cbBuf, uint32_t *pcbWritten);
-void ShClX11SetCallbacks(PSHCLX11CTX pCtx, PSHCLCALLBACKS pCallbacks);
 #ifdef VBOX_WITH_SHARED_CLIPBOARD_TRANSFERS
 int ShClX11TransferConvertToX11(const char *pszSrc, size_t cbSrc,  SHCLX11FMT enmFmtX11, void **ppvDst, size_t *pcbDst);
 int ShClX11TransferConvertFromX11(const char *pvData, size_t cbData, char **ppszList, size_t *pcbList);

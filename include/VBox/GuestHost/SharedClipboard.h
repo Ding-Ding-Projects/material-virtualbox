@@ -163,15 +163,18 @@ enum
 
 /**
  * Shared Clipboard transfer direction.
+ *
+ * The direction is absolute and therefore has the same meaning on the host and
+ * guest.  The explicit values are part of the HGCM protocol and saved state.
  */
 typedef enum SHCLTRANSFERDIR
 {
-    /** Unknown transfer directory. */
+    /** Unknown transfer direction. */
     SHCLTRANSFERDIR_UNKNOWN = 0,
-    /** Read transfer (from source). */
-    SHCLTRANSFERDIR_FROM_REMOTE,
-    /** Write transfer (to target). */
-    SHCLTRANSFERDIR_TO_REMOTE,
+    /** Guest-to-host transfer. */
+    SHCLTRANSFERDIR_GUEST_TO_HOST = 1,
+    /** Host-to-guest transfer. */
+    SHCLTRANSFERDIR_HOST_TO_GUEST = 2,
     /** The usual 32-bit hack. */
     SHCLTRANSFERDIR_32BIT_HACK = 0x7fffffff
 } SHCLTRANSFERDIR;
@@ -185,21 +188,6 @@ typedef SHCLTRANSFERDIR *PSHCLTRANSFERDIR;
  * @param   enmDir              Transfer direction to validate.
  */
 VBGH_DECL(bool) ShClTransferDirIsValid(SHCLTRANSFERDIR enmDir);
-
-/**
- * Shared Clipboard data read request.
- */
-typedef struct SHCLDATAREQ
-{
-    /** In which format the data needs to be sent. */
-    SHCLFORMAT uFmt;
-    /** Read flags; currently unused. */
-    uint32_t   fFlags;
-    /** Maximum data (in byte) can be sent. */
-    uint32_t   cbSize;
-} SHCLDATAREQ;
-/** Pointer to a shared clipboard data request. */
-typedef SHCLDATAREQ *PSHCLDATAREQ;
 
 /**
  * Shared Clipboard event payload (optional).
@@ -263,6 +251,8 @@ typedef struct SHCLEVENT
     uint32_t            cRefs;
     /** Event semaphore for signalling the event. */
     RTSEMEVENTMULTI     hEvtMulSem;
+    /** Whether a producer already claimed and signalled this event. */
+    volatile bool       fSignalled;
     /** Payload to this event, optional (NULL). */
     PSHCLEVENTPAYLOAD   pPayload;
     /** Result code (IPRT-style) to assign. */
@@ -285,6 +275,8 @@ typedef struct SHCLEVENTSOURCE
     RTCRITSECT        CritSect;
     /** Next upcoming event ID. */
     SHCLEVENTID       idNextEvent;
+    /** Latched error used to reject and wake pending events, or success. */
+    int               rcSignal;
     /** List of events (PSHCLEVENT). */
     RTLISTANCHOR      lstEvents;
 } SHCLEVENTSOURCE;
@@ -303,6 +295,7 @@ void ShClPayloadDestroy(PSHCLEVENTPAYLOAD pPayload);
 int ShClEventSourceInit(PSHCLEVENTSOURCE pSource, SHCLEVENTSOURCEID idEvtSrc);
 int ShClEventSourceTerm(PSHCLEVENTSOURCE pSource);
 void ShClEventSourceReset(PSHCLEVENTSOURCE pSource);
+int ShClEventSourceSignalAll(PSHCLEVENTSOURCE pSource, int rc);
 int ShClEventSourceGenerateAndRegisterEvent(PSHCLEVENTSOURCE pSource, PSHCLEVENT *ppEvent);
 PSHCLEVENT ShClEventSourceGetFromId(PSHCLEVENTSOURCE pSource, SHCLEVENTID idEvent);
 PSHCLEVENT ShClEventSourceRetainFromId(PSHCLEVENTSOURCE pSource, SHCLEVENTID idEvent);
@@ -386,7 +379,6 @@ typedef SHCLCACHE *PSHCLCACHE;
 VBGH_DECL(void)             ShClCacheInit(PSHCLCACHE pCache);
 VBGH_DECL(void)             ShClCacheTerm(PSHCLCACHE pCache);
 VBGH_DECL(void)             ShClCacheInvalidate(PSHCLCACHE pCache);
-VBGH_DECL(void)             ShClCacheInvalidateEntry(PSHCLCACHE pCache, SHCLFORMAT uFmt);
 VBGH_DECL(PSHCLCACHEENTRY)  ShClCacheGet(PSHCLCACHE pCache, SHCLFORMAT uFmt);
 VBGH_DECL(int)              ShClCachePrep(PSHCLCACHE pCache, SHCLFORMAT uFmt, size_t cbData, void **ppvData);
 VBGH_DECL(int)              ShClCacheSet(PSHCLCACHE pCache, SHCLFORMAT uFmt, const void *pvData, size_t cbData);
@@ -505,4 +497,3 @@ typedef struct SHCLCALLBACKS
 typedef SHCLCALLBACKS *PSHCLCALLBACKS;
 
 #endif /* !VBOX_INCLUDED_GuestHost_SharedClipboard_h */
-

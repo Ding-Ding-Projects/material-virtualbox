@@ -1,4 +1,4 @@
-/* $Id: DevVGA-SVGA.cpp 114796 2026-07-27 16:22:58Z vitali.pelenjow@oracle.com $ */
+/* $Id: DevVGA-SVGA.cpp 115383 2026-10-17 13:20:01Z aleksey.ilyushin@oracle.com $ */
 /** @file
  * VMware SVGA device.
  *
@@ -1689,9 +1689,9 @@ int vmsvgaR3ChangeMode(PVGASTATE pThis, PVGASTATECC pThisCC)
         VMSVGASCREENOBJECT *pScreen = &pSVGAState->aScreens[0];
         Assert(pScreen->idScreen == 0);
 
-        if (   pScreen->cWidth  == VMSVGA_VAL_UNINITIALIZED
-            || pScreen->cHeight == VMSVGA_VAL_UNINITIALIZED
-            || pScreen->cBpp    == VMSVGA_VAL_UNINITIALIZED)
+        if (   pThis->svga.uWidth  == VMSVGA_VAL_UNINITIALIZED
+            || pThis->svga.uHeight == VMSVGA_VAL_UNINITIALIZED
+            || pThis->svga.uBpp    == VMSVGA_VAL_UNINITIALIZED)
         {
             /* Do not apply the change if the guest has not finished updating registers.
              * This is necessary in order to make a full mode change.
@@ -1699,13 +1699,22 @@ int vmsvgaR3ChangeMode(PVGASTATE pThis, PVGASTATECC pThisCC)
             return VINF_SUCCESS;
         }
 
+        ASSERT_GUEST_RETURN(pThis->svga.uWidth > 0 && pThis->svga.uWidth <= pThis->svga.u32MaxWidth, VERR_INVALID_STATE);
+        ASSERT_GUEST_RETURN(pThis->svga.uHeight > 0 && pThis->svga.uHeight <= pThis->svga.u32MaxHeight, VERR_INVALID_STATE);
+
+        /* Height can't exceed the available VRAM. */
+        uint32_t const cbPitch = pThis->svga.cbScanline
+                               ? pThis->svga.cbScanline
+                               : (uint32_t)pThis->svga.uWidth * (RT_ALIGN(pThis->svga.uBpp, 8) / 8);
+        ASSERT_GUEST_RETURN(pThis->svga.uHeight <= pThis->vram_size / cbPitch, VERR_INVALID_STATE);
+
         pScreen->fDefined  = true;
         pScreen->fModified = true;
         pScreen->fuScreen  = SVGA_SCREEN_MUST_BE_SET | SVGA_SCREEN_IS_PRIMARY;
         pScreen->xOrigin   = 0;
         pScreen->yOrigin   = 0;
         pScreen->offVRAM   = 0;
-        pScreen->cbPitch   = pThis->svga.cbScanline;
+        pScreen->cbPitch   = cbPitch;
         pScreen->cWidth    = pThis->svga.uWidth;
         pScreen->cHeight   = pThis->svga.uHeight;
         pScreen->cBpp      = pThis->svga.uBpp;
@@ -3240,14 +3249,14 @@ static int vmsvgaR3DebugFifoAccess(PVM pVM, PVGASTATE pThis, RTGCPHYS GCPhys, bo
  * @param   pvBuf           What the guest is reading/writing.
  * @param   cbBuf           How much it's reading/writing.
  * @param   enmAccessType   The access type.
- * @param   enmOrigin       Who is making the access.
+ * @param   fOrigin         Who is making the access.
  * @param   pvUser          User argument.
  */
 static DECLCALLBACK(VBOXSTRICTRC)
 vmsvgaR3FifoAccessHandler(PVM pVM, PVMCPU pVCpu, RTGCPHYS GCPhys, void *pvPhys, void *pvBuf, size_t cbBuf,
-                          PGMACCESSTYPE enmAccessType, PGMACCESSORIGIN enmOrigin, void *pvUser)
+                          PGMACCESSTYPE enmAccessType, PGMACCESSORIGIN fOrigin, void *pvUser)
 {
-    NOREF(pVCpu); NOREF(pvPhys); NOREF(pvBuf); NOREF(cbBuf); NOREF(enmOrigin); NOREF(enmAccessType); NOREF(GCPhys);
+    NOREF(pVCpu); NOREF(pvPhys); NOREF(pvBuf); NOREF(cbBuf); NOREF(fOrigin); NOREF(enmAccessType); NOREF(GCPhys);
     PVGASTATE pThis = (PVGASTATE)pvUser;
     AssertPtr(pThis);
 
@@ -3297,17 +3306,17 @@ vmsvgaR3FifoAccessHandler(PVM pVM, PVMCPU pVCpu, RTGCPHYS GCPhys, void *pvPhys, 
  * @param   pvBuf           What the guest is reading/writing.
  * @param   cbBuf           How much it's reading/writing.
  * @param   enmAccessType   The access type.
- * @param   enmOrigin       Who is making the access.
+ * @param   fOrigin         Who is making the access.
  * @param   pvUser          User argument.
  */
 static DECLCALLBACK(VBOXSTRICTRC)
 vmsvgaR3GmrAccessHandler(PVM pVM, PVMCPU pVCpu, RTGCPHYS GCPhys, void *pvPhys, void *pvBuf, size_t cbBuf,
-                         PGMACCESSTYPE enmAccessType, PGMACCESSORIGIN enmOrigin, void *pvUser)
+                         PGMACCESSTYPE enmAccessType, PGMACCESSORIGIN fOrigin, void *pvUser)
 {
     PVGASTATE   pThis = (PVGASTATE)pvUser;
     Assert(pThis);
     PVMSVGAR3STATE pSVGAState = pThisCC->svga.pSvgaR3State;
-    NOREF(pVCpu); NOREF(pvPhys); NOREF(pvBuf); NOREF(cbBuf); NOREF(enmAccessType); NOREF(enmOrigin);
+    NOREF(pVCpu); NOREF(pvPhys); NOREF(pvBuf); NOREF(cbBuf); NOREF(enmAccessType); NOREF(fOrigin);
 
     Log(("vmsvgaR3GmrAccessHandler: GMR access to page %RGp\n", GCPhys));
 
@@ -3604,12 +3613,14 @@ static SVGACBStatus vmsvgaR3CmdBufDCPreempt(PPDMDEVINS pDevIns, PVMSVGAR3STATE p
     RT_UNTRUSTED_VALIDATED_FENCE();
 
     PVMSVGACMDBUFCTX const pCmdBufCtx = pSvgaR3State->apCmdBufCtxs[pCmd->context];
+    if (!pCmdBufCtx)
+        return SVGA_CB_STATUS_COMMAND_ERROR;
+
     RTLISTANCHOR listPreempted;
+    RTListInit(&listPreempted);
 
     int rc = RTCritSectEnter(&pSvgaR3State->CritSectCmdBuf);
     AssertRC(rc);
-
-    RTListInit(&listPreempted);
 
     PVMSVGACMDBUF pIter, pNext;
     RTListForEachSafe(&pCmdBufCtx->listSubmitted, pIter, pNext, VMSVGACMDBUF, nodeBuffer)
@@ -5395,7 +5406,22 @@ static void vmsvgaR3FifoHandleExtCmd(PPDMDEVINS pDevIns, PVGASTATE pThis, PVGAST
 # ifdef VBOX_WITH_VMSVGA3D
             if (pThis->svga.f3DEnabled || pThis->svga.fVMSVGA2dGBO)
             {
-                if (vmsvga3dIsLegacyBackend(pThisCC))
+                bool fUseLegacyLoadExec;
+                if (pThis->svga.fVMSVGA2dGBO && pLoadState->uVersion < VGA_SAVEDSTATE_VERSION_VMSVGA_GB_SURF)
+                {
+                    /* 'vmsvga3dIsLegacyBackend' was true in 'fVMSVGA2dGBO' mode, because 'vmsvga3dIsLegacyBackend'
+                     * checked pFuncsDX but 'fVMSVGA2dGBO' did not create this interface.
+                     * So 'fVMSVGA2dGBO' used the legacy saved state function even though the DX backend was used.
+                     * Now, with VGA_SAVEDSTATE_VERSION_VMSVGA_GB_SURF, 'vmsvga3dIsLegacyBackend' checks for pFuncsGBO,
+                     * which is the essential interface of the VPGU10 capable DX backend, and 'vmsvga3dIsLegacyBackend'
+                     * works correctly for 'fVMSVGA2dGBO' too.
+                     */
+                    fUseLegacyLoadExec = true;
+                }
+                else
+                    fUseLegacyLoadExec = vmsvga3dIsLegacyBackend(pThisCC);
+
+                if (fUseLegacyLoadExec)
                     vmsvga3dLoadExec(pDevIns, pThis, pThisCC, pLoadState->pSSM, pLoadState->uVersion, pLoadState->uPass);
 #  ifdef VMSVGA3D_DX
                 else
@@ -7273,13 +7299,16 @@ static int vmsvgaR3LoadExecFifo(PCPDMDEVHLPR3 pHlp, PVGASTATE pThis, PVGASTATECC
         /* Try to setup at least the first screen. */
         VMSVGASCREENOBJECT *pScreen = &pSVGAState->aScreens[0];
         Assert(pScreen->idScreen == 0);
+        uint32_t const cbPitch = pThis->svga.cbScanline
+                               ? pThis->svga.cbScanline
+                               : (uint32_t)pThis->svga.uWidth * (RT_ALIGN(pThis->svga.uBpp, 8) / 8);
         pScreen->fDefined  = true;
         pScreen->fModified = true;
         pScreen->fuScreen  = SVGA_SCREEN_MUST_BE_SET | SVGA_SCREEN_IS_PRIMARY;
         pScreen->xOrigin   = 0;
         pScreen->yOrigin   = 0;
         pScreen->offVRAM   = pThis->svga.uScreenOffset;
-        pScreen->cbPitch   = pThis->svga.cbScanline;
+        pScreen->cbPitch   = cbPitch;
         pScreen->cWidth    = pThis->svga.uWidth;
         pScreen->cHeight   = pThis->svga.uHeight;
         pScreen->cBpp      = pThis->svga.uBpp;

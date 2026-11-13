@@ -1,4 +1,4 @@
-/* $Id: ClipboardImpl.h 114858 2026-08-05 15:08:05Z andreas.loeffler@oracle.com $ */
+/* $Id: ClipboardImpl.h 115134 2026-08-27 15:09:45Z andreas.loeffler@oracle.com $ */
 /** @file
  * VirtualBox Main - Console clipboard API.
  */
@@ -97,30 +97,48 @@ public:
                                  const std::vector<ComPtr<IClipboardFormat> > &aFormats);
     HRESULT i_getCurrentStateForEvent(ClipboardSource_T *aSource,
                                       std::vector<ComPtr<IClipboardFormat> > &aFormats);
+    HRESULT i_getCurrentSource(ClipboardSource_T *aSource);
     LONG64 i_nextEventRevision();
     HRESULT i_reset();
 #ifdef VBOX_WITH_SHARED_CLIPBOARD_TRANSFERS
     HRESULT i_transferCancel(ULONG aTransferId);
-    HRESULT i_transferCancel(SHCLSESSIONID aServiceSessionId, SHCLTRANSFERID aTransferId, SHCLTRANSFERGEN aGeneration);
+    HRESULT i_transferCancel(PCSHCLTRANSFERKEY pKey);
+    /** Queues local transfer teardown requested by the host service. */
+    void i_resetTransfersFromService();
     /**
      * Handles a Shared Clipboard transfer lifecycle status delivered by the host service.
      *
-     * @returns COM status code.
-     * @param   aServiceSessionId   Shared Clipboard service session identifier.
-     * @param   aTransferId         Shared Clipboard transfer identifier.
-     * @param   aGeneration         Host-private transfer generation.
+     * @retval  S_OK                if the transfer status was accepted or safely ignored.
+     * @retval  E_INVALIDARG        if the key, source, status, result, direction, or transition is invalid.
+     * @retval  E_FAIL              if clipboard state or required transfer state is unavailable.
+     * @retval  E_OUTOFMEMORY       if a transfer record or publication cannot be allocated.
+     * @returns                     A failure status from creating or initializing the transfer's Main objects.
+     * @param   pKey                Host-side transfer key.
      * @param   aTransfer           Borrowed service transfer backing the data plane.
      * @param   enmShClSource       Data source recorded by the backing transfer.
      * @param   enmStatus           Transfer lifecycle status.
      * @param   vrcTransfer         Transfer status result code.
+     * @param   pszPath             Optional failing transfer-relative path.
      */
-    HRESULT i_handleTransferStatus(SHCLSESSIONID aServiceSessionId,
-                                   SHCLTRANSFERID aTransferId,
-                                   SHCLTRANSFERGEN aGeneration,
+    HRESULT i_handleTransferStatus(PCSHCLTRANSFERKEY pKey,
                                    PSHCLTRANSFER aTransfer,
                                    SHCLSOURCE enmShClSource,
                                    SHCLTRANSFERSTATUS enmStatus,
-                                   int vrcTransfer);
+                                   int vrcTransfer,
+                                   const char *pszPath = NULL);
+    /**
+     * Updates a Shared Clipboard transfer's byte progress.
+     *
+     * @retval  S_OK                if progress was accepted or safely ignored.
+     * @retval  E_FAIL              if clipboard state or its transfer manager is unavailable.
+     * @retval  E_OUTOFMEMORY       if a progress publication cannot be allocated.
+     * @param   pKey                Host-side transfer key.
+     * @param   cbProcessed         Number of bytes processed so far.
+     * @param   cbTotal             Total number of bytes to process.
+     */
+    HRESULT i_handleTransferProgress(PCSHCLTRANSFERKEY pKey,
+                                     uint64_t cbProcessed,
+                                     uint64_t cbTotal);
 #else
     HRESULT i_transferCancel(ULONG aTransferId);
 #endif

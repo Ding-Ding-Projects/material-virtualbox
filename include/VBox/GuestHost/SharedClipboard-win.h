@@ -93,7 +93,7 @@ typedef FNREMOVECLIPBOARDFORMATLISTENER *PFNREMOVECLIPBOARDFORMATLISTENER;
  * Structure for keeping function pointers for the new clipboard API.
  * If the new API is not available, those function pointer are NULL.
  */
-typedef struct _SHCLWINAPINEW
+typedef struct SHCLWINAPINEW
 {
     PFNADDCLIPBOARDFORMATLISTENER    pfnAddClipboardFormatListener;
     PFNREMOVECLIPBOARDFORMATLISTENER pfnRemoveClipboardFormatListener;
@@ -102,7 +102,7 @@ typedef struct _SHCLWINAPINEW
 /**
  * Structure for keeping variables which are needed to drive the old clipboard API.
  */
-typedef struct _SHCLWINAPIOLD
+typedef struct SHCLWINAPIOLD
 {
     /** Timer ID for the refresh timer. */
     UINT                   timerRefresh;
@@ -113,12 +113,14 @@ typedef struct _SHCLWINAPIOLD
 #ifdef VBOX_WITH_SHARED_CLIPBOARD_TRANSFERS
 /** Forward declaration for the Windows data object. */
 class ShClWinDataObject;
+/** Forward declaration for the Windows stream object. */
+class ShClWinStreamImpl;
 #endif
 
 /**
  * Structure for maintaining a Shared Clipboard context on Windows platforms.
  */
-typedef struct _SHCLWINCTX
+typedef struct SHCLWINCTX
 {
     /** Critical section to serialize access. */
     RTCRITSECT         CritSect;
@@ -137,7 +139,8 @@ typedef struct _SHCLWINCTX
     /** Structure for maintaining the old clipboard API. */
     SHCLWINAPIOLD      oldAPI;
 #ifdef VBOX_WITH_SHARED_CLIPBOARD_TRANSFERS
-    /** The "in-flight" data object for file transfers.
+    /** The "in-flight" data object for file transfers.  This context owns one
+     *  COM reference to the object while the pointer is non-NULL.
      *  This is the current data object which has been created and sent to the Windows clipboard.
      *  That way Windows knows that a potential file transfer is available, but the actual transfer
      *  hasn't been started yet.
@@ -155,6 +158,17 @@ int ShClWinClear(void);
 
 int ShClWinCtxInit(PSHCLWINCTX pWinCtx);
 void ShClWinCtxDestroy(PSHCLWINCTX pWinCtx);
+#ifdef VBOX_WITH_SHARED_CLIPBOARD_TRANSFERS
+/**
+ * Disables callbacks on the current in-flight data object.
+ *
+ * New callbacks are disabled permanently.  The function also waits for an
+ * active callback running on another thread to return.
+ *
+ * @param   pWinCtx             Windows clipboard context.
+ */
+void ShClWinCtxDisableDataObjectCallbacks(PSHCLWINCTX pWinCtx);
+#endif
 
 int ShClWinCheckAndInitNewAPI(PSHCLWINAPINEW pAPI);
 bool ShClWinIsNewAPI(PSHCLWINAPINEW pAPI);
@@ -222,15 +236,22 @@ public:
         /**
          * Called by the data object if a transfer has been ended (succeeded or failed).
          *
-         * @returns VBox status code.
-         * @param   pCbCtx          Pointer to callback context.
-         * @param   pTransfer       Pointer to transfer being completed.
-         * @param   rcTransfer      Result (IPRT-style) code.
+         * @returns                     Status from reporting the terminal transfer state.
+         * @param   pCbCtx              Pointer to callback context.
+         * @param   pTransfer           Pointer to transfer being completed.
+         * @param   rcTransfer          Result (IPRT-style) code.
+         * @param   pszPath             Normalized transfer-relative path of the object which failed, or NULL if not known. The
+         *                              pointer is valid for the duration of the callback only.
          */
-        DECLCALLBACKMEMBER(int, pfnTransferEnd, (PCALLBACKCTX pCbCtx, PSHCLTRANSFER pTransfer, int rcTransfer));
+        DECLCALLBACKMEMBER(int, pfnTransferEnd, (PCALLBACKCTX pCbCtx, PSHCLTRANSFER pTransfer, int rcTransfer,
+                                                const char *pszPath));
     };
     /** Pointer to a Shared Clipboard Windows data object callback table. */
     typedef CALLBACKS *PCALLBACKS;
+    /** Transfer-begin callback type. */
+    typedef decltype(CALLBACKS::pfnTransferBegin) PFNTRANSFERBEGIN;
+    /** Transfer-end callback type. */
+    typedef decltype(CALLBACKS::pfnTransferEnd) PFNTRANSFEREND;
 
     enum Status
     {
@@ -291,7 +312,9 @@ public: /* IDataObjectAsyncCapability methods. */
 public:
 
     int SetTransfer(PSHCLTRANSFER pTransfer);
-    int SetStatus(Status enmStatus, int rcSts = VINF_SUCCESS);
+    int SetStatus(Status enmStatus, int rcSts = VINF_SUCCESS, ULONG uObjIdx = UINT32_MAX);
+    int SetFileCompleted(ULONG uObjIdx);
+    void DisableCallbacks(void);
 
 public:
 
@@ -305,8 +328,8 @@ protected:
 
     static int Thread(RTTHREAD hThread, void *pvUser);
 
-    inline int lock(void);
-    inline int unlock(void);
+    int lock(void);
+    int unlock(void);
 
     int readDir(PSHCLTRANSFER pTransfer, const Utf8Str &strPath);
 
@@ -319,8 +342,12 @@ protected:
     bool lookupFormatEtc(LPFORMATETC pFormatEtc, ULONG *puIndex);
     void registerFormat(LPFORMATETC pFormatEtc, CLIPFORMAT clipFormat, TYMED tyMed = TYMED_HGLOBAL,
                         LONG lindex = -1, DWORD dwAspect = DVASPECT_CONTENT, DVTARGETDEVICE *pTargetDevice = NULL);
-    int setTransferLocked(PSHCLTRANSFER pTransfer);
-    int setStatusLocked(Status enmStatus, int rc = VINF_SUCCESS);
+    int setTransferLocked(PSHCLTRANSFER pTransfer, ShClWinDataObject **ppObjToRelease = NULL);
+    int setStatusLocked(Status enmStatus, int rc = VINF_SUCCESS, ULONG uObjIdx = UINT32_MAX);
+    int setFileCompletedLocked(ULONG uObjIdx);
+    int reportTransferEnd(PSHCLTRANSFER pTransfer, int rcTransfer);
+    void registerStreamLocked(ShClWinStreamImpl *pStream);
+    void invalidateStreams(void);
 
 protected:
 
@@ -337,13 +364,16 @@ protected:
 
     /** Vector containing file system objects with its (cached) objection information. */
     typedef std::vector<FSOBJENTRY> FsObjEntryList;
+    /** List of streams published by this data object. */
+    typedef std::vector<ShClWinStreamImpl *> StreamList;
 
-    /** Shared Clipboard context to use. */
-    PSHCLCONTEXT                m_pCtx;
     /** The object's current status. */
     Status                      m_enmStatus;
     /** Last (IPRT-style) error set in conjunction with the status. */
     int                         m_rcStatus;
+    /** Index of the file-system object which supplied the error, or UINT32_MAX
+     *  if not known. */
+    ULONG                       m_uErrorObjIdx;
     /** Data object callback table to use. */
     CALLBACKS                   m_Callbacks;
     /** Data object callback table context to use. */
@@ -356,15 +386,30 @@ protected:
     LPSTGMEDIUM                 m_pStgMedium;
     /** Pointer to the associated transfer object being handled. */
     PSHCLTRANSFER               m_pTransfer;
-    /** Current stream object being used. */
-    IStream                    *m_pStream;
-    /** Current object index being handled by the data object.
-     *  This is needed to create the next IStream object for e.g. the next upcoming file/dir/++ in the transfer. */
-    ULONG                       m_uObjIdx;
+    /** Published streams.  Each entry owns one COM reference. */
+    StreamList                  m_lstStreams;
     /** List of (cached) file system objects. */
     FsObjEntryList              m_lstEntries;
+    /** Per-descriptor completion flags.  Directory entries always remain false. */
+    std::vector<bool>           m_afObjCompleted;
+    /** Number of regular-file entries in @a m_lstEntries. */
+    size_t                      m_cFileEntries;
+    /** Number of unique regular-file entries reported complete. */
+    size_t                      m_cFileEntriesCompleted;
+    /** Whether the critical section has been initialized. */
+    bool                        m_fCritSectInitialized;
+    /** Whether new backend callbacks may be started. */
+    bool                        m_fCallbacksEnabled;
+    /** Whether the terminal callback for the assigned transfer was issued. */
+    bool                        m_fTransferEndReported;
+    /** Number of backend callbacks currently executing. */
+    uint32_t                    m_cCallbacks;
+    /** Native thread executing the sole admitted backend callback. */
+    RTNATIVETHREAD              m_hCallbackThread;
     /** Critical section to serialize access. */
     RTCRITSECT                  m_CritSect;
+    /** Signalled when no backend callback is executing. */
+    RTSEMEVENTMULTI             m_EventCallbacksDrained;
     /** Event being triggered when reading the transfer list been completed. */
     RTSEMEVENT                  m_EventListComplete;
     /** Event being triggered when the object status has been changed. */
@@ -375,6 +420,8 @@ protected:
     UINT                        m_cfFileDescriptorW;
     /** Registered format for CFSTR_FILECONTENTS. */
     UINT                        m_cfFileContents;
+    /** Registered format for CFSTR_PREFERREDDROPEFFECT. */
+    UINT                        m_cfPreferredDropEffect;
     /** Registered format for CFSTR_PERFORMEDDROPEFFECT. */
     UINT                        m_cfPerformedDropEffect;
 };
@@ -428,7 +475,7 @@ class ShClWinStreamImpl : public IStream
 public:
 
     ShClWinStreamImpl(ShClWinDataObject *pParent, PSHCLTRANSFER pTransfer,
-                      const Utf8Str &strPath, PSHCLFSOBJINFO pObjInfo);
+                      ULONG uObjIdx, const Utf8Str &strPath, PSHCLFSOBJINFO pObjInfo);
     virtual ~ShClWinStreamImpl(void);
 
 public: /* IUnknown methods. */
@@ -453,8 +500,9 @@ public: /* IStream methods. */
 
 public: /* Own methods. */
 
-    static HRESULT Create(ShClWinDataObject *pParent, PSHCLTRANSFER pTransfer, const Utf8Str &strPath,
-                          PSHCLFSOBJINFO pObjInfo, IStream **ppStream);
+    static HRESULT Create(ShClWinDataObject *pParent, PSHCLTRANSFER pTransfer, ULONG uObjIdx,
+                          const Utf8Str &strPath, PSHCLFSOBJINFO pObjInfo, IStream **ppStream);
+    void Invalidate(void);
 private:
 
     /** Pointer to the parent data object. */
@@ -463,8 +511,16 @@ private:
     LONG                           m_lRefCount;
     /** Pointer to the associated Shared Clipboard transfer. */
     PSHCLTRANSFER                  m_pTransfer;
+    /** Result returned by reads after the stream has been invalidated. */
+    HRESULT                        m_hrReadAfterInvalidation;
+    /** Whether the critical section has been initialized. */
+    bool                           m_fCritSectInitialized;
+    /** Critical section serializing reads and invalidation. */
+    RTCRITSECT                     m_CritSect;
     /** The object handle to use. */
     SHCLOBJHANDLE                  m_hObj;
+    /** Index of this stream's file in the parent's FILEGROUPDESCRIPTOR. */
+    ULONG                          m_uObjIdx;
     /** Object path. */
     Utf8Str                        m_strPath;
     /** (Cached) object information. */
@@ -487,16 +543,27 @@ public:
 
     virtual ~ShClWinTransferCtx() { }
 
-    /** Pointer to data object to use for this transfer. Not owned.
-     *  Can be NULL if not being used. */
-    ShClWinDataObject *pDataObj;
+    /** Critical section protecting @a pDataObj. */
+    RTCRITSECT          CritSect;
+    /** Pointer to data object to use for this transfer.  Owns one COM
+     *  reference while non-NULL. */
+    ShClWinDataObject  *pDataObj;
 };
 
-int ShClWinTransferGetRoots(PSHCLWINCTX pWinCtx, PSHCLTRANSFER pTransfer);
 int ShClWinTransferDropFilesToStringList(DROPFILES *pDropFiles, char **papszList, uint32_t *pcbList);
 int ShClWinTransferGetRootsFromClipboard(PSHCLWINCTX pWinCtx, PSHCLTRANSFER pTransfer);
 
 int ShClWinTransferCreate(PSHCLWINCTX pWinCtx, PSHCLTRANSFER pTransfer);
+/**
+ * Unregisters the data object associated with a Windows transfer.
+ *
+ * This disables backend callbacks and releases the data object's long-lived
+ * transfer reference while keeping the per-transfer context valid for
+ * temporary users.
+ *
+ * @param   pTransfer           Shared Clipboard transfer to unregister.
+ */
+void ShClWinTransferUnregister(PSHCLTRANSFER pTransfer);
 void ShClWinTransferDestroy(PSHCLWINCTX pWinCtx, PSHCLTRANSFER pTransfer);
 
 int ShClWinTransferCreateAndSetDataObject(PSHCLWINCTX pWinCtx, PSHCLCONTEXT pCtx, ShClWinDataObject::PCALLBACKS pCallbacks);
@@ -504,4 +571,3 @@ int ShClWinTransferInitialize(PSHCLWINCTX pWinCtx, PSHCLTRANSFER pTransfer);
 int ShClWinTransferStart(PSHCLWINCTX pWinCtx, PSHCLTRANSFER pTransfer);
 # endif /* VBOX_WITH_SHARED_CLIPBOARD_TRANSFERS */
 #endif /* !VBOX_INCLUDED_GuestHost_SharedClipboard_win_h */
-

@@ -1,4 +1,4 @@
-/* $Id: GIMR3Hv.cpp 112403 2026-01-11 19:29:08Z knut.osmundsen@oracle.com $ */
+/* $Id: GIMR3Hv.cpp 115361 2026-10-08 09:58:15Z aleksey.ilyushin@oracle.com $ */
 /** @file
  * GIM - Guest Interface Manager, Hyper-V implementation.
  */
@@ -38,6 +38,7 @@
 #include <VBox/vmm/hm.h>
 #include <VBox/vmm/pdmapi.h>
 #include <VBox/vmm/em.h>
+#include <VBox/vmm/dbgf.h>
 #include "GIMInternal.h"
 #include <VBox/vmm/vm.h>
 
@@ -221,7 +222,11 @@ VMMR3_INT_DECL(int) gimR3HvInit(PVM pVM, PCFGMNODE pGimCfg)
         PVMCPU       pVCpu     = pVM->apCpusR3[idCpu];
         PGIMHVCPU    pHvCpu    = &pVCpu->gim.s.u.HvCpu;
         for (uint8_t idxStimer = 0; idxStimer < RT_ELEMENTS(pHvCpu->aStimers); idxStimer++)
+        {
             pHvCpu->aStimers[idxStimer].hTimer = NIL_TMTIMERHANDLE;
+            pHvCpu->aStimers[idxStimer].idCpu     = idCpu;
+            pHvCpu->aStimers[idxStimer].idxStimer = idxStimer;
+        }
     }
 
     /*
@@ -299,6 +304,7 @@ VMMR3_INT_DECL(int) gimR3HvInit(PVM pVM, PCFGMNODE pGimCfg)
                          | GIM_HV_MISC_FEAT_TIMER_FREQ
                          | GIM_HV_MISC_FEAT_GUEST_CRASH_MSRS
                        //| GIM_HV_MISC_FEAT_DEBUG_MSRS
+                       //| GIM_HV_MISC_FEAT_USE_DIRECT_SYNTH_MSRS
                          ;
 
         /* Hypervisor recommendations to the guest. */
@@ -523,9 +529,9 @@ VMMR3_INT_DECL(int) gimR3HvInit(PVM pVM, PCFGMNODE pGimCfg)
             {
                 PGIMHVSTIMER pHvStimer = &pHvCpu->aStimers[idxStimer];
 
-                /* Associate the synthetic timer with its corresponding VCPU. */
-                pHvStimer->idCpu     = pVCpu->idCpu;
-                pHvStimer->idxStimer = idxStimer;
+                /* Paranoia. */
+                Assert(pHvStimer->idCpu     == pVCpu->idCpu);
+                Assert(pHvStimer->idxStimer == idxStimer);
 
                 /* Create the timer and associate the context pointers. */
                 char szName[32];
@@ -549,7 +555,17 @@ VMMR3_INT_DECL(int) gimR3HvInit(PVM pVM, PCFGMNODE pGimCfg)
         {
             int rc2 = STAMR3RegisterF(pVM, &pHvCpu->aStatStimerFired[idxStimer], STAMTYPE_COUNTER, STAMVISIBILITY_ALWAYS,
                                      STAMUNIT_OCCURENCES, "Number of times the synthetic timer fired.",
-                                     "/GIM/HyperV/%u/Stimer%u_Fired", idCpu, idxStimer);
+                                     "/GIM/HyperV/%u/Stimer%u/Fired", idCpu, idxStimer);
+            AssertLogRelRCReturn(rc2, rc2);
+
+            rc2 = STAMR3RegisterF(pVM, &pHvCpu->aStatStimerConfigWrite[idxStimer], STAMTYPE_COUNTER, STAMVISIBILITY_ALWAYS,
+                                     STAMUNIT_OCCURENCES, "Number of times the STIMER_CONFIG MSR was written.",
+                                     "/GIM/HyperV/%u/Stimer%u/ConfigWrite", idCpu, idxStimer);
+            AssertLogRelRCReturn(rc2, rc2);
+
+            rc2 = STAMR3RegisterF(pVM, &pHvCpu->aStatStimerCountWrite[idxStimer], STAMTYPE_COUNTER, STAMVISIBILITY_ALWAYS,
+                                     STAMUNIT_OCCURENCES, "Number of times the STIMER_COUNT MSR was written.",
+                                     "/GIM/HyperV/%u/Stimer%u/CountWrite", idCpu, idxStimer);
             AssertLogRelRCReturn(rc2, rc2);
         }
     }
@@ -700,7 +716,7 @@ VMMR3_INT_DECL(void) gimR3HvReset(PVM pVM)
         pHvCpu->uSControlMsr = 0;
         pHvCpu->uSimpMsr  = 0;
         pHvCpu->uSiefpMsr = 0;
-        pHvCpu->uApicAssistPageMsr = 0;
+        pHvCpu->uVpAssistMsr = 0;
 
         for (uint8_t idxSint = 0; idxSint < RT_ELEMENTS(pHvCpu->auSintMsrs); idxSint++)
             pHvCpu->auSintMsrs[idxSint] = MSR_GIM_HV_SINT_MASKED;
@@ -708,8 +724,12 @@ VMMR3_INT_DECL(void) gimR3HvReset(PVM pVM)
         for (uint8_t idxStimer = 0; idxStimer < RT_ELEMENTS(pHvCpu->aStimers); idxStimer++)
         {
             PGIMHVSTIMER pHvStimer = &pHvCpu->aStimers[idxStimer];
+            Assert(pHvStimer->idCpu == idCpu);
+            Assert(pHvStimer->idxStimer == idxStimer);
             pHvStimer->uStimerConfigMsr = 0;
             pHvStimer->uStimerCountMsr  = 0;
+            pHvStimer->uExpirationTime  = 0;
+            pHvStimer->fMsgPending      = false;
         }
     }
 }
@@ -1045,30 +1065,29 @@ VMMR3_INT_DECL(int) gimR3HvLoadDone(PVM pVM, PSSMHANDLE pSSM)
 
 
 /**
- * Enables the Hyper-V APIC-assist page.
+ * Enables the Hyper-V VP Assist page.
  *
  * @returns VBox status code.
  * @param   pVCpu                   The cross context virtual CPU structure.
- * @param   GCPhysApicAssistPage    Where to map the APIC-assist page.
+ * @param   GCPhysVpAssistPage    Where to map the VP ssist page.
  */
-VMMR3_INT_DECL(int) gimR3HvEnableApicAssistPage(PVMCPU pVCpu, RTGCPHYS GCPhysApicAssistPage)
+VMMR3_INT_DECL(int) gimR3HvEnableVpAssistPage(PVMCPU pVCpu, RTGCPHYS GCPhysVpAssistPage)
 {
     PVM             pVM     = pVCpu->CTX_SUFF(pVM);
     PPDMDEVINSR3    pDevIns = pVM->gim.s.pDevInsR3;
     AssertPtrReturn(pDevIns, VERR_GIM_DEVICE_NOT_REGISTERED);
 
     /*
-     * Map the APIC-assist-page at the specified address.
+     * Map the VP Assist page at the specified address.
      */
     /** @todo this is buggy when large pages are used due to a PGM limitation, see
      *        @bugref{7532}. Instead of the overlay style mapping, we just
      *        rewrite guest memory directly. */
-    AssertCompile(sizeof(g_abRTZero64K) >= GUEST_PAGE_SIZE);
-    int rc = PGMPhysSimpleWriteGCPhys(pVM, GCPhysApicAssistPage, g_abRTZero64K, GUEST_PAGE_SIZE);
+    int rc = PGMPhysSimpleWriteGCPhys(pVM, GCPhysVpAssistPage, g_abRTZero64K, GUEST_PAGE_SIZE);
     if (RT_SUCCESS(rc))
     {
         /** @todo Inform APIC. */
-        LogRel(("GIM%u: HyperV: Enabled APIC-assist page at %#RGp\n", pVCpu->idCpu, GCPhysApicAssistPage));
+        LogRel(("GIM%u: HyperV: Enabled VP Assist page at %#RGp\n", pVCpu->idCpu, GCPhysVpAssistPage));
     }
     else
     {
@@ -1080,14 +1099,14 @@ VMMR3_INT_DECL(int) gimR3HvEnableApicAssistPage(PVMCPU pVCpu, RTGCPHYS GCPhysApi
 
 
 /**
- * Disables the Hyper-V APIC-assist page.
+ * Disables the Hyper-V VP Assist page.
  *
  * @returns VBox status code.
  * @param   pVCpu   The cross context virtual CPU structure.
  */
-VMMR3_INT_DECL(int) gimR3HvDisableApicAssistPage(PVMCPU pVCpu)
+VMMR3_INT_DECL(int) gimR3HvDisableVpAssistPage(PVMCPU pVCpu)
 {
-    LogRel(("GIM%u: HyperV: Disabled APIC-assist page\n", pVCpu->idCpu));
+    LogRel(("GIM%u: HyperV: Disabled VP Assist page\n", pVCpu->idCpu));
     /** @todo inform APIC */
     return VINF_SUCCESS;
 }
@@ -1105,28 +1124,25 @@ static DECLCALLBACK(void) gimR3HvTimerCallback(PVM pVM, TMTIMERHANDLE hTimer, vo
     Assert(pHvStimer->hTimer == hTimer);
     RT_NOREF(hTimer);
 
-    PVMCPU    pVCpu  = pVM->apCpusR3[pHvStimer->idCpu];
-    PGIMHVCPU pHvCpu = &pVCpu->gim.s.u.HvCpu;
-    Assert(pHvStimer->idxStimer < RT_ELEMENTS(pHvCpu->aStatStimerFired));
+    /** @todo This is currently broken for SMP and single-VCPU only because
+     *        this callback NEEDS to be executed on the VCPU EMT owning the
+     *        timer. Hence the release assertion below.
+     */
+    if (pVM->cCpus > 1)
+        AssertReleaseMsgFailed(("Hyper-V Synthetic Timers not yet implemented for SMP VMs!"));
+    PVMCPU pVCpu = pVM->apCpusR3[pHvStimer->idCpu];
+    gimHvDeliverTimerMsg(pVCpu, pHvStimer);
 
-    STAM_COUNTER_INC(&pHvCpu->aStatStimerFired[pHvStimer->idxStimer]);
-
+    /* Re-arm the timer if it's periodic. Disable the timer if it's one-shot. */
     uint64_t const uStimerConfig = pHvStimer->uStimerConfigMsr;
-    uint16_t const idxSint       = MSR_GIM_HV_STIMER_GET_SINTX(uStimerConfig);
-    if (RT_LIKELY(idxSint < RT_ELEMENTS(pHvCpu->auSintMsrs)))
-    {
-        uint64_t const uSint = pHvCpu->auSintMsrs[idxSint];
-        if (!MSR_GIM_HV_SINT_IS_MASKED(uSint))
-        {
-            uint8_t const uVector  = MSR_GIM_HV_SINT_GET_VECTOR(uSint);
-            bool const    fAutoEoi = MSR_GIM_HV_SINT_IS_AUTOEOI(uSint);
-            PDMApicHvSendInterrupt(pVCpu, uVector, fAutoEoi, XAPICTRIGGERMODE_EDGE);
-        }
-    }
-
-    /* Re-arm the timer if it's periodic. */
     if (MSR_GIM_HV_STIMER_IS_PERIODIC(uStimerConfig))
-        gimHvStartStimer(pVCpu, pHvStimer);
+    {
+        uint64_t const uTimerCount  = pHvStimer->uStimerCountMsr;    /* in 100-ns units. */
+        uint64_t const cNanosToNext = uTimerCount * 100 /* ns */;   /* number of nanos to expiry. */
+        TMTimerSetNano(pVM, hTimer, cNanosToNext);
+    }
+    else
+        pHvStimer->uStimerConfigMsr &= ~MSR_GIM_HV_STIMER_ENABLE;
 }
 
 
@@ -1293,56 +1309,6 @@ VMMR3_INT_DECL(int) gimR3HvEnableTscPage(PVM pVM, RTGCPHYS GCPhysTscPage, bool f
     return rc;
 #endif
 }
-
-
-/**
- * Enables the Hyper-V SIM page.
- *
- * @returns VBox status code.
- * @param   pVCpu           The cross context virtual CPU structure.
- * @param   GCPhysSimPage   Where to map the SIM page.
- */
-VMMR3_INT_DECL(int) gimR3HvEnableSimPage(PVMCPU pVCpu, RTGCPHYS GCPhysSimPage)
-{
-    PVM             pVM     = pVCpu->CTX_SUFF(pVM);
-    PPDMDEVINSR3    pDevIns = pVM->gim.s.pDevInsR3;
-    AssertPtrReturn(pDevIns, VERR_GIM_DEVICE_NOT_REGISTERED);
-
-    /*
-     * Map the SIMP page at the specified address.
-     */
-    /** @todo this is buggy when large pages are used due to a PGM limitation, see
-     *        @bugref{7532}. Instead of the overlay style mapping, we just
-     *        rewrite guest memory directly. */
-    AssertCompile(sizeof(g_abRTZero64K) >= GUEST_PAGE_SIZE);
-    int rc = PGMPhysSimpleWriteGCPhys(pVM, GCPhysSimPage, g_abRTZero64K, GUEST_PAGE_SIZE);
-    if (RT_SUCCESS(rc))
-    {
-        /** @todo SIM setup. */
-        LogRel(("GIM%u: HyperV: Enabled SIM page at %#RGp\n", pVCpu->idCpu, GCPhysSimPage));
-    }
-    else
-    {
-        LogRelFunc(("GIM%u: HyperV: PGMPhysSimpleWriteGCPhys failed. rc=%Rrc\n", pVCpu->idCpu, rc));
-        rc = VERR_GIM_OPERATION_FAILED;
-    }
-    return rc;
-}
-
-
-/**
- * Disables the Hyper-V SIM page.
- *
- * @returns VBox status code.
- * @param   pVCpu   The cross context virtual CPU structure.
- */
-VMMR3_INT_DECL(int) gimR3HvDisableSimPage(PVMCPU pVCpu)
-{
-    LogRel(("GIM%u: HyperV: Disabled SIM page\n", pVCpu->idCpu));
-    /** @todo SIM teardown. */
-    return VINF_SUCCESS;
-}
-
 
 
 /**
@@ -2273,3 +2239,78 @@ VMMR3_INT_DECL(int) gimR3HvHypercallExtGetBootZeroedMem(PVM pVM, int *prcHv)
     return rc;
 }
 
+
+/**
+ * Dumps Hyper-V GIM state.
+ *
+ * @param   pVCpu   The cross context virtual CPU structure.
+ * @param   pHlp    The info helpers.
+ */
+VMMR3_INT_DECL(void) gimR3HvDbgInfo(PVMCPU pVCpu, PCDBGFINFOHLP pHlp)
+{
+    AssertPtrReturnVoid(pVCpu);
+    AssertPtrReturnVoid(pHlp);
+
+    PCVM    pVM = pVCpu->CTX_SUFF(pVM);
+    PCGIMHV pHv = &pVM->gim.s.u.Hv;
+    pHlp->pfnPrintf(pHlp, "  Guest OS ID MSR    = %#RX64\n", pHv->u64GuestOsIdMsr);
+    pHlp->pfnPrintf(pHlp, "  Hypercall MSR      = %#RX64\n", pHv->u64HypercallMsr);
+    pHlp->pfnPrintf(pHlp, "  TSC Page MSR       = %#RX64\n", pHv->u64TscPageMsr);
+    pHlp->pfnPrintf(pHlp, "  Crash Control MSR  = %#RX64\n", pHv->uCrashCtlMsr);
+    pHlp->pfnPrintf(pHlp, "  Crash P0 MSR       = %#RX64\n", pHv->uCrashP0Msr);
+    pHlp->pfnPrintf(pHlp, "  Crash P1 MSR       = %#RX64\n", pHv->uCrashP1Msr);
+    pHlp->pfnPrintf(pHlp, "  Crash P2 MSR       = %#RX64\n", pHv->uCrashP2Msr);
+    pHlp->pfnPrintf(pHlp, "  Crash P3 MSR       = %#RX64\n", pHv->uCrashP3Msr);
+    pHlp->pfnPrintf(pHlp, "  Crash P4 MSR       = %#RX64\n", pHv->uCrashP4Msr);
+    pHlp->pfnPrintf(pHlp, "  TSC ticks/sec      = %#RX64\n", pHv->cTscTicksPerSecond);
+    pHlp->pfnPrintf(pHlp, "  Hypercall IN Page  = %#RX64\n", pHv->GCPhysHypercallIn);
+    pHlp->pfnPrintf(pHlp, "  Hypercall OUT Page = %#RX64\n", pHv->GCPhysHypercallOut);
+    pHlp->pfnPrintf(pHlp, "  Debug Enabled      = %RTbool\n", pHv->fDbgEnabled);
+    if (pHv->fDbgEnabled)
+        pHlp->pfnPrintf(pHlp, "  Debug Interface    = %s\n", pHv->fDbgHypercallInterface ? "Hypercall" : "MSR");
+
+    PCGIMHVCPU pHvCpu = &pVCpu->gim.s.u.HvCpu;
+    pHlp->pfnPrintf(pHlp, "  SIMP MSR           = %#RX64\n", pHvCpu->uSimpMsr);
+    pHlp->pfnPrintf(pHlp, "  SIEFP MSR          = %#RX64\n", pHvCpu->uSiefpMsr);
+    pHlp->pfnPrintf(pHlp, "  VP Assist MSR      = %#RX64\n", pHvCpu->uVpAssistMsr);
+    pHlp->pfnPrintf(pHlp, "  SCONTROL MSR       = %#RX64\n", pHvCpu->uSControlMsr);
+    pHlp->pfnPrintf(pHlp, "  SIEFP MSR          = %#RX64\n", pHvCpu->uSiefpMsr);
+
+    /* Synthetic interrupt sources. */
+    uint32_t const cSintMsrs = RT_ELEMENTS(pHvCpu->auSintMsrs);
+    pHlp->pfnPrintf(pHlp, "  SINT Sources       = %u\n", cSintMsrs);
+    for (uint32_t i = 0; i < cSintMsrs; i++)
+    {
+        uint64_t const uSintMsr = pHvCpu->auSintMsrs[i];
+        bool const fPolling   = MSR_GIM_HV_SINT_IS_POLLING(uSintMsr);
+        bool const fAutoEoi   = MSR_GIM_HV_SINT_IS_AUTOEOI(uSintMsr);
+        bool const fMasked    = MSR_GIM_HV_SINT_IS_MASKED(uSintMsr);
+        uint8_t const uVector = MSR_GIM_HV_SINT_GET_VECTOR(uSintMsr);
+        pHlp->pfnPrintf(pHlp, "    SINT[%2u] MSR = %#016RX64 (masked=%#RTbool vector=%#04x auto-eoi=%#RTbool polling=%#RTbool)\n",
+                        i, uSintMsr, fMasked, uVector, fAutoEoi, fPolling);
+    }
+
+    /* Synthetic interrupt timers. */
+    uint32_t const cStimers = RT_ELEMENTS(pHvCpu->aStimers);
+    pHlp->pfnPrintf(pHlp, "  STIMER Count       = %u\n", cStimers);
+    for (uint32_t i = 0; i < cStimers; i++)
+    {
+        PCGIMHVSTIMER pHvStimer = &pHvCpu->aStimers[i];
+        Assert(pHvStimer->idCpu == pVCpu->idCpu);
+        Assert(pHvStimer->idxStimer == i);
+        uint64_t const uCfgMsg  = pHvStimer->uStimerConfigMsr;
+        bool const fEnabled     = MSR_GIM_HV_STIMER_IS_ENABLED(uCfgMsg);
+        bool const fPeriodic    = MSR_GIM_HV_STIMER_IS_PERIODIC(uCfgMsg);
+        bool const fLazy        = MSR_GIM_HV_STIMER_IS_LAZY(uCfgMsg);
+        bool const fAutoEnabled = MSR_GIM_HV_STIMER_IS_AUTO_ENABLED(uCfgMsg);
+        uint8_t const uDmVector = MSR_GIM_HV_STIMER_GET_VECTOR(uCfgMsg);
+        uint8_t const idxSint   = MSR_GIM_HV_STIMER_GET_SINTX(uCfgMsg);
+        bool const fDirectMode  = MSR_GIM_HV_STIMER_IS_DIRECT_MODE(uCfgMsg);
+        pHlp->pfnPrintf(pHlp, "  STIMER%2u:\n", i);
+        pHlp->pfnPrintf(pHlp, "    CONFIG MSR      = %#RX64 (en=%u periodic=%u lazy=%u auto_enabled=%u direct=%u direct_vec=%#x sintx=%u)\n",
+                              uCfgMsg, fEnabled, fPeriodic, fLazy, fAutoEnabled, fDirectMode, uDmVector, idxSint);
+        pHlp->pfnPrintf(pHlp, "    COUNT  MSR      = %#RX64\n", pHvStimer->uStimerCountMsr);
+        pHlp->pfnPrintf(pHlp, "    Expiration      = %#RX64 (100-ns units)\n", pHvStimer->uExpirationTime);
+        pHlp->pfnPrintf(pHlp, "    Message Pending = %RTbool\n", pHvStimer->fMsgPending);
+    }
+}

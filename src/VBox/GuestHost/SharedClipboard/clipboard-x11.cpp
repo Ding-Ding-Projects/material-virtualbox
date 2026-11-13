@@ -39,6 +39,7 @@
 *   Header Files                                                                                                                 *
 *********************************************************************************************************************************/
 #define LOG_GROUP LOG_GROUP_SHARED_CLIPBOARD
+#undef BOOL /* precompiled header hack */
 
 #include <errno.h>
 
@@ -69,6 +70,9 @@
 # include <iprt/cpp/list.h>
 # include <iprt/cpp/ministring.h>
 # include <VBox/GuestHost/SharedClipboard-transfers.h>
+#endif
+#ifdef VBOX_WITH_SHARED_CLIPBOARD_TRANSFERS_HTTP
+# include <VBox/GuestHost/clipboard-transfers-http.h>
 #endif
 
 #include <VBox/log.h>
@@ -499,9 +503,28 @@ static int clipThreadScheduleCall(PSHCLX11CTX pCtx,
 
     XtAppAddTimeOut(pCtx->pAppContext, 0, (XtTimerCallbackProc)proc,
                     (XtPointer)client_data);
-    ssize_t cbWritten = write(pCtx->wakeupPipeWrite, WAKE_UP_STRING, WAKE_UP_STRING_LEN);
-    Assert(cbWritten == WAKE_UP_STRING_LEN);
-    RT_NOREF(cbWritten);
+
+    ssize_t cbWritten;
+    do
+        cbWritten = write(pCtx->wakeupPipeWrite, WAKE_UP_STRING, WAKE_UP_STRING_LEN);
+    while (cbWritten < 0 && errno == EINTR);
+    if (cbWritten < 0)
+    {
+        /* A full non-blocking pipe is already readable and will wake the worker. */
+# if EAGAIN == EWOULDBLOCK
+        if (errno != EAGAIN)
+# else
+        if (errno != EAGAIN && errno != EWOULDBLOCK)
+# endif
+        {
+            int const rc = RTErrConvertFromErrno(errno);
+            /* The Xt callback is already queued and cannot be cancelled without racing the worker. */
+            AssertFatalMsgRC(rc, ("Waking the X11 event thread failed with %Rrc\n", rc));
+        }
+    }
+    else if (cbWritten != WAKE_UP_STRING_LEN)
+        AssertFatalMsgFailed(("Waking the X11 event thread wrote only %zd of %zu bytes\n",
+                              cbWritten, (size_t)WAKE_UP_STRING_LEN));
 #else
     RT_NOREF(pCtx);
     tstThreadScheduleCall(proc, client_data);
@@ -548,6 +571,27 @@ static void clipReportFormatsToVBox(PSHCLX11CTX pCtx)
 
     if (pCtx->Callbacks.pfnReportFormats)
         pCtx->Callbacks.pfnReportFormats(pCtx->pFrontend, vboxFmt, NULL /* pvUser */);
+}
+
+/** Reports the currently tracked X11 formats to the frontend. */
+static void shClX11ReportCurrentFormatsToVBoxWorker(void *pvUserData, void * /* interval */)
+{
+    AssertPtrReturnVoid(pvUserData);
+    clipReportFormatsToVBox((PSHCLX11CTX)pvUserData);
+}
+
+/**
+ * Schedules a report of the currently tracked X11 formats to the frontend.
+ *
+ * @retval  VERR_INVALID_POINTER if @a pCtx or its X11 application context is invalid.
+ * @param   pCtx                The X11 clipboard context to use.
+ *
+ * @thread  Any thread.  The report runs on the X11 event thread.
+ */
+int ShClX11ReportCurrentFormatsToVBoxAsync(PSHCLX11CTX pCtx)
+{
+    AssertPtrReturn(pCtx, VERR_INVALID_POINTER);
+    return clipThreadScheduleCall(pCtx, shClX11ReportCurrentFormatsToVBoxWorker, pCtx);
 }
 
 /**
@@ -737,7 +781,7 @@ SHCL_X11_DECL(SHCLX11FMTIDX) clipGetURIListFormatFromTargets(PSHCLX11CTX pCtx,
         LogRelMax2(16, ("Shared Clipboard: Selected X11 URI-list target '%s' for host file transfer\n",
                        g_aFormats[idxFmtURI].pcszAtom));
     else if (fSawUnsupportedTransferMetadata)
-        LogRelMax2(16, ("Shared Clipboard: X11 clipboard had file-transfer metadata but no supported file list target "
+        LogRelMax(16, ("Shared Clipboard: X11 clipboard had file-transfer metadata but no supported file list target "
                         "(for example text/uri-list); host file transfer will not be announced\n"));
 
     return idxFmtURI;
@@ -1275,22 +1319,6 @@ static void clipUninitInternal(PSHCLX11CTX pCtx)
 }
 
 /**
- * Helper function for public X11 Shared Clipboard APIs to know whether we're running in headless mode or not.
- *
- * Headless mode either could mean that we don't want to touch the X11 clipboard, or that X simply isn't installed and/or
- * isn't available (e.g. running on a pure server installation w/o any desktop environment).
- *
- * Goal here is to make the X11 API transparent for the caller whether X is available or not.
- *
- * @returns \c true if running in headless mode, or \c false if not.
- * @param   pCtx                The X11 clipboard context to use.
- */
-DECLINLINE(bool) shClX11HeadlessIsEnabled(PSHCLX11CTX pCtx)
-{
-    return pCtx->fHeadless;
-}
-
-/**
  * Sets the callback table, internal version.
  *
  * @param   pCtx                The clipboard context.
@@ -1307,32 +1335,22 @@ static void shClX11SetCallbacksInternal(PSHCLX11CTX pCtx, PSHCLCALLBACKS pCallba
 }
 
 /**
- * Sets the callback table.
- *
- * @param   pCtx                The clipboard context.
- * @param   pCallbacks          Callback table to set. If NULL, the current callback table will be cleared.
- */
-void ShClX11SetCallbacks(PSHCLX11CTX pCtx, PSHCLCALLBACKS pCallbacks)
-{
-    shClX11SetCallbacksInternal(pCtx, pCallbacks);
-}
-
-/**
  * Initializes a X11 context of the Shared Clipboard.
  *
  * @returns VBox status code.
  * @param   pCtx        The clipboard context to initialize.
  * @param   pCallbacks  Callbacks to use (copied, not used directly). Optional.
  * @param   pParent     Parent context to use.
- * @param   fHeadless   Whether the code runs in a headless environment or not.
  */
-int ShClX11Init(PSHCLX11CTX pCtx, PSHCLCALLBACKS pCallbacks, PSHCLCONTEXT pParent, bool fHeadless)
+int ShClX11Init(PSHCLX11CTX pCtx, PSHCLCALLBACKS pCallbacks, PSHCLCONTEXT pParent)
 {
     AssertPtrReturn(pCtx, VERR_INVALID_POINTER);
 
     LogFlowFunc(("pCtx=%p\n", pCtx));
 
     RT_BZERO(pCtx, sizeof(SHCLX11CTX));
+    pCtx->wakeupPipeRead  = -1;
+    pCtx->wakeupPipeWrite = -1;
 
     /* Init clipboard cache. */
     ShClCacheInit(&pCtx->Cache);
@@ -1340,8 +1358,7 @@ int ShClX11Init(PSHCLX11CTX pCtx, PSHCLCALLBACKS pCallbacks, PSHCLCONTEXT pParen
     /* Install given callbacks. */
     shClX11SetCallbacksInternal(pCtx, pCallbacks);
 
-    pCtx->fHeadless      = fHeadless;
-    pCtx->pFrontend      = pParent;
+    pCtx->pFrontend = pParent;
 
 #ifdef VBOX_WITH_SHARED_CLIPBOARD_XT_BUSY
     pCtx->fXtBusy        = false;
@@ -1350,24 +1367,21 @@ int ShClX11Init(PSHCLX11CTX pCtx, PSHCLCALLBACKS pCallbacks, PSHCLCONTEXT pParen
 
     int rc = VINF_SUCCESS;
 
-    LogRel(("Shared Clipboard: Initializing X11 clipboard (%s mode)\n", fHeadless ? "headless" : "regular"));
+    LogRel(("Shared Clipboard: Initializing X11 clipboard\n"));
 
-    if (!pCtx->fHeadless)
-    {
 #ifdef VBOX_WITH_SHARED_CLIPBOARD_TRANSFERS_HTTP
-        rc = ShClTransferHttpServerInit(&pCtx->HttpCtx.HttpServer);
+    rc = ShClTransferHttpServerInit(&pCtx->HttpCtx.HttpServer);
 #endif
 
 #ifdef TESTCASE
+    if (RT_SUCCESS(rc))
+    {
+        /** @todo The testcases currently do not utilize the threading code. So init stuff here. */
+        rc = clipInitInternal(pCtx);
         if (RT_SUCCESS(rc))
-        {
-            /** @todo The testcases currently do not utilize the threading code. So init stuff here. */
-            rc = clipInitInternal(pCtx);
-            if (RT_SUCCESS(rc))
-                rc = clipRegisterContext(pCtx);
-        }
-#endif
+            rc = clipRegisterContext(pCtx);
     }
+#endif
 
     if (RT_FAILURE(rc))
         LogRel(("Shared Clipboard: Initializing X11 clipboard failed with %Rrc\n", rc));
@@ -1394,8 +1408,7 @@ int ShClX11Term(PSHCLX11CTX pCtx)
 
     int rc = VINF_SUCCESS;
 #ifdef VBOX_WITH_SHARED_CLIPBOARD_TRANSFERS_HTTP
-    if (!shClX11HeadlessIsEnabled(pCtx))
-        rc = ShClTransferHttpServerDestroy(&pCtx->HttpCtx.HttpServer);
+    rc = ShClTransferHttpServerDestroy(&pCtx->HttpCtx.HttpServer);
 #endif
 
 #ifdef TESTCASE
@@ -1404,18 +1417,31 @@ int ShClX11Term(PSHCLX11CTX pCtx)
     clipUninitInternal(pCtx);
 #endif
 
-    if (!shClX11HeadlessIsEnabled(pCtx))
-    {
-        /* We set this to NULL when the event thread exits.  It really should
-         * have exited at this point, when we are about to unload the code from
-         * memory. */
-        AssertStmt(pCtx->pWidget == NULL, rc = VERR_WRONG_ORDER);
-    }
+    /* We set this to NULL when the event thread exits.  It really should
+     * have exited at this point, when we are about to unload the code from
+     * memory. */
+    AssertStmt(pCtx->pWidget == NULL, rc = VERR_WRONG_ORDER);
 
     return rc;
 }
 
 #ifndef TESTCASE
+/** Closes the wakeup pipe created for the X11 event thread. */
+static void clipThreadCloseWakeupPipe(PSHCLX11CTX pCtx)
+{
+    if (pCtx->wakeupPipeRead >= 0)
+    {
+        close(pCtx->wakeupPipeRead);
+        pCtx->wakeupPipeRead = -1;
+    }
+
+    if (pCtx->wakeupPipeWrite >= 0)
+    {
+        close(pCtx->wakeupPipeWrite);
+        pCtx->wakeupPipeWrite = -1;
+    }
+}
+
 /**
  * Starts our own Xt even thread for handling Shared Clipboard messages, extended version.
  *
@@ -1428,9 +1454,8 @@ int ShClX11ThreadStartEx(PSHCLX11CTX pCtx, const char *pszName, bool fGrab)
 {
     AssertPtrReturn(pCtx, VERR_INVALID_POINTER);
 
-    if (shClX11HeadlessIsEnabled(pCtx))
-        return VINF_SUCCESS;
-
+    pCtx->Thread = NIL_RTTHREAD;
+    pCtx->fThreadStarted = false;
     pCtx->fGrabClipboardOnStart = fGrab;
 
     clipResetX11Formats(pCtx);
@@ -1447,12 +1472,16 @@ int ShClX11ThreadStartEx(PSHCLX11CTX pCtx, const char *pszName, bool fGrab)
         pCtx->wakeupPipeRead  = pipes[0];
         pCtx->wakeupPipeWrite = pipes[1];
 
-        if (!fcntl(pCtx->wakeupPipeRead, F_SETFL, O_NONBLOCK))
+        if (   !fcntl(pCtx->wakeupPipeRead,  F_SETFL, O_NONBLOCK)
+            && !fcntl(pCtx->wakeupPipeWrite, F_SETFL, O_NONBLOCK))
         {
             rc = VINF_SUCCESS;
         }
         else
+        {
             rc = RTErrConvertFromErrno(errno);
+            clipThreadCloseWakeupPipe(pCtx);
+        }
     }
     else
         rc = RTErrConvertFromErrno(errno);
@@ -1464,7 +1493,13 @@ int ShClX11ThreadStartEx(PSHCLX11CTX pCtx, const char *pszName, bool fGrab)
         rc = RTThreadCreate(&pCtx->Thread, clipThreadMain, pCtx, 0,
                             RTTHREADTYPE_IO, RTTHREADFLAGS_WAITABLE, pszName);
         if (RT_SUCCESS(rc))
-            rc = RTThreadUserWait(pCtx->Thread, RT_MS_30SEC /* msTimeout */);
+        {
+            /* The backend must not release pCtx while the worker initializes it. */
+            rc = RTThreadUserWait(pCtx->Thread, RT_INDEFINITE_WAIT);
+            AssertFatalMsgRC(rc, ("Waiting for X11 event thread startup failed with %Rrc\n", rc));
+        }
+        else
+            clipThreadCloseWakeupPipe(pCtx);
 
         if (RT_FAILURE(rc))
         {
@@ -1475,7 +1510,15 @@ int ShClX11ThreadStartEx(PSHCLX11CTX pCtx, const char *pszName, bool fGrab)
         {
             if (!pCtx->fThreadStarted)
             {
-                LogRel(("Shared Clipboard: X11 event thread reported an error while starting\n"));
+                /* The worker signalled its terminal startup failure; reap it before returning. */
+                int rcThread = VERR_IPE_UNINITIALIZED_STATUS;
+                int rc2 = RTThreadWait(pCtx->Thread, RT_INDEFINITE_WAIT, &rcThread);
+                AssertFatalMsgRC(rc2, ("Reaping X11 event thread after startup failure failed with %Rrc\n", rc2));
+                pCtx->Thread = NIL_RTTHREAD;
+                rc = RT_FAILURE(rcThread) ? rcThread : VERR_GENERAL_FAILURE;
+
+                clipThreadCloseWakeupPipe(pCtx);
+                LogRel(("Shared Clipboard: X11 event thread reported an error while starting: %Rrc\n", rc));
             }
             else
                 LogRel2(("Shared Clipboard: X11 event thread started\n"));
@@ -1511,44 +1554,43 @@ int ShClX11ThreadStart(PSHCLX11CTX pCtx, bool fGrab)
  */
 int ShClX11ThreadStop(PSHCLX11CTX pCtx)
 {
-    if (shClX11HeadlessIsEnabled(pCtx))
-        return VINF_SUCCESS;
+    AssertPtrReturn(pCtx, VERR_INVALID_POINTER);
+    AssertReturn(pCtx->Thread != NIL_RTTHREAD, VERR_INVALID_STATE);
+
+    int rcThread = VERR_IPE_UNINITIALIZED_STATUS;
+    int rcWait = RTThreadWait(pCtx->Thread, 0 /* cMillies */, &rcThread);
+    if (RT_SUCCESS(rcWait))
+    {
+        pCtx->Thread = NIL_RTTHREAD;
+        pCtx->fThreadStarted = false;
+        clipThreadCloseWakeupPipe(pCtx);
+        return rcThread;
+    }
+    AssertFatalMsg(rcWait == VERR_TIMEOUT, ("Probing X11 event thread failed with %Rrc\n", rcWait));
 
     LogRel2(("Shared Clipboard: Signalling the X11 event thread to stop\n"));
 
     /* Write to the "stop" pipe. */
-    int rc = clipThreadScheduleCall(pCtx, clipThreadSignalStop, (XtPointer)pCtx);
-    if (RT_FAILURE(rc))
-    {
-        LogRel(("Shared Clipboard: cannot notify X11 event thread on shutdown with %Rrc\n", rc));
-        return rc;
-    }
+    int const rcSignal = clipThreadScheduleCall(pCtx, clipThreadSignalStop, (XtPointer)pCtx);
+    AssertFatalMsgRC(rcSignal, ("Cannot notify X11 event thread on shutdown with %Rrc\n", rcSignal));
 
     LogRel2(("Shared Clipboard: Waiting for X11 event thread to stop ...\n"));
 
-    int rcThread;
-    rc = RTThreadWait(pCtx->Thread, RT_MS_30SEC /* msTimeout */, &rcThread);
-    if (RT_SUCCESS(rc))
-        rc = rcThread;
-    if (RT_SUCCESS(rc))
+    rcWait = RTThreadWait(pCtx->Thread, RT_MS_30SEC /* msTimeout */, &rcThread);
+    if (RT_FAILURE(rcWait))
     {
-        if (pCtx->wakeupPipeRead != 0)
-        {
-            close(pCtx->wakeupPipeRead);
-            pCtx->wakeupPipeRead = 0;
-        }
-
-        if (pCtx->wakeupPipeWrite != 0)
-        {
-            close(pCtx->wakeupPipeWrite);
-            pCtx->wakeupPipeWrite = 0;
-        }
+        LogRel(("Shared Clipboard: X11 event thread did not stop promptly (%Rrc); waiting indefinitely\n", rcWait));
+        rcWait = RTThreadWait(pCtx->Thread, RT_INDEFINITE_WAIT, &rcThread);
     }
+    AssertFatalMsgRC(rcWait, ("Reaping X11 event thread failed with %Rrc\n", rcWait));
 
+    pCtx->Thread = NIL_RTTHREAD;
+    pCtx->fThreadStarted = false;
+    clipThreadCloseWakeupPipe(pCtx);
+
+    int const rc = rcThread;
     if (RT_SUCCESS(rc))
-    {
         LogRel2(("Shared Clipboard: X11 event thread stopped successfully\n"));
-    }
     else
         LogRel(("Shared Clipboard: Stopping X11 event thread failed with %Rrc\n", rc));
 
@@ -1688,7 +1730,7 @@ static int shClX11RequestDataForX11CallbackHelper(PSHCLX11CTX pCtx, SHCLFORMAT u
             rc = VERR_SHCLPB_NO_DATA;
     }
     else
-        LogRel(("Shared Clipboard: Requesting data for X11 from source failed with %Rrc\n", rc));
+        LogRel2(("Shared Clipboard: Requesting VBox-to-X11 clipboard data in format %#x from the source ended with %Rrc\n", uFmt, rc));
 
     LogFlowFunc(("Returning pv=%p, cb=%RU32, rc=%Rrc\n", pv, cb, rc));
     return rc;
@@ -1996,8 +2038,9 @@ static int clipConvertToX11Data(PSHCLX11CTX pCtx, Atom *atomTarget,
     {
         char *pszFmts2 = ShClFormatsToStrA(pCtx->vboxFormats);
         char *pszAtomName = XGetAtomName(XtDisplay(pCtx->pWidget), *atomTarget);
-        LogRel(("Shared Clipboard: Converting VBox formats '%s' to '%s' for X11 (idxFmtX11=%u, fmtX11=%u, atomTarget='%s') failed, rc=%Rrc\n",
-                pszFmts2 ? pszFmts2 : "<alloc error>", g_aFormats[idxFmtX11].pcszAtom, idxFmtX11, fmtX11, pszAtomName ? pszAtomName : "unknown", rc));
+        LogRelMax(16, ("Shared Clipboard: VBox-to-X11 conversion failed: %RU32 bytes, VBox %#x/'%.*s', X11 idx=%u fmt=%u atom='%.*s'/'%.*s', rc=%Rrc\n",
+                       cb, pCtx->vboxFormats, 128, pszFmts2 ? pszFmts2 : "<alloc error>", idxFmtX11, fmtX11,
+                       128, g_aFormats[idxFmtX11].pcszAtom, 128, pszAtomName ? pszAtomName : "unknown", rc));
         RTStrFree(pszFmts2);
         if (pszAtomName)
             XFree(pszAtomName);
@@ -2141,8 +2184,8 @@ static void shClX11ReportFormatsToX11Worker(void *pvUserData, void * /* interval
         int rc = ShClCacheSet(&pCtx->Cache, uFmtCache, pvCache, cbCache);
         if (RT_FAILURE(rc))
         {
-            LogRel(("Shared Clipboard: Caching format %#x before advertising it to X11 failed with %Rrc; "
-                    "suppressing the format\n", uFmtCache, rc));
+            LogRelMax(16, ("Shared Clipboard: Caching %RU32 bytes in format %#x before advertising VBox-to-X11 formats %#x failed with %Rrc; suppressing the format\n",
+                           cbCache, uFmtCache, fFormats, rc));
             fFormats &= ~uFmtCache;
         }
     }
@@ -2203,9 +2246,6 @@ int ShClX11ReportFormatsToX11AsyncEx(PSHCLX11CTX pCtx, SHCLFORMATS fFormats, SHC
     }
     else
         AssertReturn(!pvCache && !cbCache, VERR_INVALID_PARAMETER);
-
-    if (shClX11HeadlessIsEnabled(pCtx))
-        return VINF_SUCCESS;
 
     int rc;
 
@@ -2411,7 +2451,7 @@ int ShClX11TransferConvertFromX11(const char *pvData, size_t cbData, char **ppsz
     int rc = RTStrValidateEncodingEx((char *)pvData, cbData, 0 /* fFlags */);
     if (RT_FAILURE(rc))
     {
-        LogRelMax2(16, ("Shared Clipboard: X11 URI-list clipboard data is not valid UTF-8 (%zu bytes), rc=%Rrc\n",
+        LogRelMax(16, ("Shared Clipboard: X11 URI-list clipboard data is not valid UTF-8 (%zu bytes), rc=%Rrc\n",
                        cbData, rc));
         return rc;
     }
@@ -2443,7 +2483,7 @@ int ShClX11TransferConvertFromX11(const char *pvData, size_t cbData, char **ppsz
         if (   pchCur < pchEnd
             && *pchCur == '\0')
         {
-            LogRelMax2(16, ("Shared Clipboard: X11 URI-list clipboard data contains an embedded NUL byte; refusing file transfer\n"));
+            LogRelMax(16, ("Shared Clipboard: X11 URI-list clipboard data contains an embedded NUL byte; refusing file transfer\n"));
             rc = VERR_INVALID_PARAMETER;
             break;
         }
@@ -2500,7 +2540,7 @@ int ShClX11TransferConvertFromX11(const char *pvData, size_t cbData, char **ppsz
 
     if (!cEntries)
     {
-        LogRelMax2(16, ("Shared Clipboard: X11 URI-list clipboard data contained no file entries; refusing file transfer\n"));
+        LogRelMax(16, ("Shared Clipboard: X11 URI-list clipboard data contained no file entries; refusing file transfer\n"));
         return VERR_SHCLPB_NO_DATA;
     }
 
@@ -2660,7 +2700,8 @@ SHCL_X11_DECL(void) clipConvertDataFromX11Worker(void *pClient, void *pvSrc, uns
                         LogFlowFunc(("UTF-8 Unicode dest (%u bytes):\n%s\n\n", cbDst, pvDst));
                     }
                     else
-                        LogRel(("Shared Clipboard: Converting UTF-16 Unicode failed with %Rrc\n", rc));
+                        LogRelMax(16, ("Shared Clipboard: Converting %u bytes of X11 UTF-16 HTML to VBox format %#x failed with %Rrc\n",
+                                       cbSrc, pReq->Read.uFmtVBox, rc));
                 }
                 else /* Raw data. */
                 {
@@ -2702,8 +2743,7 @@ SHCL_X11_DECL(void) clipConvertDataFromX11Worker(void *pClient, void *pvSrc, uns
         {
             const char *pszTarget = pReq->Read.idxFmtX11 < RT_ELEMENTS(g_aFormats)
                                   ? g_aFormats[pReq->Read.idxFmtX11].pcszAtom : "<invalid>";
-            LogRelMax2(16, ("Shared Clipboard: Refusing to parse X11 clipboard target '%s' as a file list\n",
-                           pszTarget));
+            LogRel2(("Shared Clipboard: Refusing to parse X11 clipboard target '%s' as a file list\n", pszTarget));
             rc = VERR_NOT_SUPPORTED;
         }
     }
@@ -2714,8 +2754,8 @@ SHCL_X11_DECL(void) clipConvertDataFromX11Worker(void *pClient, void *pvSrc, uns
     LogFlowFunc(("pvDst=%p, cbDst=%RU32\n", pvDst, cbDst));
 
     if (RT_FAILURE(rc))
-        LogRel(("Shared Clipboard: Converting X11 format index %#x to VBox format %#x failed, rc=%Rrc\n",
-                pReq->Read.idxFmtX11, pReq->Read.uFmtVBox, rc));
+        LogRel2(("Shared Clipboard: Converting X11 format index %#x to VBox format %#x failed with %Rrc\n",
+                 pReq->Read.idxFmtX11, pReq->Read.uFmtVBox, rc));
 
     PSHCLEVENTPAYLOAD pPayload = NULL;
 
@@ -2752,7 +2792,13 @@ SHCL_X11_DECL(void) clipConvertDataFromX11Worker(void *pClient, void *pvSrc, uns
         pPayload = NULL;
     }
 
-    LogRel2(("Shared Clipboard: Converting X11 clipboard data completed with %Rrc\n", rc));
+    if (rc == VERR_SHCLPB_NO_DATA)
+        LogRel2(("Shared Clipboard: X11 clipboard selection no longer contains data for VBox format %#x\n", pReq->Read.uFmtVBox));
+    else if (RT_FAILURE(rc))
+        LogRelMax(16, ("Shared Clipboard: Converting %u bytes from X11 format index %#x/'%s' to VBox format %#x failed with %Rrc\n",
+                       cbSrc, pReq->Read.idxFmtX11, g_aFormats[pReq->Read.idxFmtX11].pcszAtom, pReq->Read.uFmtVBox, rc));
+    else
+        LogRel2(("Shared Clipboard: Converting X11 clipboard data completed with %Rrc\n", rc));
 
     RTMemFree(pReq);
     RTMemFree(pvDst);
@@ -2772,16 +2818,16 @@ SHCL_X11_DECL(void) clipConvertDataFromX11(Widget widget, XtPointer pClient,
 {
     RT_NOREF(widget);
 
+    PSHCLX11REQUEST pReq = (PSHCLX11REQUEST)pClient;
     int rc = VINF_SUCCESS;
 
     if (*atomType == XT_CONVERT_FAIL) /* Xt timeout */
     {
-        LogRel(("Shared Clipboard: Reading clipboard data from X11 timed out\n"));
+        LogRel2(("Shared Clipboard: Reading clipboard data from X11 timed out\n"));
         rc = VERR_TIMEOUT;
     }
     else
     {
-        PSHCLX11REQUEST pReq = (PSHCLX11REQUEST)pClient;
         if (pReq) /* Give some more clues, if available. */
         {
             AssertReturnVoid(pReq->enmType == SHCLX11EVENTTYPE_READ);
@@ -2815,7 +2861,11 @@ SHCL_X11_DECL(void) clipConvertDataFromX11(Widget widget, XtPointer pClient,
 
     if (RT_FAILURE(rc))
     {
-        LogRel(("Shared Clipboard: Reading clipboard data from X11 failed with %Rrc\n", rc));
+        if (pReq)
+            LogRelMax(16, ("Shared Clipboard: Reading X11 clipboard data in format index %#x for VBox format %#x failed with %Rrc\n",
+                           pReq->Read.idxFmtX11, pReq->Read.uFmtVBox, rc));
+        else
+            LogRelMax(16, ("Shared Clipboard: Reading X11 clipboard data failed with %Rrc\n", rc));
 
         /* Make sure to complete the request in any case by calling the conversion worker. */
         clipConvertDataFromX11Worker(pClient, NULL, 0);
@@ -2956,13 +3006,16 @@ static void ShClX11ReadDataFromX11Worker(void *pvUserData, void * /* interval */
      */
     if (RT_FAILURE(rc))
     {
+        LogRel2(("Shared Clipboard: Starting an X11 clipboard read for VBox format %#x (X11 format index %#x, %RU32 bytes max) failed with %Rrc\n",
+                 pReq->Read.uFmtVBox, pReq->Read.idxFmtX11, pReq->Read.cbMax, rc));
+
         int rc2 = ShClEventSignalEx(pReq->pEvent, rc, NULL /* Payload */);
         AssertRC(rc2);
 
         RTMemFree(pReq);
     }
-
-    LogRel2(("Shared Clipboard: Reading X11 clipboard data completed with %Rrc\n", rc));
+    else
+        LogRel2(("Shared Clipboard: Reading X11 clipboard data completed with %Rrc\n", rc));
 
     LogFlowFuncLeaveRC(rc);
 }
@@ -2981,9 +3034,6 @@ static void ShClX11ReadDataFromX11Worker(void *pvUserData, void * /* interval */
 int ShClX11ReadDataFromX11Async(PSHCLX11CTX pCtx, SHCLFORMAT uFmt, uint32_t cbMax, PSHCLEVENT pEvent)
 {
     AssertPtrReturn(pEvent, VERR_INVALID_POINTER);
-
-    if (shClX11HeadlessIsEnabled(pCtx))
-        return VINF_SUCCESS;
 
     int rc = VINF_SUCCESS;
 
@@ -3094,12 +3144,6 @@ int ShClX11ReadDataFromX11Ex(PSHCLX11CTX pCtx, PSHCLEVENTSOURCE pEventSource, RT
     AssertPtrReturn(ppvBuf, VERR_INVALID_POINTER);
     AssertPtrReturn(pcbBuf, VERR_INVALID_POINTER);
 
-    if (shClX11HeadlessIsEnabled(pCtx))
-    {
-        *pcbBuf = 0;
-        return VINF_SUCCESS;
-    }
-
     PSHCLX11RESPONSE pResp;
     int rc = shClX11ReadDataFromX11Internal(pCtx, pEventSource, msTimeout, uFmt, UINT32_MAX, &pResp);
     if (RT_SUCCESS(rc))
@@ -3140,13 +3184,6 @@ int ShClX11ReadDataFromX11(PSHCLX11CTX pCtx, PSHCLEVENTSOURCE pEventSource, RTMS
     AssertReturn(cbBuf, VERR_INVALID_PARAMETER);
     /* pcbRead is optional. */
 
-    if (shClX11HeadlessIsEnabled(pCtx))
-    {
-        if (pcbRead)
-            *pcbRead = 0;
-        return VINF_SUCCESS;
-    }
-
     PSHCLX11RESPONSE pResp;
     int rc = shClX11ReadDataFromX11Internal(pCtx, pEventSource, msTimeout, uFmt, cbBuf, &pResp);
     if (RT_SUCCESS(rc))
@@ -3181,9 +3218,6 @@ int ShClX11WriteDataToX11Async(PSHCLX11CTX pCtx, SHCLFORMATS uFmts, const void *
     AssertPtrReturn(pvBuf,  VERR_INVALID_POINTER);
     AssertReturn(cbBuf,  VERR_INVALID_PARAMETER);
     /* pEvent not used yet. */ RT_NOREF(pEvent);
-
-    if (shClX11HeadlessIsEnabled(pCtx))
-        return VINF_SUCCESS;
 
     int rc = ShClCacheSetMultiple(&pCtx->Cache, uFmts, pvBuf, cbBuf);
     if (RT_SUCCESS(rc))

@@ -1,4 +1,4 @@
-/* $Id: clipboard-helper.h 114830 2026-07-31 10:02:47Z andreas.loeffler@oracle.com $ */
+/* $Id: clipboard-helper.h 115048 2026-08-17 15:07:54Z andreas.loeffler@oracle.com $ */
 /** @file
  * Shared Clipboard - Helper functions.
  */
@@ -113,21 +113,6 @@ int ShClHlpUtf16LenUtf8(PCRTUTF16 pcwszSrc, size_t cwcSrc, size_t *pcbLenSansTer
  *                              optional final terminator.
  */
 int ShClHlpUtf8ValidateExact(const char *pchSrc, size_t cbSrc, size_t *pcchText);
-
-/**
- * Validates and duplicates an exact bounded UTF-16 payload.
- *
- * The input may omit its final terminator.  If a terminator is present, it
- * must be the final code unit; embedded terminators and trailing data are
- * rejected.  The returned copy is always terminated.
- *
- * @returns VBox status code.
- * @param   pwszSrc             UTF-16 payload to duplicate.
- * @param   cwcSrc              Exact payload size in UTF-16 code units.
- * @param   ppwszDst            Where to return the allocated terminated copy.
- *                              Free with RTUtf16Free().
- */
-int ShClHlpUtf16DupExact(PCRTUTF16 pwszSrc, size_t cwcSrc, PRTUTF16 *ppwszDst);
 
 /**
  * Converts an UTF-16 string with LF EOL to an UTF-16 string with CRLF EOL.
@@ -285,14 +270,6 @@ const char *ShClHlpModeToString(uint32_t uMode);
 const char *ShClHlpTransferStateToString(uint32_t uState);
 
 /**
- * Converts a Main API clipboard event type value to a printable string.
- *
- * @returns Printable event type name.
- * @param   uEventType          Main API VBoxEventType value.
- */
-const char *ShClHlpVBoxEventTypeToString(uint32_t uEventType);
-
-/**
  * Parses a clipboard sharing mode value.
  *
  * @returns true if the value was parsed successfully, false otherwise.
@@ -364,29 +341,6 @@ int ShClDbgDumpHtml(const char *pszSrc, size_t cbSrc);
 void ShClDbgDumpData(const void *pv, size_t cb, SHCLFORMAT u32Format);
 #endif /* LOG_ENABLED */
 
-/**
- * Translates a Shared Clipboard host function number to a string.
- *
- * @returns Function ID string name.
- * @param   uFn                 The function to translate.
- */
-const char *ShClHostFunctionToStr(uint32_t uFn);
-
-/**
- * Translates a Shared Clipboard host message enum to a string.
- *
- * @returns Message ID string name.
- * @param   uMsg                The message to translate.
- */
-const char *ShClHostMsgToStr(uint32_t uMsg);
-
-/**
- * Translates a Shared Clipboard guest message enum to a string.
- *
- * @returns Message ID string name.
- * @param   uMsg                The message to translate.
- */
-const char *ShClGuestMsgToStr(uint32_t uMsg);
 
 char *ShClFormatsToStrA(SHCLFORMATS fFormats);
 

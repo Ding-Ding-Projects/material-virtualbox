@@ -11,7 +11,7 @@
 # pylint: disable=invalid-name
 # pylint: disable=multiple-statements
 # pylint: disable=line-too-long
-# $Id: configure.py 114902 2026-08-07 21:57:38Z klaus.espenlaub@oracle.com $
+# $Id: configure.py 115360 2026-09-29 09:54:16Z knut.osmundsen@oracle.com $
 #
 # The following checks for the right (i.e. most recent) Python binary available
 # and re-starts the script using that binary (like a shell wrapper).
@@ -90,7 +90,7 @@ SPDX-License-Identifier: GPL-3.0-only
 # External Python modules or other dependencies are not allowed!
 #
 
-__revision__ = ''.join(c for c in "$Revision: 114902 $" if c.isdigit())
+__revision__ = ''.join(c for c in "$Revision: 115360 $" if c.isdigit())
 
 import argparse
 import collections;
@@ -1363,7 +1363,9 @@ class LibraryCheck(CheckBase):
 
         sRootPath = self.sRootPath; # A custom path has precedence.
         if not sRootPath:
-            sToolsDir  = g_oEnv['PATH_DEVTOOLS'];
+            sToolsDir = g_oEnv['KBUILD_DEVTOOLS'];
+            if not sToolsDir:
+                sToolsDir = g_oEnv['PATH_DEVTOOLS']; # legacy
             if not sToolsDir:
                 sToolsDir = os.path.join(g_sScriptPath, 'tools');
             sPath = os.path.join(sToolsDir, f"{ self.enmBuildTarget }.{ self.enmBuildArch }", self.sName);
@@ -1973,7 +1975,9 @@ class ToolCheck(CheckBase):
 
         fInTree = False;
         if not sRootPath: # Search for in-tree tools.
-            sPath  = os.path.join(g_sScriptPath, g_oEnv['PATH_DEVTOOLS'] if g_oEnv['PATH_DEVTOOLS'] else 'tools');
+            sPath = g_oEnv['KBUILD_DEVTOOLS'];
+            if not sPath: sPath = g_oEnv['PATH_DEVTOOLS']; # legacy
+            if not sPath: sPath = os.path.join(g_sScriptPath, 'tools');
             asToolsSubDir = [
                  "common",
                 f"{self.enmBuildTarget}.{self.enmBuildArch}"
@@ -2092,7 +2096,7 @@ class ToolCheck(CheckBase):
             _, sPath = getPackagePath('gsoapssl++');
 
         if not sPath: # Try in dev tools.
-            asDevPaths = sorted(glob.glob(f"{g_oEnv['PATH_DEVTOOLS']}/common/gsoap/v*"));
+            asDevPaths = sorted(glob.glob(f"{g_oEnv['KBUILD_DEVTOOLS']}/common/gsoap/v*"));
             for sDevPath in asDevPaths:
                 if pathExists(sDevPath):
                     sPath = sDevPath;
@@ -2741,8 +2745,6 @@ class ToolCheck(CheckBase):
         if not sPath:
             sPath = g_oEnv['KBUILD_PATH'];
         if not sPath:
-            sPath = os.environ.get('KBUILD_DEVTOOLS');
-        if not sPath:
             sPath = os.path.join(g_sScriptPath, 'kBuild');
 
         if sPath:
@@ -2882,7 +2884,9 @@ class ToolCheck(CheckBase):
         Checks for devtools and sets the paths.
         """
 
-        sPathBase = self.sRootPath if self.sRootPath else g_oEnv['PATH_DEVTOOLS'];
+        sPathBase = self.sRootPath if self.sRootPath else g_oEnv['KBUILD_DEVTOOLS'];
+        if not sPathBase:
+            sPathBase = g_oEnv['PATH_DEVTOOLS']; # legacy
         if not sPathBase:
             sPathBase = os.path.join(g_sScriptPath, 'tools');
 
@@ -2891,7 +2895,7 @@ class ToolCheck(CheckBase):
             if pathExists(sPathBin):
                 self.sCmdPath = sPathBin;
 
-            g_oEnv.set('PATH_DEVTOOLS', sPathBase);
+            g_oEnv.set('KBUILD_DEVTOOLS', sPathBase);
             return True;
 
         return False;
@@ -3656,14 +3660,14 @@ g_aoLibs = [
 #       Don't change without proper testing!
 # The naming of a tool must match our dev tools folders in order to be found there.
 g_aoTools = [
+    ToolCheck("kbuild", asCmd = [ "kbuild" ], fnCallback = ToolCheck.checkCallback_kBuild ),
+    ToolCheck("devtools", asCmd = [ ], fnCallback = ToolCheck.checkCallback_devtools ),
     ToolCheck("clang", asCmd = [ "clang" ], fnCallback = ToolCheck.checkCallback_clang, aeTargets = [ BuildTarget.DARWIN ] ),
     ToolCheck("gcc", asCmd = [ "gcc" ], fnCallback = ToolCheck.checkCallback_gcc, aeTargets = [ BuildTarget.LINUX, BuildTarget.SOLARIS ] ),
-    ToolCheck("kbuild", asCmd = [ "kbuild" ], fnCallback = ToolCheck.checkCallback_kBuild ),
     ToolCheck("win-visualcpp", asCmd = [ ], fnCallback = ToolCheck.checkCallback_WinVisualCPP, aeTargets = [ BuildTarget.WINDOWS ] ),
     ToolCheck("glslang", asCmd = [ "glslangValidator" ], aeTargets = [ BuildTarget.LINUX ],
               dictArgsToSetIfFailed = { 'config_tools_disable_glslang' : True }),
     ToolCheck("macossdk", asCmd = [ ], fnCallback = ToolCheck.checkCallback_MacOSSDK, aeTargets = [ BuildTarget.DARWIN ] ),
-    ToolCheck("devtools", asCmd = [ ], fnCallback = ToolCheck.checkCallback_devtools ),
     ToolCheck("gsoap", asCmd = [ ], fnCallback = ToolCheck.checkCallback_GSOAP ),
     ToolCheck("gsoapsources", asCmd = [ ], fnCallback = ToolCheck.checkCallback_GSOAPSources ),
     ToolCheck("java", asCmd = [ ], fnCallback = ToolCheck.checkCallback_Java,
@@ -3804,7 +3808,7 @@ rem\n""");
 
     w.write_all(asPrefixInclude = [ 'KBUILD_' ]);
 
-    w.write('PATH_DEVTOOLS');
+    w.write('KBUILD_DEVTOOLS');
     w.write('PATH_OUT_BASE');
 
     if g_oEnv['KBUILD_PATH']:
@@ -3814,6 +3818,11 @@ rem\n""");
     # than a VBOX_* setting and therefore needs an explicit env-file entry.
     if g_oEnv['DONT_USE_YASM'] is not None:
         w.write('DONT_USE_YASM');
+
+    # Legacy - remove?
+    if oEnv['KBUILD_DEVTOOLS']:
+        oEnv.set('PATH_DEVTOOLS', oEnv['KBUILD_DEVTOOLS']);
+    w.write('PATH_DEVTOOLS');
 
     w.save(); # Serialize all changes to disk.
 

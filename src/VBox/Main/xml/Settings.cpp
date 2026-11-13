@@ -1,4 +1,4 @@
-/* $Id: Settings.cpp 114800 2026-07-27 16:53:06Z andreas.loeffler@oracle.com $ */
+/* $Id: Settings.cpp 115229 2026-09-11 18:56:34Z aleksey.ilyushin@oracle.com $ */
 /** @file
  * Settings File Manipulation API.
  *
@@ -9708,6 +9708,21 @@ void MachineConfigFile::sanitizeImportedSerialPorts()
             port.strPath.setNull();
         }
     }
+}
+
+void MachineConfigFile::sanitizeSharedFolderSettings()
+{
+    hardwareMachine.llSharedFolders.clear();
+}
+
+void MachineConfigFile::sanitizeImportedNvramSettings()
+{
+    hardwareMachine.nvramSettings.strNvramPath.setNull();
+}
+
+void MachineConfigFile::sanitizeImportedExtraData()
+{
+    mapExtraDataItems.clear();
 }
 
 /**

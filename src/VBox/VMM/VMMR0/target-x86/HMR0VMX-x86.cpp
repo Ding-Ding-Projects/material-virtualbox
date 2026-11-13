@@ -1,4 +1,4 @@
-/* $Id: HMR0VMX-x86.cpp 114828 2026-07-31 09:19:37Z alexander.eichner@oracle.com $ */
+/* $Id: HMR0VMX-x86.cpp 115114 2026-08-25 10:12:12Z alexander.eichner@oracle.com $ */
 /** @file
  * HM VMX (Intel VT-x) - Host Context Ring-0.
  */
@@ -499,44 +499,77 @@ static void hmR0VmxUpdateStartVmFunction(PVMCPUCC pVCpu)
 {
     static const struct CLANGWORKAROUND { PFNHMVMXSTARTVM pfn; } s_aHmR0VmxStartVmFunctions[] =
     {
-        { hmR0VmxStartVm_SansXcr0_SansIbpbEntry_SansL1dEntry_SansMdsEntry_SansIbpbExit },
-        { hmR0VmxStartVm_WithXcr0_SansIbpbEntry_SansL1dEntry_SansMdsEntry_SansIbpbExit },
-        { hmR0VmxStartVm_SansXcr0_WithIbpbEntry_SansL1dEntry_SansMdsEntry_SansIbpbExit },
-        { hmR0VmxStartVm_WithXcr0_WithIbpbEntry_SansL1dEntry_SansMdsEntry_SansIbpbExit },
-        { hmR0VmxStartVm_SansXcr0_SansIbpbEntry_WithL1dEntry_SansMdsEntry_SansIbpbExit },
-        { hmR0VmxStartVm_WithXcr0_SansIbpbEntry_WithL1dEntry_SansMdsEntry_SansIbpbExit },
-        { hmR0VmxStartVm_SansXcr0_WithIbpbEntry_WithL1dEntry_SansMdsEntry_SansIbpbExit },
-        { hmR0VmxStartVm_WithXcr0_WithIbpbEntry_WithL1dEntry_SansMdsEntry_SansIbpbExit },
-        { hmR0VmxStartVm_SansXcr0_SansIbpbEntry_SansL1dEntry_WithMdsEntry_SansIbpbExit },
-        { hmR0VmxStartVm_WithXcr0_SansIbpbEntry_SansL1dEntry_WithMdsEntry_SansIbpbExit },
-        { hmR0VmxStartVm_SansXcr0_WithIbpbEntry_SansL1dEntry_WithMdsEntry_SansIbpbExit },
-        { hmR0VmxStartVm_WithXcr0_WithIbpbEntry_SansL1dEntry_WithMdsEntry_SansIbpbExit },
-        { hmR0VmxStartVm_SansXcr0_SansIbpbEntry_WithL1dEntry_WithMdsEntry_SansIbpbExit },
-        { hmR0VmxStartVm_WithXcr0_SansIbpbEntry_WithL1dEntry_WithMdsEntry_SansIbpbExit },
-        { hmR0VmxStartVm_SansXcr0_WithIbpbEntry_WithL1dEntry_WithMdsEntry_SansIbpbExit },
-        { hmR0VmxStartVm_WithXcr0_WithIbpbEntry_WithL1dEntry_WithMdsEntry_SansIbpbExit },
-        { hmR0VmxStartVm_SansXcr0_SansIbpbEntry_SansL1dEntry_SansMdsEntry_WithIbpbExit },
-        { hmR0VmxStartVm_WithXcr0_SansIbpbEntry_SansL1dEntry_SansMdsEntry_WithIbpbExit },
-        { hmR0VmxStartVm_SansXcr0_WithIbpbEntry_SansL1dEntry_SansMdsEntry_WithIbpbExit },
-        { hmR0VmxStartVm_WithXcr0_WithIbpbEntry_SansL1dEntry_SansMdsEntry_WithIbpbExit },
-        { hmR0VmxStartVm_SansXcr0_SansIbpbEntry_WithL1dEntry_SansMdsEntry_WithIbpbExit },
-        { hmR0VmxStartVm_WithXcr0_SansIbpbEntry_WithL1dEntry_SansMdsEntry_WithIbpbExit },
-        { hmR0VmxStartVm_SansXcr0_WithIbpbEntry_WithL1dEntry_SansMdsEntry_WithIbpbExit },
-        { hmR0VmxStartVm_WithXcr0_WithIbpbEntry_WithL1dEntry_SansMdsEntry_WithIbpbExit },
-        { hmR0VmxStartVm_SansXcr0_SansIbpbEntry_SansL1dEntry_WithMdsEntry_WithIbpbExit },
-        { hmR0VmxStartVm_WithXcr0_SansIbpbEntry_SansL1dEntry_WithMdsEntry_WithIbpbExit },
-        { hmR0VmxStartVm_SansXcr0_WithIbpbEntry_SansL1dEntry_WithMdsEntry_WithIbpbExit },
-        { hmR0VmxStartVm_WithXcr0_WithIbpbEntry_SansL1dEntry_WithMdsEntry_WithIbpbExit },
-        { hmR0VmxStartVm_SansXcr0_SansIbpbEntry_WithL1dEntry_WithMdsEntry_WithIbpbExit },
-        { hmR0VmxStartVm_WithXcr0_SansIbpbEntry_WithL1dEntry_WithMdsEntry_WithIbpbExit },
-        { hmR0VmxStartVm_SansXcr0_WithIbpbEntry_WithL1dEntry_WithMdsEntry_WithIbpbExit },
-        { hmR0VmxStartVm_WithXcr0_WithIbpbEntry_WithL1dEntry_WithMdsEntry_WithIbpbExit },
+        { hmR0VmxStartVm_SansXcr0_SansIbpbEntry_SansL1dEntry_SansMdsEntry_SansIbpbExit_SansPbrsb },
+        { hmR0VmxStartVm_WithXcr0_SansIbpbEntry_SansL1dEntry_SansMdsEntry_SansIbpbExit_SansPbrsb },
+        { hmR0VmxStartVm_SansXcr0_WithIbpbEntry_SansL1dEntry_SansMdsEntry_SansIbpbExit_SansPbrsb },
+        { hmR0VmxStartVm_WithXcr0_WithIbpbEntry_SansL1dEntry_SansMdsEntry_SansIbpbExit_SansPbrsb },
+        { hmR0VmxStartVm_SansXcr0_SansIbpbEntry_WithL1dEntry_SansMdsEntry_SansIbpbExit_SansPbrsb },
+        { hmR0VmxStartVm_WithXcr0_SansIbpbEntry_WithL1dEntry_SansMdsEntry_SansIbpbExit_SansPbrsb },
+        { hmR0VmxStartVm_SansXcr0_WithIbpbEntry_WithL1dEntry_SansMdsEntry_SansIbpbExit_SansPbrsb },
+        { hmR0VmxStartVm_WithXcr0_WithIbpbEntry_WithL1dEntry_SansMdsEntry_SansIbpbExit_SansPbrsb },
+        { hmR0VmxStartVm_SansXcr0_SansIbpbEntry_SansL1dEntry_WithMdsEntry_SansIbpbExit_SansPbrsb },
+        { hmR0VmxStartVm_WithXcr0_SansIbpbEntry_SansL1dEntry_WithMdsEntry_SansIbpbExit_SansPbrsb },
+        { hmR0VmxStartVm_SansXcr0_WithIbpbEntry_SansL1dEntry_WithMdsEntry_SansIbpbExit_SansPbrsb },
+        { hmR0VmxStartVm_WithXcr0_WithIbpbEntry_SansL1dEntry_WithMdsEntry_SansIbpbExit_SansPbrsb },
+        { hmR0VmxStartVm_SansXcr0_SansIbpbEntry_WithL1dEntry_WithMdsEntry_SansIbpbExit_SansPbrsb },
+        { hmR0VmxStartVm_WithXcr0_SansIbpbEntry_WithL1dEntry_WithMdsEntry_SansIbpbExit_SansPbrsb },
+        { hmR0VmxStartVm_SansXcr0_WithIbpbEntry_WithL1dEntry_WithMdsEntry_SansIbpbExit_SansPbrsb },
+        { hmR0VmxStartVm_WithXcr0_WithIbpbEntry_WithL1dEntry_WithMdsEntry_SansIbpbExit_SansPbrsb },
+        { hmR0VmxStartVm_SansXcr0_SansIbpbEntry_SansL1dEntry_SansMdsEntry_WithIbpbExit_SansPbrsb },
+        { hmR0VmxStartVm_WithXcr0_SansIbpbEntry_SansL1dEntry_SansMdsEntry_WithIbpbExit_SansPbrsb },
+        { hmR0VmxStartVm_SansXcr0_WithIbpbEntry_SansL1dEntry_SansMdsEntry_WithIbpbExit_SansPbrsb },
+        { hmR0VmxStartVm_WithXcr0_WithIbpbEntry_SansL1dEntry_SansMdsEntry_WithIbpbExit_SansPbrsb },
+        { hmR0VmxStartVm_SansXcr0_SansIbpbEntry_WithL1dEntry_SansMdsEntry_WithIbpbExit_SansPbrsb },
+        { hmR0VmxStartVm_WithXcr0_SansIbpbEntry_WithL1dEntry_SansMdsEntry_WithIbpbExit_SansPbrsb },
+        { hmR0VmxStartVm_SansXcr0_WithIbpbEntry_WithL1dEntry_SansMdsEntry_WithIbpbExit_SansPbrsb },
+        { hmR0VmxStartVm_WithXcr0_WithIbpbEntry_WithL1dEntry_SansMdsEntry_WithIbpbExit_SansPbrsb },
+        { hmR0VmxStartVm_SansXcr0_SansIbpbEntry_SansL1dEntry_WithMdsEntry_WithIbpbExit_SansPbrsb },
+        { hmR0VmxStartVm_WithXcr0_SansIbpbEntry_SansL1dEntry_WithMdsEntry_WithIbpbExit_SansPbrsb },
+        { hmR0VmxStartVm_SansXcr0_WithIbpbEntry_SansL1dEntry_WithMdsEntry_WithIbpbExit_SansPbrsb },
+        { hmR0VmxStartVm_WithXcr0_WithIbpbEntry_SansL1dEntry_WithMdsEntry_WithIbpbExit_SansPbrsb },
+        { hmR0VmxStartVm_SansXcr0_SansIbpbEntry_WithL1dEntry_WithMdsEntry_WithIbpbExit_SansPbrsb },
+        { hmR0VmxStartVm_WithXcr0_SansIbpbEntry_WithL1dEntry_WithMdsEntry_WithIbpbExit_SansPbrsb },
+        { hmR0VmxStartVm_SansXcr0_WithIbpbEntry_WithL1dEntry_WithMdsEntry_WithIbpbExit_SansPbrsb },
+        { hmR0VmxStartVm_WithXcr0_WithIbpbEntry_WithL1dEntry_WithMdsEntry_WithIbpbExit_SansPbrsb },
+        { hmR0VmxStartVm_SansXcr0_SansIbpbEntry_SansL1dEntry_SansMdsEntry_SansIbpbExit_WithPbrsb },
+        { hmR0VmxStartVm_WithXcr0_SansIbpbEntry_SansL1dEntry_SansMdsEntry_SansIbpbExit_WithPbrsb },
+        { hmR0VmxStartVm_SansXcr0_WithIbpbEntry_SansL1dEntry_SansMdsEntry_SansIbpbExit_WithPbrsb },
+        { hmR0VmxStartVm_WithXcr0_WithIbpbEntry_SansL1dEntry_SansMdsEntry_SansIbpbExit_WithPbrsb },
+        { hmR0VmxStartVm_SansXcr0_SansIbpbEntry_WithL1dEntry_SansMdsEntry_SansIbpbExit_WithPbrsb },
+        { hmR0VmxStartVm_WithXcr0_SansIbpbEntry_WithL1dEntry_SansMdsEntry_SansIbpbExit_WithPbrsb },
+        { hmR0VmxStartVm_SansXcr0_WithIbpbEntry_WithL1dEntry_SansMdsEntry_SansIbpbExit_WithPbrsb },
+        { hmR0VmxStartVm_WithXcr0_WithIbpbEntry_WithL1dEntry_SansMdsEntry_SansIbpbExit_WithPbrsb },
+        { hmR0VmxStartVm_SansXcr0_SansIbpbEntry_SansL1dEntry_WithMdsEntry_SansIbpbExit_WithPbrsb },
+        { hmR0VmxStartVm_WithXcr0_SansIbpbEntry_SansL1dEntry_WithMdsEntry_SansIbpbExit_WithPbrsb },
+        { hmR0VmxStartVm_SansXcr0_WithIbpbEntry_SansL1dEntry_WithMdsEntry_SansIbpbExit_WithPbrsb },
+        { hmR0VmxStartVm_WithXcr0_WithIbpbEntry_SansL1dEntry_WithMdsEntry_SansIbpbExit_WithPbrsb },
+        { hmR0VmxStartVm_SansXcr0_SansIbpbEntry_WithL1dEntry_WithMdsEntry_SansIbpbExit_WithPbrsb },
+        { hmR0VmxStartVm_WithXcr0_SansIbpbEntry_WithL1dEntry_WithMdsEntry_SansIbpbExit_WithPbrsb },
+        { hmR0VmxStartVm_SansXcr0_WithIbpbEntry_WithL1dEntry_WithMdsEntry_SansIbpbExit_WithPbrsb },
+        { hmR0VmxStartVm_WithXcr0_WithIbpbEntry_WithL1dEntry_WithMdsEntry_SansIbpbExit_WithPbrsb },
+        { hmR0VmxStartVm_SansXcr0_SansIbpbEntry_SansL1dEntry_SansMdsEntry_WithIbpbExit_WithPbrsb },
+        { hmR0VmxStartVm_WithXcr0_SansIbpbEntry_SansL1dEntry_SansMdsEntry_WithIbpbExit_WithPbrsb },
+        { hmR0VmxStartVm_SansXcr0_WithIbpbEntry_SansL1dEntry_SansMdsEntry_WithIbpbExit_WithPbrsb },
+        { hmR0VmxStartVm_WithXcr0_WithIbpbEntry_SansL1dEntry_SansMdsEntry_WithIbpbExit_WithPbrsb },
+        { hmR0VmxStartVm_SansXcr0_SansIbpbEntry_WithL1dEntry_SansMdsEntry_WithIbpbExit_WithPbrsb },
+        { hmR0VmxStartVm_WithXcr0_SansIbpbEntry_WithL1dEntry_SansMdsEntry_WithIbpbExit_WithPbrsb },
+        { hmR0VmxStartVm_SansXcr0_WithIbpbEntry_WithL1dEntry_SansMdsEntry_WithIbpbExit_WithPbrsb },
+        { hmR0VmxStartVm_WithXcr0_WithIbpbEntry_WithL1dEntry_SansMdsEntry_WithIbpbExit_WithPbrsb },
+        { hmR0VmxStartVm_SansXcr0_SansIbpbEntry_SansL1dEntry_WithMdsEntry_WithIbpbExit_WithPbrsb },
+        { hmR0VmxStartVm_WithXcr0_SansIbpbEntry_SansL1dEntry_WithMdsEntry_WithIbpbExit_WithPbrsb },
+        { hmR0VmxStartVm_SansXcr0_WithIbpbEntry_SansL1dEntry_WithMdsEntry_WithIbpbExit_WithPbrsb },
+        { hmR0VmxStartVm_WithXcr0_WithIbpbEntry_SansL1dEntry_WithMdsEntry_WithIbpbExit_WithPbrsb },
+        { hmR0VmxStartVm_SansXcr0_SansIbpbEntry_WithL1dEntry_WithMdsEntry_WithIbpbExit_WithPbrsb },
+        { hmR0VmxStartVm_WithXcr0_SansIbpbEntry_WithL1dEntry_WithMdsEntry_WithIbpbExit_WithPbrsb },
+        { hmR0VmxStartVm_SansXcr0_WithIbpbEntry_WithL1dEntry_WithMdsEntry_WithIbpbExit_WithPbrsb },
+        { hmR0VmxStartVm_WithXcr0_WithIbpbEntry_WithL1dEntry_WithMdsEntry_WithIbpbExit_WithPbrsb },
     };
     uintptr_t const idx = (pVCpu->hmr0.s.fLoadSaveGuestXcr0                 ?  1 : 0)
                         | (pVCpu->hmr0.s.fWorldSwitcher & HM_WSF_IBPB_ENTRY ?  2 : 0)
                         | (pVCpu->hmr0.s.fWorldSwitcher & HM_WSF_L1D_ENTRY  ?  4 : 0)
                         | (pVCpu->hmr0.s.fWorldSwitcher & HM_WSF_MDS_ENTRY  ?  8 : 0)
-                        | (pVCpu->hmr0.s.fWorldSwitcher & HM_WSF_IBPB_EXIT  ? 16 : 0);
+                        | (pVCpu->hmr0.s.fWorldSwitcher & HM_WSF_IBPB_EXIT  ? 16 : 0)
+                        | (pVCpu->hmr0.s.fWorldSwitcher & HM_WSF_IBPB_PBRSB ? 32 : 0);
     PFNHMVMXSTARTVM const pfnStartVm = s_aHmR0VmxStartVmFunctions[idx].pfn;
     if (pVCpu->hmr0.s.vmx.pfnStartVm != pfnStartVm)
         pVCpu->hmr0.s.vmx.pfnStartVm = pfnStartVm;
@@ -1028,7 +1061,7 @@ static int hmR0VmxStructsAlloc(PVMCC pVM)
     /*
      * Allocate per-VM VT-x structures.
      */
-    bool const fVirtApicAccess   = RT_BOOL(g_HmMsrs.u.vmx.ProcCtls2.n.allowed1 & VMX_PROC_CTLS2_VIRT_APIC_ACCESS);
+    bool const fVirtApicAccess   = pVM->hmr0.s.vmx.enmApicvLvl >= kVmxApicvLvl_ApicAccessVirt;
     bool const fUseVmcsShadowing = pVM->hmr0.s.vmx.fUseVmcsShadowing;
     VMXPAGEALLOCINFO aAllocInfo[] =
     {
@@ -2676,28 +2709,34 @@ static int hmR0VmxSetupVmcsProcCtls2(PVMCPUCC pVCpu, PVMXVMCSINFO pVmcsInfo)
     if (pVM->hmr0.s.vmx.fUnrestrictedGuest)
         fVal |= VMX_PROC_CTLS2_UNRESTRICTED_GUEST;
 
-#if 0
-    if (pVM->hm.s.fVirtApicRegs)
-    {
-        /* Enable APIC-register virtualization. */
-        Assert(g_HmMsrs.u.vmx.ProcCtls2.n.allowed1 & VMX_PROC_CTLS2_APIC_REG_VIRT);
-        fVal |= VMX_PROC_CTLS2_APIC_REG_VIRT;
-
-        /* Enable virtual-interrupt delivery. */
-        Assert(g_HmMsrs.u.vmx.ProcCtls2.n.allowed1 & VMX_PROC_CTLS2_VIRT_INTR_DELIVERY);
-        fVal |= VMX_PROC_CTLS2_VIRT_INTR_DELIVERY;
-    }
-#endif
-
     /* Virtualize-APIC accesses if supported by the CPU. The virtual-APIC page is
        where the TPR shadow resides. */
     /** @todo VIRT_X2APIC support, it's mutually exclusive with this. So must be
      *        done dynamically. */
-    if (g_HmMsrs.u.vmx.ProcCtls2.n.allowed1 & VMX_PROC_CTLS2_VIRT_APIC_ACCESS)
+    if (pVM->hmr0.s.vmx.enmApicvLvl >= kVmxApicvLvl_ApicAccessVirt)
     {
         fVal |= VMX_PROC_CTLS2_VIRT_APIC_ACCESS;
         hmR0VmxSetupVmcsApicAccessAddr(pVCpu);
-   }
+    }
+
+    if (pVM->hmr0.s.vmx.enmApicvLvl >= kVmxApicvLvl_ApicRegVirt)
+    {
+        /* Enable APIC-register virtualization. */
+        Assert(g_HmMsrs.u.vmx.ProcCtls2.n.allowed1 & VMX_PROC_CTLS2_APIC_REG_VIRT);
+        fVal |= VMX_PROC_CTLS2_APIC_REG_VIRT;
+    }
+
+    if (pVM->hmr0.s.vmx.enmApicvLvl >= kVmxApicvLvl_IntrDelivery)
+    {
+        /* Enable virtual-interrupt delivery. */
+        Assert(g_HmMsrs.u.vmx.ProcCtls2.n.allowed1 & VMX_PROC_CTLS2_VIRT_INT_DELIVERY);
+        fVal |= VMX_PROC_CTLS2_VIRT_INT_DELIVERY;
+
+        int rc = VMXWriteVmcs64(VMX_VMCS64_CTRL_EOI_BITMAP_0_FULL, 0);          AssertRC(rc);
+            rc = VMXWriteVmcs64(VMX_VMCS64_CTRL_EOI_BITMAP_1_FULL, 0);          AssertRC(rc);
+            rc = VMXWriteVmcs64(VMX_VMCS64_CTRL_EOI_BITMAP_2_FULL, 0);          AssertRC(rc);
+            rc = VMXWriteVmcs64(VMX_VMCS64_CTRL_EOI_BITMAP_3_FULL, 0);          AssertRC(rc);
+    }
 
     /* Enable the RDTSCP instruction if we expose it to the guest and is supported
        by the hardware. Without this, guest executing RDTSCP would cause a #UD. */
@@ -3350,6 +3389,7 @@ VMMR0DECL(int) VMXR0SetupVM(PVMCC pVM)
         Log4Func(("pVCpu=%p idCpu=%RU32\n", pVCpu, pVCpu->idCpu));
 
         pVCpu->hmr0.s.vmx.pfnStartVm = hmR0VmxStartVmSelector;
+        pVCpu->hmr0.s.vmx.enmApicvLvl = pVM->hmr0.s.vmx.enmApicvLvl;
 
         rc = hmR0VmxSetupVmcs(pVCpu, &pVCpu->hmr0.s.vmx.VmcsInfo,  false /* fIsNstGstVmcs */);
         if (RT_SUCCESS(rc))
@@ -5917,7 +5957,7 @@ static VBOXSTRICTRC hmR0VmxPreRunGuest(PVMCPUCC pVCpu, PVMXTRANSIENT pVmxTransie
      */
     PVMCC pVM = pVCpu->CTX_SUFF(pVM);
     if (   !pVCpu->hm.s.vmx.u64GstMsrApicBase
-        && (g_HmMsrs.u.vmx.ProcCtls2.n.allowed1 & VMX_PROC_CTLS2_VIRT_APIC_ACCESS)
+        && pVM->hmr0.s.vmx.enmApicvLvl >= kVmxApicvLvl_ApicAccessVirt
         && PDMHasApic(pVM))
     {
         /* Get the APIC base MSR from the virtual APIC device. */
@@ -5957,6 +5997,29 @@ static VBOXSTRICTRC hmR0VmxPreRunGuest(PVMCPUCC pVCpu, PVMXTRANSIENT pVmxTransie
      */
     if (TRPMHasTrap(pVCpu))
         vmxHCTrpmTrapToPendingEvent(pVCpu);
+
+    if (   VMCPU_FF_IS_SET(pVCpu, VMCPU_FF_INTERRUPT_APIC)
+        && pVCpu->hmr0.s.vmx.enmApicvLvl >= kVmxApicvLvl_IntrDelivery
+        && !PDMApicIsLvt0ExtInt(pVCpu))
+    {
+        Assert(!VMCPU_FF_IS_SET(pVCpu, VMCPU_FF_INTERRUPT_PIC));
+
+        uint16_t u16GstIntrSts = 0;
+        int rc = VMXReadVmcs16(VMX_VMCS16_GUEST_INTR_STATUS, &u16GstIntrSts);
+        AssertRC(rc);
+        uint16_t const uIrr = PDMApicGetHighestIrr(pVCpu);
+        uint16_t const uIsr = PDMApicGetHighestIsr(pVCpu);
+        uint16_t const u16IntrStsNew = (uIsr << 8) | uIrr;
+        Log4Func(("HM: Setting interrupt status to %#x u16GstIntrSts=%#x uIrr=%u\n", u16IntrStsNew, u16GstIntrSts, uIrr));
+        if (u16GstIntrSts != u16IntrStsNew)
+        {
+            rc = VMXWriteVmcs16(VMX_VMCS16_GUEST_INTR_STATUS, u16IntrStsNew);
+            AssertRC(rc);
+        }
+
+        if (uIrr == 0)
+            VMCPU_FF_CLEAR(pVCpu, VMCPU_FF_INTERRUPT_APIC);
+    }
 
     uint32_t fIntrState;
 #ifdef VBOX_WITH_NESTED_HWVIRT_VMX
@@ -6338,6 +6401,13 @@ static void hmR0VmxPostRunGuest(PVMCPUCC pVCpu, PVMXTRANSIENT pVmxTransient, int
     AssertRC(rc);
     pVmxTransient->uExitReason    = VMX_EXIT_REASON_BASIC(uExitReason);
     pVmxTransient->fVMEntryFailed = VMX_EXIT_REASON_HAS_ENTRY_FAILED(uExitReason);
+
+#ifdef DEBUG_aeichner
+    uint16_t u16GstIntrSts = 0;
+    rc = VMXReadVmcs16(VMX_VMCS16_GUEST_INTR_STATUS, &u16GstIntrSts);
+    AssertRC(rc);
+    Log4Func(("u16GstIntrSts=%#x\n", u16GstIntrSts));
+#endif
 
     /*
      * Log the VM-exit before logging anything else as otherwise it might be a

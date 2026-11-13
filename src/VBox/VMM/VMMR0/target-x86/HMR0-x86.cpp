@@ -1,4 +1,4 @@
-/* $Id: HMR0-x86.cpp 114490 2026-06-22 17:29:00Z knut.osmundsen@oracle.com $ */
+/* $Id: HMR0-x86.cpp 115115 2026-08-25 10:12:51Z alexander.eichner@oracle.com $ */
 /** @file
  * Hardware Assisted Virtualization Manager (HM) - Host Context Ring-0.
  */
@@ -861,6 +861,7 @@ static int hmR0EnableCpu(PVMCC pVM, RTCPUID idCpu)
     Assert(!RTThreadPreemptIsEnabled(NIL_RTTHREAD));
 
     pHostCpu->idCpu = idCpu;
+    pHostCpu->idApic = ASMGetApicId();
     /* Do NOT reset cTlbFlushes here, see @bugref{6255}. */
 
     int rc;
@@ -1297,19 +1298,45 @@ VMMR0_INT_DECL(int) HMR0InitVM(PVMCC pVM)
         /* Use the VMCS controls for swapping the EFER MSR if supported. */
         pVM->hm.s.ForR3.vmx.fSupportsVmcsEfer = g_fHmVmxSupportsVmcsEfer;
 
-#if 0
-        /* Enable APIC register virtualization and virtual-interrupt delivery if supported. */
-        if (   (g_HmMsrs.u.vmx.ProcCtls2.n.allowed1 & VMX_PROC_CTLS2_APIC_REG_VIRT)
-            && (g_HmMsrs.u.vmx.ProcCtls2.n.allowed1 & VMX_PROC_CTLS2_VIRT_INTR_DELIVERY))
-            pVM->hm.s.fVirtApicRegs = true;
+        /* Configure the APICv level. */
+        HMVMXAPICVLVL enmApicvLvl = pVM->hm.s.vmx.enmApicvLvl;
+        if (   enmApicvLvl >= kVmxApicvLvl_ApicAccessVirt
+            && (g_HmMsrs.u.vmx.ProcCtls2.n.allowed1 & VMX_PROC_CTLS2_VIRT_APIC_ACCESS))
+        {
+            if (   enmApicvLvl >= kVmxApicvLvl_ApicRegVirt
+                && (g_HmMsrs.u.vmx.ProcCtls2.n.allowed1 & VMX_PROC_CTLS2_APIC_REG_VIRT))
+            {
+                pVM->hm.s.fVirtApicRegs = true;
 
-        /* Enable posted-interrupt processing if supported. */
-        /** @todo Add and query IPRT API for host OS support for posted-interrupt IPI
-         *        here. */
-        if (   (g_HmMsrs.u.vmx.PinCtls.n.allowed1  & VMX_PIN_CTLS_POSTED_INT)
-            && (g_HmMsrs.u.vmx.ExitCtls.n.allowed1 & VMX_EXIT_CTLS_ACK_EXT_INT))
-            pVM->hm.s.fPostedIntrs = true;
-#endif
+                if (   enmApicvLvl >= kVmxApicvLvl_IntrDelivery
+                    && (g_HmMsrs.u.vmx.ProcCtls2.n.allowed1 & VMX_PROC_CTLS2_VIRT_INT_DELIVERY))
+                {
+
+                    /* Enable posted-interrupt processing if supported. */
+                    /** @todo Add and query IPRT API for host OS support for posted-interrupt IPI
+                     *        here. */
+                    if (   enmApicvLvl >= kVmxApicvLvl_PostedIntrs
+                        && (g_HmMsrs.u.vmx.PinCtls.n.allowed1  & VMX_PIN_CTLS_POSTED_INT)
+                        && (g_HmMsrs.u.vmx.ExitCtls.n.allowed1 & VMX_EXIT_CTLS_ACK_EXT_INT))
+                        enmApicvLvl = kVmxApicvLvl_PostedIntrs;
+                    else
+                        enmApicvLvl = kVmxApicvLvl_IntrDelivery;
+                }
+                else
+                    enmApicvLvl = kVmxApicvLvl_ApicRegVirt;
+            }
+            else
+                enmApicvLvl = kVmxApicvLvl_ApicAccessVirt;
+        }
+        else
+            enmApicvLvl = kVmxApicvLvl_None;
+
+        /** @todo Update/remove as the implementation of the higher level features progresses. */
+        if (enmApicvLvl > kVmxApicvLvl_IntrDelivery)
+            enmApicvLvl = kVmxApicvLvl_IntrDelivery;
+
+        pVM->hmr0.s.vmx.enmApicvLvl     = enmApicvLvl;
+        pVM->hm.s.ForR3.vmx.enmApicvLvl = enmApicvLvl;
     }
     else if (pVM->hm.s.svm.fSupported)
     {
@@ -1363,6 +1390,15 @@ VMMR0_INT_DECL(int) HMR0InitVM(PVMCC pVM)
             fWorldSwitcher |= HM_WSF_IBPB_EXIT;
         if (pVM->hm.s.fIbpbOnVmEntry)
             fWorldSwitcher |= HM_WSF_IBPB_ENTRY;
+
+        /* If IBPB doesn't clear the RSBs, do so manually unless shadow stack is enabled.  */
+        if (fWorldSwitcher & (HM_WSF_IBPB_ENTRY | HM_WSF_IBPB_EXIT))
+        {
+            if (g_CpumHostFeatures.s.fIbpbNoRet    && !hmR0IsShadowStackEnabled())
+                fWorldSwitcher |= HM_WSF_IBPB_MAN_RET;
+            if (!g_CpumHostFeatures.s.fArchPbrsbNo && !hmR0IsShadowStackEnabled())
+                fWorldSwitcher |= HM_WSF_IBPB_PBRSB;
+        }
     }
     if (g_CpumHostFeatures.s.fFlushCmd)
     {

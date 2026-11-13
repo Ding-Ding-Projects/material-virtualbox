@@ -1,7 +1,7 @@
 #! /bin/sh
-# $Id: vboxadd.sh 113811 2026-04-10 11:16:46Z vadim.galitsyn@oracle.com $
+# $Id: vboxadd.sh 115139 2026-08-28 10:41:18Z vadim.galitsyn@oracle.com $
 ## @file
-# Linux Additions kernel module init script ($Revision: 113811 $)
+# Linux Additions kernel module init script ($Revision: 115139 $)
 #
 
 #
@@ -77,6 +77,14 @@ KERN_MIN=$(uname -r | cut -d . -f2)
 have_vboxvideo_build=1
 if test -n "$KERN_MAJ" -a -n "$KERN_MIN"; then
     [ $KERN_MAJ -ge 7 -a $KERN_MIN -ge 0 ] && have_vboxvideo_build=
+fi
+# Special case for RHEL kernels when they backport DRM stack from recent kernels.
+RHEL_MAKEFILE="/lib/modules/"$(uname -r)"/build/Makefile"
+if test -f "$RHEL_MAKEFILE"; then
+    RHEL_DRM_VERSION=$(grep RHEL_DRM_VERSION "$RHEL_MAKEFILE" | sed -e 's/ //g' | cut -d '=' -f2)
+    if test -n "$RHEL_DRM_VERSION"; then
+        [ $RHEL_DRM_VERSION -ge 7 ] && have_vboxvideo_build=
+    fi
 fi
 
 export VBOX_KBUILD_TYPE
@@ -527,7 +535,7 @@ Restart \"rcvboxadd setup\" after system is rebooted.
             mkdir -p /var/lib/dkms/vbox-temp
             update-secureboot-policy --enroll-key 2>/dev/null ||
                 fail "Failed to enroll secure boot key."
-            rmdir -p /var/lib/dkms/vbox-temp 2>/dev/null
+            rmdir /var/lib/dkms/vbox-temp 2>/dev/null
 
             # Indicate that key has been enrolled and reboot is needed.
             HAVE_DEB_KEY=true

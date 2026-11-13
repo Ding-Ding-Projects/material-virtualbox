@@ -1,4 +1,4 @@
-/* $Id: PDMAllApic-x86.cpp 112682 2026-01-25 17:10:52Z alexander.eichner@oracle.com $ */
+/* $Id: PDMAllApic-x86.cpp 115116 2026-08-25 10:17:29Z alexander.eichner@oracle.com $ */
 /** @file
  * PDM - APIC (Advanced Programmable Interrupt Controller) Interface.
  */
@@ -465,6 +465,117 @@ VMM_INT_DECL(VBOXSTRICTRC) PDMApicExportState(PVMCPUCC pVCpu)
 
 
 /**
+ * Updates the APIC state after a write to the APIC page by hardware.
+ *
+ * @returns Strict VBox status code.
+ * @param   pVCpu           The cross context virtual CPU structure.
+ * @param   offApicReg      The APIC register offset which was updated.
+ *
+ * @note This is a helper for AVIC/APICv when used on AMD or Intel.
+ */
+VMM_INT_DECL(VBOXSTRICTRC) PDMApicUpdateStateAfterWrite(PVMCPUCC pVCpu, uint16_t offApicReg)
+{
+    AssertReturn(PDMCPU_TO_APICBACKEND(pVCpu)->pfnUpdateStateAfterWrite, VERR_INVALID_POINTER);
+    return PDMCPU_TO_APICBACKEND(pVCpu)->pfnUpdateStateAfterWrite(pVCpu, offApicReg);
+}
+
+
+/**
+ * Sets the End-Of-Interrupt (EOI) register when the ISR is already known.
+ *
+ * This is an optimization that lets us avoid scanning the 256-bit sparse ISR
+ * register figuring out the highest pending in-service vector.
+ *
+ * @returns Strict VBox status code.
+ * @param   pVCpu       The cross context virtual CPU structure.
+ * @param   uVector     The vector (highest ISR) for the attempted EOI.
+ */
+VMM_INT_DECL(VBOXSTRICTRC) PDMApicSetEoiFast(PVMCPUCC pVCpu, uint8_t uVector)
+{
+    AssertReturn(PDMCPU_TO_APICBACKEND(pVCpu)->pfnSetEoiFast, VERR_INVALID_POINTER);
+    return PDMCPU_TO_APICBACKEND(pVCpu)->pfnSetEoiFast(pVCpu, uVector);
+}
+
+
+/**
+ * Checks whether LINT0 is ExtINT style and not masked.
+ *
+ * @returns Flag returning whether LINT0 is configured as ExtINT and not masked.
+ * @param   pVCpu       The cross context virtual CPU structure.
+ */
+VMM_INT_DECL(bool) PDMApicIsLvt0ExtInt(PVMCPUCC pVCpu)
+{
+    AssertReturn(PDMCPU_TO_APICBACKEND(pVCpu)->pfnIsLvt0ExtInt, false);
+    return PDMCPU_TO_APICBACKEND(pVCpu)->pfnIsLvt0ExtInt(pVCpu);
+}
+
+
+/**
+ * Returns the highest priority interrupt in the ISR.
+ *
+ * @returns Highest interrupt vector pending in the ISR, 0 if none.
+ * @param   pVCpu       The cross context virtual CPU structure.
+ */
+VMM_INT_DECL(uint8_t) PDMApicGetHighestIsr(PVMCPUCC pVCpu)
+{
+    AssertReturn(PDMCPU_TO_APICBACKEND(pVCpu)->pfnGetHighestIsr, UINT8_MAX);
+    return PDMCPU_TO_APICBACKEND(pVCpu)->pfnGetHighestIsr(pVCpu);
+}
+
+
+/**
+ * Returns the highest priority interrupt in the IRR.
+ *
+ * @returns Highest interrupt vector pending in the IRR, 0 if none.
+ * @param   pVCpu       The cross context virtual CPU structure.
+ */
+VMM_INT_DECL(uint8_t) PDMApicGetHighestIrr(PVMCPUCC pVCpu)
+{
+    AssertReturn(PDMCPU_TO_APICBACKEND(pVCpu)->pfnGetHighestIrr, UINT8_MAX);
+    return PDMCPU_TO_APICBACKEND(pVCpu)->pfnGetHighestIrr(pVCpu);
+}
+
+
+/**
+ * Calculates and returns the EOI exit bitmap.
+ *
+ * @param   pVCpu          The cross context virtual CPU structure to query the bitmap for.
+ * @param   pau64EoiBitmap Where to store the EOI exit bitmap.
+ */
+VMM_INT_DECL(void) PDMApicQueryEoiExitBitmap(PVMCPUCC pVCpu, uint64_t *pau64EoiBitmap)
+{
+    AssertReturnVoid(PDMCPU_TO_APICBACKEND(pVCpu)->pfnQueryEoiExitBitmap);
+    return PDMCPU_TO_APICBACKEND(pVCpu)->pfnQueryEoiExitBitmap(pVCpu, pau64EoiBitmap);
+}
+
+
+/**
+ * Notifies the APIC about a change in the redirection table entry of the I/O APIC for the given interrupt pin.
+ *
+ * @returns VBox status code.
+ * @retval  VINF_APIC_R3_UPDATE_STATE if called from R0 and this function needs to be called again in R3 to
+ *          successfully update the state.
+ * @param   pVM             The cross context VM structure.
+ * @param   u8IoApicPin     The pin for which the RTE changed.
+ * @param   uDest           The destination mask.
+ * @param   uDestMode       The destination mode.
+ * @param   uDeliveryMode   The delivery mode.
+ * @param   uVector         The interrupt vector.
+ * @param   uTriggerMode    The trigger mode.
+ *
+ * @note This is required with Intel VT-x and virtual interrupt delivery to properly calculate the EOI exit bitmap.
+ *       This will also be used by the NEM/KVM backend and the split chip interrupt controller enabled.
+ */
+VMM_INT_DECL(int) PDMApicIoApicRteChanged(PVMCC pVM, uint8_t u8IoApicPin, uint8_t uDest, uint8_t uDestMode,
+                                          uint8_t uDeliveryMode, uint8_t uVector, uint8_t uTriggerMode)
+{
+    AssertReturn(PDM_TO_APICBACKEND(pVM)->pfnIoApicRteChanged, VERR_INVALID_POINTER);
+    return PDM_TO_APICBACKEND(pVM)->pfnIoApicRteChanged(pVM, u8IoApicPin, uDest, uDestMode, uDeliveryMode,
+                                                        uVector, uTriggerMode);
+}
+
+
+/**
  * Registers a PDM APIC backend.
  *
  * @returns VBox status code.
@@ -506,6 +617,13 @@ VMM_INT_DECL(int) PDMApicRegisterBackend(PVMCC pVM, PDMAPICBACKENDTYPE enmBacken
 #elif defined(IN_RING0)
     AssertPtrReturn(pBackend->pfnGetApicPageForCpu,         VERR_INVALID_POINTER);
 #endif
+    AssertPtrReturn(pBackend->pfnUpdateStateAfterWrite,     VERR_INVALID_POINTER);
+    AssertPtrReturn(pBackend->pfnSetEoiFast,                VERR_INVALID_POINTER);
+    AssertPtrReturn(pBackend->pfnIsLvt0ExtInt,              VERR_INVALID_POINTER);
+    AssertPtrReturn(pBackend->pfnGetHighestIsr,             VERR_INVALID_POINTER);
+    AssertPtrReturn(pBackend->pfnGetHighestIrr,             VERR_INVALID_POINTER);
+    AssertPtrReturn(pBackend->pfnQueryEoiExitBitmap,        VERR_INVALID_POINTER);
+    AssertPtrReturn(pBackend->pfnIoApicRteChanged,          VERR_INVALID_POINTER);
 
     /*
      * Register the backend.

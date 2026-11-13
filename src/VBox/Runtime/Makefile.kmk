@@ -1,4 +1,4 @@
-# $Id: Makefile.kmk 114131 2026-05-14 12:27:45Z knut.osmundsen@oracle.com $
+# $Id: Makefile.kmk 115362 2026-10-12 19:05:06Z aleksey.ilyushin@oracle.com $
 ## @file
 # Sub-Makefile for the IPRT.
 #
@@ -275,6 +275,7 @@ RuntimeWin64ASM_SOURCES = \
 	common/asm/ASMBitNextSet.asm \
 	common/asm/ASMMultU32ByU32DivByU32.asm \
 	common/asm/ASMMultU64ByU32DivByU32.asm \
+	common/asm/ASMMultU64ByU32DivByU64.asm \
 	common/asm/ASMCpuId_Idx_ECX.asm \
 	common/asm/ASMNopPause.asm \
 	common/asm/ASMGetIDTR.asm \
@@ -1012,16 +1013,20 @@ RuntimeBaseR3_SOURCES.x86 += \
 # Some non-assembly for non-AMD64 / non-x86 targets:
 RuntimeBaseR3_SOURCES.arm32 += \
 	common/string/RTStrEnd.cpp \
-	common/asm/ASMMultU64ByU32DivByU32-generic.cpp
+	common/asm/ASMMultU64ByU32DivByU32-generic.cpp \
+	common/asm/ASMMultU64ByU32DivByU64-generic.cpp
 RuntimeBaseR3_SOURCES.arm64 += \
 	common/string/RTStrEnd.cpp \
-	common/asm/ASMMultU64ByU32DivByU32-generic.cpp
+	common/asm/ASMMultU64ByU32DivByU32-generic.cpp \
+	common/asm/ASMMultU64ByU32DivByU64-generic.cpp
 RuntimeBaseR3_SOURCES.sparc32 += \
 	common/string/RTStrEnd.cpp \
-	common/asm/ASMMultU64ByU32DivByU32-generic.cpp
+	common/asm/ASMMultU64ByU32DivByU32-generic.cpp \
+	common/asm/ASMMultU64ByU32DivByU64-generic.cpp
 RuntimeBaseR3_SOURCES.sparc64 += \
 	common/string/RTStrEnd.cpp \
-	common/asm/ASMMultU64ByU32DivByU32-generic.cpp
+	common/asm/ASMMultU64ByU32DivByU32-generic.cpp \
+	common/asm/ASMMultU64ByU32DivByU64-generic.cpp
 
 # VBox specific stuff.
 RuntimeBaseR3_SOURCES += \
@@ -2891,6 +2896,7 @@ RuntimeGuestR3_SOURCES                   = $(filter-out \
 ifndef VBOX_WITH_NOCRT_STATIC
  RuntimeGuestR3_DEFS.win.x86             = $(RuntimeR3_DEFS.win.x86) \
  	VCC_FAKES_TARGET_$(VBOX_VCC_TOOL_STEM) VCC_FAKES_TARGET=$(substr $(VBOX_VCC_TOOL_STEM),-3)
+ RuntimeGuestR3_ASINCS.win.x86           = $(RuntimeR3_ASINCS.win.x86) r3/win/ # NASM crap
  RuntimeGuestR3_SOURCES.win.x86          = $(RuntimeR3_SOURCES.win.x86) \
  	r3/win/vcc-fakes-kernel32.cpp \
  	r3/win/vcc-fakes-kernel32-A.asm \
@@ -3640,6 +3646,7 @@ if   ($(VBOX_SOLARIS_11_UPDATE_VERSION) > 2 \
 endif
 
 RuntimeR0Drv_INCS      := $(PATH_SUB_CURRENT) include
+RuntimeR0Drv_ASINCS.win.x86 = common/compiler/vcc/ # NASM crap
 RuntimeR0Drv_INCS.freebsd = \
 	$(PATH_STAGE)/gen-sys-hdrs
 RuntimeR0Drv_INCS.solaris = \
@@ -3788,17 +3795,21 @@ RuntimeR0Drv_SOURCES.x86   = \
 	VBox/RTLogWriteVmm-amd64-x86.asm
 RuntimeR0Drv_SOURCES.arm32 += \
 	common/string/RTStrEnd.cpp \
-	common/asm/ASMMultU64ByU32DivByU32-generic.cpp
+	common/asm/ASMMultU64ByU32DivByU32-generic.cpp \
+	common/asm/ASMMultU64ByU32DivByU64-generic.cpp
 RuntimeR0Drv_SOURCES.arm64 += \
 	common/string/RTStrEnd.cpp \
 	common/asm/ASMMultU64ByU32DivByU32-generic.cpp \
+	common/asm/ASMMultU64ByU32DivByU64-generic.cpp \
 	common/asm/ASMMemFirstMismatchingU8-generic.cpp
 RuntimeR0Drv_SOURCES.sparc32 += \
 	common/string/RTStrEnd.cpp \
-	common/asm/ASMMultU64ByU32DivByU32-generic.cpp
+	common/asm/ASMMultU64ByU32DivByU32-generic.cpp \
+	common/asm/ASMMultU64ByU32DivByU64-generic.cpp
 RuntimeR0Drv_SOURCES.sparc64 += \
 	common/string/RTStrEnd.cpp \
-	common/asm/ASMMultU64ByU32DivByU32-generic.cpp
+	common/asm/ASMMultU64ByU32DivByU32-generic.cpp \
+	common/asm/ASMMultU64ByU32DivByU64-generic.cpp
 
 RuntimeR0Drv_SOURCES.linux = \
 	common/misc/thread.cpp \
@@ -4638,6 +4649,7 @@ endif
 ifndef VBOX_WITH_NOCRT_STATIC
  RuntimeR3VccTricks_TEMPLATE = VBoxR3Static
  RuntimeR3VccTricks_DEFS     = VCC_FAKES_TARGET_$(VBOX_VCC_TOOL_STEM) VCC_FAKES_TARGET=$(substr $(VBOX_VCC_TOOL_STEM),-3)
+ RuntimeR3VccTricks_ASINCS   = r3/win/ # NASM crap
  RuntimeR3VccTricks_SOURCES  = \
  	r3/win/vcc-fakes-kernel32.cpp \
  	r3/win/vcc-fakes-kernel32-A.asm \

@@ -1,4 +1,4 @@
-/* $Id: darwin-pasteboard.cpp 114863 2026-08-06 10:19:52Z andreas.loeffler@oracle.com $ */
+/* $Id: darwin-pasteboard.cpp 114987 2026-08-11 13:50:56Z andreas.loeffler@oracle.com $ */
 /** @file
  * Shared Clipboard Service - Mac OS X host implementation.
  */
@@ -110,6 +110,8 @@ DECLHIDDEN(void) destroyPasteboard(PasteboardRef *pPasteboardRef)
  * @param   idOwnership         Our ownership ID.
  * @param   hStrOwnershipFlavor The ownership flavor string reference returned
  *                              by takePasteboardOwnership().
+ * @param   fForce              Whether to inspect the current content even if
+ *                              the pasteboard change was already observed.
  * @param   pfFormats           Pointer for the bit combination of the
  *                              supported types.
  * @param   pfChanged           True if something has changed after the
@@ -118,7 +120,7 @@ DECLHIDDEN(void) destroyPasteboard(PasteboardRef *pPasteboardRef)
  * @returns VINF_SUCCESS.
  */
 DECLHIDDEN(int) queryNewPasteboardFormats(PasteboardRef hPasteboard, uint64_t idOwnership, void *hStrOwnershipFlavor,
-                                          uint32_t *pfFormats, bool *pfChanged)
+                                          bool fForce, uint32_t *pfFormats, bool *pfChanged)
 {
     AssertPtrReturn(hPasteboard, VERR_INVALID_POINTER);
     AssertPtrReturn(pfFormats,   VERR_INVALID_POINTER);
@@ -130,7 +132,8 @@ DECLHIDDEN(int) queryNewPasteboardFormats(PasteboardRef hPasteboard, uint64_t id
     /* Make sure all is in sync */
     PasteboardSyncFlags const syncFlags = PasteboardSynchronize(hPasteboard);
     /* If nothing changed return */
-    if (!(syncFlags & kPasteboardModified))
+    if (   !(syncFlags & kPasteboardModified)
+        && !fForce)
     {
         *pfChanged = false;
         Log2(("queryNewPasteboardFormats: no change\n"));
@@ -465,6 +468,30 @@ DECLHIDDEN(int) readFileURLsFromPasteboard(PasteboardRef hPasteboard, char **pps
 DECLHIDDEN(int) readFromPasteboard(PasteboardRef pPasteboard, uint32_t fFormat, void *pv, uint32_t cb, uint32_t *pcbActual)
 {
     Log(("readFromPasteboard: fFormat = %02X\n", fFormat));
+
+#ifdef VBOX_WITH_SHARED_CLIPBOARD_TRANSFERS
+    if (fFormat & VBOX_SHCL_FMT_URI_LIST)
+    {
+        char  *pszRoots = NULL;
+        size_t cbRoots = 0;
+        int vrc = readFileURLsFromPasteboard(pPasteboard, &pszRoots, &cbRoots);
+        if (RT_SUCCESS(vrc))
+        {
+            if (cbRoots > UINT32_MAX)
+                vrc = VERR_TOO_MUCH_DATA;
+            else
+            {
+                *pcbActual = (uint32_t)cbRoots;
+                if (cbRoots <= cb)
+                    memcpy(pv, pszRoots, cbRoots);
+                else
+                    vrc = VINF_BUFFER_OVERFLOW;
+            }
+        }
+        RTStrFree(pszRoots);
+        return vrc;
+    }
+#endif
 
     /* Make sure all is in sync */
     PasteboardSynchronize(pPasteboard);

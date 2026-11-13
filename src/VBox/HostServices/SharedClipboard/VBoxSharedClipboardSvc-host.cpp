@@ -1,4 +1,4 @@
-/* $Id: VBoxSharedClipboardSvc-host.cpp 114609 2026-07-03 15:22:37Z andreas.loeffler@oracle.com $ */
+/* $Id: VBoxSharedClipboardSvc-host.cpp 115102 2026-08-21 11:14:19Z andreas.loeffler@oracle.com $ */
 /** @file
  * Shared Clipboard Service - Host-controlled service handling.
  */
@@ -39,7 +39,6 @@
 #include <VBox/HostServices/VBoxClipboardSvc.h>
 
 #include <iprt/assert.h>
-#include <iprt/critsect.h>
 
 #include "VBoxSharedClipboardSvc-internal.h"
 #ifdef VBOX_WITH_SHARED_CLIPBOARD_TRANSFERS
@@ -55,9 +54,20 @@ using namespace HGCM;
 static void shClSvcHostReset(void);
 
 
+/**
+ * Sets the host-controlled Shared Clipboard mode.
+ *
+ * @returns VBox status code.
+ * @retval  VERR_NOT_SUPPORTED if @a uMode is not a VBOX_SHCL_MODE_XXX value.
+ * @param   uMode               New VBOX_SHCL_MODE_XXX value.
+ *
+ * Invalid values fail closed by switching the effective mode to
+ * VBOX_SHCL_MODE_OFF.
+ */
 int shClSvcHostModeSet(uint32_t uMode)
 {
     int rc = VERR_NOT_SUPPORTED;
+    uint32_t uModeNew = VBOX_SHCL_MODE_OFF;
 
     switch (uMode)
     {
@@ -69,18 +79,24 @@ int shClSvcHostModeSet(uint32_t uMode)
             RT_FALL_THROUGH();
         case VBOX_SHCL_MODE_BIDIRECTIONAL:
         {
-            g_uMode = uMode;
-
+            uModeNew = uMode;
             rc = VINF_SUCCESS;
             break;
         }
 
         default:
-        {
-            g_uMode = VBOX_SHCL_MODE_OFF;
             break;
-        }
     }
+
+    shClSvcLock();
+    ASMAtomicWriteU32(&g_ShClSvc.uMode, uModeNew);
+    if (g_ShClSvc.pActiveClient)
+    {
+        ShClSvcClientLock(g_ShClSvc.pActiveClient);
+        ASMAtomicWriteU32(&g_ShClSvc.pActiveClient->State.uMode, uModeNew);
+        ShClSvcClientUnlock(g_ShClSvc.pActiveClient);
+    }
+    shClSvcUnlock();
 
     LogFlowFuncLeaveRC(rc);
     return rc;
@@ -92,20 +108,13 @@ int shClSvcHostModeSet(uint32_t uMode)
  */
 static void shClSvcHostReset(void)
 {
-    int rc = RTCritSectEnter(&g_CritSect);
-    AssertRC(rc);
-    if (RT_FAILURE(rc))
-        return;
+    shClSvcLock();
 
-    for (ClipboardClientMap::iterator itClient = g_mapClients.begin(); itClient != g_mapClients.end(); ++itClient)
-        if (itClient->second)
-            shClSvcClientReset(itClient->second);
+    PSHCLCLIENT const pClient = g_ShClSvc.pActiveClient;
+    shClSvcUnlock();
 
-    g_ExtState.fReadingData = false;
-    g_ExtState.fDelayedAnnouncement = false;
-    g_ExtState.fDelayedFormats = 0;
-
-    RTCritSectLeave(&g_CritSect);
+    if (pClient)
+        shClSvcClientReset(pClient);
 }
 
 
@@ -117,7 +126,7 @@ DECLCALLBACK(int) shClSvcHostCall(void *, uint32_t u32Function, uint32_t cParms,
     int rc = VINF_SUCCESS;
 
     LogFlowFunc(("u32Function=%RU32 (%s), cParms=%RU32, paParms=%p\n",
-                 u32Function, ShClHostFunctionToStr(u32Function), cParms, paParms));
+                 u32Function, ShClSvcHostFunctionToStr(u32Function), cParms, paParms));
 
     switch (u32Function)
     {
@@ -137,21 +146,8 @@ DECLCALLBACK(int) shClSvcHostCall(void *, uint32_t u32Function, uint32_t cParms,
         }
 
         case VBOX_SHCL_HOST_FN_SET_HEADLESS:
-        {
-            if (cParms != 1)
-                rc = VERR_INVALID_PARAMETER;
-            else
-            {
-                uint32_t uHeadless;
-                rc = HGCMSvcGetU32(&paParms[0], &uHeadless);
-                if (RT_SUCCESS(rc))
-                {
-                    g_fHeadless = RT_BOOL(uHeadless);
-                    LogRel(("Shared Clipboard: Service running in %s mode\n", g_fHeadless ? "headless" : "normal"));
-                }
-            }
+            rc = VERR_NOT_IMPLEMENTED;
             break;
-        }
 
         case VBOX_SHCL_HOST_FN_CANCEL:
         {

@@ -1,4 +1,4 @@
-/* $Id: DevVirtioSCSI.cpp 114856 2026-08-05 09:09:50Z andreas.loeffler@oracle.com $ */
+/* $Id: DevVirtioSCSI.cpp 114947 2026-08-10 13:26:53Z aleksey.ilyushin@oracle.com $ */
 /** @file
  * VBox storage devices - Virtio SCSI Driver
  *
@@ -1084,13 +1084,14 @@ static DECLCALLBACK(int) virtioScsiR3IoReqFinish(PPDMIMEDIAEXPORT pInterface, PD
         RTSgBufInit(&ReqSgBuf, aReqSegs, RT_ELEMENTS(aReqSegs));
 
         size_t cbReqSgBuf = RTSgBufCalcTotalLength(&ReqSgBuf);
-        /** @todo r=bird: Returning here looks a little bogus... */
-        AssertMsgReturn(cbReqSgBuf <= pReq->pVirtqBuf->cbPhysReturn,
-                       ("Guest expected less req data (space needed: %zu, avail: %u)\n",
-                        cbReqSgBuf, pReq->pVirtqBuf->cbPhysReturn),
-                        VERR_BUFFER_OVERFLOW);
-
-        virtioScsiR3VirtqUsedBufPutAndSync(pDevIns, &pThis->Virtio, pReq->uVirtqNbr, &ReqSgBuf, pReq->pVirtqBuf);
+        if (cbReqSgBuf <= pReq->pVirtqBuf->cbPhysReturn)
+            virtioScsiR3VirtqUsedBufPutAndSync(pDevIns, &pThis->Virtio, pReq->uVirtqNbr, &ReqSgBuf, pReq->pVirtqBuf);
+        else
+        {
+            AssertMsgFailed(("Guest expected less req data (space needed: %zu, avail: %u)\n",
+                             cbReqSgBuf, pReq->pVirtqBuf->cbPhysReturn));
+            rc = VERR_BUFFER_OVERFLOW;
+        }
         Log2(("-----------------------------------------------------------------------------------------\n"));
     }
 
@@ -1110,7 +1111,7 @@ static DECLCALLBACK(int) virtioScsiR3IoReqCopyFromBuf(PPDMIMEDIAEXPORT pInterfac
     PVIRTIOSCSITARGET   pTarget   = RT_FROM_MEMBER(pInterface, VIRTIOSCSITARGET, IMediaExPort);
     PPDMDEVINS          pDevIns   = pTarget->pDevIns;
     PVIRTIOSCSIREQ      pReq      = (PVIRTIOSCSIREQ)pvIoReqAlloc;
-    RT_NOREF(hIoReq, cbCopy);
+    RT_NOREF(hIoReq);
 
     if (!pReq->cbDataIn)
         return VINF_SUCCESS;
@@ -1120,8 +1121,7 @@ static DECLCALLBACK(int) virtioScsiR3IoReqCopyFromBuf(PPDMIMEDIAEXPORT pInterfac
     PVIRTIOSGBUF pSgPhysReturn = pReq->pVirtqBuf->pSgPhysReturn;
     virtioCoreGCPhysChainAdvance(pSgPhysReturn, offDst);
 
-    size_t cbCopied = 0;
-    size_t cbRemain = pReq->cbDataIn;
+    size_t cbRemain = RT_MIN(cbCopy, pReq->cbDataIn);
 
     /* Skip past the REQ_RESP_HDR_T and sense code if we're at the start of the buffer. */
     if (!pSgPhysReturn->idxSeg && pSgPhysReturn->cbSegLeft == pSgPhysReturn->paSegs[0].cbSeg)
@@ -1129,12 +1129,17 @@ static DECLCALLBACK(int) virtioScsiR3IoReqCopyFromBuf(PPDMIMEDIAEXPORT pInterfac
 
     while (cbRemain)
     {
-        cbCopied = RT_MIN(pSgBuf->cbSegLeft,  pSgPhysReturn->cbSegLeft);
-        Assert(cbCopied > 0);
-        PDMDevHlpPCIPhysWriteUser(pDevIns, pSgPhysReturn->GCPhysCur, pSgBuf->pvSegCur, cbCopied);
-        RTSgBufAdvance(pSgBuf, cbCopied);
-        virtioCoreGCPhysChainAdvance(pSgPhysReturn, cbCopied);
-        cbRemain -= cbCopied;
+        size_t cbThisCopy = 0;
+        const void *pvSrc = RTSgBufGetCurrentSegment(pSgBuf, RT_MIN(cbRemain, pSgPhysReturn->cbSegLeft), &cbThisCopy);
+
+        Assert(cbThisCopy);
+        if (!cbThisCopy)
+            break;
+
+        PDMDevHlpPCIPhysWriteUser(pDevIns, pSgPhysReturn->GCPhysCur, pvSrc, cbThisCopy);
+        RTSgBufAdvance(pSgBuf, cbThisCopy);
+        virtioCoreGCPhysChainAdvance(pSgPhysReturn, cbThisCopy);
+        cbRemain -= cbThisCopy;
     }
     RT_UNTRUSTED_NONVOLATILE_COPY_FENCE(); /* needed? */
 

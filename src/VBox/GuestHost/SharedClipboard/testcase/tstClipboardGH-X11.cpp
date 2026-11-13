@@ -1,4 +1,4 @@
-/* $Id: tstClipboardGH-X11.cpp 114867 2026-08-06 15:19:51Z andreas.loeffler@oracle.com $ */
+/* $Id: tstClipboardGH-X11.cpp 115105 2026-08-24 16:57:58Z andreas.loeffler@oracle.com $ */
 /** @file
  * Shared Clipboard guest/host X11 code test cases.
  */
@@ -690,12 +690,6 @@ static void tstStringFromVBoxFailed(RTTEST hTest, PSHCLX11CTX pCtx, const char *
     XtFree((char *)value);
 }
 
-static void tstNoSelectionOwnership(PSHCLX11CTX pCtx, const char *pcszTestCtx)
-{
-    RT_NOREF(pCtx);
-    RTTESTI_CHECK_MSG(!g_tst_fOwnsSel, ("context: %s\n", pcszTestCtx));
-}
-
 static void tstBadFormatRequestFromHost(RTTEST hTest, PSHCLX11CTX pCtx)
 {
     tstClipSetSelectionValues("UTF8_STRING", XA_STRING, "hello world",
@@ -775,7 +769,7 @@ int main()
     Callbacks.pfnOnSendDataToDest        = tstShClOnSendDataToDestCallback;
 
     SHCLX11CTX X11Ctx;
-    rc = ShClX11Init(&X11Ctx, &Callbacks, NULL /* pParent */, false /* fHeadless */);
+    rc = ShClX11Init(&X11Ctx, &Callbacks, NULL /* pParent */);
     AssertRCReturn(rc, RTEXITCODE_FAILURE);
 
     uint32_t cbActual = 0;
@@ -875,6 +869,14 @@ int main()
     clipReportEmpty(&X11Ctx);
     RTTEST_CHECK_MSG(hTest, tstClipQueryFormats() == 0,
                      (hTest, "Failed to send a format update (release) notification\n"));
+
+    RTTestSub(hTest, "reporting the currently tracked X11 formats");
+    tstClipSetSelectionValues("UTF8_STRING", XA_STRING, "hello world", sizeof("hello world"), 8);
+    tstClipSendTargetUpdate(&X11Ctx);
+    tstClipInvalidateFormats();
+    RTTEST_CHECK_RC_OK(hTest, ShClX11ReportCurrentFormatsToVBoxAsync(&X11Ctx));
+    RTTEST_CHECK_MSG(hTest, tstClipQueryFormats() == VBOX_SHCL_FMT_UNICODETEXT,
+                     (hTest, "Wrong replayed targets: %02X\n", tstClipQueryFormats()));
 
     /*
      * Request for an invalid VBox format from X11
@@ -1028,32 +1030,6 @@ int main()
 
     ShClX11Term(&X11Ctx);
 
-    /*
-     * Headless clipboard tests
-     */
-    RTTEST_CHECK_RC_OK(hTest, ShClX11Init(&X11Ctx, &Callbacks, NULL /* pParent */, true /* fHeadless */));
-
-    /* Read from X11 */
-    RTTestSub(hTest, "reading from X11, headless clipboard");
-
-    /* Simple test */
-    tstClipSetVBoxUtf16(&X11Ctx, VINF_SUCCESS, "", sizeof("") * 2);
-    tstClipSetSelectionValues("UTF8_STRING", XA_STRING, "hello world", sizeof("hello world"), 8);
-    rc = ShClX11ReadDataFromX11(&X11Ctx, &g_EventSource, g_msTimeout, VBOX_SHCL_FMT_UNICODETEXT, abBuf, sizeof(abBuf), &cbActual);
-    RTTEST_CHECK_MSG(hTest, cbActual == 0, (hTest, "expected 0 but got %RU32\n", cbActual));
-    RTTEST_CHECK_MSG(hTest, rc == VINF_SUCCESS, (hTest, "expected VINF_SUCCESS but got %Rrc\n", rc));
-
-    /* Read from VBox */
-    RTTestSub(hTest, "reading from VBox, headless clipboard");
-
-    /* Simple test */
-    tstClipEmptyVBox(&X11Ctx, VERR_WRONG_ORDER);
-    tstClipSetSelectionValues("TEXT", XA_STRING, "", sizeof(""), 8);
-    tstClipSetVBoxUtf16(&X11Ctx, VINF_SUCCESS, "hello world",
-                        sizeof("hello world") * 2);
-    tstNoSelectionOwnership(&X11Ctx, "reading from VBox, headless clipboard");
-
-    RTTEST_CHECK_RC_OK(hTest, ShClX11Term(&X11Ctx));
     ShClEventSourceTerm(&g_EventSource);
 
     return RTTestSummaryAndDestroy(hTest);

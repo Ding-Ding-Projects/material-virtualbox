@@ -1,4 +1,4 @@
-/* $Id: ClipboardStreamImpl-win.cpp 112403 2026-01-11 19:29:08Z knut.osmundsen@oracle.com $ */
+/* $Id: ClipboardStreamImpl-win.cpp 115134 2026-08-27 15:09:45Z andreas.loeffler@oracle.com $ */
 /** @file
  * ClipboardStreamImpl-win.cpp - Shared Clipboard IStream object implementation (guest and host side).
  */
@@ -60,17 +60,28 @@
 
 
 ShClWinStreamImpl::ShClWinStreamImpl(ShClWinDataObject *pParent, PSHCLTRANSFER pTransfer,
-                                     const Utf8Str &strPath, PSHCLFSOBJINFO pObjInfo)
+                                     ULONG uObjIdx, const Utf8Str &strPath, PSHCLFSOBJINFO pObjInfo)
     : m_pParent(pParent)
     , m_lRefCount(1) /* Our IDataObjct *always* holds the last reference to this object; needed for the callbacks. */
     , m_pTransfer(pTransfer)
+    , m_hrReadAfterInvalidation(STG_E_REVERTED)
+    , m_fCritSectInitialized(false)
     , m_hObj(NIL_SHCLOBJHANDLE)
+    , m_uObjIdx(uObjIdx)
     , m_strPath(strPath)
     , m_objInfo(*pObjInfo)
     , m_cbProcessed(0)
     , m_fIsComplete(false)
 {
+    AssertPtr(m_pParent);
     AssertPtr(m_pTransfer);
+
+    int rc = RTCritSectInit(&m_CritSect);
+    AssertFatalMsgRC(rc, ("Initializing the Windows clipboard stream lock failed with %Rrc\n", rc));
+    m_fCritSectInitialized = true;
+
+    m_pParent->AddRef();
+    ShClTransferAcquire(m_pTransfer);
 
     LogFunc(("m_strPath=%s\n", m_strPath.c_str()));
 
@@ -83,6 +94,14 @@ ShClWinStreamImpl::ShClWinStreamImpl(ShClWinDataObject *pParent, PSHCLTRANSFER p
 ShClWinStreamImpl::~ShClWinStreamImpl(void)
 {
     LogFlowThisFuncEnter();
+
+    Invalidate();
+    if (m_fCritSectInitialized)
+    {
+        int rc = RTCritSectDelete(&m_CritSect);
+        AssertRC(rc);
+        m_fCritSectInitialized = false;
+    }
 
 #ifdef VBOX_SHARED_CLIPBOARD_DEBUG_OBJECT_COUNTS
     g_cDbgStreamObj--;
@@ -180,21 +199,56 @@ STDMETHODIMP ShClWinStreamImpl::LockRegion(ULARGE_INTEGER nStart, ULARGE_INTEGER
     return STG_E_INVALIDFUNCTION;
 }
 
-/* Note: Windows seems to assume EOF if nBytesRead < nBytesToRead. */
+/**
+ * Reads data from the transferred file represented by this stream.
+ *
+ * @retval  S_OK                Requested data was read, no data was requested, or the stream already reached EOF.
+ * @retval  S_FALSE             Fewer bytes than requested were read.
+ * @retval  STG_E_INVALIDPOINTER
+ *                              @a pvBuffer is NULL.
+ * @retval  STG_E_REVERTED      The incomplete stream was invalidated.
+ * @retval  COPYENGINE_E_USER_CANCELLED
+ *                              The transfer was canceled.
+ * @param   pvBuffer            Destination buffer.
+ * @param   nBytesToRead        Number of bytes requested.
+ * @param   nBytesRead          Where to return the number of bytes read. Optional.
+ *
+ * @note                        Windows assumes EOF when fewer bytes than requested are returned.
+ */
 STDMETHODIMP ShClWinStreamImpl::Read(void *pvBuffer, ULONG nBytesToRead, ULONG *nBytesRead)
 {
     LogFlowThisFunc(("Enter: m_cbProcessed=%RU64\n", m_cbProcessed));
 
-    /** @todo Is there any locking required so that parallel reads aren't possible? */
-
     if (!pvBuffer)
         return STG_E_INVALIDPOINTER;
 
-    if (   nBytesToRead == 0
-        || m_fIsComplete)
+    int rcLock = RTCritSectEnter(&m_CritSect);
+    AssertFatalMsgRC(rcLock, ("Taking the Windows clipboard stream lock failed with %Rrc\n", rcLock));
+
+    /* A completed stream no longer needs its transfer.  Teardown can detach it
+     * before Windows issues the additional read with which it observes EOF. */
+    if (m_fIsComplete)
     {
         if (nBytesRead)
             *nBytesRead = 0;
+        RTCritSectLeave(&m_CritSect);
+        return S_OK;
+    }
+
+    if (!m_pTransfer)
+    {
+        if (nBytesRead)
+            *nBytesRead = 0;
+        HRESULT const hrc = m_hrReadAfterInvalidation;
+        RTCritSectLeave(&m_CritSect);
+        return hrc;
+    }
+
+    if (nBytesToRead == 0)
+    {
+        if (nBytesRead)
+            *nBytesRead = 0;
+        RTCritSectLeave(&m_CritSect);
         return S_OK;
     }
 
@@ -228,15 +282,33 @@ STDMETHODIMP ShClWinStreamImpl::Read(void *pvBuffer, ULONG nBytesToRead, ULONG *
     const uint64_t cbSize   = (uint64_t)m_objInfo.cbObject;
     const uint32_t cbToRead = RT_MIN(cbSize - m_cbProcessed, nBytesToRead);
 
+    bool fNotifyComplete = false;
     if (RT_SUCCESS(rc))
     {
         if (cbToRead)
         {
-            rc = ShClTransferObjRead(m_pTransfer, m_hObj, pvBuffer, cbToRead, 0 /* fFlags */, &cbRead);
-            if (RT_SUCCESS(rc))
+            /* Windows treats a short IStream read as EOF, so satisfy it using
+             * as many transfer chunks as necessary. */
+            while (cbRead < cbToRead)
             {
-                m_cbProcessed += cbRead;
+                uint32_t const cbToReadChunk = RT_MIN(cbToRead - cbRead, m_pTransfer->cbMaxChunkSize);
+                uint32_t       cbReadChunk   = 0;
+                rc = ShClTransferObjRead(m_pTransfer, m_hObj, (uint8_t *)pvBuffer + cbRead, cbToReadChunk,
+                                         0 /* fFlags */, &cbReadChunk);
+                if (RT_FAILURE(rc))
+                    break;
+
+                AssertBreakStmt(cbReadChunk <= cbToReadChunk, rc = VERR_TOO_MUCH_DATA);
+
+                cbRead        += cbReadChunk;
+                m_cbProcessed += cbReadChunk;
                 Assert(m_cbProcessed <= cbSize);
+
+                if (cbReadChunk < cbToReadChunk)
+                {
+                    rc = VERR_EOF;
+                    break;
+                }
             }
         }
 
@@ -246,16 +318,17 @@ STDMETHODIMP ShClWinStreamImpl::Read(void *pvBuffer, ULONG nBytesToRead, ULONG *
         if (m_fIsComplete)
         {
             rc = ShClTransferObjClose(m_pTransfer, m_hObj);
-
-            if (m_pParent)
-                m_pParent->SetStatus(ShClWinDataObject::Completed);
+            m_hObj = NIL_SHCLOBJHANDLE;
+            fNotifyComplete = RT_SUCCESS(rc);
         }
     }
 
-    if (RT_FAILURE(rc))
+    ShClWinDataObject *pParentNotify = NULL;
+    if (   m_pParent
+        && (fNotifyComplete || RT_FAILURE(rc)))
     {
-        if (m_pParent)
-            m_pParent->SetStatus(ShClWinDataObject::Error, rc /* Propagate rc */);
+        pParentNotify = m_pParent;
+        pParentNotify->AddRef();
     }
 
     LogFlowThisFunc(("LEAVE: rc=%Rrc, cbSize=%RU64, cbProcessed=%RU64 -> nBytesToRead=%RU32, cbToRead=%RU32, cbRead=%RU32\n",
@@ -264,6 +337,22 @@ STDMETHODIMP ShClWinStreamImpl::Read(void *pvBuffer, ULONG nBytesToRead, ULONG *
     if (nBytesRead)
         *nBytesRead = (ULONG)cbRead;
 
+    int rc2 = RTCritSectLeave(&m_CritSect);
+    AssertRC(rc2);
+
+    if (pParentNotify)
+    {
+        if (fNotifyComplete)
+            pParentNotify->SetFileCompleted(m_uObjIdx);
+        else if (rc == VERR_CANCELLED)
+            pParentNotify->SetStatus(ShClWinDataObject::Canceled);
+        else
+            pParentNotify->SetStatus(ShClWinDataObject::Error, rc /* Propagate rc */, m_uObjIdx);
+        pParentNotify->Release();
+    }
+
+    if (rc == VERR_CANCELLED)
+        return COPYENGINE_E_USER_CANCELLED;
     if (nBytesToRead != cbRead)
         return S_FALSE;
 
@@ -380,18 +469,23 @@ STDMETHODIMP ShClWinStreamImpl::Write(const void *pvBuffer, ULONG nBytesToRead, 
  * @returns HRESULT
  * @param   pParent             Pointer to the parent data object.
  * @param   pTransfer           Pointer to Shared Clipboard transfer object to use.
+ * @param   uObjIdx             Index in the parent's FILEGROUPDESCRIPTOR.
  * @param   strPath             Path of object to handle for the stream.
  * @param   pObjInfo            Pointer to object information.
  * @param   ppStream            Where to return the created stream object on success.
  */
 /* static */
 HRESULT ShClWinStreamImpl::Create(ShClWinDataObject *pParent, PSHCLTRANSFER pTransfer,
-                                             const Utf8Str &strPath, PSHCLFSOBJINFO pObjInfo,
-                                             IStream **ppStream)
+                                  ULONG uObjIdx, const Utf8Str &strPath, PSHCLFSOBJINFO pObjInfo,
+                                  IStream **ppStream)
 {
+    AssertPtrReturn(pParent, E_POINTER);
     AssertPtrReturn(pTransfer, E_POINTER);
+    AssertPtrReturn(pObjInfo, E_POINTER);
+    AssertPtrReturn(ppStream, E_POINTER);
+    AssertReturn(pObjInfo->cbObject >= 0, E_INVALIDARG);
 
-    ShClWinStreamImpl *pStream = new ShClWinStreamImpl(pParent, pTransfer, strPath, pObjInfo);
+    ShClWinStreamImpl *pStream = new ShClWinStreamImpl(pParent, pTransfer, uObjIdx, strPath, pObjInfo);
     if (pStream)
     {
         *ppStream = pStream;
@@ -401,3 +495,37 @@ HRESULT ShClWinStreamImpl::Create(ShClWinDataObject *pParent, PSHCLTRANSFER pTra
     return E_FAIL;
 }
 
+/**
+ * Invalidates this stream and drops its data-object and transfer references.
+ */
+void ShClWinStreamImpl::Invalidate(void)
+{
+    if (!m_fCritSectInitialized)
+        return;
+
+    int rc = RTCritSectEnter(&m_CritSect);
+    AssertFatalMsgRC(rc, ("Taking the Windows clipboard stream lock during invalidation failed with %Rrc\n", rc));
+
+    PSHCLTRANSFER pTransfer = m_pTransfer;
+    ShClWinDataObject *pParent = m_pParent;
+    SHCLOBJHANDLE const hObj = m_hObj;
+    if (   pTransfer
+        && ShClTransferGetStatus(pTransfer) == SHCLTRANSFERSTATUS_CANCELED)
+        m_hrReadAfterInvalidation = COPYENGINE_E_USER_CANCELLED;
+    m_pTransfer = NULL;
+    m_pParent   = NULL;
+    m_hObj      = NIL_SHCLOBJHANDLE;
+
+    if (   pTransfer
+        && hObj != NIL_SHCLOBJHANDLE
+        && !ShClTransferStatusIsTerminal(ShClTransferGetStatus(pTransfer)))
+        ShClTransferObjClose(pTransfer, hObj); /* Best effort during teardown. */
+
+    rc = RTCritSectLeave(&m_CritSect);
+    AssertFatalMsgRC(rc, ("Releasing the Windows clipboard stream lock during invalidation failed with %Rrc\n", rc));
+
+    if (pTransfer)
+        ShClTransferRelease(pTransfer);
+    if (pParent)
+        pParent->Release();
+}
